@@ -149,6 +149,35 @@ describe("catégorie « Travaux personnalisés » du Quantitatif détaillé", ()
     }
   });
 
+  it("affiche des totaux par nature égaux aux agrégats de chaque travail", () => {
+    const selected = works([
+      "piscine",
+      "garage",
+      "cuisine_exterieure",
+      "jardin",
+      "solaire",
+    ]);
+    const lot = buildComplementaryWorksLot(selected);
+    const lines = lot?.lines ?? [];
+    const sum = (nature: string) =>
+      lines
+        .filter((l) => l.nature === nature)
+        .reduce((s, l) => s + l.total, 0);
+    const aggregate = (pick: (w: (typeof selected)[number]) => number) =>
+      selected.reduce((s, w) => s + pick(w), 0);
+
+    // Les 5 lignes affichées (Matériaux, Équipements, Main-d'œuvre, Transport,
+    // Études) correspondent exactement aux agrégats chiffrés par le moteur.
+    expect(sum("materiaux")).toBeCloseTo(aggregate((w) => w.materials), 2);
+    expect(sum("equipements")).toBeCloseTo(aggregate((w) => w.equipments), 2);
+    expect(sum("main_oeuvre")).toBeCloseTo(aggregate((w) => w.labor), 2);
+    expect(sum("transport")).toBeCloseTo(aggregate((w) => w.transport), 2);
+    expect(sum("etudes")).toBeCloseTo(aggregate((w) => w.studies), 2);
+    // La somme des 5 lignes affichées = sous-total du lot (aucun montant perdu).
+    const displayed = ["materiaux", "equipements", "main_oeuvre", "transport", "etudes"];
+    expect(displayed.reduce((s, n) => s + sum(n), 0)).toBeCloseTo(lot?.subtotal ?? 0, 2);
+  });
+
   it("recalcule les pourcentages sur le nouveau total", () => {
     const lots = withComplementaryWorksLot(DQE_LOTS, works(["piscine"]));
     const total = lots.reduce((s, l) => s + (Number(l.subtotal) || 0), 0);

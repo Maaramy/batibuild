@@ -44,6 +44,41 @@ const NATURE_META: Record<string, { label: string; icon: any; color: string }> =
 };
 const NATURE_ORDER = ["materiaux", "main_oeuvre", "equipements", "transport", "etudes"];
 
+/** Montant « 13 012 TND » (format d'affichage des travaux personnalisés). */
+const fmtTndPlain = (n: number) =>
+  `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(
+    Number.isFinite(n) ? n : 0,
+  )} TND`;
+
+/**
+ * Travaux complémentaires personnalisés : le détail par article est remplacé
+ * par le récapitulatif demandé, par nature et dans cet ordre —
+ * Matériaux · Équipements · Main-d'œuvre · Transport · Études.
+ */
+const CUSTOM_WORK_NATURE_ROWS: Array<{ nature: string; label: string }> = [
+  { nature: "materiaux", label: "Matériaux" },
+  { nature: "equipements", label: "Équipements" },
+  { nature: "main_oeuvre", label: "Main-d'œuvre" },
+  { nature: "transport", label: "Transport" },
+  { nature: "etudes", label: "Études" },
+];
+
+/** Totaux par nature d'un lot (une ligne = une nature du Quantitatif). */
+function lotNatureTotals(lines: unknown): Record<string, number> {
+  const totals: Record<string, number> = {
+    materiaux: 0,
+    equipements: 0,
+    main_oeuvre: 0,
+    transport: 0,
+    etudes: 0,
+  };
+  for (const line of (lines as Array<{ nature?: string; total?: number }>) ?? []) {
+    const nature = line?.nature ?? "materiaux";
+    totals[nature] = (totals[nature] ?? 0) + (Number(line?.total) || 0);
+  }
+  return totals;
+}
+
 export interface QuantitatifDetailsProps {
   /** Lots du quantitatif, déjà mis à l'échelle du scénario affiché. */
   lots: any[];
@@ -258,6 +293,22 @@ export function QuantitatifDetails({
                       {/* Sous-étapes (lignes du lot) */}
                       {isOpen && (
                         <div className="bg-muted/5 border-t border-border/5">
+                          {/* Travaux complémentaires personnalisés : récapitulatif
+                              par nature (Matériaux · Équipements · Main-d'œuvre ·
+                              Transport · Études) au lieu du détail par article. */}
+                          {lot.customWorks ? (
+                            <div className="px-3 py-2 space-y-0.5">
+                              {CUSTOM_WORK_NATURE_ROWS.map(({ nature, label }) => (
+                                <p key={nature} className="text-[11px] text-muted-foreground">
+                                  {label} :{" "}
+                                  <span className="font-semibold tabular-nums text-foreground/90">
+                                    {fmtTndPlain(lotNatureTotals(lot.lines)[nature] ?? 0)}
+                                  </span>
+                                </p>
+                              ))}
+                            </div>
+                          ) : (
+                          <>
                           {activeNatures.map((nature) => {
                             const meta = NATURE_META[nature];
                             const lines = byNature[nature];
@@ -349,6 +400,8 @@ export function QuantitatifDetails({
                               </div>
                             );
                           })}
+                          </>
+                          )}
                         </div>
                       )}
                     </div>
