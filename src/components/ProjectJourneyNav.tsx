@@ -315,7 +315,7 @@ export function ProjectJourneyNav({
           aux pages. Rendue en dehors de la carte (parent = <main>) pour rester
           collée pendant tout le défilement de la page. */}
       {showHeader && (
-        <header className="sticky top-0 z-40 border-b border-border/20 bg-background/90 backdrop-blur-md">
+        <header className="sticky top-0 z-40 border-b border-border/50 bg-background">
           <div
             className={cn(
               "mx-auto flex items-center gap-2 px-3 py-2 sm:px-4",
@@ -368,7 +368,7 @@ export function ProjectJourneyNav({
       {hasSteps && (
       <nav aria-label="Parcours du projet" className={cn("w-full", className)}>
       <div className={cn("mx-auto px-3 pt-3 sm:px-4", maxWidthClassName)}>
-        <div className="rounded-2xl border border-foreground/10 bg-card/95 p-3 sm:p-4">
+        <div className="rounded-xl border border-border/60 bg-card p-3 sm:p-4 shadow-elev-1">
           {step && (
           <>
           {/* Étape dédiée à la page : [icône PDF] Nom de l'étape [Suivant →] */}

@@ -18,13 +18,15 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useQuery } from "convex/react";
-import { Building2, Info, Loader2, MapPin, Ruler } from "lucide-react";
+import { Building2, MapPin, Ruler } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { DecisionSupportModule } from "@/components/decision/DecisionSupportModule";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState, LoadingState } from "@/components/ui/feedback";
+import { PageHeader } from "@/components/ui/section";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { normalizeLegacyCategory, projectTypeLabel } from "@/convex/projectTypes";
 import { isComplementaryWorkEligible } from "@/lib/customWorksCatalog";
@@ -136,7 +138,7 @@ export default function DecisionSupport() {
   );
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
+    <main className="min-h-screen bg-background pb-12">
       {/* Parcours du projet — l'étape « Aide à la décision » est mise en avant
           (route dédiée), avec « Étape précédente : Coût estimatif » et
           « Suivant → : Plans architecturaux AI ». */}
@@ -147,31 +149,29 @@ export default function DecisionSupport() {
         maxWidthClassName="max-w-7xl"
       />
 
-      <div className="mx-auto mt-5 max-w-7xl space-y-5 px-4 sm:px-6">
+      <div className="mx-auto mt-5 max-w-7xl space-y-4 px-4 sm:px-6">
         {project === undefined ? (
           /* ── Chargement du projet ── */
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="mt-3 text-xs text-muted-foreground">
-              Chargement du projet…
-            </p>
-          </div>
+          <LoadingState message="Chargement du projet…" />
         ) : project === null ? (
           /* ── Projet introuvable ── */
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <Info className="mb-3 h-8 w-8 text-muted-foreground" />
-            <h2 className="text-base font-semibold">Projet introuvable</h2>
-            <p className="mt-1 mb-4 text-xs text-muted-foreground">
-              Ce projet n'existe pas ou n'est pas accessible.
-            </p>
-            <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>
-              Retour au tableau de bord
-            </Button>
-          </div>
+          <EmptyState
+            title="Projet introuvable"
+            description="Ce projet n'existe pas ou n'est pas accessible."
+            action={
+              <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>
+                Retour au tableau de bord
+              </Button>
+            }
+          />
         ) : (
           <>
-            {/* ── Bandeau synthèse projet ── */}
-            <Card className="border-primary/15 bg-gradient-to-r from-primary/[0.06] to-transparent">
+            {/* ── Titre de page (§15) + synthèse projet ── */}
+            <PageHeader
+              title="Aide à la décision"
+              subtitle="Optimisez votre projet à partir des données réelles de votre estimation."
+            />
+            <Card className="border-border/60 bg-card shadow-elev-1">
               <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-4 sm:px-5">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <Building2 className="h-4 w-4 shrink-0 text-primary" />

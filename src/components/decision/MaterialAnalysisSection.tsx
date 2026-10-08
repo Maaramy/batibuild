@@ -105,7 +105,7 @@ export function MaterialAnalysisSection({ intel }: { intel: MaterialIntelligence
   const filteredRows = group === "all" ? rows : rows.filter((r) => r.group === group);
 
   return (
-    <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.05] to-transparent">
+    <Card className="border-border/60 bg-card shadow-elev-1">
       <CardContent className="p-4">
         {/* ── En-tête ── */}
         <div className="flex flex-wrap items-start gap-2.5">
@@ -113,7 +113,7 @@ export function MaterialAnalysisSection({ intel }: { intel: MaterialIntelligence
             <BrainCircuit className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-base font-bold tracking-tight">Analyse de vos matériaux</p>
+            <p className="text-base font-semibold tracking-tight">Analyse de vos matériaux</p>
             <p className="text-[11px] text-muted-foreground">
               Comparaison automatique de chaque article de votre projet avec la Liste des prix et son propre
               historique.

@@ -17,13 +17,17 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import {
+  Building2,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Coins,
   Hammer,
   Info,
   Plus,
   Sparkles,
   Sun,
+  Wallet,
   X,
 } from "lucide-react";
 
@@ -66,17 +70,17 @@ import {
 
 const STATUS_META: Record<BudgetStatus, { label: string; cls: string; dot: string }> = {
   realisable: {
-    label: "100 % ✅",
+    label: "100 %",
     cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
     dot: "bg-emerald-500",
   },
   partiel: {
-    label: "Partiel 🟠",
+    label: "Partiel",
     cls: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
     dot: "bg-amber-500",
   },
   report: {
-    label: "0 % 🔴",
+    label: "0 %",
     cls: "border-border/50 bg-muted/40 text-muted-foreground",
     dot: "bg-border",
   },
@@ -140,11 +144,11 @@ function SummaryTile({
   tone?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border/40 bg-background p-2.5">
-      <p className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+    <div className="rounded-lg border border-border/60 bg-card p-2.5">
+      <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
         {icon} {label}
       </p>
-      <p className={cn("mt-0.5 text-sm font-bold tabular-nums", tone)}>{value}</p>
+      <p className={cn("mt-0.5 text-sm font-semibold tabular-nums", tone)}>{value}</p>
       {hint ? <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{hint}</p> : null}
     </div>
   );
@@ -446,12 +450,12 @@ export function CapacityDecisionCard({
   };
 
   return (
-    <Card className="border-primary/20">
+    <Card className="border-border/60 bg-card shadow-elev-1">
       <CardContent className="p-4">
         {/* ── En-tête ── */}
         <div className="flex flex-wrap items-center gap-2">
           <Hammer className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-bold tracking-tight">Capacité de construction</h3>
+          <h3 className="text-sm font-semibold tracking-tight">Capacité de construction</h3>
           <span className="rounded-full border border-primary/30 bg-primary/[0.06] px-2 py-0.5 text-[10px] font-semibold text-primary">
             budget disponible {formatTndAmount(plan.budget)}
           </span>
@@ -464,13 +468,13 @@ export function CapacityDecisionCard({
         {/* ── Bandeau supérieur ── */}
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <SummaryTile
-            icon={<span aria-hidden>💰</span>}
+            icon={<Wallet className="h-3.5 w-3.5" />}
             label="Budget"
             value={formatTndAmount(plan.budget)}
             hint="budget disponible à allouer"
           />
           <SummaryTile
-            icon={<span aria-hidden>🏗️</span>}
+            icon={<Building2 className="h-3.5 w-3.5" />}
             label="Capacité de construction"
             value={formatPercent(globalPct)}
             tone={
@@ -483,7 +487,7 @@ export function CapacityDecisionCard({
             hint={`sur un programme de ${formatTndAmount(plan.selectedCost)}`}
           />
           <SummaryTile
-            icon={<span aria-hidden>✅</span>}
+            icon={<CheckCircle2 className="h-3.5 w-3.5" />}
             label="Travaux réalisables"
             value={`${worksRealisable.length} / ${pricedWorks.length}`}
             hint={
@@ -495,7 +499,7 @@ export function CapacityDecisionCard({
             }
           />
           <SummaryTile
-            icon={<span aria-hidden>💰</span>}
+            icon={<Coins className="h-3.5 w-3.5" />}
             label="Budget supplémentaire recommandé"
             value={plan.extraBudgetRecommended > 0 ? formatTndAmount(plan.extraBudgetRecommended) : "Aucun"}
             tone={plan.extraBudgetRecommended > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}

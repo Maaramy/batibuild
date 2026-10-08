@@ -67,7 +67,7 @@ import { cn } from "@/lib/utils";
 function DecisionLoading() {
   return (
     <div className="space-y-3">
-      <div className="rounded-2xl border bg-gradient-to-br from-primary/[0.06] to-background p-4">
+      <div className="rounded-xl border border-border/60 bg-card p-4 shadow-elev-1">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -101,8 +101,8 @@ function DecisionLocked() {
           <Lock className="h-6 w-6" />
         </div>
         <div>
-          <h3 className="text-base font-bold">
-            🔒 Intelligence prédictive
+          <h3 className="text-base font-semibold">
+            Intelligence prédictive
           </h3>
           <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
             Disponible avec le forfait Client Pro.
@@ -390,7 +390,7 @@ export function DecisionSupportModule({
   if (!ready || !analysis || !workspaceQuery) {
     return (
       <section id="aide-a-la-decision" className="scroll-mt-24 space-y-3">
-        <Card className="border-dashed">
+        <Card className="border-border/60 bg-card">
           <CardContent className="flex items-start gap-2.5 p-4">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">
