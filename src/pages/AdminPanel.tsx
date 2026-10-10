@@ -4010,7 +4010,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                     </div>
                   </div>
                   <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
-                    <p><strong className="text-foreground">Fonctionnalités :</strong> Projets de construction illimités, estimation IA aux prix tunisiens, rapports PDF/Excel/CSV, assistant matériaux IA, analyses de rentabilité immobilière.</p>
+                    <p><strong className="text-foreground">Fonctionnalités :</strong> Projets de construction illimités, estimation IA aux prix tunisiens, rapports PDF/Excel/CSV, assistant matériaux IA, plans architecturaux et suivi de A à Z.</p>
                     <p><strong className="text-foreground">Dashboard :</strong> Suivi de la date de début et de fin de validité. Renouvellement mensuel requis à l'échéance.</p>
                     <p><strong className="text-foreground">Règle :</strong> Le client passe au paiement dès la création de compte — aucun essai gratuit.</p>
                   </div>

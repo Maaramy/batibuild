@@ -302,9 +302,9 @@ html {
    ============================================================================ */
 
 /* Les cartes d'actions rapides du tableau de bord (« Nouveau projet »,
-   « Nouveau investissement », « Prix », « Abonnement », « Assistant IA »,
-   « Démarche ») s'affichent SANS bordure ni ombre portée : seules les pastilles
-   colorées des icônes structurent la rangée.
+   « Prix », « Abonnement », « Assistant IA », « Démarche ») s'affichent SANS
+   bordure ni ombre portée : seules les pastilles colorées des icônes
+   structurent la rangée.
 
    Le sélecteur vise la combinaison de classes propre à cette rangée
    (`backdrop-blur-sm` + `shrink-0` sur une carte) : aucune autre carte de

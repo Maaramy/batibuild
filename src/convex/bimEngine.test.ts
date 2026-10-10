@@ -273,7 +273,7 @@ describe("runBIMEstimation — quantitatif cohérent par type de projet", () => 
     }
   });
 
-  it("les types synchronisés avec l'investissement produisent une estimation complète", () => {
+  it("les types immobiliers produisent une estimation complète", () => {
     for (const cat of ["appartement", "studio", "duplex", "immeuble", "residence_touristique", "projet_neuf"]) {
       const res = runBIMEstimation(cat, 100, 1, "tunis", "standard");
       expect(res.costEstimate.totalCost).toBeGreaterThan(0);

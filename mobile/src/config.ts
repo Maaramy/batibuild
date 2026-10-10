@@ -168,9 +168,7 @@ export type NavDestination = {
  * (`/dashboard/reports`) : l'utilisateur consulte et télécharge les rapports
  * PDF de ses projets. Son icône (`FileDown`, document + téléchargement) est
  * EXACTEMENT celle de l'entrée « Rapports PDF » du menu de la plateforme
- * (voir `icons.ts`). L'ancien libellé « ROI » n'existe plus dans le menu
- * mobile ; l'analyse de rentabilité reste accessible depuis la plateforme
- * (projet → Return on Investment), sans entrée dédiée dans la barre.
+ * (voir `icons.ts`). Aucune entrée « ROI » n'existe dans le menu mobile.
  */
 export const NAV_DESTINATIONS: readonly NavDestination[] = [
   { id: "profile", label: "Profile", path: "/dashboard/profile" },
@@ -273,7 +271,7 @@ export function isDashboardRoute(path: string): boolean {
 
 /**
  * La barre de navigation inférieure est affichée dans TOUT l'espace connecté
- * (`/dashboard` et ses sous-pages : profils, investissements, messagerie,
+ * (`/dashboard` et ses sous-pages : profils, projets, messagerie,
  * support, paramètres, résultats d'estimation du coût de construction,
  * résultats de l'analyse des matériaux IA…).
  *

@@ -27,7 +27,7 @@ const SPLASH_MAX_MS = CHANGE_MAX_MS;
  *
  *   Splash (≤ 1 s, « Chargement.... »)
  *        ↓
- *   Guide « De l'idée à l'investissement » — 6 étapes de 4 s, automatiques
+ *   Guide « De l'idée à la réalisation » — 5 étapes de 4 s, automatiques
  *   (premier lancement uniquement, ou depuis « Voir le guide »)
  *        ↓
  *   WebView batibuild (login si aucune session, dashboard sinon)

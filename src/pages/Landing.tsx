@@ -274,6 +274,7 @@ function Navbar() {
 
 function HeroSection() {
   const navigate = useNavigate();
+  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
   // Le bandeau épinglé (`h-10`) s'ajoute à la hauteur de la barre de navigation
   // fixe (`h-16`) : le haut de page doit rester entièrement visible.
   const downloadBannerVisible = useAppDownloadBannerVisible();

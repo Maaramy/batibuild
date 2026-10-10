@@ -27,9 +27,8 @@ import type { AppTheme } from "../theme";
  *   2. Import (photo, PDF, satellite, croquis) → « Devis clé en main »
  *   3. Trois niveaux de matériaux comparés     → « Meilleurs matériaux »
  *   4. 10 phases + jalons de chantier          → « Ne perdez plus une étape »
- *   5. ROI 1/5/10 ans + score IA + scénarios   → « Investissez sans risque »
- *   6. 500+ matériaux + courbe des prix        → « Suivez l'évolution des prix »
- *   7. Annuaire vérifié + carte des régions    → « Trouvez les bons prestataires »
+ *   5. 500+ matériaux + courbe des prix        → « Suivez l'évolution des prix »
+ *   6. Annuaire vérifié + carte des régions    → « Trouvez les bons prestataires »
  *
  * Elles suivent le thème natif (clair / sombre / système) sans jamais toucher
  * au thème de la plateforme Web, et n'effectuent aucun appel réseau.
@@ -266,7 +265,7 @@ export function Icon({
 }
 
 /* ------------------------------------------------------------------ */
-/* 1 / 7 — Évitez les surcoûts                                         */
+/* 1 / 6 — Évitez les surcoûts                                         */
 /* ------------------------------------------------------------------ */
 
 const GRID_V = [38, 56, 74, 92, 110, 128, 146, 164, 182, 200];
@@ -382,7 +381,7 @@ export function IllusOvercosts({ width, theme }: IllusProps) {
 }
 
 /* ------------------------------------------------------------------ */
-/* 2 / 7 — Devis clé en main                                           */
+/* 2 / 6 — Devis clé en main                                           */
 /* ------------------------------------------------------------------ */
 
 const SOURCES: { label: string; icon: keyof typeof GUIDE_ICONS; y: number }[] = [
@@ -545,7 +544,7 @@ export function IllusQuote({ width, theme }: IllusProps) {
 }
 
 /* ------------------------------------------------------------------ */
-/* 3 / 7 — Choisissez les meilleurs matériaux                          */
+/* 3 / 6 — Choisissez les meilleurs matériaux                          */
 /* ------------------------------------------------------------------ */
 
 const TIERS: {
@@ -660,7 +659,7 @@ export function IllusMaterials({ width, theme }: IllusProps) {
 }
 
 /* ------------------------------------------------------------------ */
-/* 4 / 7 — Ne perdez plus une seule étape                              */
+/* 4 / 6 — Ne perdez plus une seule étape                              */
 /* ------------------------------------------------------------------ */
 
 const PHASES = Array.from({ length: 10 }, (_, i) => i);
@@ -768,172 +767,7 @@ export function IllusPhases({ width, theme }: IllusProps) {
 }
 
 /* ------------------------------------------------------------------ */
-/* 5 / 7 — Investissez sans risque                                     */
-/* ------------------------------------------------------------------ */
-
-const ROI_BARS = [10, 17, 24, 30, 36, 42, 48, 54, 60, 68];
-const SCENARIOS = ["Prudent", "Réaliste", "Optimiste"];
-const RING_R = 29;
-
-/**
- * Arc du cadran « Score IA » : tracé par calcul (aucune rotation), donc rendu
- * identique sur toutes les versions de react-native-svg. L'arc démarre à
- * midi et couvre la fraction demandée.
- */
-function ringArc(cx: number, cy: number, r: number, fraction: number): string {
-  const start = -Math.PI / 2;
-  const end = start + 2 * Math.PI * fraction;
-  const x1 = cx + r * Math.cos(start);
-  const y1 = cy + r * Math.sin(start);
-  const x2 = cx + r * Math.cos(end);
-  const y2 = cy + r * Math.sin(end);
-  const large = fraction > 0.5 ? 1 : 0;
-  const round = (v: number) => Math.round(v * 100) / 100;
-  return `M${round(x1)} ${round(y1)} A${r} ${r} 0 ${large} 1 ${round(x2)} ${round(y2)}`;
-}
-
-export function IllusInvestment({ width, theme }: IllusProps) {
-  const p = theme.dark ? DARK : LIGHT;
-  const s = width / VIEW_W;
-  const kpis: { label: string; value: string; icon: keyof typeof GUIDE_ICONS; color: string; x: number }[] = [
-    { label: "ROI 10 ans", value: "82%", icon: "chartLine", color: p.indigo, x: 122 },
-    { label: "Cash-flow", value: "+980", icon: "wallet", color: p.blue, x: 185 },
-    { label: "Rendement", value: "6,2%", icon: "percent", color: p.brand, x: 248 },
-  ];
-
-  return (
-    <Scene
-      width={width}
-      id="g5"
-      p={p}
-      labels={
-        <>
-          <Box s={s} x={36} y={44} w={60} h={26}>
-            <Lbl s={s} size={21} color={p.ink} weight="800" spacing={-0.6}>
-              94
-            </Lbl>
-          </Box>
-          <Box s={s} x={36} y={70} w={60} h={14}>
-            <Lbl s={s} size={8.5} color={p.muted} weight="600">
-              sur 100
-            </Lbl>
-          </Box>
-          <Box s={s} x={16} y={100} w={100} h={16}>
-            <Lbl s={s} size={9.5} color={p.ink} weight="700">
-              Score IA
-            </Lbl>
-          </Box>
-          <Box s={s} x={10} y={116} w={112} h={14}>
-            <Lbl s={s} size={7.5} color={p.brandDeep} weight="600">
-              Excellent investissement
-            </Lbl>
-          </Box>
-
-          {kpis.map((k) => (
-            <React.Fragment key={k.label}>
-              <Box s={s} x={k.x + 21} y={44} w={14} h={14}>
-                <Icon s={s} size={14} color={k.color} name={k.icon} />
-              </Box>
-              <Box s={s} x={k.x + 2} y={60} w={52} h={14}>
-                <Lbl s={s} size={9.5} color={k.color} weight="800">
-                  {k.value}
-                </Lbl>
-              </Box>
-              <Box s={s} x={k.x + 2} y={74} w={52} h={12}>
-                <Lbl s={s} size={7} color={p.muted} weight="600">
-                  {k.label}
-                </Lbl>
-              </Box>
-            </React.Fragment>
-          ))}
-
-          <Box s={s} x={204} y={94} w={100} h={20}>
-            <Lbl s={s} size={8.5} color={p.indigo} weight="800">
-              +428 000 TND
-            </Lbl>
-          </Box>
-
-          <Box s={s} x={4} y={186} w={48} h={14}>
-            <Lbl s={s} size={8} color={p.muted}>
-              1 an
-            </Lbl>
-          </Box>
-          <Box s={s} x={121} y={186} w={48} h={14}>
-            <Lbl s={s} size={8} color={p.muted}>
-              5 ans
-            </Lbl>
-          </Box>
-          <Box s={s} x={268} y={186} w={48} h={14}>
-            <Lbl s={s} size={8} color={p.muted}>
-              10 ans
-            </Lbl>
-          </Box>
-
-          {SCENARIOS.map((name, i) => (
-            <Box key={name} s={s} x={16 + i * 99} y={206} w={90} h={26}>
-              <Lbl
-                s={s}
-                size={9}
-                color={i === 1 ? p.brandDeep : p.muted}
-                weight={i === 1 ? "800" : "600"}
-              >
-                {name}
-              </Lbl>
-            </Box>
-          ))}
-        </>
-      }
-    >
-      <Circle cx={44} cy={48} r={66} fill={p.indigoSoft} opacity={0.55} />
-
-      {/* Score IA (94 / 100) */}
-      <Circle cx={66} cy={64} r={RING_R} fill="none" stroke={p.line} strokeWidth={7} />
-      <Path
-        d={ringArc(66, 64, RING_R, 0.94)}
-        fill="none"
-        stroke={p.indigo}
-        strokeWidth={7}
-        strokeLinecap="round"
-      />
-
-      {/* Indicateurs */}
-      {kpis.map((k) => (
-        <Rect key={k.label} x={k.x} y={38} width={56} height={50} rx={12} fill={p.panel} stroke={p.line} />
-      ))}
-
-      {/* Prévisions */}
-      <Rect x={16} y={182} width={288} height={1.5} rx={0.75} fill={p.line} />
-      {ROI_BARS.map((h, i) => (
-        <Rect
-          key={i}
-          x={16 + i * 29.33}
-          y={182 - h}
-          width={24}
-          height={h}
-          rx={3}
-          fill={i === ROI_BARS.length - 1 ? p.indigo : p.indigoSoft}
-        />
-      ))}
-
-      {/* Scénarios */}
-      {SCENARIOS.map((name, i) => (
-        <Rect
-          key={name}
-          x={16 + i * 99}
-          y={206}
-          width={90}
-          height={26}
-          rx={13}
-          fill={i === 1 ? p.brandSoft : p.panel}
-          stroke={i === 1 ? p.brandLine : p.line}
-        />
-      ))}
-    </Scene>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* 6 / 7 — Suivez l'évolution des prix                                 */
+/* 5 / 6 — Suivez l'évolution des prix                                 */
 /* ------------------------------------------------------------------ */
 
 const PRICE_PATH = "M146 128 L164 118 L182 122 L200 104 L218 108 L236 88 L254 78 L272 62 L290 46";
@@ -1066,7 +900,7 @@ export function IllusPrices({ width, theme }: IllusProps) {
 }
 
 /* ------------------------------------------------------------------ */
-/* 7 / 7 — Trouvez les bons prestataires                               */
+/* 6 / 6 — Trouvez les bons prestataires                               */
 /* ------------------------------------------------------------------ */
 
 const DOTS_X = [32, 56, 80, 104, 128, 152, 176, 200, 224, 248, 272, 288];
@@ -1203,7 +1037,7 @@ export function IllusProviders({ width, theme }: IllusProps) {
 /* ------------------------------------------------------------------ */
 
 // L'ORDRE des illustrations n'est plus défini ici : le parcours de première
-// utilisation (« De l'idée à l'investissement », 6 étapes) assemble ses visuels
+// utilisation (« De l'idée à la réalisation », 6 étapes) assemble ses visuels
 // dans `OnboardingScreen.tsx`, en combinant ces scènes avec celles de
 // `GuidePlans.tsx` (aperçus RÉELS de plans 2D / cotés / 3D). Chaque illustration
 // reste exportée individuellement ci-dessus et réutilisable telle quelle.

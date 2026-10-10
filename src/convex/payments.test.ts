@@ -463,8 +463,8 @@ describe("updatePaymentConfig", () => {
 // ============================================================================
 // Critère d'acceptation : quand l'administrateur active l'« Offre gratuite »
 // sur le forfait Client Pro (prix null), les services de la plateforme
-// (projets de construction, investissements, matériaux IA, plans
-// architecturaux, suivi de A à Z) sont automatiquement activés, sans paiement.
+// (projets de construction, matériaux IA, plans architecturaux, suivi de A à Z)
+// sont automatiquement activés, sans paiement.
 
 describe("checkClientProAccess — Offre gratuite (switch admin)", () => {
   let t: ReturnType<typeof convexTest>;

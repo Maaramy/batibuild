@@ -1127,12 +1127,18 @@ const schema = defineSchema(
       constructionStartPrice: v.optional(v.number()),
       constructionProPrice: v.optional(v.number()),
       constructionExpertPrice: v.optional(v.number()),
-      investmentStartPrice: v.optional(v.number()),
-      investmentProPrice: v.optional(v.number()),
-      investmentExpertPrice: v.optional(v.number()),
       freeProjectLimit: v.optional(v.number()),
       proProjectLimit: v.optional(v.number()),
       expertProjectLimit: v.optional(v.number()),
+      // Champs hérités (anciens tarifs et quotas d'un module retiré de la
+      // plateforme). VOLONTAIREMENT conservés en option : un document
+      // `paymentConfig` déjà enregistré peut encore les porter, et Convex
+      // valide le document à la LECTURE — les retirer ici rendrait ce document
+      // illisible et casserait l'accès aux forfaits. Aucun code ne les lit ni
+      // ne les écrit : aucune nouvelle donnée ne peut être créée.
+      investmentStartPrice: v.optional(v.number()),
+      investmentProPrice: v.optional(v.number()),
+      investmentExpertPrice: v.optional(v.number()),
       freeInvestmentLimit: v.optional(v.number()),
       proInvestmentLimit: v.optional(v.number()),
       expertInvestmentLimit: v.optional(v.number()),

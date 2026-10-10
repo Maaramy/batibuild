@@ -29,7 +29,6 @@ describe("buildProjectQuickActions — accès rapides d'un projet", () => {
     const actions = buildProjectQuickActions(project);
     expect(actions.map((a) => a.key)).not.toContain("roi");
     expect(actions.map((a) => a.label)).not.toContain("ROI");
-    expect(actions.every((a) => !a.href.includes("/investments"))).toBe(true);
   });
 
   it("Matériaux ouvre l'assistant Matériaux IA avec le BON projet pré-sélectionné", () => {

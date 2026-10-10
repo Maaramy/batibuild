@@ -13,7 +13,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Logo } from "../components/Logo";
 import { BRAND_NAME } from "../config";
 import {
-  IllusInvestment,
   IllusMaterials,
   IllusOvercosts,
   IllusPhases,
@@ -24,23 +23,22 @@ import { IllusPlanPreview } from "../components/GuidePlans";
 import { COLORS, useAppTheme } from "../theme";
 
 /**
- * GUIDE DE PREMIÈRE UTILISATION — parcours « De l'idée à l'investissement ».
+ * GUIDE DE PREMIÈRE UTILISATION — parcours « De l'idée à la réalisation ».
  *
  * Remplace TOUTES les anciennes présentations de démarrage : un seul parcours,
  * affiché au premier lancement de l'installation (voir `storage.ts` —
  * `onboardingCompleted`), jamais relancé ensuite.
  *
- * Les 6 étapes du parcours de la plateforme :
+ * Les 5 étapes du parcours de la plateforme :
  *   1. Coût estimatif
  *   2. Plans AI            (aperçus RÉELS : plan 2D → coté → vue 3D)
  *   3. Choix des matériaux
  *   4. Consultations / Trouver un expert
  *   5. Exécution & suivi
- *   6. Investissement
  *
  * Animation : chaque étape reste affichée 4 secondes, puis la suivante apparaît
  * avec un fondu + léger glissement. Aucune intervention de l'utilisateur n'est
- * nécessaire ; après la 6ᵉ étape, le guide se termine et l'application s'ouvre
+ * nécessaire ; après la 5ᵉ étape, le guide se termine et l'application s'ouvre
  * normalement. Un bouton « Passer » reste disponible à tout moment.
  *
  * Visuels : illustrations vectorielles de la plateforme (`GuideIllustrations`)
@@ -62,7 +60,7 @@ type Slide = {
 /** Durée d'affichage d'une étape (ms) — imposée par la spécification. */
 const STEP_MS = 4000;
 
-/** Les 6 étapes, dans l'ordre imposé du parcours. */
+/** Les 5 étapes, dans l'ordre imposé du parcours. */
 const SLIDES: Slide[] = [
   {
     key: "cost",
@@ -94,15 +92,9 @@ const SLIDES: Slide[] = [
     text: "Suivez les étapes de réalisation de votre projet.",
     Illustration: IllusPhases,
   },
-  {
-    key: "investment",
-    title: "Investissement",
-    text: "Analysez les opportunités et indicateurs d'investissement.",
-    Illustration: IllusInvestment,
-  },
 ];
 
-/** Fil du parcours, affiché en bas de chaque étape (origine + 6 étapes). */
+/** Fil du parcours, affiché en bas de chaque étape (origine + 5 étapes). */
 const JOURNEY: { key: string; label: string }[] = [
   { key: "idea", label: "Idée" },
   { key: "cost", label: "Coût" },
@@ -110,7 +102,6 @@ const JOURNEY: { key: string; label: string }[] = [
   { key: "materials", label: "Matériaux" },
   { key: "experts", label: "Experts" },
   { key: "execution", label: "Exécution" },
-  { key: "investment", label: "Investissement" },
 ];
 
 type Props = {
@@ -235,7 +226,7 @@ export default function OnboardingScreen({ onDone }: Props) {
       {/* ── Pied : fil du parcours + progression + actions ── */}
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 14) }]}>
         {/* Fil du parcours : Idée → Coût → Plans → Matériaux → Experts →
-            Exécution → Investissement (l'étape courante est mise en avant). */}
+            Exécution (l'étape courante est mise en avant). */}
         <View style={styles.journey}>
           {JOURNEY.map((step, i) => {
             const active = step.key === slide.key;

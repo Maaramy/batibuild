@@ -1515,7 +1515,7 @@ export function fallbackChatAnswer(question: string, context: { projectName?: st
   if (has(["solaire", "photovoltaique", "panneau"])) {
     return "Panneaux solaires en Tunisie (marché 2026) :\n" +
       "• Kit 3 kWc : 9 000-12 000 TND pose comprise — autoconsommation + revente du surplus (STEG).\n" +
-      "• Retour sur investissement : 4-6 ans selon l'exposition sud et l'inclinaison 30-35°.\n" +
+      "• Amortissement : 4-6 ans selon l'exposition sud et l'inclinaison 30-35°.\n" +
       "• Choisissez des panneaux certifiés (garantie 25 ans) et un onduleur de marque reconnue. Prix en baisse tendancielle (-2% sur 6 mois).";
   }
   if (has(["salle de bain", "sanitaire", "wc", "robinet"])) {

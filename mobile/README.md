@@ -7,7 +7,7 @@ une **barre de navigation inférieure FIXE** et un **Guide d'onboarding** natifs
 lancement.
 
 ```
-Première installation :  Splash (≤ 1 s)  →  Guide « De l'idée à l'investissement » (6 étapes × 4 s, Passer)  →  WebView batibuild
+Première installation :  Splash (≤ 1 s)  →  Guide « De l'idée à la réalisation » (5 étapes × 4 s, Passer)  →  WebView batibuild
 Lancements suivants :    Splash (≤ 1 s)  →  WebView batibuild
 ```
 
@@ -20,13 +20,13 @@ Android Native Shell
 │      L'écran de démarrage natif est BLANC et SANS image : le logo sur fond
 │      vert qui s'affichait avant le chargement a été supprimé.
 │
-├── Guide « De l'idée à l'investissement »  (1ʳᵉ installation uniquement)
+├── Guide « De l'idée à la réalisation »  (1ʳᵉ installation uniquement)
 │      1. Coût estimatif                    4. Consultations / Trouver un expert
 │      2. Plans AI  (aperçus réels 2D/3D)   5. Exécution & suivi
-│      3. Choix des matériaux               6. Investissement
-│      Chaque étape : 4 s, avancement automatique, indicateur « n / 6 »,
+│      3. Choix des matériaux
+│      Chaque étape : 4 s, avancement automatique, indicateur « n / 5 »,
 │      barre de progression et bouton « Passer ».
-│      Parcours : Idée → Coût → Plans → Matériaux → Experts → Exécution → Investissement
+│      Parcours : Idée → Coût → Plans → Matériaux → Experts → Exécution
 │
 ├── Header natif  (fond blanc — AUCUN menu de navigation)
 │      Ligne unique : Logo + « batibuild »   Support   Paramètres
@@ -134,7 +134,7 @@ mobile/
 ├── src/
 │   ├── screens/
 │   │   ├── SplashScreen.tsx       # Splash minimal : logo officiel + « Chargement.... »
-│   │   ├── OnboardingScreen.tsx   # Guide 6 étapes « De l'idée à l'investissement » (4 s/étape, auto + Passer)
+│   │   ├── OnboardingScreen.tsx   # Guide 5 étapes « De l'idée à la réalisation » (4 s/étape, auto + Passer)
 │   │   └── WebViewScreen.tsx      # WebView batibuild (toutes les options)
 │   ├── components/
 │   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : en-tête, guides, erreurs
@@ -168,7 +168,7 @@ mobile/
 | **Barre de navigation inférieure** | **Barre FIXE en bas de l'écran** (`BottomNav.tsx`) : 5 sections (Profile · **Mes projets** · Home · **Rapport** · Message), icône **lucide 19 pt** + libellé **10,5 pt**, onglets de **largeur égale** (`flex: 1`) donc aucun débordement sur petit ou grand écran. Élément **actif** : icône et libellé en teinte de marque (`brand700`), libellé en gras, **indicateur émeraude** au-dessus de l'icône (emplacement réservé sur tous les onglets → aucun décalage) ; inactifs en gris ; état pressé = légère atténuation. Fond **blanc**, safe area basse gérée (`useSafeAreaInsets`, minimum 6 pt). Rendue **après** la WebView (jamais en position absolue) : elle ne recouvre jamais le contenu. Visible dans tout l'espace connecté — voir `shouldShowBottomNav()` dans `src/config.ts`. |
 | **En-tête (natif)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild ») à gauche, icônes **Support** et **Paramètres** à droite. **Aucun menu de navigation** (et aucun burger : celui de l'en-tête web est masqué dans l'application). **Appui long sur la marque** (ou sur la barre du bas) → réglages natifs. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
-| **Guide de démarrage** | **6 étapes**, un seul parcours « **De l'idée à l'investissement** » (les anciens écrans d'introduction ont été supprimés) : **1. Coût estimatif · 2. Plans AI · 3. Choix des matériaux · 4. Consultations / Trouver un expert · 5. Exécution & suivi · 6. Investissement**. Chaque étape = **illustration dédiée** + **titre** + **texte descriptif**, reste affichée **4 secondes** puis la suivante apparaît avec un **fondu + glissement** (avancement **automatique**, sans intervention). Indicateur **« n / 6 »**, **barre de progression segmentée** (remplissage de l'étape en cours), **fil du parcours** (Idée → Coût → Plans → Matériaux → Experts → Exécution → Investissement) et bouton **Passer**. Après la 6ᵉ étape, le guide se termine et l'application s'ouvre normalement. Mémorisé via `onboardingCompleted` (AsyncStorage). |
+| **Guide de démarrage** | **5 étapes**, un seul parcours « **De l'idée à la réalisation** » (les anciens écrans d'introduction ont été supprimés) : **1. Coût estimatif · 2. Plans AI · 3. Choix des matériaux · 4. Consultations / Trouver un expert · 5. Exécution & suivi**. Chaque étape = **illustration dédiée** + **titre** + **texte descriptif**, reste affichée **4 secondes** puis la suivante apparaît avec un **fondu + glissement** (avancement **automatique**, sans intervention). Indicateur **« n / 5 »**, **barre de progression segmentée** (remplissage de l'étape en cours), **fil du parcours** (Idée → Coût → Plans → Matériaux → Experts → Exécution) et bouton **Passer**. Après la 5ᵉ étape, le guide se termine et l'application s'ouvre normalement. Mémorisé via `onboardingCompleted` (AsyncStorage). |
 | **Illustrations des étapes** | Aucune image générique, aucun placeholder, aucune icône seule : chaque étape affiche une **scène SVG dédiée** (détection IA sur le plan, comparaison Économique / Équilibré / Premium, 10 phases de chantier, ROI 1/5/10 ans + score IA + scénarios, annuaire vérifié + carte des régions). Elles sont **vectorielles donc nettes sur tous les écrans**, suivent le **thème clair / sombre / système** et n'entraînent **aucun téléchargement**. |
 | **Aperçus réels de plans (étape « Plans AI »)** | L'étape affiche **le même plan réel**, généré par un **portage du moteur de plans de la plateforme** (`guidePlans.ts` : partition BSP, programme résidentiel R+0 de 150 m², portes, fenêtres — déterministe), sous **trois vues qui s'enchaînent toutes les 1,4 s** : **plan 2D**, **plan coté** (emprise + dimensions de chaque pièce), **vue 3D** (extrusion isométrique). Mise à l'échelle **uniforme** (aucune déformation, aucun débordement) et cadre à coins arrondis **qui coupe tout dépassement**. |
 | **Réinstallation** | Le stockage local est effacé → les guides réapparaissent (comportement attendu). |
@@ -177,7 +177,7 @@ mobile/
 | **Session** | Cookies, stockage local, cache persistants entre les lancements (`sharedCookiesEnabled`, `thirdPartyCookiesEnabled`, `cacheEnabled`, `domStorageEnabled`). |
 | **Navigation interne** | Toutes les pages `*.freebuff.app` restent dans la WebView. |
 | **Liens externes** | Sites partenaires, réseaux sociaux, documents externes → navigateur système (`Linking`). |
-| **Navigation des 5 sections** | Depuis la **barre inférieure**, routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard/projects`, `/dashboard`, `/dashboard/reports`, `/dashboard/messages`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. « Mes projets » ouvre la **page dédiée `/dashboard/projects`** (tous les projets de l'utilisateur connecté : en cours, terminés, réalisés, archivés) ; l'onglet reste actif pendant la consultation d'un projet ouvert depuis cette liste. « Home » reste l'accueil connecté (`/dashboard`). « **Rapport** » ouvre la page **Rapports PDF `/dashboard/reports`** (consulter / télécharger les PDF des projets) et porte l'icône `FileDown` — la même que l'entrée « Rapports PDF » du menu de la plateforme. L'ancien onglet « ROI » (`/dashboard/investments`) n'est plus dans le menu mobile : l'analyse de rentabilité reste accessible depuis le projet. |
+| **Navigation des 5 sections** | Depuis la **barre inférieure**, routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard/projects`, `/dashboard`, `/dashboard/reports`, `/dashboard/messages`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. « Mes projets » ouvre la **page dédiée `/dashboard/projects`** (tous les projets de l'utilisateur connecté : en cours, terminés, réalisés, archivés) ; l'onglet reste actif pendant la consultation d'un projet ouvert depuis cette liste. « Home » reste l'accueil connecté (`/dashboard`). « **Rapport** » ouvre la page **Rapports PDF `/dashboard/reports`** (consulter / télécharger les PDF des projets) et porte l'icône `FileDown` — la même que l'entrée « Rapports PDF » du menu de la plateforme. Aucun onglet « ROI » dans le menu mobile. |
 | **Pastille de la Messagerie** | Pastille **rouge** (composant réutilisable `NavBadge.tsx`) posée en haut à droite de l'icône « Message » : texte blanc, cerclage blanc (lisible en mode clair comme sombre), **jamais de déplacement des autres icônes** (positionnement absolu), plafond **« 99+ »** et **rien du tout à 0**. Le compteur vient du **serveur** : la plateforme Web, chargée dans la WebView, publie en **temps réel** le nombre de messages non lus de l'utilisateur connecté (`api.messaging.unreadCount` → `src/lib/nativeBridge.ts` → `postMessage`, lue par `WebViewScreen`) — donc **sans rechargement** et sans pastille « 0 » fantôme au démarrage. En cas d'erreur de synchronisation, le dernier compteur fiable reste affiché. Ouvrir la messagerie marque les messages comme lus : la pastille disparaît dès que tout est lu. |
 | **Support / Paramètres** | Barre supérieure → `/dashboard/support` et `/dashboard/settings` (mêmes routes web, aucun écran dupliqué). |
 | **Retour Android** | Historique WebView → page précédente ; sinon confirmation « Voulez-vous quitter batibuild ? » (Annuler / Quitter). |
