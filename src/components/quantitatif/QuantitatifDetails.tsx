@@ -20,8 +20,6 @@ import {
   quantitatifLineKey,
   type QuantitatifCustomizationEntry,
 } from "@/convex/quantitatifCustomLogic";
-import { CustomWorkIcon } from "@/components/CustomWorkIcon";
-import { getCustomWorkDef } from "@/lib/customWorksCatalog";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("fr-TN", {
@@ -96,6 +94,10 @@ export interface QuantitatifDetailsProps {
  * Gros œuvre, Second œuvre et finitions, Aménagements extérieurs) sont
  * cliquables et ouvrent le popup de personnalisation. Les autres catégories
  * restent en lecture seule.
+ *
+ * Les travaux complémentaires personnalisés sont rendus EXACTEMENT comme les
+ * autres catégories (une catégorie par travail, articles groupés par nature),
+ * sans aucune icône ni style propre.
  */
 export function QuantitatifDetails({
   lots,
@@ -298,17 +300,12 @@ export function QuantitatifDetails({
                                             </Badge>
                                           )}
                                         </p>
+                                        {/* Aucune icône : les travaux
+                                            complémentaires personnalisés sont
+                                            affichés comme les articles du gros
+                                            œuvre et du second œuvre. */}
                                         {line.description && (
-                                          <p className="flex items-center gap-1 text-[10px] text-muted-foreground/60 leading-snug">
-                                            {/* Travail personnalisé : même icône
-                                                (lucide-react) que dans le reste
-                                                de la plateforme. */}
-                                            {line.workKey && (
-                                              <CustomWorkIcon
-                                                icon={getCustomWorkDef(line.workKey)?.icon}
-                                                className="h-3 w-3 text-primary/70"
-                                              />
-                                            )}
+                                          <p className="text-[10px] text-muted-foreground/60 leading-snug">
                                             {line.description}
                                           </p>
                                         )}
@@ -392,8 +389,9 @@ export function QuantitatifDetails({
                     {isPersonalized &&
                       lots.some((l: { customWorks?: boolean }) => l?.customWorks) && (
                       <p className="text-[9px] text-amber-700 mt-0.5">
-                        Travaux personnalisés inclus (catégorie « Travaux personnalisés »,
-                        juste avant « Aménagement extérieur ») — uniquement dans ce scénario.
+                        Travaux complémentaires personnalisés inclus (une catégorie par
+                        travail, juste avant « Aménagement extérieur ») — uniquement dans ce
+                        scénario.
                       </p>
                     )}
                     {dqeTotals && (

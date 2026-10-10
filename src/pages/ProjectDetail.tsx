@@ -59,7 +59,7 @@ import {
 } from "@/lib/customWorksCatalog";
 import {
   complementaryWorksTotal,
-  withComplementaryWorksLot,
+  withComplementaryWorksLots,
 } from "@/lib/complementaryWorks";
 import { runBIMEstimation } from "@/convex/bimEngine";
 import {
@@ -482,8 +482,8 @@ export default function ProjectDetail() {
   const builtSurface = project?.surface ? project.surface * (project.floors || 1) : 0;
 
   // Totaux du scénario « Personnalisé » = scénario de référence + modifications
-  // d'articles + travaux complémentaires (catégorie « Travaux personnalisés »,
-  // insérée juste avant « Aménagement extérieur »).
+  // d'articles + travaux complémentaires (une catégorie par travail, insérée
+  // juste avant « Aménagement extérieur »).
   const personalized = useMemo(() => {
     if (!hasPersonalizedScenario || !rawDqeLots.length) return null;
     const baseFactor = budgetScenarioFactor(scenarios, baseScenarioKey);
@@ -496,7 +496,7 @@ export default function ProjectDetail() {
       : { lots: scaled, modifiedCount: 0 };
     // Les travaux complémentaires n'intègrent QUE le scénario Personnalisé :
     // les scénarios Économique / Standard / Premium ne sont jamais modifiés.
-    const lots = withComplementaryWorksLot(overlay.lots, complementaryWorks);
+    const lots = withComplementaryWorksLots(overlay.lots, complementaryWorks);
     return {
       lots,
       totals: computeQuantitatifTotals(lots, builtSurface),
@@ -1274,8 +1274,10 @@ export default function ProjectDetail() {
                 Accessibles uniquement pour les projets éligibles (logement /
                 immobilier neuf, surface couverte ≥ 120 m²). Les travaux
                 sélectionnés n'intègrent QUE le scénario « Personnalisé » et
-                apparaissent dans le Quantitatif détaillé (catégorie « Travaux
-                personnalisés », juste avant « Aménagement extérieur »). */}
+                apparaissent dans le Quantitatif détaillé sous forme d'UNE
+                catégorie par travail (même structure que « Gros œuvre » et
+                « Second œuvre et finitions »), juste avant « Aménagement
+                extérieur ». */}
             {complementaryEligible && (
               <ComplementaryWorksSection
                 works={complementaryWorks}

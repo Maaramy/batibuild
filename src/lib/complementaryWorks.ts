@@ -1,5 +1,5 @@
 // ============================================================================
-// TRAVAUX COMPLÉMENTAIRES — « Travaux personnalisés »
+// TRAVAUX COMPLÉMENTAIRES — « Travaux complémentaires personnalisés »
 // ----------------------------------------------------------------------------
 // Aucune dépendance Convex / React : ce module regroupe la logique pure qui
 // relie les travaux sélectionnés par l'utilisateur (liste PRÉDÉFINIE) au
@@ -8,20 +8,26 @@
 // Règles :
 //   • Les travaux ne sont proposés que pour certains types de projet ET une
 //     surface couverte ≥ 120 m² (`isComplementaryWorkEligible`).
-//   • Ils forment UNE catégorie dédiée (« Travaux personnalisés ») positionnée
+//   • CHAQUE travail sélectionné forme SA PROPRE catégorie (« Piscine »,
+//     « Garage », …) structurée exactement comme « Gros œuvre » et
+//     « Second œuvre et finitions » : mêmes colonnes, mêmes alignements, mêmes
+//     espacements, regroupement par nature (postes) et articles détaillés.
+//     Aucune icône, aucun style ni structure spécifiques.
+//   • Les catégories sont insérées à la suite de « Second œuvre et finitions »,
 //     IMMÉDIATEMENT AVANT « Aménagement extérieur ».
-//   • Cette catégorie n'alimente que le scénario « Personnalisé » : les
-//     scénarios Économique / Standard / Premium ne sont jamais modifiés.
+//   • Elles n'alimentent que le scénario « Personnalisé » : les scénarios
+//     Économique / Standard / Premium ne sont jamais modifiés.
 //   • Aucun montant n'est inventé ici : chaque ligne vient du chiffrage
 //     automatique du moteur (`customWorksEngine`), lui-même basé sur le
-//     moteur BIM et la base de prix officielle.
+//     moteur BIM et la base de prix officielle. Quantités, unités, prix
+//     unitaires et montants sont repris À L'IDENTIQUE.
 // ============================================================================
 
 import {
-  COMPLEMENTARY_WORKS_LOT_ID,
-  COMPLEMENTARY_WORKS_LOT_NAME,
   EXTERIOR_LOT_ID,
   EXTERIOR_LOT_MATCH,
+  complementaryWorkLotId,
+  isComplementaryWorkLotId,
 } from "./customWorksCatalog";
 import type { CustomWorkEstimate } from "../convex/customWorksEngine";
 
@@ -29,12 +35,6 @@ import type { CustomWorkEstimate } from "../convex/customWorksEngine";
 export interface QuantitatifLotLine {
   designation: string;
   description?: string;
-  /**
-   * Clé du travail complémentaire d'appartenance (ex. « piscine »). Purement
-   * présentationnel : elle permet au Quantitatif d'afficher l'icône du travail
-   * via `CustomWorkIcon`, comme le reste de la plateforme.
-   */
-  workKey?: string;
   quantity: number;
   unit: string;
   unitPrice: number;
@@ -54,7 +54,7 @@ export interface QuantitatifLotLike {
   /** Sous-total du lot (TND). */
   subtotal?: number;
   lines?: QuantitatifLotLine[];
-  /** Lot généré par les travaux complémentaires (jamais personnalisable). */
+  /** Catégorie générée par un travail complémentaire (jamais personnalisable). */
   customWorks?: boolean;
 }
 
@@ -75,30 +75,31 @@ export function complementaryWorksTotal(works: readonly CustomWorkEstimate[]): n
 }
 
 /**
- * Construit la catégorie « Travaux personnalisés » à partir des travaux
- * chiffrés : un poste par travail (rappelé sur chaque article via sa
- * description) et les articles réels du moteur (quantité, unité, prix
- * unitaire, montant). Retourne `null` si aucun travail n'est sélectionné —
- * dans ce cas le Quantitatif reste strictement inchangé.
+ * Construit UNE catégorie par travail complémentaire sélectionné, avec
+ * EXACTEMENT la structure des catégories du moteur DQE (« Gros œuvre »,
+ * « Second œuvre et finitions ») :
+ *   • titre de la catégorie  = libellé du travail (`Piscine`, `Garage`, …) ;
+ *   • sous-total             = coût total du travail chiffré par le moteur ;
+ *   • articles               = les lignes réelles du moteur, regroupées par
+ *                              nature (postes) lors de l'affichage.
+ *
+ * Les quantités, unités, prix unitaires et montants sont repris tels quels :
+ * aucun calcul n'est refait ici. Retourne un tableau vide si aucun travail
+ * n'est sélectionné — le Quantitatif reste alors strictement inchangé.
  */
-export function buildComplementaryWorksLot(
+export function buildComplementaryWorksLots(
   works: readonly CustomWorkEstimate[] | null | undefined,
-): QuantitatifLotLike | null {
+): QuantitatifLotLike[] {
   const list = (works ?? []).filter((w) => w && (Number(w.total) || 0) > 0);
-  if (list.length === 0) return null;
+  const lots: QuantitatifLotLike[] = [];
 
-  const lines: QuantitatifLotLine[] = [];
   for (const work of list) {
+    const lines: QuantitatifLotLine[] = [];
     for (const line of work.lines ?? []) {
       const total = Number(line.total) || 0;
       if (total <= 0) continue;
       lines.push({
         designation: line.designation,
-        // Poste d'appartenance : chaque travail garde ses propres articles.
-        // L'icône n'est pas un texte : elle est rendue par `CustomWorkIcon`
-        // (même bibliothèque que toute la plateforme) à partir de `workKey`.
-        description: work.label,
-        workKey: work.key,
         quantity: Number(line.quantity) || 0,
         unit: line.unit,
         unitPrice: Number(line.unitPrice) || 0,
@@ -106,51 +107,55 @@ export function buildComplementaryWorksLot(
         nature: line.nature,
       });
     }
+    if (lines.length === 0) continue;
+    lots.push({
+      id: complementaryWorkLotId(work.key),
+      name: work.label,
+      percent: 0,
+      // Le sous-total est le coût du travail tel que chiffré par le moteur : la
+      // somme des catégories reste égale au total des travaux complémentaires.
+      subtotal: round2(Number(work.total) || 0),
+      lines,
+      customWorks: true,
+    });
   }
-  if (lines.length === 0) return null;
 
-  return {
-    id: COMPLEMENTARY_WORKS_LOT_ID,
-    name: COMPLEMENTARY_WORKS_LOT_NAME,
-    percent: 0,
-    subtotal: complementaryWorksTotal(list),
-    lines,
-    customWorks: true,
-  };
+  return lots;
 }
 
 /**
- * Insère la catégorie « Travaux personnalisés » IMMÉDIATEMENT AVANT
- * « Aménagement extérieur ». Aucun doublon n'est possible : un éventuel lot
- * portant déjà cet identifiant est retiré avant l'insertion. Sans travaux
- * sélectionnés, les lots sont retournés tels quels (aucune modification).
+ * Insère les catégories de travaux complémentaires IMMÉDIATEMENT AVANT
+ * « Aménagement extérieur ». Aucun doublon n'est possible : les catégories de
+ * travaux complémentaires déjà présentes sont retirées avant l'insertion.
+ * Sans travail sélectionné, les lots sont retournés tels quels (aucune
+ * modification, pas même la recopie du tableau).
  */
-export function withComplementaryWorksLot(
+export function withComplementaryWorksLots(
   lots: readonly QuantitatifLotLike[] | null | undefined,
   works: readonly CustomWorkEstimate[] | null | undefined,
 ): QuantitatifLotLike[] {
   const base = (lots ?? []) as QuantitatifLotLike[];
-  const lot = buildComplementaryWorksLot(works);
-  if (!lot) return base;
+  const added = buildComplementaryWorksLots(works);
+  if (added.length === 0) return base;
 
-  // Aucun doublon : un lot portant déjà cet identifiant est retiré.
-  const withoutDuplicate = base.filter((l) => l?.id !== COMPLEMENTARY_WORKS_LOT_ID);
+  // Aucun doublon : toute catégorie de travaux déjà présente est retirée.
+  const withoutDuplicates = base.filter((l) => !isComplementaryWorkLotId(l?.id));
 
-  const exteriorIdx = withoutDuplicate.findIndex((l) => {
+  const exteriorIdx = withoutDuplicates.findIndex((l) => {
     if (String(l?.id ?? "") === EXTERIOR_LOT_ID) return true;
     return EXTERIOR_LOT_MATCH.test(normalizeLabel(l?.name));
   });
   // Repli : juste après « Second œuvre et finitions » ; dernier recours : à la fin.
-  const secondIdx = withoutDuplicate.findIndex((l) =>
+  const secondIdx = withoutDuplicates.findIndex((l) =>
     normalizeLabel(l?.id).includes("second_oeuvre"),
   );
   const at =
-    exteriorIdx >= 0 ? exteriorIdx : secondIdx >= 0 ? secondIdx + 1 : withoutDuplicate.length;
+    exteriorIdx >= 0 ? exteriorIdx : secondIdx >= 0 ? secondIdx + 1 : withoutDuplicates.length;
 
   const inserted: QuantitatifLotLike[] = [
-    ...withoutDuplicate.slice(0, at),
-    lot,
-    ...withoutDuplicate.slice(at),
+    ...withoutDuplicates.slice(0, at),
+    ...added,
+    ...withoutDuplicates.slice(at),
   ];
 
   // Pourcentages recalculés sur le nouveau total (comme la superposition du

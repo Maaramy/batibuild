@@ -3,18 +3,17 @@ import { describe, expect, it } from "vitest";
 import {
   COMPLEMENTARY_WORK_MIN_SURFACE,
   COMPLEMENTARY_WORK_PROJECT_TYPES,
-  COMPLEMENTARY_WORKS_LOT_ID,
-  COMPLEMENTARY_WORKS_LOT_NAME,
   CUSTOM_WORK_CATALOG,
   EXTERIOR_LOT_ID,
+  complementaryWorkLotId,
   isComplementaryWorkEligible,
   resolveCustomWorkSurface,
   type CustomWorkProjectContext,
 } from "./customWorksCatalog";
 import {
-  buildComplementaryWorksLot,
+  buildComplementaryWorksLots,
   complementaryWorksTotal,
-  withComplementaryWorksLot,
+  withComplementaryWorksLots,
   type QuantitatifLotLike,
 } from "./complementaryWorks";
 import { estimateCustomWork } from "../convex/customWorksEngine";
@@ -40,6 +39,10 @@ type WorkKey = "piscine" | "garage" | "cuisine_exterieure" | "jardin" | "solaire
 
 const works = (keys: WorkKey[]) =>
   keys.map((k) => estimateCustomWork(k, CTX, "tunis", "standard", 3));
+
+/** Somme des sous-totaux des lots. */
+const lotsTotal = (lots: QuantitatifLotLike[]) =>
+  lots.reduce((s, l) => s + (Number(l?.subtotal) || 0), 0);
 
 describe("éligibilité aux travaux complémentaires", () => {
   it("n'autorise que les types logement / immobilier neuf", () => {
@@ -89,36 +92,50 @@ describe("liste prédéfinie des travaux complémentaires", () => {
   });
 });
 
-describe("catégorie « Travaux personnalisés » du Quantitatif détaillé", () => {
-  it("retourne null (aucune modification) sans travail sélectionné", () => {
-    expect(buildComplementaryWorksLot([])).toBeNull();
-    expect(buildComplementaryWorksLot(null)).toBeNull();
-    expect(withComplementaryWorksLot(DQE_LOTS, [])).toBe(DQE_LOTS);
+describe("catégories « Travaux complémentaires personnalisés » du Quantitatif détaillé", () => {
+  it("ne modifie rien sans travail sélectionné", () => {
+    expect(buildComplementaryWorksLots([])).toEqual([]);
+    expect(buildComplementaryWorksLots(null)).toEqual([]);
+    expect(withComplementaryWorksLots(DQE_LOTS, [])).toBe(DQE_LOTS);
   });
 
-  it("insère la catégorie IMMÉDIATEMENT avant « Aménagement extérieur »", () => {
-    const lots = withComplementaryWorksLot(DQE_LOTS, works(["piscine", "garage"]));
+  it("présente CHAQUE travail sélectionné comme sa propre catégorie, juste avant « Aménagement extérieur »", () => {
+    const selected = works(["piscine", "garage"]);
+    const lots = withComplementaryWorksLots(DQE_LOTS, selected);
     expect(lots.map((l) => l.id)).toEqual([
       "frais_preliminaires",
       "gros_oeuvre",
       "second_oeuvre",
-      COMPLEMENTARY_WORKS_LOT_ID,
+      complementaryWorkLotId("piscine"),
+      complementaryWorkLotId("garage"),
       "amenagements_exterieurs",
       "vrd",
     ]);
-    const lot = lots.find((l) => l.id === COMPLEMENTARY_WORKS_LOT_ID);
-    expect(lot?.name).toBe(COMPLEMENTARY_WORKS_LOT_NAME);
-    expect(lot?.customWorks).toBe(true);
+    // Une catégorie par travail : titre = libellé du travail, même structure de
+    // lot que les catégories du moteur DQE (aucune propriété spécifique).
+    for (const work of selected) {
+      const lot = lots.find((l) => l.id === complementaryWorkLotId(work.key));
+      expect(lot?.name).toBe(work.label);
+      expect(lot?.customWorks).toBe(true);
+      expect(Object.keys(lot ?? {}).sort()).toEqual([
+        "customWorks",
+        "id",
+        "lines",
+        "name",
+        "percent",
+        "subtotal",
+      ]);
+    }
     // Les lots d'origine ne sont jamais mutés : les scénarios Économique /
     // Standard / Premium restent strictement identiques.
-    expect(DQE_LOTS.map((l) => l.id)).not.toContain(COMPLEMENTARY_WORKS_LOT_ID);
     expect(DQE_LOTS).toHaveLength(5);
+    expect(DQE_LOTS.map((l) => l.id)).not.toContain(complementaryWorkLotId("piscine"));
   });
 
   it("ne crée jamais de doublon et n'altère pas les catégories existantes", () => {
-    const once = withComplementaryWorksLot(DQE_LOTS, works(["jardin"]));
-    const twice = withComplementaryWorksLot(once, works(["jardin"]));
-    expect(twice.filter((l) => l.id === COMPLEMENTARY_WORKS_LOT_ID)).toHaveLength(1);
+    const once = withComplementaryWorksLots(DQE_LOTS, works(["jardin"]));
+    const twice = withComplementaryWorksLots(once, works(["jardin"]));
+    expect(twice.filter((l) => l.id === complementaryWorkLotId("jardin"))).toHaveLength(1);
     expect(twice.filter((l) => l.id === EXTERIOR_LOT_ID)).toHaveLength(1);
     // Les lots d'origine sont conservés à l'identique (montants inchangés).
     for (const original of DQE_LOTS) {
@@ -128,20 +145,35 @@ describe("catégorie « Travaux personnalisés » du Quantitatif détaillé", ()
     }
   });
 
-  it("porte les articles réels de chaque travail (poste identifié)", () => {
+  it("porte les articles réels de chaque travail (quantités, unités, prix et montants inchangés)", () => {
     const selected = works(["piscine", "garage", "solaire"]);
-    const lot = buildComplementaryWorksLot(selected);
-    expect(lot).not.toBeNull();
-    const lines = lot?.lines ?? [];
-    expect(lot?.subtotal).toBe(complementaryWorksTotal(selected));
-    expect(lines.length).toBe(selected.reduce((s, w) => s + w.lines.length, 0));
-    for (const w of selected) {
-      const owned = lines.filter((l) => l.description?.includes(w.label));
-      expect(owned.length).toBe(w.lines.length);
-      expect(owned.reduce((s, l) => s + l.total, 0)).toBeCloseTo(w.total, 2);
+    const lots = buildComplementaryWorksLots(selected);
+    expect(lots.map((l) => l.id)).toEqual(selected.map((w) => complementaryWorkLotId(w.key)));
+
+    for (const work of selected) {
+      const lot = lots.find((l) => l.id === complementaryWorkLotId(work.key));
+      const lines = lot?.lines ?? [];
+      const source = work.lines.filter((l) => (Number(l.total) || 0) > 0);
+      expect(lot?.subtotal).toBe(work.total);
+      expect(lines).toHaveLength(source.length);
+      lines.forEach((line, i) => {
+        expect(line.designation).toBe(source[i].designation);
+        expect(line.quantity).toBe(source[i].quantity);
+        expect(line.unit).toBe(source[i].unit);
+        expect(line.unitPrice).toBe(source[i].unitPrice);
+        expect(line.total).toBe(source[i].total);
+        expect(line.nature).toBe(source[i].nature);
+      });
     }
-    // Panneaux solaires : quantités exprimées en panneaux, jamais en m².
-    const solarLines = lines.filter((l) => l.description?.includes("Panneaux solaires"));
+
+    // Le total des catégories reste EXACTEMENT le total des travaux chiffrés :
+    // le coût total du projet et les résultats d'estimation restent synchronisés.
+    expect(lotsTotal(lots)).toBeCloseTo(complementaryWorksTotal(selected), 2);
+  });
+
+  it("conserve les panneaux solaires au nombre de panneaux (jamais au m²)", () => {
+    const lots = buildComplementaryWorksLots(works(["solaire"]));
+    const solarLines = lots.find((l) => l.id === complementaryWorkLotId("solaire"))?.lines ?? [];
     expect(solarLines.length).toBeGreaterThan(0);
     for (const line of solarLines) {
       expect(line.unit).toBe("panneaux");
@@ -157,32 +189,35 @@ describe("catégorie « Travaux personnalisés » du Quantitatif détaillé", ()
       "jardin",
       "solaire",
     ]);
-    const lot = buildComplementaryWorksLot(selected);
-    const lines = lot?.lines ?? [];
-    const sum = (nature: string) =>
-      lines
-        .filter((l) => l.nature === nature)
-        .reduce((s, l) => s + l.total, 0);
-    const aggregate = (pick: (w: (typeof selected)[number]) => number) =>
-      selected.reduce((s, w) => s + pick(w), 0);
+    const lots = buildComplementaryWorksLots(selected);
 
-    // Les 5 lignes affichées (Matériaux, Équipements, Main-d'œuvre, Transport,
-    // Études) correspondent exactement aux agrégats chiffrés par le moteur.
-    expect(sum("materiaux")).toBeCloseTo(aggregate((w) => w.materials), 2);
-    expect(sum("equipements")).toBeCloseTo(aggregate((w) => w.equipments), 2);
-    expect(sum("main_oeuvre")).toBeCloseTo(aggregate((w) => w.labor), 2);
-    expect(sum("transport")).toBeCloseTo(aggregate((w) => w.transport), 2);
-    expect(sum("etudes")).toBeCloseTo(aggregate((w) => w.studies), 2);
-    // La somme des 5 lignes affichées = sous-total du lot (aucun montant perdu).
-    const displayed = ["materiaux", "equipements", "main_oeuvre", "transport", "etudes"];
-    expect(displayed.reduce((s, n) => s + sum(n), 0)).toBeCloseTo(lot?.subtotal ?? 0, 2);
+    for (const work of selected) {
+      const lines = lots.find((l) => l.id === complementaryWorkLotId(work.key))?.lines ?? [];
+      const sum = (nature: string) =>
+        lines.filter((l) => l.nature === nature).reduce((s, l) => s + l.total, 0);
+      // Les postes affichés (Matériaux, Équipements, Main-d'œuvre, Transport,
+      // Études) correspondent exactement aux agrégats chiffrés par le moteur.
+      expect(sum("materiaux")).toBeCloseTo(work.materials, 2);
+      expect(sum("equipements")).toBeCloseTo(work.equipments, 2);
+      expect(sum("main_oeuvre")).toBeCloseTo(work.labor, 2);
+      expect(sum("transport")).toBeCloseTo(work.transport, 2);
+      expect(sum("etudes")).toBeCloseTo(work.studies, 2);
+    }
   });
 
-  it("recalcule les pourcentages sur le nouveau total", () => {
-    const lots = withComplementaryWorksLot(DQE_LOTS, works(["piscine"]));
-    const total = lots.reduce((s, l) => s + (Number(l.subtotal) || 0), 0);
+  it("recalcule les pourcentages sur le nouveau total, sans changer le total", () => {
+    const selected = works(["piscine", "garage"]);
+    const lots = withComplementaryWorksLots(DQE_LOTS, selected);
+    const total = lotsTotal(lots);
+    // Total inchangé : celui du quantitatif + les travaux complémentaires.
+    expect(total).toBeCloseTo(lotsTotal(DQE_LOTS) + complementaryWorksTotal(selected), 2);
     for (const lot of lots) {
       expect(lot.percent).toBeCloseTo(((Number(lot.subtotal) || 0) / total) * 100, 1);
     }
+    // Les pourcentages d'origine ne sont pas conservés tels quels : ils sont
+    // recalculés sur le total incluant les travaux complémentaires.
+    const gros = lots.find((l) => l.id === "gros_oeuvre");
+    expect(gros?.percent).toBeLessThan(100);
+    expect(gros?.subtotal).toBe(180000);
   });
 });

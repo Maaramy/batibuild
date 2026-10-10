@@ -311,16 +311,32 @@ export function isComplementaryWorkEligible(
   return Number.isFinite(s) && s >= COMPLEMENTARY_WORK_MIN_SURFACE;
 }
 
-// ── Catégorie « Travaux personnalisés » du Quantitatif détaillé ────────────
+// ── Catégories « Travaux complémentaires personnalisés » du Quantitatif ────
 //
-// Les travaux complémentaires sélectionnés sont regroupés dans UNE catégorie
-// dédiée du Quantitatif détaillé, placée immédiatement AVANT la catégorie
-// « Aménagement extérieur ». Cet identifiant n'est pas modifiable par
-// l'utilisateur (hors des catégories éditables) et n'entre jamais en conflit
-// avec un lot existant du moteur DQE.
+// Chaque travail complémentaire sélectionné forme SA PROPRE catégorie du
+// Quantitatif détaillé, exactement comme « Gros œuvre » ou « Second œuvre et
+// finitions » : son titre est le libellé du travail (`Piscine`, `Garage`, …) et
+// ses lignes sont les articles réels du moteur, regroupés par nature (postes
+// Matériaux, Main-d'œuvre, Outillage & Équipements, Transport, Études).
+// Les catégories sont insérées à la suite de « Second œuvre et finitions »,
+// immédiatement AVANT « Aménagement extérieur ». Leur identifiant n'est pas
+// modifiable par l'utilisateur (hors des catégories éditables) et n'entre
+// jamais en conflit avec un lot existant du moteur DQE.
 
-export const COMPLEMENTARY_WORKS_LOT_ID = "travaux_personnalises";
-export const COMPLEMENTARY_WORKS_LOT_NAME = "Travaux personnalisés";
+export const COMPLEMENTARY_WORKS_LOT_PREFIX = "travaux_personnalises";
+
+/** Identifiant de la catégorie d'un travail complémentaire donné. */
+export function complementaryWorkLotId(key: string): string {
+  return `${COMPLEMENTARY_WORKS_LOT_PREFIX}_${key}`;
+}
+
+/**
+ * L'identifiant appartient-il à une catégorie de travaux complémentaires
+ * personnalisés ? (sert à éviter tout doublon à l'insertion)
+ */
+export function isComplementaryWorkLotId(lotId?: string | null): boolean {
+  return String(lotId ?? "").startsWith(`${COMPLEMENTARY_WORKS_LOT_PREFIX}_`);
+}
 
 /** Identifiant / libellé du lot « Aménagement extérieur » du moteur DQE. */
 export const EXTERIOR_LOT_ID = "amenagements_exterieurs";
