@@ -1316,17 +1316,6 @@ const schema = defineSchema(
       .index("by_created", ["createdAt"])
       .index("by_share_token", ["shareToken"]),
 
-    aiMaterialAnalyses: defineTable({
-      userId: v.id("users"),
-      projectId: v.optional(v.id("projects")),
-      input: v.any(),
-      results: v.any(),
-      createdAt: v.number(),
-    })
-      .index("by_user", ["userId"])
-      .index("by_user_project", ["userId", "projectId"])
-      .index("by_created", ["createdAt"]),
-
     // Sélection courante des matériaux du module « Choix matériaux AI ».
     // Une seule ligne par projet et par utilisateur : elle porte le scénario
     // actif (synchronisé avec le Coût estimatif) et le brouillon de sélection.

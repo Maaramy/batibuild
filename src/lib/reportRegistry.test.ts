@@ -17,7 +17,6 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     expect(keys("villa")).toEqual([
       "cost",
       "plans",
-      "materials",
       "investment",
       "execution",
     ]);
@@ -43,7 +42,7 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
   });
 
   it("le groupe est déduit du type, sans sélection manuelle", () => {
-    expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(5);
+    expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(4);
     expect(reportModuleKeysForGroup("B")).toEqual(["cost"]);
   });
 
@@ -69,7 +68,6 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
       costEstimate: {},
     };
     const statuses = reportStatuses(project, {
-      materialsAnalysisId: "m1",
       roadmapId: "r1",
       investmentAnalysisId: "i1",
     });

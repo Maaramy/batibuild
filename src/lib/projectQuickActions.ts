@@ -3,8 +3,6 @@
  *
  * Construit les liens vers les modules liés à un projet :
  *
- *   - **Matériaux** → `/dashboard/ai-materials?project=…` : la page de l'assistant
- *     Matériaux IA s'ouvre avec le projet déjà sélectionné ;
  *   - **Démarche** → `/dashboard/guide?project=…` : le guide de construction A-Z
  *     s'ouvre sur le projet concerné ;
  *   - **Expert** → `/dashboard/professionals-directory?project=…` : la liste des
@@ -17,7 +15,7 @@
  * sans dépendance React, donc testable telle quelle.
  */
 
-export type ProjectQuickActionKey = "materials" | "guide" | "expert" | "plan";
+export type ProjectQuickActionKey = "guide" | "expert" | "plan";
 
 export type ProjectQuickAction = {
   key: ProjectQuickActionKey;
@@ -33,8 +31,6 @@ export type ProjectForQuickActions = {
 };
 
 const TONES = {
-  materials:
-    "hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400",
   guide:
     "hover:border-sky-500/40 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-400",
   expert:
@@ -44,12 +40,6 @@ const TONES = {
 
 export function buildProjectQuickActions(project: ProjectForQuickActions): ProjectQuickAction[] {
   return [
-    {
-      key: "materials",
-      label: "Matériaux",
-      href: `/dashboard/ai-materials?project=${project._id}`,
-      tone: TONES.materials,
-    },
     {
       key: "guide",
       label: "Démarche",

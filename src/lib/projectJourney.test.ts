@@ -2,9 +2,6 @@ import { describe, it, expect } from "vitest";
 import { PROJECT_TYPES } from "@/convex/projectTypes";
 import {
   PROJECT_JOURNEY_GROUP_A,
-  MATERIALS_PAGE_PATH,
-  SUPPLIERS_DIRECTORY_PATH,
-  buildAiMaterialsResultJourney,
   buildProjectJourney,
   projectJourneyGroup,
 } from "./projectJourney";
@@ -41,7 +38,6 @@ const GROUP_B_LABELS = [
 const GROUP_B_KEYS = ["cost", "plans", "consult", "suppliers"];
 
 const PID = "proj_1";
-const SUPPLIER_HREF = `${SUPPLIERS_DIRECTORY_PATH}?from=materials&region=Tunis`;
 
 describe("projectJourneyGroup — groupe déduit du type de projet", () => {
   it("classe en groupe A les projets neufs / immobiliers (studio exclu)", () => {
@@ -394,77 +390,5 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
     for (const type of PROJECT_TYPES) {
       expect(buildProjectJourney(type, PID, allOff).length, type).toBeGreaterThanOrEqual(1);
     }
-    // Parcours dédié « Résultat IA » : seule l'étape Fournisseur subsiste.
-    expect(buildAiMaterialsResultJourney(PID, SUPPLIER_HREF, allOff).map((s) => s.key)).toEqual([
-      "supplier",
-    ]);
-  });
-});
-
-describe("buildAiMaterialsResultJourney — filtrage par feature flags", () => {
-  it("« Liste prix » disparaît quand ai_materials est désactivé (« Fournisseur » reste)", () => {
-    const off = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF, { ai_materials: false });
-    expect(off.map((s) => s.key)).toEqual(["cost", "supplier"]);
-  });
-
-  it("« Coût estimatif » disparaît quand construction_cost_estimation est désactivé", () => {
-    const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF, {
-      construction_cost_estimation: false,
-    });
-    expect(steps.map((s) => s.key)).toEqual(["priceList", "supplier"]);
-  });
-
-  it("sans flags fournis, l'ordre complet est conservé", () => {
-    expect(buildAiMaterialsResultJourney(PID, SUPPLIER_HREF).map((s) => s.key)).toEqual([
-      "cost",
-      "priceList",
-      "supplier",
-    ]);
-  });
-});
-
-describe("buildAiMaterialsResultJourney — page « Résultat de l'analyse IA »", () => {
-  it("ordre strict : coût estimatif, liste prix, fournisseur", () => {
-    const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF);
-    expect(steps.map((s) => s.label)).toEqual([
-      "Coût estimatif",
-      "Liste prix",
-      "Fournisseur",
-    ]);
-    expect(steps.map((s) => s.key)).toEqual(["cost", "priceList", "supplier"]);
-  });
-
-  it("« Liste prix » ouvre la page Matériaux de construction, « Fournisseur » l'annuaire pré-filtré", () => {
-    const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF);
-    expect(steps[0].href).toBe(`/dashboard/project/${PID}`);
-    expect(steps[1].href).toBe(`${MATERIALS_PAGE_PATH}?project=${PID}`);
-    expect(steps[1].path).toBe(MATERIALS_PAGE_PATH);
-    expect(steps[2].href).toBe(SUPPLIER_HREF);
-    expect(steps[2].path).toBe(SUPPLIERS_DIRECTORY_PATH);
-    // Le contexte du projet est conservé sur les deux premières étapes.
-    expect(steps.slice(0, 2).every((s) => s.href.includes(PID))).toBe(true);
-  });
-
-  it("« Fournisseur » sans lien fourni → annuaire sans pré-filtre", () => {
-    const steps = buildAiMaterialsResultJourney(PID);
-    expect(steps[2].href).toBe(SUPPLIERS_DIRECTORY_PATH);
-  });
-
-  it("même ordre pour tous les types de projet (le groupe n'intervient pas)", () => {
-    const labels = ["Coût estimatif", "Liste prix", "Fournisseur"];
-    for (const type of PROJECT_TYPES) {
-      const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF);
-      expect(steps.map((s) => s.label), type).toEqual(labels);
-    }
-  });
-
-  it("les routes de repérage de l'étape active restent uniques", () => {
-    const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF);
-    expect(new Set(steps.map((s) => s.path)).size).toBe(steps.length);
-  });
-
-  it("Journey masqué sans identifiant de projet (aucune étape)", () => {
-    expect(buildAiMaterialsResultJourney(null, SUPPLIER_HREF)).toEqual([]);
-    expect(buildAiMaterialsResultJourney("  ")).toEqual([]);
   });
 });

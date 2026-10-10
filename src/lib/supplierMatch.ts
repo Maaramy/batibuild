@@ -3,15 +3,14 @@ import { SUPPLIER_SPECIALTIES } from "@/lib/supplierSpecialties";
 // ═══════════════════════════════════════════════════════════════════════════
 // MISE EN CORRESPONDANCE MATÉRIAUX ↔ FOURNISSEURS
 //
-// L'analyse « Matériaux IA » travaille sur des catégories de matériaux
-// (id catégorie Copilot : ciment, beton, carrelage…), alors que l'annuaire
-// des fournisseurs filtre sur des spécialités de métier inscrites par les
+// Les catégories de matériaux du Quantitatif (id catégorie : ciment, beton,
+// carrelage…) diffèrent des spécialités de métier inscrites par les
 // fournisseurs (SUPPLIER_SPECIALTIES : gros_oeuvre, carrelage, electricite…).
 //
-// Cette table relie chaque catégorie de matériaux analysée à la (aux)
-// spécialité(s) fournisseur(s) correspondante(s), afin de pouvoir ouvrir
-// l'annuaire pré-filtré « par région + spécialité » depuis les résultats
-// de l'analyse — sans dépendre d'un code fournisseur inexistant.
+// Cette table relie chaque catégorie de matériaux à la (aux) spécialité(s)
+// fournisseur(s) correspondante(s), afin de pouvoir ouvrir l'annuaire
+// pré-filtré « par région + spécialité » — sans dépendre d'un code fournisseur
+// inexistant.
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Ensemble des spécialités fournisseurs valides (référence schéma). */

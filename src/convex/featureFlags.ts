@@ -37,8 +37,8 @@ export const FEATURE_FLAGS_CATALOG = [
   },
   {
     key: "ai_materials",
-    name: "Matériaux AI",
-    description: "Assistant intelligent de choix des matériaux",
+    name: "Prix des matériaux",
+    description: "Base des prix des matériaux de construction",
   },
   {
     key: "architectural_plans",

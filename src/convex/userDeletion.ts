@@ -130,9 +130,6 @@ export const deleteUserCompletely = internalMutation({
     }
 
     // Analyses IA liées aux projets ou au compte (indexes by_user).
-    counts.aiMaterialAnalyses =
-      (counts.aiMaterialAnalyses ?? 0) +
-      (await deleteAll(ctx, await collectByUser(ctx, "aiMaterialAnalyses", userId)));
     counts.investmentAnalyses =
       (counts.investmentAnalyses ?? 0) +
       (await deleteAll(ctx, await collectByUser(ctx, "investmentAnalyses", userId)));
@@ -406,7 +403,6 @@ export const deleteUserCompletely = internalMutation({
     await verify("quoteRequests", await collectByUser(ctx, "quoteRequests", userId));
     await verify("quoteResponses", await collectByUser(ctx, "quoteResponses", userId));
     await verify("investmentAnalyses", await collectByUser(ctx, "investmentAnalyses", userId));
-    await verify("aiMaterialAnalyses", await collectByUser(ctx, "aiMaterialAnalyses", userId));
     await verify("supportTickets", await collectByUser(ctx, "supportTickets", userId));
     const authLeft = await ctx.db
       .query("authAccounts")

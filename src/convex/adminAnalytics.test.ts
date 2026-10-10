@@ -79,21 +79,6 @@ async function createConnectionLog(
   });
 }
 
-async function createMaterialAnalysis(
-  t: TestT,
-  userId: string,
-  createdAt = Date.now(),
-) {
-  return t.run(async (ctx) => {
-    return ctx.db.insert("aiMaterialAnalyses", {
-      userId: userId as any,
-      input: {},
-      results: {},
-      createdAt,
-    });
-  });
-}
-
 async function createTicket(
   t: TestT,
   userId: string,
@@ -312,10 +297,8 @@ describe("adminAnalytics — getActivityStats", () => {
     adminT = t.withIdentity({ subject: adminId });
   });
 
-  it("agrège analyses matériaux, ROI, connexions", async () => {
+  it("agrège analyses ROI et connexions", async () => {
     const u = await createUser(t, { email: "active@test.com" });
-    await createMaterialAnalysis(t, u);
-    await createMaterialAnalysis(t, u);
     await t.run(async (ctx: any) => {
       await ctx.db.insert("investmentAnalyses", {
         userId: u as any,
@@ -327,10 +310,8 @@ describe("adminAnalytics — getActivityStats", () => {
     });
 
     const stats = await adminT.query(api.adminAnalytics.getActivityStats, {});
-    expect(stats!.materialAnalyses.total).toBe(2);
-    expect(stats!.materialAnalyses.last24h).toBe(2);
     expect(stats!.investmentAnalyses.total).toBe(1);
-    expect(stats!.aiFeaturesUsed.total).toBe(3); // 2 matériaux + 1 ROI
+    expect(stats!.aiFeaturesUsed.total).toBe(1); // 1 ROI
     expect(stats!.connections.total).toBe(0);
   });
 
@@ -400,7 +381,6 @@ describe("adminAnalytics — connexions", () => {
   it("getOverviewStats combine les indicateurs clés", async () => {
     const u = await createUser(t, { email: "combo@test.com" });
     await createProject(t, u);
-    await createMaterialAnalysis(t, u);
     await createTicket(t, u, { status: "open" });
     await createConnectionLog(t, { sessionId: "combo1" });
 
@@ -409,8 +389,8 @@ describe("adminAnalytics — connexions", () => {
     expect(stats!.usersOnline).toBe(1);
     expect(stats!.projectsTotal).toBe(1);
     expect(stats!.projectsActive).toBe(1);
-    expect(stats!.analysesTotal).toBe(1);
-    expect(stats!.analyses24h).toBe(1);
+    expect(stats!.analysesTotal).toBe(0);
+    expect(stats!.analyses24h).toBe(0);
     expect(stats!.supportOpen).toBe(1);
   });
 

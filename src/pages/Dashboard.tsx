@@ -912,7 +912,7 @@ export default function Dashboard() {
             <h2 className="mt-0.5 text-base font-semibold sm:text-lg">
               Que souhaitez-vous faire ?
             </h2>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
               {[
                 {
                   icon: Plus,
@@ -941,13 +941,6 @@ export default function Dashboard() {
                   hint: "À partir d'un projet",
                   to: "/dashboard/projects",
                   enabled: true,
-                },
-                {
-                  icon: Sparkles,
-                  label: "Choisir mes matériaux",
-                  hint: "Sélection IA",
-                  to: "/dashboard/ai-materials",
-                  enabled: isFeatureEnabled("ai_materials"),
                 },
               ]
                 .filter((action) => action.enabled)

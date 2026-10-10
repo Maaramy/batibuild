@@ -66,7 +66,7 @@ async function enableFlag(t: ReturnType<typeof convexTest>) {
   await t.run(async (ctx) =>
     ctx.db.insert("featureFlags", {
       key: "ai_materials",
-      name: "Matériaux IA",
+      name: "Prix des matériaux",
       description: "test",
       enabled: true,
       updatedAt: Date.now(),
@@ -279,7 +279,7 @@ describe("materialSelections — auto-lancement (§9)", () => {
     await t.run(async (ctx) =>
       ctx.db.insert("featureFlags", {
         key: "ai_materials",
-        name: "Matériaux IA",
+        name: "Prix des matériaux",
         description: "test",
         enabled: false,
         updatedAt: Date.now(),

@@ -62,8 +62,8 @@ describe("featureFlags.getFlagsMap", () => {
     await t.run(async (ctx) => {
       await ctx.db.insert("featureFlags", {
         key: "ai_materials",
-        name: "Matériaux AI",
-        description: "Assistant IA",
+        name: "Prix des matériaux",
+        description: "Base des prix",
         enabled: false,
         updatedAt: Date.now(),
       });
@@ -119,7 +119,7 @@ describe("featureFlags.setFlag", () => {
     const log = logs.find((l: any) => l.action === "feature_flag_disabled");
     expect(log).toBeTruthy();
     expect(log!.adminId).toBe(adminId);
-    expect(log!.details).toContain("Matériaux AI");
+    expect(log!.details).toContain("Prix des matériaux");
   });
 
   it("un utilisateur standard ne peut jamais modifier un flag", async () => {
