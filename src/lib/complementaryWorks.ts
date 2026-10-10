@@ -16,7 +16,9 @@
 //   • Les catégories sont insérées à la suite de « Second œuvre et finitions »,
 //     IMMÉDIATEMENT AVANT « Aménagement extérieur ».
 //   • Elles n'alimentent que le scénario « Personnalisé » : les scénarios
-//     Économique / Standard / Premium ne sont jamais modifiés.
+//     Économique / Standard / Premium ne sont jamais modifiés. Il en va de même
+//     dans « Répartition » et « Détail par catégorie » (`buildChartBreakdown`,
+//     qui n'ajoute les parts qu'en présence de travaux sélectionnés).
 //   • Aucun montant n'est inventé ici : chaque ligne vient du chiffrage
 //     automatique du moteur (`customWorksEngine`), lui-même basé sur le
 //     moteur BIM et la base de prix officielle. Quantités, unités, prix
@@ -27,6 +29,7 @@ import {
   EXTERIOR_LOT_ID,
   EXTERIOR_LOT_MATCH,
   complementaryWorkLotId,
+  getCustomWorkDef,
   isComplementaryWorkLotId,
 } from "./customWorksCatalog";
 import type { CustomWorkEstimate } from "../convex/customWorksEngine";
@@ -121,6 +124,70 @@ export function buildComplementaryWorksLots(
   }
 
   return lots;
+}
+
+/**
+ * Part d'une catégorie dans « Répartition » / « Détail par catégorie ».
+ * Structure tolérante : les catégories du moteur BIM sont acceptées telles
+ * quelles, seuls `label` et `estimatedCost` sont lus.
+ */
+export interface ChartBreakdownEntry {
+  /** Catégorie du moteur BIM, ou identifiant du travail complémentaire. */
+  category?: string;
+  label: string;
+  estimatedCost: number;
+  /** Part de la catégorie (%), recalculée quand des travaux sont ajoutés. */
+  percentage?: number;
+  /** Couleur de la part (renseignée pour les travaux complémentaires). */
+  color?: string;
+  /** Clé du travail complémentaire, si la part provient d'un travail. */
+  workKey?: string;
+  /** Nom du composant d'icône lucide du travail (`CustomWorkIcon`). */
+  icon?: string;
+}
+
+/**
+ * Composition affichée de « Répartition » et « Détail par catégorie » :
+ *   • aucun travail complémentaire sélectionné → le tableau d'origine est
+ *     retourné TEL QUEL (référence inchangée) : les scénarios Économique /
+ *     Standard / Premium ne sont jamais touchés ;
+ *   • travaux sélectionnés → une part par travail (libellé, coût, couleur et
+ *     icône du travail) est ajoutée à la répartition, comme une catégorie de
+ *     travaux supplémentaire, et les pourcentages sont recalculés sur le total
+ *     affiché pour que la somme des parts reste égale à 100 %.
+ *
+ * Aucun montant n'est recalculé : `estimatedCost` est repris tel quel.
+ */
+export function buildChartBreakdown(
+  breakdown: readonly ChartBreakdownEntry[] | null | undefined,
+  works: readonly CustomWorkEstimate[] | null | undefined,
+): ChartBreakdownEntry[] {
+  const base = (breakdown ?? []) as ChartBreakdownEntry[];
+
+  const added: ChartBreakdownEntry[] = (works ?? [])
+    .filter((w) => w && (Number(w.total) || 0) > 0)
+    .map((w) => {
+      const def = getCustomWorkDef(w.key);
+      return {
+        category: complementaryWorkLotId(w.key),
+        label: w.label,
+        estimatedCost: round2(Number(w.total) || 0),
+        percentage: 0,
+        color: def?.color,
+        workKey: w.key,
+        icon: w.icon ?? def?.icon,
+      };
+    });
+
+  if (added.length === 0) return base;
+
+  const entries = [...base, ...added];
+  const total = entries.reduce((s, e) => s + (Number(e.estimatedCost) || 0), 0);
+  if (total <= 0) return entries;
+  return entries.map((e) => ({
+    ...e,
+    percentage: round1(((Number(e.estimatedCost) || 0) / total) * 100),
+  }));
 }
 
 /**

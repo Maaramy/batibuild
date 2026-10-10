@@ -44,6 +44,13 @@ export interface CustomWorkDef {
    */
   icon: CustomWorkIconName;
   /**
+   * Couleur de la part du travail dans « Répartition » et « Détail par
+   * catégorie » (scénario « Personnalisé »). Teintes complémentaires de la
+   * palette BIM du résultat de coût : une teinte distincte par travail, comme
+   * une catégorie de travaux supplémentaire.
+   */
+  color: string;
+  /**
    * Catégorie du moteur BIM utilisée pour le chiffrage automatique (mêmes
    * pourcentages de structure, mêmes profils matériaux/main-d'œuvre et mêmes
    * prix que l'estimation du projet).
@@ -63,6 +70,7 @@ export const CUSTOM_WORK_CATALOG: CustomWorkDef[] = [
     label: "Piscine",
     // Même icône que la catégorie « Matériaux pour piscine » de la plateforme.
     icon: "Waves",
+    color: "#06b6d4",
     category: "piscine",
     nature: "Piscine & bassin",
   },
@@ -70,6 +78,7 @@ export const CUSTOM_WORK_CATALOG: CustomWorkDef[] = [
     key: "garage",
     label: "Garage",
     icon: "Car",
+    color: "#64748b",
     category: "garage",
     nature: "Garage / abri",
   },
@@ -78,6 +87,7 @@ export const CUSTOM_WORK_CATALOG: CustomWorkDef[] = [
     label: "Cuisine extérieure",
     // Même icône que le type « Rénovation cuisine » de la plateforme.
     icon: "CookingPot",
+    color: "#f97316",
     category: "cuisine_exterieure",
     nature: "Cuisine & barbecue extérieurs",
   },
@@ -86,6 +96,7 @@ export const CUSTOM_WORK_CATALOG: CustomWorkDef[] = [
     label: "Jardin",
     // Même icône que la catégorie « Aménagement extérieur / jardins ».
     icon: "TreePine",
+    color: "#14b8a6",
     category: "jardin",
     nature: "Aménagement paysager",
   },
@@ -94,6 +105,7 @@ export const CUSTOM_WORK_CATALOG: CustomWorkDef[] = [
     label: "Panneaux solaires",
     // Même icône que la catégorie « Panneaux solaires » de la plateforme.
     icon: "Sun",
+    color: "#eab308",
     category: "installation_solaire",
     nature: "Énergie photovoltaïque",
   },

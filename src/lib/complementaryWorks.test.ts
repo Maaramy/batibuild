@@ -6,11 +6,13 @@ import {
   CUSTOM_WORK_CATALOG,
   EXTERIOR_LOT_ID,
   complementaryWorkLotId,
+  getCustomWorkDef,
   isComplementaryWorkEligible,
   resolveCustomWorkSurface,
   type CustomWorkProjectContext,
 } from "./customWorksCatalog";
 import {
+  buildChartBreakdown,
   buildComplementaryWorksLots,
   complementaryWorksTotal,
   withComplementaryWorksLots,
@@ -219,5 +221,55 @@ describe("catégories « Travaux complémentaires personnalisés » du Quantitat
     const gros = lots.find((l) => l.id === "gros_oeuvre");
     expect(gros?.percent).toBeLessThan(100);
     expect(gros?.subtotal).toBe(180000);
+  });
+});
+
+describe("travaux complémentaires dans « Répartition » et « Détail par catégorie »", () => {
+  /** Répartition BIM du projet (scénario de référence). */
+  const BIM_BREAKDOWN = [
+    { category: "gros_oeuvre", label: "Gros œuvre", estimatedCost: 180000, percentage: 60 },
+    { category: "second_oeuvre", label: "Second œuvre", estimatedCost: 120000, percentage: 40 },
+  ];
+
+  it("n'ajoute aucune part sans travail sélectionné (répartition d'origine inchangée)", () => {
+    expect(buildChartBreakdown(BIM_BREAKDOWN, [])).toBe(BIM_BREAKDOWN);
+    expect(buildChartBreakdown(BIM_BREAKDOWN, null)).toBe(BIM_BREAKDOWN);
+  });
+
+  it("ajoute une part par travail : libellé, coût, couleur et icône du travail", () => {
+    const selected = works(["piscine", "solaire"]);
+    const chart = buildChartBreakdown(BIM_BREAKDOWN, selected);
+    expect(chart).toHaveLength(BIM_BREAKDOWN.length + selected.length);
+    for (const work of selected) {
+      const part = chart.find((e) => e.workKey === work.key);
+      expect(part?.label).toBe(work.label);
+      expect(part?.estimatedCost).toBe(work.total);
+      expect(part?.category).toBe(complementaryWorkLotId(work.key));
+      expect(part?.color).toBe(getCustomWorkDef(work.key)?.color);
+      expect(part?.icon).toBe(work.icon);
+    }
+  });
+
+  it("recalcule les parts du total sans modifier aucun montant", () => {
+    const selected = works(["piscine", "jardin"]);
+    const chart = buildChartBreakdown(BIM_BREAKDOWN, selected);
+    const total = chart.reduce((s, e) => s + e.estimatedCost, 0);
+    const bimTotal = BIM_BREAKDOWN.reduce((s, b) => s + b.estimatedCost, 0);
+    // Le total de la répartition = quantitatif BIM + travaux complémentaires.
+    expect(total).toBeCloseTo(bimTotal + complementaryWorksTotal(selected), 2);
+    // La somme des parts affichées reste égale à 100 %.
+    const share = chart.reduce((s, e) => s + (e.percentage ?? 0), 0);
+    expect(Math.abs(share - 100)).toBeLessThan(1);
+    // Les montants du quantitatif BIM sont repris tels quels.
+    for (const entry of chart) {
+      const stock = BIM_BREAKDOWN.find((b) => b.label === entry.label);
+      if (stock) expect(entry.estimatedCost).toBe(stock.estimatedCost);
+    }
+  });
+
+  it("donne à chaque travail du catalogue une teinte distincte et valide", () => {
+    const colors = CUSTOM_WORK_CATALOG.map((w) => w.color);
+    for (const color of colors) expect(color).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(new Set(colors).size).toBe(colors.length);
   });
 });

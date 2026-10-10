@@ -58,9 +58,11 @@ import {
   type CustomWorkKey,
 } from "@/lib/customWorksCatalog";
 import {
+  buildChartBreakdown,
   complementaryWorksTotal,
   withComplementaryWorksLots,
 } from "@/lib/complementaryWorks";
+import { CustomWorkIcon } from "@/components/CustomWorkIcon";
 import { runBIMEstimation } from "@/convex/bimEngine";
 import {
   buildInvestmentPrefill,
@@ -107,6 +109,12 @@ const BIM_ICONS: Record<string, any> = {
   gros_oeuvre: Building2, second_oeuvre: Paintbrush, equipements: Plug,
   main_oeuvre: Users, transport: Truck, etudes_imprevus: FileText,
 };
+
+// Couleur d'une part affichée dans « Répartition » / « Détail par catégorie » :
+// la couleur propre au travail complémentaire prime (scénario « Personnalisé »),
+// sinon la palette BIM de la catégorie.
+const chartColor = (item: { category?: string; color?: string }) =>
+  item.color ?? BIM_COLORS[String(item.category ?? "")] ?? "#888";
 
 const COMPARE_REGIONS = [
   { key: "tunis", name: "Tunis" }, { key: "sousse", name: "Sousse" },
@@ -682,6 +690,20 @@ export default function ProjectDetail() {
   const displayTotal: number = personalized && isPersonalizedScenario ? Number(personalized.totals.total) : Number(currentTotal);
   const displayCostM2 =
     personalized && isPersonalizedScenario ? personalized.totals.costPerM2 : currentCostM2;
+
+  // ── Répartition / Détail par catégorie ─────────────────────────────────
+  // Le scénario « Personnalisé » ajoute la part de CHAQUE travail
+  // complémentaire sélectionné (comme une catégorie de travaux) et recalcule
+  // les pourcentages sur le total affiché. Dans tous les autres cas,
+  // `buildChartBreakdown` retourne le tableau d'origine à l'identique : les
+  // scénarios Économique / Standard / Premium ne sont jamais modifiés.
+  const chartBreakdown = useMemo(
+    () =>
+      isPersonalizedScenario
+        ? buildChartBreakdown(scaledBreakdown, complementaryWorks)
+        : scaledBreakdown,
+    [scaledBreakdown, isPersonalizedScenario, complementaryWorks],
+  );
 
   // Main-d'œuvre : 1 lot affiché sur la page de résultat.
 
@@ -1716,8 +1738,8 @@ export default function ProjectDetail() {
                 <div className="h-[180px] sm:h-[210px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={scaledBreakdown} cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={3} dataKey="estimatedCost" nameKey="label">
-                        {scaledBreakdown.map((e: any) => <Cell key={e.label} fill={BIM_COLORS[e.category] ?? "#888"} />)}
+                      <Pie data={chartBreakdown} cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={3} dataKey="estimatedCost" nameKey="label">
+                        {chartBreakdown.map((e: any) => <Cell key={e.label} fill={chartColor(e)} />)}
                       </Pie>
                       <Tooltip content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
@@ -1734,12 +1756,16 @@ export default function ProjectDetail() {
                   </ResponsiveContainer>
                 </div>
                 <div className="grid grid-cols-2 gap-1 mt-2 pt-3 border-t border-border/10">
-                  {scaledBreakdown.map((item: any) => {
+                  {chartBreakdown.map((item: any) => {
                     const Icon = BIM_ICONS[item.category] ?? Layers;
                     return (
                       <div key={item.label} className="flex items-center gap-1.5 text-[10px] sm:text-xs">
-                        <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: BIM_COLORS[item.category] ?? "#888" }} />
-                        <Icon className="h-3 w-3 text-muted-foreground/50 shrink-0 hidden sm:block" />
+                        <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: chartColor(item) }} />
+                        {item.icon ? (
+                          <CustomWorkIcon icon={item.icon} className="h-3 w-3 text-muted-foreground/50 shrink-0 hidden sm:block" />
+                        ) : (
+                          <Icon className="h-3 w-3 text-muted-foreground/50 shrink-0 hidden sm:block" />
+                        )}
                         <span className="truncate">{item.label}</span>
                         <span className="font-semibold ml-auto">{item.percentage}%</span>
                       </div>
@@ -1752,15 +1778,15 @@ export default function ProjectDetail() {
                 <h3 className="text-sm font-semibold mb-1">Détail par catégorie</h3>
                 <p className="text-[10px] text-muted-foreground mb-3">Postes de travaux</p>
                 <div className="space-y-3">
-                  {[...scaledBreakdown].sort((a: any, b: any) => b.estimatedCost - a.estimatedCost).map((item: any, i: number) => {
+                  {[...chartBreakdown].sort((a: any, b: any) => b.estimatedCost - a.estimatedCost).map((item: any, i: number) => {
                     const Icon = BIM_ICONS[item.category] ?? Layers;
-                    const color = BIM_COLORS[item.category] ?? "#888";
+                    const color = chartColor(item);
                     return (
                       <div key={item.label}>
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-1.5 min-w-0">
-                            <div className="flex h-5 w-5 items-center justify-center rounded shrink-0" style={{ backgroundColor: color + "18" }}>
-                              <Icon className="h-3 w-3" style={{ color }} />
+                            <div className="flex h-5 w-5 items-center justify-center rounded shrink-0" style={{ backgroundColor: color + "18", color }}>
+                              {item.icon ? <CustomWorkIcon icon={item.icon} className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
                             </div>
                             <span className="text-xs sm:text-sm font-medium truncate">{item.label}</span>
                           </div>
