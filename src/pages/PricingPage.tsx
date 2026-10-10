@@ -56,7 +56,7 @@ const PLANS: {
     subtitle: "Votre projet. Votre budget. Vos décisions, mieux préparées.",
     features: [
       "Estimez vos projets au juste prix du marché tunisien",
-      "Analysez la rentabilité de vos investissements",
+      "Optimisez le budget de vos projets de construction",
       "Comparez vos scénarios avant de vous engager",
       "Générez et téléchargez vos études en PDF",
       "Accédez à vos projets et analyses sans limitation",
@@ -577,7 +577,7 @@ export default function PricingPage() {
         </div>
 
         {/* ═══ Récapitulatif inclus dans chaque forfait ═══ */}
-        <div className="mb-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="mb-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="flex items-start gap-3 rounded-2xl border border-blue-500/15 bg-blue-500/5 p-4">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10">
               <HardHat className="h-4 w-4 text-blue-600" />
@@ -585,15 +585,6 @@ export default function PricingPage() {
             <div>
               <p className="text-xs font-semibold">Projets de construction</p>
               <p className="text-[10px] text-muted-foreground mt-0.5">Estimation du coût de vos projets, aménagements et rénovations aux prix du marché tunisien.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-2xl border border-indigo-500/15 bg-indigo-500/5 p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10">
-              <Landmark className="h-4 w-4 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold">Projets d'investissement</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Analyse de la rentabilité immobilière avec rapport professionnel et export PDF.</p>
             </div>
           </div>
           <div className="flex items-start gap-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-4">

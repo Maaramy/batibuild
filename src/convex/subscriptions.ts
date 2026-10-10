@@ -148,24 +148,6 @@ async function consumeDownloadForKind(ctx: any, _kind: string): Promise<void> {
 }
 
 // consumeDownloadForKind — quotas removed
-export const consumeDownloadFor = mutation({
-  args: {
-    kind: v.union(v.literal("construction"), v.literal("investment")),
-  },
-  handler: async (ctx, args) => {
-    return consumeDownloadForKind(ctx, args.kind);
-  },
-});
-
-/** Vérifie si l'utilisateur peut télécharger (constru ou investissement). */
-export const checkDownloadAllowedFor = query({
-  args: {
-    kind: v.union(v.literal("construction"), v.literal("investment")),
-  },
-  handler: async (ctx, args) => {
-    return checkDownloadAllowedForKind(ctx, args.kind);
-  },
-});
 
 
 // ============================================================================
@@ -230,7 +212,6 @@ const MONTHLY_DURATION = MONTHLY_DURATION_DAYS * DAY_MS; // 30 jours
 export const createSubscription = mutation({
   args: {
     plan: subscriptionPlanValidator,
-    kind: v.optional(v.union(v.literal("construction"), v.literal("investment"))),
     paymentMethod: v.optional(v.string()),
     paymentId: v.optional(v.string()),
     amount: v.optional(v.number()),
@@ -254,7 +235,6 @@ export const createSubscription = mutation({
     }
 
     const now = Date.now();
-    const kind = args.kind ?? "construction"; // legacy : construction
 
     // Un seul forfait actif à la fois : un nouvel achat remplace l'ancien
     // (abonnement mensuel — renouvellement automatique).
@@ -297,7 +277,6 @@ export const createSubscription = mutation({
 
     const subscriptionId = await ctx.db.insert("subscriptions", {
       userId: user._id,
-      kind,
       plan: args.plan,
       status,
       startDate: now,

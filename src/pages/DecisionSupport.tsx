@@ -41,7 +41,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import {
   legacyContingencyFactor,
   withRealConstructionCost,
-} from "@/lib/investmentPrefill";
+} from "@/lib/constructionCost";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
 
 const SCENARIO_KEYS: BudgetScenarioKey[] = ["economique", "standard", "premium"];

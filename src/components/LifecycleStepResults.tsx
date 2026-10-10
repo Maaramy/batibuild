@@ -1,10 +1,10 @@
 // ============================================================================
-// RÉSULTATS ANIMÉS PAR ÉTAPE — parcours « De l'idée à l'investissement »
+// RÉSULTATS ANIMÉS PAR ÉTAPE — parcours « De l'idée à la réalisation »
 //
 // Sous chaque étape terminée du cycle de vie, un court « clip statistique »
 // animé affiche les résultats RÉELS du projet de référence : les chiffres
 // proviennent du backend (`api.lifecycleShowcase.getShowcase` — moteurs BIM,
-// feuille de route et investissement + annuaires réels). Aucune valeur
+// feuille de route + annuaires réels). Aucune valeur
 // fictive ni aléatoire n'est générée ici.
 //
 // L'étape « Plans AI » utilise le VRAI moteur de plans (`generateFloorPlans`) :
@@ -39,7 +39,6 @@ import {
   Percent,
   Ruler,
   Store,
-  TrendingUp,
   Users,
   Wand2,
   Wallet,
@@ -405,7 +404,6 @@ const STEP_TONES: Record<string, { accent: string; icon: LucideIcon }> = {
   materials: { accent: "text-violet-600", icon: Layers },
   consult: { accent: "text-amber-600", icon: Users },
   execution: { accent: "text-teal-600", icon: HardHat },
-  investment: { accent: "text-indigo-600", icon: TrendingUp },
 };
 
 export function StepResultPanel({
@@ -451,7 +449,6 @@ export function StepResultPanel({
           {stepKey === "materials" && <MaterialsResult data={data} />}
           {stepKey === "consult" && <ConsultResult data={data} />}
           {stepKey === "execution" && <ExecutionResult data={data} />}
-          {stepKey === "investment" && <InvestmentResult data={data} />}
         </div>
       </div>
     </motion.div>
@@ -826,31 +823,5 @@ function ExecutionResult({ data }: { data: LifecycleShowcase }) {
         <Metric icon={CalendarRange} label="Durée planifiée" value={<AnimatedNumber value={execution.plannedDurationDays} suffix=" j" />} tone="text-sky-600" />
       </Grid>
     </div>
-  );
-}
-
-// ── 6. Investissement ───────────────────────────────────────────────────────
-
-function InvestmentResult({ data }: { data: LifecycleShowcase }) {
-  const { investment } = data;
-  return (
-    <Grid>
-      <Metric icon={Wallet} label="Montant d'investissement" value={<AnimatedNumber value={investment.amount} format={(n) => formatTnd(n)} />} tone="text-indigo-600" />
-      <Metric
-        icon={Percent}
-        label="Rendement estimatif"
-        value={<AnimatedNumber value={investment.netYieldPct} suffix=" %" />}
-        sub={`Brut ${investment.grossYieldPct.toLocaleString("fr-FR")} %`}
-        tone="text-emerald-600"
-      />
-      <Metric
-        icon={Coins}
-        label="Revenus nets / an"
-        value={<AnimatedNumber value={investment.annualNetIncome} format={(n) => formatTnd(n)} />}
-        sub={`Cash-flow ${Math.round(investment.monthlyCashflow).toLocaleString("fr-FR")} TND/mois`}
-        tone="text-emerald-600"
-      />
-      <Metric icon={TrendingUp} label="ROI 10 ans" value={<AnimatedNumber value={investment.roi10yPct} suffix=" %" />} sub="Return on Investment" tone="text-violet-600" />
-    </Grid>
   );
 }

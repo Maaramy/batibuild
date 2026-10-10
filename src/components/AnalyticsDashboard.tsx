@@ -510,7 +510,6 @@ export default function AnalyticsDashboard() {
                     <div className="grid grid-cols-2 gap-2">
                       {[
                         { l: "Matériaux AI", v: activityStats.materialAnalyses.total },
-                        { l: "Analyses ROI", v: activityStats.investmentAnalyses.total },
                         { l: "Feuilles de route", v: activityStats.roadmaps.total },
                         { l: "Rapports générés", v: activityStats.reports.total },
                         { l: "Demandes de devis", v: activityStats.quoteRequests.total },

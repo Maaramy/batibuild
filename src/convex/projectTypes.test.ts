@@ -10,14 +10,9 @@ import {
   LEGACY_TYPE_LABELS,
   projectTypeLabel,
   resolveProjectType,
-  investmentTypeForProject,
   inferFloorsFromCategory,
-  INVESTMENT_ELIGIBLE_TYPES,
-  INVESTMENT_INELIGIBLE_TYPES,
-  isInvestmentEligible,
   projectHasPool,
 } from "./projectTypes";
-import { INVESTMENT_TYPES } from "./investmentTypes";
 
 describe("inferFloorsFromCategory — niveaux par défaut du moteur BIM", () => {
   it("anciens slugs supprimés (legacy) : Maison R+1 → 2 niveaux · R+2 → 3", () => {
@@ -42,8 +37,6 @@ describe("inferFloorsFromCategory — niveaux par défaut du moteur BIM", () => 
 
 // ============================================================================
 // Contrat du catalogue officiel des types de projet (11 types)
-// Aligné sur les types de bien du module Investissement
-// (à l'exception de « terrain constructible »).
 // NB : « Maison R+1 » et « Maison R+2 » ont été supprimés — le nombre de
 // niveaux est désormais choisi manuellement dans le formulaire.
 // ============================================================================
@@ -117,13 +110,6 @@ describe("PROJECT_TYPES — catalogue officiel (21 types)", () => {
     for (const t of ROOM_ELIGIBLE_TYPES) expect(official.has(t), t).toBe(true);
     for (const t of SINGLE_LEVEL_TYPES) expect(official.has(t), t).toBe(true);
   });
-
-  it("chaque type officiel est couvert par le mapping vers investissement", () => {
-    // Tous les types officiels ont un équivalent d'investissement
-    for (const t of PROJECT_TYPES) {
-      expect(investmentTypeForProject(t), t).toBeDefined();
-    }
-  });
 });
 
 describe("resolveProjectType — résolution des slugs (nouveaux & anciens)", () => {
@@ -183,102 +169,5 @@ describe("projectTypeLabel — libellés d'affichage (nouveaux & anciens)", () =
     for (const slug of Object.keys(LEGACY_TYPE_LABELS)) {
       expect(projectTypeLabel(slug).length, slug).toBeGreaterThan(0);
     }
-  });
-});
-
-describe("investmentTypeForProject — lien direct avec le module Investissement", () => {
-  it("les types officiels mappent vers des types d'investissement valides", () => {
-    const investmentSet = new Set(INVESTMENT_TYPES);
-    for (const t of PROJECT_TYPES) {
-      const inv = investmentTypeForProject(t);
-      expect(investmentSet.has(inv as any), `${t} → ${inv}`).toBe(true);
-    }
-  });
-
-  it("les anciens types sont mappés vers l'équivalent le plus proche", () => {
-    expect(investmentTypeForProject("maison_r_plus_1")).toBe("maison");
-    expect(investmentTypeForProject("maison_r_plus_2")).toBe("villa");
-    expect(investmentTypeForProject("boutique_commerciale")).toBe("local_commercial");
-    expect(investmentTypeForProject("bureau_cabinet")).toBe("bureau");
-    expect(investmentTypeForProject("atelier")).toBe("entrepot");
-    expect(investmentTypeForProject("maison_hote")).toBe("residence_touristique");
-    // renovation_complete est maintenant un type officiel → mappe vers projet_neuf via PROJECT_TO_INVESTMENT_TYPE
-    expect(investmentTypeForProject("renovation_complete")).toBe("projet_neuf");
-    expect(investmentTypeForProject("piscine_beton")).toBe("villa");
-    expect(investmentTypeForProject("garage")).toBe("local_commercial");
-    // restaurant est maintenant un type officiel → mappe vers local_commercial
-    expect(investmentTypeForProject("restaurant")).toBe("local_commercial");
-  });
-
-  it("retombe sur « appartement » pour un type inconnu", () => {
-    expect(investmentTypeForProject("slug_inconnu")).toBe("appartement");
-  });
-});
-
-// ============================================================================
-// Restriction Investissement — 11 éligibles / 10 exclus
-
-describe("INVESTMENT_ELIGIBLE_TYPES / INVESTMENT_INELIGIBLE_TYPES", () => {
-  it("les 10 types immobiliers sont éligibles (studio exclu → groupe B)", () => {
-    const expected = [
-      "maison", "villa", "appartement", "duplex", "immeuble",
-      "local_commercial", "bureau", "entrepot", "residence_touristique", "projet_neuf",
-    ];
-    expect(INVESTMENT_ELIGIBLE_TYPES).toEqual(expected);
-  });
-
-  it("le studio n'est ni éligible investissement, ni dupliqué dans une liste d'exclusion", () => {
-    expect(isInvestmentEligible("studio")).toBe(false);
-    expect(INVESTMENT_INELIGIBLE_TYPES).not.toContain("studio");
-    // Le classement reste « tout le reste = groupe B » : aucune double appartenance.
-    expect(INVESTMENT_ELIGIBLE_TYPES).not.toContain("studio");
-  });
-
-  it("les 10 types rénovation/travaux sont exclus", () => {
-    const expected = [
-      "renovation_complete", "extension_batiment", "renovation_cuisine",
-      "renovation_salle_de_bain", "peinture_interieure", "piscine",
-      "restaurant", "cafe", "electricite_complete", "plomberie_complete",
-    ];
-    expect(INVESTMENT_INELIGIBLE_TYPES).toEqual(expected);
-  });
-
-  it("aucun chevauchement entre les deux listes", () => {
-    const overlap = INVESTMENT_ELIGIBLE_TYPES.filter((t) =>
-      INVESTMENT_INELIGIBLE_TYPES.includes(t)
-    );
-    expect(overlap).toEqual([]);
-  });
-
-  it("la somme couvre PROJECT_TYPES sauf le studio (groupe B sans analyse investissement)", () => {
-    const all = [...INVESTMENT_ELIGIBLE_TYPES, ...INVESTMENT_INELIGIBLE_TYPES].sort();
-    const expected = [...PROJECT_TYPES].sort().filter((t) => t !== "studio");
-    expect(all).toEqual(expected);
-    expect(INVESTMENT_ELIGIBLE_TYPES).not.toContain("studio");
-  });
-});
-
-describe("isInvestmentEligible", () => {
-  it("les 10 types éligibles retournent true", () => {
-    for (const t of INVESTMENT_ELIGIBLE_TYPES) {
-      expect(isInvestmentEligible(t), `${t}`).toBe(true);
-    }
-  });
-
-  it("les 10 types exclus retournent false", () => {
-    for (const t of INVESTMENT_INELIGIBLE_TYPES) {
-      expect(isInvestmentEligible(t), `${t}`).toBe(false);
-    }
-  });
-
-  it("les slugs legacy mappent correctement", () => {
-    expect(isInvestmentEligible("maison_r_plus_1")).toBe(true);
-    expect(isInvestmentEligible("boutique_commerciale")).toBe(true);
-    // piscine_beton → villa (legacy map), villa est investissable
-    expect(isInvestmentEligible("piscine_beton")).toBe(true);
-  });
-
-  it("un type inconnu est exclu par défaut (non investissable)", () => {
-    expect(isInvestmentEligible("slug_inconnu")).toBe(false);
   });
 });

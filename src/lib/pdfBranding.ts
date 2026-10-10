@@ -2,7 +2,7 @@
 // IDENTITÉ PDF — EN-TÊTE / PIED DE PAGE COMMUNS
 // ----------------------------------------------------------------------------
 // Tous les générateurs de rapports PDF (devis, quantitatif, matériaux IA,
-// plans, guide construction, analyse d'investissement, rapports administratifs)
+// plans, guide construction, rapports administratifs)
 // utilisent cet en-tête unique :
 //
 //   ┌──────────────────────────────────────────────────────────────┐

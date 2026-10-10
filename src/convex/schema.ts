@@ -1,11 +1,6 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
-import {
-  analysisInputValidator,
-  analysisResultsValidator,
-  aiInsightsValidator,
-} from "./investmentTypes";
 
 // ============================================================================
 // User Roles & Subscription Plans
@@ -116,8 +111,7 @@ export const REGION_LABELS: Record<TunisiaRegion, string> = {
 // Project Categories (11 types de bien unifiés)
 // ============================================================================
 
-// Catalogue officiel des types de bien (source : src/convex/projectTypes.ts),
-// aligné sur le module Investissement (hors « Terrain constructible »).
+// Catalogue officiel des types de bien (source : src/convex/projectTypes.ts).
 // Les anciens types (maison R+1, rénovation, piscine…) restent lisibles en
 // base (schemaValidation: false) mais ne sont plus proposés dans les menus,
 // formulaires, filtres ou calculs.
@@ -863,7 +857,6 @@ const schema = defineSchema(
 
     subscriptions: defineTable({
       userId: v.id("users"),
-      kind: v.optional(v.union(v.literal("construction"), v.literal("investment"))),
       plan: subscriptionPlanValidator,
       status: v.union(
         v.literal("active"),
@@ -880,7 +873,6 @@ const schema = defineSchema(
       monthlyDownloadCount: v.optional(v.number()),
       downloadLimit: v.optional(v.number()),
       projectsUsed: v.optional(v.number()),
-      investmentsUsed: v.optional(v.number()),
       paymentProofStorageId: v.optional(v.id("_storage")),
       paymentProofUrl: v.optional(v.string()),
       paymentProofFileName: v.optional(v.string()),
@@ -1344,22 +1336,6 @@ const schema = defineSchema(
       .index("by_post_status", ["postId", "status", "createdAt"])
       .index("by_status", ["status", "createdAt"])
       .index("by_created", ["createdAt"]),
-
-    investmentAnalyses: defineTable({
-      userId: v.id("users"),
-      projectId: v.optional(v.id("projects")),
-      input: analysisInputValidator,
-      results: analysisResultsValidator,
-      aiInsights: v.optional(aiInsightsValidator),
-      shareToken: v.optional(v.string()),
-      shareExpiresAt: v.optional(v.number()),
-      isFavorite: v.optional(v.boolean()),
-      createdAt: v.number(),
-      updatedAt: v.number(),
-    })
-      .index("by_user", ["userId"])
-      .index("by_created", ["createdAt"])
-      .index("by_share_token", ["shareToken"]),
 
     aiMaterialAnalyses: defineTable({
       userId: v.id("users"),

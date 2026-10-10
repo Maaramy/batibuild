@@ -105,7 +105,7 @@ export async function getUserSubscriptionStatus(
   // d'un abonnement réellement payé (`active` / `expired`), ou — à défaut — du
   // document utilisateur, que seule une activation écrit et qu'une expiration
   // efface. Les périodes en attente restent exposées via `pendingPayment`.
-  const monthly = subs.filter((s) => s.kind !== "investment");
+  const monthly = subs;
   const activeSub = monthly.find(
     (s) => s.status === "active" && s.endDate != null && s.endDate > now,
   );
@@ -347,7 +347,6 @@ export async function applyDefaultPlanForNewUser(
     if (!existing) {
       await ctx.db.insert("subscriptions", {
         userId,
-        kind: "construction",
         plan: "pro",
         status: "active",
         startDate: now,

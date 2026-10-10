@@ -11,7 +11,7 @@
  * Aucune donnée n'est inventée : l'état de chaque rapport est déduit des
  * données réellement enregistrées sur le projet (`costEstimate`, `surface`) et
  * des artefacts persistés côté serveur (`aiMaterialAnalyses`,
- * `projectRoadmaps`, `investmentAnalyses`). Voir `src/convex/reportCenter.ts`.
+ * `projectRoadmaps`). Voir `src/convex/reportCenter.ts`.
  */
 
 import {
@@ -19,10 +19,8 @@ import {
   HardHat,
   Ruler,
   Sparkles,
-  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
-import { INVESTMENT_ELIGIBLE_TYPES, resolveProjectType } from "@/convex/projectTypes";
 import { projectJourneyGroup, type ProjectJourneyGroup } from "./projectJourney";
 
 /** Identifiant d'un module du registre. */
@@ -30,7 +28,6 @@ export type ReportModuleKey =
   | "cost"
   | "plans"
   | "materials"
-  | "investment"
   | "execution";
 
 /**
@@ -56,12 +53,6 @@ export interface ReportModuleDef {
 }
 
 const projectId = (id: string) => encodeURIComponent(id);
-
-/** Un type de projet fait-il partie du parcours « immobilier neuf » (groupe A) ? */
-export function isInvestmentEligible(category: string | null | undefined): boolean {
-  const resolved = resolveProjectType((category ?? "").trim());
-  return resolved !== null && INVESTMENT_ELIGIBLE_TYPES.includes(resolved);
-}
 
 /**
  * Registre des modules. L'ordre du tableau est l'ordre d'affichage dans la page.
@@ -93,16 +84,6 @@ export const REPORT_MODULES: readonly ReportModuleDef[] = [
     buildHref: (id) => `/dashboard/ai-materials?project=${projectId(id)}`,
   },
   {
-    key: "investment",
-    label: "Investissement immobilier",
-    description:
-      "Analyse de rentabilité, cash-flow et retour sur investissement (ROI) du projet.",
-    icon: TrendingUp,
-    flag: "investment_project",
-    buildHref: (id) => `/dashboard/investments?project=${projectId(id)}`,
-    appliesTo: isInvestmentEligible,
-  },
-  {
     key: "execution",
     label: "Exécution & suivi",
     description: "Guide construction A-Z — planning prévisionnel et suivi du chantier.",
@@ -124,7 +105,6 @@ export interface ProjectReportInput {
 export interface ProjectReportArtifacts {
   materialsAnalysisId?: string | null;
   roadmapId?: string | null;
-  investmentAnalysisId?: string | null;
 }
 
 /** État de chaque rapport d'un projet, déduit uniquement de données réelles. */
@@ -139,7 +119,6 @@ export function reportStatuses(
     // projet : il est disponible dès que le projet porte une surface.
     plans: hasDimensions ? "available" : "not_executed",
     materials: artifacts?.materialsAnalysisId ? "available" : "not_executed",
-    investment: artifacts?.investmentAnalysisId ? "available" : "not_executed",
     execution: artifacts?.roadmapId ? "available" : "not_executed",
   };
 }
@@ -153,18 +132,18 @@ export function reportStatuses(
  *
  *   • **Groupe A** — rapport PDF complet : toutes les fonctionnalités du
  *     parcours réellement activées et compatibles avec le type de projet
- *     (Coût estimatif, Plan IA, Matériaux AI, Investissement, Exécution).
+ *     (Coût estimatif, Plan IA, Matériaux AI, Exécution).
  *   • **Groupe B** — rapport d'estimation uniquement : seule la section
  *     « Coût estimatif » est présente. Les autres étapes du parcours (Plan IA,
- *     Choix matériaux, Consultation / Trouver un expert, Exécution & suivi,
- *     Investissement) sont totalement absentes du rapport — aucune section
- *     vide ni place-holder n'est laissé.
+ *     Choix matériaux, Consultation / Trouver un expert, Exécution & suivi)
+ *     sont totalement absentes du rapport — aucune section vide ni
+ *     place-holder n'est laissé.
  *
  * L'ordre du tableau suit celui du registre : le filtre retire les sections,
  * il n'en crée jamais.
  */
 export const REPORT_MODULE_KEYS_BY_GROUP: Record<ProjectJourneyGroup, readonly ReportModuleKey[]> = {
-  A: ["cost", "plans", "materials", "investment", "execution"],
+  A: ["cost", "plans", "materials", "execution"],
   B: ["cost"],
 };
 

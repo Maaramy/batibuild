@@ -58,7 +58,6 @@ export const PDF_REPORT_TYPES = [
   "Rapport de choix matériaux",
   "Rapport de consultation / mise en relation",
   "Rapport construction & suivi",
-  "Rapport d'investissement",
   "Rapport d'analyse",
   "Rapport quantitatif / DQE",
 ] as const;

@@ -33,7 +33,6 @@ import {
   downloadExecutionReport,
   downloadMaterialsReport,
   downloadPlansReport,
-  downloadInvestmentReport,
 } from "@/lib/reportDownloads";
 import {
   ArrowLeft,
@@ -86,7 +85,6 @@ type ArtifactRow = {
   projectId: string;
   materialsAnalysisId: string | null;
   roadmapId: string | null;
-  investmentAnalysisId: string | null;
 };
 
 type PendingModule = { label: string; href: string };
@@ -102,7 +100,7 @@ export default function ReportCenter() {
   usePageSEO({
     title: "Rapports PDF - batibuild",
     description:
-      "Consultez et téléchargez les rapports PDF de vos projets : devis estimatif, plan IA, matériaux AI, investissement immobilier et guide construction A-Z.",
+      "Consultez et téléchargez les rapports PDF de vos projets : devis estimatif, plan IA, matériaux AI et guide construction A-Z.",
   });
 
   // Projets de l'utilisateur connecté (lecture strictement privée, côté serveur).
@@ -119,7 +117,6 @@ export default function ReportCenter() {
       map.set(row.projectId, {
         materialsAnalysisId: row.materialsAnalysisId,
         roadmapId: row.roadmapId,
-        investmentAnalysisId: row.investmentAnalysisId,
       });
     }
     return map;
@@ -153,10 +150,6 @@ export default function ReportCenter() {
         case "materials":
           if (!artifact?.materialsAnalysisId) throw new Error("report-unavailable");
           await downloadMaterialsReport(convex, artifact.materialsAnalysisId);
-          break;
-        case "investment":
-          if (!artifact?.investmentAnalysisId) throw new Error("report-unavailable");
-          await downloadInvestmentReport(convex, artifact.investmentAnalysisId);
           break;
         case "execution":
           await downloadExecutionReport(convex, project._id);

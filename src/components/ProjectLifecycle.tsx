@@ -8,7 +8,6 @@ import {
   HardHat,
   Ruler,
   Sparkles,
-  TrendingUp,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -21,11 +20,11 @@ import { ResultPlaceholder, StepResultPanel } from "@/components/LifecycleStepRe
 /**
  * CYCLE DE VIE COMPLET D'UN PROJET — parcours animé de la page d'accueil.
  *
- * Représente les 6 étapes du projet, dans l'ordre officiel de « Projet Journey »
+ * Représente les 5 étapes du projet, dans l'ordre officiel de « Projet Journey »
  * (`src/lib/projectJourney.ts`) :
  *
  *   01 Coût estimatif → 02 Aide à la décision → 03 Plan IA →
- *   04 Consultations → 05 Exécution & suivi → 06 Investissement
+ *   04 Consultations → 05 Exécution & suivi
  *
  * Les intitulés, l'ordre et les feature flags sont identiques à ceux du
  * parcours projet : une fonctionnalité désactivée par l'administrateur est
@@ -132,31 +131,17 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
       chip: "bg-teal-500/10",
     },
   },
-  {
-    key: "investment",
-    label: "Investissement",
-    description: "Analysez la rentabilité et le potentiel de votre projet.",
-    icon: TrendingUp,
-    flag: JOURNEY_FLAG_KEYS.investment,
-    accents: {
-      gradient: "from-indigo-500 to-blue-600",
-      text: "text-indigo-600 dark:text-indigo-400",
-      ring: "ring-indigo-500/20",
-      shadow: "shadow-indigo-500/30",
-      chip: "bg-indigo-500/10",
-    },
-  },
 ];
 
 /**
  * Durée EXACTE d'une étape (ms) : 4 secondes fixes par étape, soit une
- * séquence complète de 24 secondes pour les 6 étapes. Aucune durée aléatoire,
+ * séquence complète de 20 secondes pour les 5 étapes. Aucune durée aléatoire,
  * aucune accélération liée au chargement des données.
  */
 const STEP_DURATION_MS = 4000;
 /**
- * Courte pause, une fois les 6 étapes terminées, avant la reprise de la boucle
- * (durée fixe elle aussi). À la fin, les 6 résultats restent affichés, puis la
+ * Courte pause, une fois les 5 étapes terminées, avant la reprise de la boucle
+ * (durée fixe elle aussi). À la fin, les 5 résultats restent affichés, puis la
  * séquence repart en douceur de l'étape 1.
  */
 const LOOP_HOLD_MS = 1500;
@@ -169,15 +154,15 @@ function pad(n: number): string {
 
 /**
  * Séquence animée du cycle de vie, EN BOUCLE : une étape se termine exactement
- * toutes les 4 secondes (0–4 s étape 1 … 20–24 s étape 6). Dès qu'une étape
+ * toutes les 4 secondes (0–4 s étape 1 … 16–20 s étape 5). Dès qu'une étape
  * passe à « Terminé », son résultat réel s'affiche sous elle et reste visible.
- * À la fin des 24 secondes, les 6 étapes et leurs résultats sont affichés, puis
+ * À la fin des 20 secondes, les 5 étapes et leurs résultats sont affichés, puis
  * la boucle repart de l'étape 1 — sans rechargement, de façon fluide. Seul
  * « réduire les animations » court-circuite le parcours (tout affiché d'emblée).
  */
 export function ProjectLifecycle({ className }: { className?: string }) {
   const { isEnabled } = useFeatureFlags();
-  // Résultats RÉELS par étape (moteurs BIM / feuille de route / investissement
+  // Résultats RÉELS par étape (moteurs BIM / feuille de route
   // + annuaires actifs) : affichés sous l'étape dès qu'elle passe « Terminé ».
   const showcase = useQuery(api.lifecycleShowcase.getShowcase);
   // Respecte « réduire les animations » du système : aucun mouvement lourd,
@@ -224,8 +209,8 @@ export function ProjectLifecycle({ className }: { className?: string }) {
   }, [inView, reduceMotion, total]);
 
   // Séquençage à durée fixe, EN BOUCLE : une étape passe à « Terminé » toutes
-  // les 4 s exactement (0–4 s étape 1, 4–8 s étape 2, … 20–24 s étape 6). Les
-  // 6 étapes tiennent alors toutes « Terminé » avec leurs résultats, puis la
+  // les 4 s exactement (0–4 s étape 1, 4–8 s étape 2, … 16–20 s étape 5). Les
+  // 5 étapes tiennent alors toutes « Terminé » avec leurs résultats, puis la
   // boucle repart de l'étape 1. Aucun chevauchement entre deux étapes.
   useEffect(() => {
     if (!started || total === 0) return;
@@ -575,11 +560,11 @@ export function ProjectLifecycleSection() {
             Cycle de vie du projet
           </p>
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-            De l'idée à l'<span className="gradient-text">investissement</span>
+            De l'idée à la <span className="gradient-text">réalisation</span>
           </h2>
           <p className="mt-4 text-muted-foreground">
             batibuild vous accompagne à chaque étape de votre projet — de
-            l'estimation initiale jusqu'à l'analyse de rentabilité.
+            l'estimation initiale jusqu'au suivi du chantier.
           </p>
         </motion.div>
 

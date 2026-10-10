@@ -15,7 +15,7 @@
  *   - **Durée d'exécution** : celle estimée par l'analyse IA, si présente.
  */
 
-import { REGION_LABELS } from "@/convex/investmentTypes";
+import { REGION_LABELS } from "./projectPdf";
 
 /** Statuts réellement stockés sur un projet (schéma Convex). */
 export type ProjectStatusKey = "draft" | "analyzing" | "completed" | "archived";

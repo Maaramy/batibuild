@@ -52,7 +52,6 @@ export type ProjectJourneyReportKey =
   | "cost"
   | "plans"
   | "materials"
-  | "investment"
   | "execution";
 
 /**
@@ -73,7 +72,6 @@ export const JOURNEY_FLAG_KEYS = {
   materials: "ai_materials",
   priceList: "ai_materials",
   execution: "construction_guide",
-  investment: "investment_project",
 } as const;
 
 /**
@@ -104,7 +102,6 @@ export type ProjectJourneyStepKey =
   | "priceList"
   | "consult"
   | "execution"
-  | "investment"
   | "supplier"
   | "suppliers";
 
@@ -222,9 +219,9 @@ export function buildProjectJourney(
   };
 
   // Groupe B — parcours simplifié : coût estimatif → aide à la décision →
-  // mise en relation. Ni « Plans architecturaux AI », ni « Exécution & suivi »,
-  // ni « Investissement » : les étapes absentes ne sont PAS rendues (aucun
-  // bouton, lien ou indicateur résiduel).
+  // mise en relation. Ni « Plans architecturaux AI », ni « Exécution & suivi » :
+  // les étapes absentes ne sont PAS rendues (aucun bouton, lien ou indicateur
+  // résiduel).
   if (group === "B") return filterDisabledSteps([cost, decision, consult], flags);
 
   // Groupe A — parcours complet (5 étapes) :

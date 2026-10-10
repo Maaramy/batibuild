@@ -2,11 +2,9 @@ import { motion } from "framer-motion";
 import {
   ArrowRight,
   Building2,
-  ChartBar,
   Cpu,
   FileText,
   HardHat,
-  Home,
   Menu,
   Moon,
   Sun,
@@ -20,7 +18,6 @@ import {
   ClipboardList,
   Store,
   Table2,
-  Landmark,
 } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router";
@@ -35,7 +32,6 @@ import {
   MockImportScreen,
   MockAnalysisScreen,
   MockReportScreen,
-  MockInvestProcessPanel,
 } from "@/components/LandingMockScreens";
 import { ProjectLifecycleSection } from "@/components/ProjectLifecycle";
 import { AppDownloadFooterBanner } from "@/components/AppDownloadFooterBanner";
@@ -78,14 +74,6 @@ const FEATURES = [
     gradient: "from-sky-500/20 to-blue-500/20",
     iconColor: "text-sky-600 dark:text-sky-400",
     to: "/dashboard/guide",
-  },
-  {
-    icon: ChartBar,
-    title: "Investissez sans risque",
-    desc: "ROI à 1/5/10 ans, flux de trésorerie, score IA /100 et 3 scénarios — comparez avant d'engager votre capital.",
-    gradient: "from-indigo-500/20 to-blue-500/20",
-    iconColor: "text-indigo-600 dark:text-indigo-400",
-    to: "/dashboard/investments",
   },
   {
     icon: Store,
@@ -150,7 +138,7 @@ const TESTIMONIALS = [
     name: "Sarra Mejri",
     role: "Promotrice Immobilière, Sfax",
     content:
-      "J'ai analysé 4 projets d'investissement en une matinée. L'outil m'a évité une erreur qui m'aurait coûté 40 000 TND.",
+      "J'ai analysé 4 projets de construction en une matinée. L'outil m'a évité une erreur qui m'aurait coûté 40 000 TND.",
     avatar: "SM",
     rating: 5,
     metric: "40 000 TND d'erreur évitée",
@@ -192,7 +180,6 @@ function ThemeToggle() {
 }
 
 function Navbar() {
-  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
@@ -287,7 +274,6 @@ function Navbar() {
 
 function HeroSection() {
   const navigate = useNavigate();
-  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
   // Le bandeau épinglé (`h-10`) s'ajoute à la hauteur de la barre de navigation
   // fixe (`h-16`) : le haut de page doit rester entièrement visible.
   const downloadBannerVisible = useAppDownloadBannerVisible();
@@ -314,7 +300,7 @@ function HeroSection() {
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-sm">
                 <Sparkles className="h-3 w-3" />
               </span>
-              Plateforme IA de construction & d'investissement
+              Plateforme IA de construction & de rénovation
             </span>
           </motion.div>
 
@@ -326,7 +312,7 @@ function HeroSection() {
             className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.08] max-w-4xl mx-auto"
           >
             Votre <span className="gradient-text">copilote IA</span> pour
-            construire, rénover et investir.
+            construire et rénover.
           </motion.h1>
 
           {/* Tagline — pill badges with gradient backgrounds */}
@@ -340,7 +326,6 @@ function HeroSection() {
               { icon: Calculator, label: "Estimez", bg: "bg-emerald-500/8", border: "border-emerald-500/20", hover: "hover:bg-emerald-500/15 hover:border-emerald-500/30", color: "text-emerald-600 dark:text-emerald-400", ring: "ring-emerald-500/20" },
               { icon: Sparkles, label: "Optimisez", bg: "bg-violet-500/8", border: "border-violet-500/20", hover: "hover:bg-violet-500/15 hover:border-violet-500/30", color: "text-violet-600 dark:text-violet-400", ring: "ring-violet-500/20" },
               { icon: Building2, label: "Construisez", bg: "bg-sky-500/8", border: "border-sky-500/20", hover: "hover:bg-sky-500/15 hover:border-sky-500/30", color: "text-sky-600 dark:text-sky-400", ring: "ring-sky-500/20" },
-              { icon: TrendingUp, label: "Investissez", bg: "bg-indigo-500/8", border: "border-indigo-500/20", hover: "hover:bg-indigo-500/15 hover:border-indigo-500/30", color: "text-indigo-600 dark:text-indigo-400", ring: "ring-indigo-500/20" },
             ].map((item, i) => (
               <motion.span
                 key={item.label}
@@ -499,7 +484,6 @@ function HeroSection() {
                     { icon: Calculator, label: "Estimer" },
                     { icon: Sparkles, label: "Optimiser" },
                     { icon: Building2, label: "Construire" },
-                    { icon: TrendingUp, label: "Investir" },
                   ].map((step, i) => (
                     <span
                       key={step.label}
@@ -556,7 +540,6 @@ function HeroSection() {
               {[
                 ...(isFeatureEnabled("ai_materials") ? [{ label: "Prix des matériaux", icon: Table2, to: "/dashboard/materials" }] : []),
                 { label: "Guide Construction A-Z", icon: ClipboardList, to: "/dashboard/guide" },
-                ...(isFeatureEnabled("investment_project") ? [{ label: "Investissement immobilier", icon: ChartBar, to: "/dashboard/investments" }] : []),
                 { label: "Espace fournisseur", icon: Store, to: "/dashboard/supplier" },
               ].map((mod: any) => (
                 <button
@@ -578,25 +561,10 @@ function HeroSection() {
 
 
 function HowItWorksSection() {
-  const { isEnabled: isFeatureEnabled } = useFeatureFlags();
-  const [mode, setMode] = useState<"construction" | "investissement">("construction");
   const [activeStep, setActiveStep] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sectionRef = useRef(null);
-
-  // Flag « Projet d'investissement » : l'onglet du sélecteur disparaît et le
-  // mode construction reste actif (aucun état orphelin).
-  const productModes: {
-    id: "construction" | "investissement";
-    label: string;
-    icon: typeof HardHat;
-  }[] = [
-    { id: "construction", label: "Construction", icon: HardHat },
-    ...(isFeatureEnabled("investment_project")
-      ? [{ id: "investissement" as const, label: "Investissement", icon: Landmark }]
-      : []),
-  ];
 
   const CONSTRUCTION_STEPS = [
     {
@@ -634,48 +602,7 @@ function HowItWorksSection() {
     },
   ] as const;
 
-  const INVEST_STEPS = [
-    {
-      step: "01",
-      icon: Home,
-      title: "Décrivez le bien",
-      shortTitle: "Bien",
-      desc: "Prix d'achat, loyer attendu, ville et quartier : l'IA connaît les prix du marché tunisien 2026.",
-      gradient: "from-indigo-500 to-blue-600",
-      bgGradient: "from-indigo-50/50 to-blue-50/50 dark:from-indigo-950/20 dark:to-blue-950/20",
-      border: "border-indigo-200/50 dark:border-indigo-800/30",
-      textColor: "text-indigo-600 dark:text-indigo-400",
-    },
-    {
-      step: "02",
-      icon: ChartBar,
-      title: "L'IA calcule la rentabilité",
-      shortTitle: "Rentabilité",
-      desc: "Rendement net, flux de trésorerie, score IA /100 et prévisions sur 10 ans.",
-      gradient: "from-blue-500 to-cyan-500",
-      bgGradient: "from-blue-50/50 to-cyan-50/50 dark:from-blue-950/20 dark:to-cyan-950/20",
-      border: "border-blue-200/50 dark:border-blue-800/30",
-      textColor: "text-blue-600 dark:text-blue-400",
-    },
-    {
-      step: "03",
-      icon: TrendingUp,
-      title: "Comparez et décidez",
-      shortTitle: "Décision",
-      desc: "Scénarios optimiste / prudent, meilleures zones et comparaison avec vos autres projets.",
-      gradient: "from-emerald-500 to-teal-500",
-      bgGradient: "from-emerald-50/50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/20",
-      border: "border-emerald-200/50 dark:border-emerald-800/30",
-      textColor: "text-emerald-600 dark:text-emerald-400",
-    },
-  ] as const;
-
-  const steps = mode === "construction" ? CONSTRUCTION_STEPS : INVEST_STEPS;
-
-  // Remet l'étape active au début quand on change de produit
-  useEffect(() => {
-    setActiveStep(0);
-  }, [mode]);
+  const steps = CONSTRUCTION_STEPS;
 
   // Auto-play
   useEffect(() => {
@@ -721,28 +648,8 @@ function HowItWorksSection() {
             <span className="gradient-text">3 clics</span>
           </h2>
           <p className="mt-4 text-muted-foreground">
-            {mode === "construction"
-              ? "Importez, laissez l'IA analyser, recevez votre devis détaillé — en moins de 5 minutes."
-              : "Décrivez le bien, recevez l'analyse de rentabilité, comparez les scénarios — en 3 minutes."}
+            Importez, laissez l'IA analyser, recevez votre devis détaillé — en moins de 5 minutes.
           </p>
-
-          {/* Sélecteur de produit */}
-          <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-1 rounded-full border border-border/40 bg-muted/30 p-1">
-            {productModes.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setMode(p.id)}
-                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all ${
-                  mode === p.id
-                    ? "border border-border/50 bg-background text-foreground shadow-sm"
-                    : "border border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <p.icon className="h-3.5 w-3.5" />
-                {p.label}
-              </button>
-            ))}
-          </div>
         </motion.div>
 
         {/* Main demo area */}
@@ -818,14 +725,9 @@ function HowItWorksSection() {
 
               {/* Mock screen content */}
               <div className="p-4 sm:p-6">
-                {mode === "construction" && (
-                  <>
-                    {activeStep === 0 && <MockImportScreen />}
-                    {activeStep === 1 && <MockAnalysisScreen />}
-                    {activeStep === 2 && <MockReportScreen />}
-                  </>
-                )}
-                {mode === "investissement" && <MockInvestProcessPanel />}
+                {activeStep === 0 && <MockImportScreen />}
+                {activeStep === 1 && <MockAnalysisScreen />}
+                {activeStep === 2 && <MockReportScreen />}
               </div>
 
               {/* Step indicator overlay */}
@@ -857,8 +759,6 @@ function FeaturesSection() {
   const { isEnabled: isFeatureEnabled } = useFeatureFlags();
   const visibleFeatures = FEATURES.filter(
     (f) => f.to !== "/dashboard/materials" || isFeatureEnabled("ai_materials")
-  ).filter(
-    (f) => f.to !== "/dashboard/investments" || isFeatureEnabled("investment_project")
   );
 
   return (
@@ -871,7 +771,7 @@ function FeaturesSection() {
             <span className="gradient-text">construire sereinement</span>
           </h2>
           <p className="mt-4 text-muted-foreground">
-            9 modules qui couvrent chaque étape : de l'estimation au suivi de chantier, en passant par le choix des matériaux et l'analyse d'investissement.
+            8 modules qui couvrent chaque étape : de l'estimation au suivi de chantier, en passant par le choix des matériaux et le guide construction.
           </p>
         </div>
 
@@ -1042,7 +942,7 @@ function Footer() {
           <div className="col-span-2 md:col-span-1">
             <Logo size="sm" className="mb-4" wordmarkClassName="text-base" />
             <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">
-              Plateforme IA complète : estimation de construction, prix des matériaux, guide A-Z, investissement immobilier et fournisseurs — prix actualisés du marché tunisien.
+              Plateforme IA complète : estimation de construction, prix des matériaux, guide A-Z et fournisseurs — prix actualisés du marché tunisien.
             </p>
           </div>
           <div>
@@ -1050,7 +950,6 @@ function Footer() {
             <ul className="space-y-2">
               <li><a href="#features" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a></li>
               <li><a href="/dashboard/guide" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Guide Construction A-Z</a></li>
-              {isFeatureEnabled("investment_project") && <li><a href="/dashboard/investments" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Investissement immobilier</a></li>}
               {isFeatureEnabled("ai_materials") && <li><a href="/dashboard/materials" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Prix des matériaux</a></li>}
               <li><a href="/dashboard/pricing" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Tarifs & abonnements</a></li>
               <li><a href="/blog" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Blog</a></li>
@@ -1090,8 +989,8 @@ function Footer() {
 
 export default function Landing() {
   usePageSEO({
-    title: "batibuild - Votre copilote IA pour construire, rénover et investir",
-    description: "Estimez. Optimisez. Construisez. Investissez. Estimation de construction par IA, assistant de choix des matériaux, guide de construction A-Z, analyse d'investissement immobilier et fournisseurs — prix actualisés du marché tunisien 2026.",
+    title: "batibuild - Votre copilote IA pour construire et rénover",
+    description: "Estimez. Optimisez. Construisez. Estimation de construction par IA, assistant de choix des matériaux, guide de construction A-Z et annuaire de fournisseurs — prix actualisés du marché tunisien 2026.",
   });
   return (
     <motion.div

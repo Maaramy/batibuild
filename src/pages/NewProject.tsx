@@ -43,11 +43,10 @@ const TUNISIA_REGIONS = [
   { value: "tozeur", label: "Tozeur" }, { value: "kebili", label: "Kébili" },
 ];
 
-// Types de bien — catalogue officiel du moteur BIM, synchronisé avec le
-// formulaire d'investissement (à l'exception de « Terrain constructible »,
-// qui n'est pas un projet de construction).
+// Types de bien — catalogue officiel du moteur BIM (à l'exception de
+// « Terrain constructible », qui n'est pas un projet de construction).
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  // 11 types officiels — alignés module Investissement (hors terrain)
+  // 11 types officiels du moteur de construction (hors terrain)
   maison: Home,
   villa: Building2,
   appartement: Building,

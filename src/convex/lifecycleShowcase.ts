@@ -1,12 +1,11 @@
 // ============================================================================
-// PARCOURS « DE L'IDÉE À L'INVESTISSEMENT » — résultats RÉELS par étape
+// PARCOURS « DE L'IDÉE À LA RÉALISATION » — résultats RÉELS par étape
 //
 // Query publique qui exécute les VRAIS moteurs de la plateforme et renvoie les
 // chiffres affichés sous chaque étape terminée du parcours (page d'accueil) :
 //
 //   - runBIMEstimation  → coût estimatif, quantitatif, coût au m², matériaux
 //   - generateRoadmap   → exécution & suivi (progression, phases, budget)
-//   - runEngine         → investissement (montant, rendement, ROI)
 //   - annuaires réels   → experts & fournisseurs actifs (cartes)
 //
 // Aucune valeur aléatoire ni fictive : tout provient des moteurs de calcul ou
@@ -21,7 +20,6 @@ import { query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { runBIMEstimation } from "./bimEngine";
 import { generateRoadmap } from "./roadmapEngine";
-import { runEngine } from "./investments";
 import {
   EXPERT_CATEGORIES,
   EXPERT_OTHER_CATEGORY,
@@ -145,15 +143,6 @@ export interface LifecycleShowcase {
     plannedBudget: number;
     plannedDurationDays: number;
   };
-  /** 6. Investissement. */
-  investment: {
-    amount: number;
-    grossYieldPct: number;
-    netYieldPct: number;
-    annualNetIncome: number;
-    monthlyCashflow: number;
-    roi10yPct: number;
-  };
 }
 
 export const getShowcase = query({
@@ -209,34 +198,6 @@ export const getShowcase = query({
       },
       costEstimate: ce as any,
     });
-
-    // ── Moteur d'investissement (rendement, ROI) ─────────────────────────────
-    const investment = runEngine({
-      name: DEMO.name,
-      investmentType: "maison",
-      purchasePrice: Math.round(standardTotal),
-      area: DEMO.surface,
-      region: DEMO.region,
-      city: DEMO.city,
-      rentMode: "mensuel",
-      rentAmount: 1500,
-      monthlyRent: 1500,
-      occupancyRate: 95,
-      annualCharges: 1200,
-      insurance: 300,
-      managementFees: 0,
-      taxationPct: 10,
-      renovationCost: 0,
-      financingFees: 0,
-      agencyFees: 0,
-      furnishingCost: 0,
-      acquisitionFeesPct: 6,
-      annualAppreciationPct: 5,
-      rentGrowthPct: 5,
-      inflationPct: 6,
-      horizonYears: 10,
-    });
-    const ind = investment.indicators;
 
     // ── Experts & fournisseurs réellement inscrits (annuaires actifs) ────────
     const [experts, suppliers] = await Promise.all([
@@ -351,14 +312,6 @@ export const getShowcase = query({
         phases: roadmap.phases.length,
         plannedBudget: roadmap.summary.plannedBudget,
         plannedDurationDays: roadmap.summary.plannedDurationDays,
-      },
-      investment: {
-        amount: ind.purchasePrice,
-        grossYieldPct: ind.grossYieldPct,
-        netYieldPct: ind.netYieldPct,
-        annualNetIncome: ind.netAnnualIncome,
-        monthlyCashflow: ind.monthlyCashflow,
-        roi10yPct: ind.roi10yPct,
       },
     };
   },

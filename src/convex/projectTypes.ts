@@ -1,17 +1,16 @@
 // ============================================================================
 // CATALOGUE OFFICIEL DES TYPES DE PROJET (21 types)
 //
-// 11 types immobiliers (éligibles Investissement) :
+// 11 types immobiliers (parcours complet) :
 //   maison, villa, appartement, studio, duplex, immeuble,
 //   local_commercial, bureau, entrepot, residence_touristique, projet_neuf
 //
-// 10 types rénovation / travaux techniques (exclus de l'Investissement) :
+// 10 types rénovation / travaux techniques (parcours simplifié) :
 //   renovation_complete, extension_batiment, renovation_cuisine,
 //   renovation_salle_de_bain, peinture_interieure, piscine,
 //   restaurant, cafe, electricite_complete, plomberie_complete
 //
 // Chaque type dispose d'un gabarit DQE spécifique dans dqeEngine.ts.
-// Les types éligibles Investissement sont listés dans INVESTMENT_ELIGIBLE_TYPES.
 // ============================================================================
 
 export const PROJECT_TYPES = [
@@ -474,95 +473,3 @@ const LABEL_ALIASES: Record<string, ProjectType> = {
   construction: "projet_neuf",
 };
 
-/**
- * Types éligibles au module Investissement (Groupe A — parcours complet).
- * Le studio est volontairement exclu (Groupe B) : bien de petite surface,
- * mono-niveau, sans analyse de rentabilité immobilière.
- * Les types de rénovation, travaux techniques et équipements extérieurs
- * sont exclus de l'investissement car ce ne sont pas des biens immobiliers.
- */
-export const INVESTMENT_ELIGIBLE_TYPES: string[] = [
-  "maison",
-  "villa",
-  "appartement",
-  "duplex",
-  "immeuble",
-  "local_commercial",
-  "bureau",
-  "entrepot",
-  "residence_touristique",
-  "projet_neuf",
-];
-
-/** Types exclus du module Investissement (rénovation, équipements, techniques). */
-export const INVESTMENT_INELIGIBLE_TYPES: string[] = [
-  "renovation_complete",
-  "extension_batiment",
-  "renovation_cuisine",
-  "renovation_salle_de_bain",
-  "peinture_interieure",
-  "piscine",
-  "restaurant",
-  "cafe",
-  "electricite_complete",
-  "plomberie_complete",
-];
-
-/** Vérifie si un type de projet est éligible au module Investissement. */
-export function isInvestmentEligible(slug: string): boolean {
-  const resolved = resolveProjectType(slug) ?? slug;
-  return INVESTMENT_ELIGIBLE_TYPES.includes(resolved);
-}
-
-// ============================================================================
-// Lien avec le module Investissement
-// Les types éligibles correspondent aux types de bien du module Investissement
-// (hors « Terrain constructible »). Les types de rénovation/travaux techniques
-// sont exclus car ce ne sont pas des biens immobiliers investissables.
-// ============================================================================
-
-export const PROJECT_TO_INVESTMENT_TYPE: Record<string, string> = {
-  // Types officiels éligibles → équivalent d'investissement (mapping direct 1:1)
-  maison: "maison",
-  villa: "villa",
-  appartement: "appartement",
-  studio: "studio",
-  duplex: "duplex",
-  immeuble: "immeuble",
-  local_commercial: "local_commercial",
-  bureau: "bureau",
-  entrepot: "entrepot",
-  residence_touristique: "residence_touristique",
-  projet_neuf: "projet_neuf",
-  // Anciens types (rétro-compatibilité données existantes)
-  maison_r_plus_1: "maison",
-  maison_r_plus_2: "villa",
-  immeuble_residentiel: "immeuble",
-  boutique_commerciale: "local_commercial",
-  bureau_cabinet: "bureau",
-  atelier: "entrepot",
-  maison_hote: "residence_touristique",
-  renovation_complete: "projet_neuf",
-  renovation_cuisine: "projet_neuf",
-  renovation_salle_de_bain: "projet_neuf",
-  peinture_interieure: "projet_neuf",
-  piscine_beton: "villa",
-  piscine_coque: "villa",
-  piscine: "villa",
-  garage: "local_commercial",
-  batiment_agricole: "entrepot",
-  electricite_complete: "projet_neuf",
-  plomberie_complete: "projet_neuf",
-  ferme: "entrepot",
-  serre_agricole: "entrepot",
-  installations_sanitaires: "projet_neuf",
-  installations_electricite: "projet_neuf",
-  restaurant: "local_commercial",
-  cafe: "local_commercial",
-};
-
-/** Type d'investissement associé à un projet (nouveau ou ancien slug). */
-export function investmentTypeForProject(slug: string): string {
-  const resolved = resolveProjectType(slug) ?? slug;
-  return PROJECT_TO_INVESTMENT_TYPE[resolved] ?? "appartement";
-}

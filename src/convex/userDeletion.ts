@@ -142,9 +142,6 @@ export const deleteUserCompletely = internalMutation({
     counts.aiMaterialAnalyses =
       (counts.aiMaterialAnalyses ?? 0) +
       (await deleteAll(ctx, await collectByUser(ctx, "aiMaterialAnalyses", userId)));
-    counts.investmentAnalyses =
-      (counts.investmentAnalyses ?? 0) +
-      (await deleteAll(ctx, await collectByUser(ctx, "investmentAnalyses", userId)));
 
     // Fichiers téléversés sur les projets (plans, photos, DWG…) + comptes
     // auth/sessions (l'auth doit disparaître avant la suppression du compte).
@@ -414,7 +411,6 @@ export const deleteUserCompletely = internalMutation({
     );
     await verify("quoteRequests", await collectByUser(ctx, "quoteRequests", userId));
     await verify("quoteResponses", await collectByUser(ctx, "quoteResponses", userId));
-    await verify("investmentAnalyses", await collectByUser(ctx, "investmentAnalyses", userId));
     await verify("aiMaterialAnalyses", await collectByUser(ctx, "aiMaterialAnalyses", userId));
     await verify("supportTickets", await collectByUser(ctx, "supportTickets", userId));
     const authLeft = await ctx.db

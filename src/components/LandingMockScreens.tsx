@@ -1,6 +1,5 @@
 import { motion } from "framer-motion";
 import {
-  Bot,
   Building2,
   Check,
   Cpu,
@@ -9,15 +8,10 @@ import {
   Layers,
   Loader2,
   MapPin,
-  Percent,
   Ruler,
   Sparkles,
-  TrendingUp,
   Upload,
-  Wallet,
 } from "lucide-react";
-
-const MOCK_FORECAST_BARS = [18, 26, 34, 42, 51, 60, 70, 81, 92, 100];
 
 export function MockImportScreen() {
   return (
@@ -204,150 +198,7 @@ export function MockReportScreen() {
   );
 }
 
-export function MockInvestProcessPanel() {
-  return (
-    <div className="space-y-4">
-      {/* Score + rentabilité */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-indigo-200/60 dark:border-indigo-800/40 bg-gradient-to-br from-indigo-500 to-blue-600 p-3.5 text-white shadow-lg shadow-indigo-500/20">
-          <p className="text-[9px] uppercase tracking-widest text-indigo-100/80">Score IA</p>
-          <p className="mt-1 text-2xl font-black">78<span className="text-xs font-semibold text-indigo-100">/100</span></p>
-          <p className="mt-0.5 text-[10px] text-indigo-100/80">Projet rentable</p>
-        </div>
-        <div className="rounded-xl border border-border/30 bg-background/70 p-3.5">
-          <p className="text-[9px] uppercase tracking-widest text-muted-foreground">Rendement net</p>
-          <p className="mt-1 text-2xl font-black text-emerald-600">7,4%</p>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">Flux annuel positif</p>
-        </div>
-      </div>
 
-      {/* Indicateurs */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Budget", value: "185 000 TND" },
-          { label: "Loyer/mois", value: "1 350 TND" },
-          { label: "ROI 10 ans", value: "142%" },
-        ].map((s) => (
-          <div key={s.label} className="rounded-lg border border-border/30 bg-background/60 px-2.5 py-2 text-center">
-            <p className="text-[9px] text-muted-foreground">{s.label}</p>
-            <p className="mt-0.5 text-xs font-bold tabular-nums">{s.value}</p>
-          </div>
-        ))}
-      </div>
 
-      {/* Barre de progression rentabilité */}
-      <div className="rounded-xl border border-border/30 bg-background/70 p-3">
-        <div className="mb-1.5 flex items-center justify-between text-[10px]">
-          <span className="font-medium text-muted-foreground">Flux de trésorerie cumulés</span>
-          <span className="font-bold text-indigo-600 dark:text-indigo-400">+ 96 500 TND</span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-muted">
-          <motion.div
-            initial={{ width: "0%" }}
-            animate={{ width: "68%" }}
-            transition={{ duration: 2, ease: "easeOut" }}
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-blue-500"
-          />
-        </div>
-        <div className="mt-1 flex justify-between text-[9px] text-muted-foreground">
-          <span>Année 1</span>
-          <span>Année 10</span>
-        </div>
-      </div>
 
-      {/* Scénarios */}
-      <div className="flex flex-wrap gap-1.5">
-        {["Optimiste +9,1%", "Prudent +5,2%", "Meilleure zone : La Marsa"].map((chip) => (
-          <span key={chip} className="rounded-full border border-indigo-500/25 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-medium text-indigo-600 dark:text-indigo-300">
-            {chip}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
 
-export function MockInvestmentScreen() {
-  return (
-    <div className="space-y-4">
-      {/* Score IA card */}
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-indigo-200/50 dark:border-indigo-800/30 bg-gradient-to-r from-indigo-500/10 to-blue-500/10 p-3.5">
-        <div className="flex items-center gap-3">
-          <div className="relative h-14 w-14 shrink-0">
-            <svg viewBox="0 0 56 56" className="h-full w-full -rotate-90">
-              <circle cx="28" cy="28" r="23" fill="none" strokeWidth="5" className="stroke-muted/40" />
-              <circle
-                cx="28" cy="28" r="23" fill="none" strokeWidth="5" strokeLinecap="round"
-                stroke="#6366f1" strokeDasharray={144.5} strokeDashoffset={144.5 * (1 - 0.94)}
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center text-sm font-extrabold">94</div>
-          </div>
-          <div>
-            <div className="text-xs font-semibold">Score IA</div>
-            <div className="text-[10px] text-muted-foreground">Excellent investissement</div>
-            <div className="mt-1 flex items-center gap-1 text-[9px] text-emerald-600 dark:text-emerald-400">
-              <Check className="h-3 w-3" />
-              Confiance IA 92%
-            </div>
-          </div>
-        </div>
-        <div className="text-right hidden sm:block">
-          <div className="text-[9px] text-muted-foreground uppercase tracking-wider">Appartement</div>
-          <div className="text-xs font-bold">La Marsa</div>
-          <div className="text-[9px] text-muted-foreground">Tunis</div>
-        </div>
-      </div>
-
-      {/* KPI chips */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Rendement net", value: "6,2%", color: "text-emerald-600 dark:text-emerald-400", icon: Percent },
-          { label: "Flux de trésorerie", value: "+980 TND", color: "text-blue-600 dark:text-blue-400", icon: Wallet },
-          { label: "Return on Investment 10 ans", value: "82%", color: "text-indigo-600 dark:text-indigo-400", icon: TrendingUp },
-        ].map((kpi) => (
-          <div key={kpi.label} className="rounded-lg border border-border/20 bg-background/50 p-2.5 text-center">
-            <kpi.icon className={`h-3.5 w-3.5 mx-auto mb-1 ${kpi.color}`} />
-            <div className={`text-xs font-bold ${kpi.color}`}>{kpi.value}</div>
-            <div className="text-[8px] text-muted-foreground truncate">{kpi.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Forecast chart */}
-      <div className="rounded-lg border border-border/20 bg-background/50 p-3">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[10px] font-medium text-muted-foreground">Prévisions des bénéfices (10 ans)</span>
-          <span className="text-[9px] text-indigo-600 dark:text-indigo-400 font-semibold">+428 000 TND</span>
-        </div>
-        <div className="flex items-end gap-1.5 h-20">
-          {MOCK_FORECAST_BARS.map((h, i) => (
-            <motion.div
-              key={i}
-              initial={{ height: 0 }}
-              whileInView={{ height: `${h}%` }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.06, duration: 0.5, ease: "easeOut" }}
-              className={`flex-1 rounded-t ${i === 9 ? "bg-gradient-to-t from-indigo-600 to-blue-500" : "bg-indigo-500/25 dark:bg-indigo-400/25"}`}
-              style={{ height: `${h}%` }}
-            />
-          ))}
-        </div>
-        <div className="flex justify-between mt-1 text-[8px] text-muted-foreground/60">
-          <span>An 1</span>
-          <span>An 3</span>
-          <span>An 5</span>
-          <span>An 10</span>
-        </div>
-      </div>
-
-      {/* Assistant chip */}
-      <div className="flex items-center gap-2 rounded-lg border border-indigo-200/40 dark:border-indigo-800/30 bg-indigo-500/5 px-3 py-2">
-        <Bot className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-        <span className="text-[10px] text-muted-foreground">
-          Assistant IA : <span className="font-medium text-foreground">« Cet investissement est-il rentable ? »</span>
-        </span>
-      </div>
-    </div>
-  );
-}

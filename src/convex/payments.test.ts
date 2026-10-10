@@ -75,9 +75,6 @@ describe("getPlanPricing", () => {
     expect(result!.freeProjectLimit).toBe(0);
     expect(result!.proProjectLimit).toBe(1000000);
     expect(result!.expertProjectLimit).toBe(1000000);
-    expect(result!.freeInvestmentLimit).toBe(0);
-    expect(result!.proInvestmentLimit).toBe(1000000);
-    expect(result!.expertInvestmentLimit).toBe(1000000);
     expect(result!.freeDownloadLimit).toBe(0);
     expect(result!.proDownloadLimit).toBe(1000000);
     expect(result!.expertDownloadLimit).toBe(1000000);
@@ -248,20 +245,14 @@ describe("updatePlanPricing", () => {
     expect(result!.supplierPrice).toBe(120);
   });
 
-  it("enregistre un prix unique par forfait (tous les types couverts)", async () => {
+  it("enregistre le prix et les limites du forfait", async () => {
     const adminId = await createTestUser(t, { role: "admin" });
     const adminT = asAdmin(t, adminId);
 
     await adminT.mutation(api.payments.updatePlanPricing, {
-      plan: "free",
-      type: "construction",
-      price: 80,
-    } as any);
-    await adminT.mutation(api.payments.updatePlanPricing, {
       plan: "pro",
       price: 130,
       projectLimit: 6,
-      investmentLimit: 6,
       downloadLimit: 6,
     });
 
@@ -269,7 +260,6 @@ describe("updatePlanPricing", () => {
     expect(result!.startPrice).toBe(80);
     expect(result!.proPrice).toBe(130);
     expect(result!.proProjectLimit).toBe(6);
-    expect(result!.proInvestmentLimit).toBe(6);
     expect(result!.proDownloadLimit).toBe(6);
   });
 

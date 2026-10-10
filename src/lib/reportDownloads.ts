@@ -2,8 +2,8 @@
  * TÉLÉCHARGEMENTS DES RAPPORTS PDF
  *
  * Chaque fonction réutilise EXACTEMENT le générateur du module concerné
- * (devis estimatif, plan IA, rapport Matériaux AI, analyse d'investissement
- * immobilier, guide construction A-Z) : le PDF téléchargé depuis « Rapports
+ * (devis estimatif, plan IA, rapport Matériaux AI, guide construction A-Z) :
+ * le PDF téléchargé depuis « Rapports
  * PDF » est donc le rapport réellement généré pour ce projet, avec le branding
  * centralisé (`src/lib/pdfBranding.ts` — nom batibuild, logo officiel, en-tête
  * blanc).
@@ -11,7 +11,7 @@
  * Les données proviennent soit du projet lui-même (coût, plan), soit des
  * artefacts persistés côté serveur, rechargés via des requêtes Convex qui
  * vérifient l'utilisateur et l'appartenance du rapport (matériaux,
- * investissement, exécution).
+ * exécution).
  */
 
 import type { ConvexReactClient } from "convex/react";
@@ -29,7 +29,6 @@ import { downloadFloorPlanPdf } from "./floorPlanPdf";
 import { generateMaterialReportPdf } from "./materialReportPdf";
 import { generateProjectPdf } from "./projectPdf";
 import { exportRoadmapPdf } from "./roadmapReportPdf";
-import { generatePdf } from "@/components/investment/shared";
 
 /** Forme minimale d'un projet utilisée par les générateurs. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,18 +189,6 @@ export async function downloadMaterialsReport(
   const result = doc?.results?.recommend;
   if (!result) throw new Error("report-unavailable");
   generateMaterialReportPdf({ result });
-}
-
-/** Investissement immobilier — rapport d'analyse de rentabilité (analyse enregistrée). */
-export async function downloadInvestmentReport(
-  convex: ConvexReactClient,
-  analysisId: string,
-): Promise<void> {
-  const doc = await convex.query(api.investments.getAnalysis, {
-    analysisId: analysisId as never,
-  });
-  if (!doc?.results) throw new Error("report-unavailable");
-  generatePdf(doc as never);
 }
 
 /** Exécution & suivi — guide construction A-Z (feuille de route enregistrée). */

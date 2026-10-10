@@ -1,23 +1,17 @@
 import { useMutation } from "convex/react";
 import { useNavigate } from "react-router";
-import { toast } from "sonner";
 import {
-  AlertTriangle,
   ArrowUpRight,
   Blocks,
   Building2,
-  CalendarDays,
-  CheckCircle2,
   Clock,
   HardHat,
   Heart,
   Loader2,
-  MapPin,
   MoreHorizontal,
   PencilRuler,
   Rocket,
   Trash2,
-  TrendingUp,
   Users,
 } from "lucide-react";
 
@@ -32,14 +26,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { TYPE_META, fmtTND, fmtPct } from "@/components/investment/shared";
-import { REGION_LABELS } from "@/convex/investmentTypes";
 import { projectTypeLabel } from "@/convex/projectTypes";
 import { buildProjectQuickActions } from "@/lib/projectQuickActions";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { projectJourneyGroup } from "@/lib/projectJourney";
-import { buildInvestmentHistoryEntry } from "@/lib/investmentHistory";
-import { ANALYSIS_STATUS_LABEL, type AnalysisHistoryStatus } from "@/lib/analysisHistory";
 
 // ============================================================================
 // Cartes réutilisables du tableau de bord (extraites de `Dashboard.tsx`)
@@ -261,188 +251,6 @@ export function MiniStat({ icon: Icon, label, value, tone }: any) {
         <p className="text-sm font-bold truncate tabular-nums">{value}</p>
       </div>
     </div>
-  );
-}
-
-// ============================================================================
-// Investment Analysis Card (projet d'investissement enregistré)
-// Même style de carte que l'historique des analyses Matériaux AI.
-// ============================================================================
-
-/** Style du badge de statut — mêmes couleurs que les cartes d'historique Matériaux AI. */
-const INVESTMENT_STATUS_STYLE: Record<AnalysisHistoryStatus, { icon: any; className: string }> = {
-  completed: {
-    icon: CheckCircle2,
-    className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  },
-  running: {
-    icon: Loader2,
-    className: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400",
-  },
-  error: {
-    icon: AlertTriangle,
-    className: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-500",
-  },
-};
-
-/** Date longue, même format que les cartes d'historique Matériaux AI. */
-function fmtLongDate(ts: number) {
-  if (!ts) return "—";
-  return new Date(ts).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-}
-
-export function InvestmentCard({ analysis }: { analysis: any }) {
-  const navigate = useNavigate();
-  const toggleFavorite = useMutation(api.investments.toggleFavorite);
-  const deleteAnalysis = useMutation(api.investments.deleteAnalysis);
-
-  // Mêmes données qu'avant (indicators / score / input), simplement présentées.
-  const entry = buildInvestmentHistoryEntry(analysis);
-  const badge = INVESTMENT_STATUS_STYLE[entry.status];
-  const StatusIcon = badge.icon;
-  const typeLabel = entry.investmentType
-    ? TYPE_META[entry.investmentType as keyof typeof TYPE_META]?.label ?? entry.investmentType
-    : "Investissement";
-  const regionLabel = entry.region ? REGION_LABELS[entry.region] ?? entry.region : null;
-  const open = () => navigate(`/dashboard/investments/result/${entry.id}`);
-
-  return (
-    <Card
-      className="group flex h-full cursor-pointer flex-col gap-0 rounded-xl border border-border/40 bg-card/60 p-3 transition-all duration-200 hover:border-emerald-400/40 hover:bg-card hover:shadow-sm active:scale-[0.98]"
-      onClick={open}
-    >
-      {/* Icône du module + nom + date + menu ⋯ */}
-      <div className="flex items-start gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500/15 to-teal-500/10 text-emerald-600 dark:text-emerald-400">
-          <TrendingUp className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-semibold leading-tight" title={entry.name || typeLabel}>
-            {entry.name || typeLabel}
-          </p>
-          <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-            <CalendarDays className="h-2.5 w-2.5 shrink-0" />
-            Analyse réalisée le {fmtLongDate(entry.createdAt)}
-          </p>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Actions de l'analyse"
-              className="h-8 w-8 shrink-0 text-muted-foreground opacity-70 transition-opacity hover:opacity-100 sm:h-7 sm:w-7"
-            >
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          {/* Le menu est rendu dans un portail : on isole les clics du clic carte. */}
-          <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenuItem className="cursor-pointer gap-2 text-xs" onClick={open}>
-              <ArrowUpRight className="h-3.5 w-3.5" /> Voir l'analyse
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="cursor-pointer gap-2 text-xs"
-              onClick={() => toggleFavorite({ analysisId: entry.id as any })}
-            >
-              <Heart className={cn("h-3.5 w-3.5", entry.isFavorite && "fill-red-400 text-red-400")} />
-              {entry.isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="cursor-pointer gap-2 text-xs text-destructive focus:text-destructive"
-              onClick={async () => {
-                await deleteAnalysis({ analysisId: entry.id as any });
-                toast.success("Analyse supprimée");
-              }}
-            >
-              <Trash2 className="h-3.5 w-3.5" /> Supprimer
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {/* Statut + contexte du bien */}
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-        <span className={cn(
-          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold",
-          badge.className,
-        )}>
-          <StatusIcon className={cn("h-2.5 w-2.5", entry.status === "running" && "animate-spin")} />
-          {ANALYSIS_STATUS_LABEL[entry.status]}
-        </span>
-        {entry.isFavorite && (
-          <Heart className="h-2.5 w-2.5 shrink-0 fill-red-400 text-red-400" />
-        )}
-        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-300">
-          {typeLabel}
-        </span>
-        {regionLabel && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-muted/20 px-2 py-0.5 text-[9px] font-medium text-muted-foreground">
-            <MapPin className="h-2.5 w-2.5" />
-            {regionLabel}
-          </span>
-        )}
-        {entry.area ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-muted/20 px-2 py-0.5 text-[9px] font-medium text-muted-foreground">
-            <HardHat className="h-2.5 w-2.5" />
-            {entry.area} m²
-          </span>
-        ) : null}
-      </div>
-
-      {/* Résumé — exactement les mêmes indicateurs qu'avant */}
-      {entry.hasResults && (
-        <div className="mt-2.5 grid grid-cols-3 gap-2 rounded-lg bg-muted/30 px-2.5 py-2">
-          <div className="min-w-0">
-            <span className="block text-[9px] text-muted-foreground">Coût total</span>
-            <p className="truncate text-xs font-bold tabular-nums">
-              {entry.totalCost !== null ? fmtTND(entry.totalCost) : "—"}
-            </p>
-          </div>
-          <div className="min-w-0">
-            <span className="block text-[9px] text-muted-foreground">Rendement net</span>
-            <p className="truncate text-xs font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-              {entry.netYieldPct !== null ? fmtPct(entry.netYieldPct) : "—"}
-            </p>
-          </div>
-          <div className="min-w-0">
-            <span className="block text-[9px] text-muted-foreground">Cashflow</span>
-            <p className="truncate text-xs font-bold tabular-nums text-blue-600 dark:text-blue-400">
-              {entry.monthlyCashflow !== null ? `${fmtTND(entry.monthlyCashflow)}/mois` : "—"}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Score IA (valeur inchangée, mise en évidence) */}
-      {entry.score !== null && (
-        <div className="mt-2 flex items-center gap-2">
-          <span className="shrink-0 text-[10px] text-muted-foreground">Score IA</span>
-          <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500"
-              style={{ width: `${Math.max(0, Math.min(100, entry.score))}%` }}
-            />
-          </div>
-          <span className="shrink-0 text-[10px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-            {entry.score}/100
-          </span>
-        </div>
-      )}
-
-      {/* Action principale — alignée en bas de carte */}
-      <div className="mt-auto pt-2.5">
-        <Button
-          size="sm"
-          className="h-9 w-full gap-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-xs text-white shadow-sm shadow-emerald-600/20 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98]"
-          onClick={(e) => { e.stopPropagation(); open(); }}
-        >
-          <ArrowUpRight className="h-3.5 w-3.5" />
-          Voir l'analyse
-        </Button>
-      </div>
-    </Card>
   );
 }
 

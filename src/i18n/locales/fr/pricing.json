@@ -1,7 +1,7 @@
 {
   "pageTitle": "Tarifs - batibuild",
   "title": "Nos offres",
-  "subtitle": "Forfaits à paiement unique — un seul forfait couvre vos projets de construction et vos analyses d'investissement",
+  "subtitle": "Forfaits à paiement unique — un seul forfait couvre tous vos projets de construction",
   "monthly": "paiement unique",
   "popular": "Populaire",
   "mostPopular": "Le plus populaire",
@@ -11,7 +11,6 @@
     "desc": "Pour un premier projet",
     "features": {
       "projects": "1 projet de construction (1 PDF)",
-      "investments": "1 analyse d'investissement (1 PDF)",
       "exports": "1 téléchargement PDF",
       "support": "Support email",
       "materials": "Estimation IA aux prix tunisiens"
@@ -23,7 +22,6 @@
     "desc": "Pour les professionnels de la construction",
     "features": {
       "projects": "5 projets de construction (5 PDF)",
-      "investments": "5 analyses d'investissement (5 PDF)",
       "exports": "5 téléchargements PDF",
       "support": "Support prioritaire",
       "materials": "Analyse IA avancée",
@@ -36,7 +34,6 @@
     "desc": "Pour les entreprises et grands projets",
     "features": {
       "projects": "20 projets de construction (20 PDF)",
-      "investments": "20 analyses d'investissement (20 PDF)",
       "exports": "20 téléchargements PDF",
       "support": "Support dédié 24/7",
       "materials": "Analyse IA avancée",

@@ -312,25 +312,15 @@ describe("adminAnalytics — getActivityStats", () => {
     adminT = t.withIdentity({ subject: adminId });
   });
 
-  it("agrège analyses matériaux, ROI, connexions", async () => {
+  it("agrège analyses matériaux, connexions", async () => {
     const u = await createUser(t, { email: "active@test.com" });
     await createMaterialAnalysis(t, u);
     await createMaterialAnalysis(t, u);
-    await t.run(async (ctx: any) => {
-      await ctx.db.insert("investmentAnalyses", {
-        userId: u as any,
-        input: {} as any,
-        results: {} as any,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-    });
 
     const stats = await adminT.query(api.adminAnalytics.getActivityStats, {});
     expect(stats!.materialAnalyses.total).toBe(2);
     expect(stats!.materialAnalyses.last24h).toBe(2);
-    expect(stats!.investmentAnalyses.total).toBe(1);
-    expect(stats!.aiFeaturesUsed.total).toBe(3); // 2 matériaux + 1 ROI
+    expect(stats!.aiFeaturesUsed.total).toBe(2); // 2 matériaux
     expect(stats!.connections.total).toBe(0);
   });
 

@@ -174,7 +174,6 @@ export async function resolveProfileRole(
 interface ReferenceSubscriptionDoc {
   plan: string;
   status: string;
-  kind?: string | null;
   startDate?: number | null;
   endDate?: number | null;
 }
@@ -183,7 +182,6 @@ interface ReferenceSubscriptionDoc {
  * Forfait de l'abonnement mensuel de référence d'un utilisateur : le premier
  * abonnement PAYÉ encore valide, sinon le plus récent (payé, en attente ou
  * expiré). Même priorité que `subscriptionStatus.getUserSubscriptionStatus`.
- * Les abonnements `investment` ne sont pas des forfaits de profil.
  */
 export async function getReferenceSubscriptionPlan(
   ctx: Pick<QueryCtx, "db">,
@@ -195,7 +193,7 @@ export async function getReferenceSubscriptionPlan(
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect()) as unknown as ReferenceSubscriptionDoc[];
 
-  const monthly = subs.filter((s) => s.kind !== "investment");
+  const monthly = subs;
   if (monthly.length === 0) return { plan: null, reference: null };
 
   const byRecent = (a: ReferenceSubscriptionDoc, b: ReferenceSubscriptionDoc) =>

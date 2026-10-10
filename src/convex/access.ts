@@ -8,7 +8,7 @@ import { resolveProfileRole, type UserRole } from "./profileSubscription";
 // Accès aux services Client Pro
 // ============================================================================
 // Règle : pour utiliser les services de la plateforme (projets de construction,
-// projets d'investissement, matériaux IA, plans architecturaux, suivi de A à Z),
+// matériaux IA, plans architecturaux, suivi de A à Z),
 // le client doit disposer d'un abonnement Client Pro PAYANT actif.
 //   - Abonnement expiré  → renouvellement obligatoire pour maintenir l'accès.
 //   - Exception          → l'administrateur peut activer le « switch gratuit »

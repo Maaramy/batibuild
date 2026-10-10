@@ -12,7 +12,6 @@ import { getCurrentUser } from "./users";
 //   • Coût estimatif  → `costEstimate` du projet ;
 //   • Matériaux AI    → une analyse `aiMaterialAnalyses` du couple
 //                       (utilisateur, projet) ;
-//   • Investissement immobilier → une analyse `investmentAnalyses` du projet ;
 //   • Exécution & suivi → une feuille de route `projectRoadmaps` du projet.
 //
 // Aucun rapport n'est inventé : la page ne peut donc jamais afficher « PDF
@@ -32,7 +31,7 @@ export const getMyReportArtifacts = query({
 
     return await Promise.all(
       projects.map(async (project) => {
-        const [materials, roadmap, investment] = await Promise.all([
+        const [materials, roadmap] = await Promise.all([
           ctx.db
             .query("aiMaterialAnalyses")
             .withIndex("by_user_project", (q) =>
@@ -46,19 +45,12 @@ export const getMyReportArtifacts = query({
               q.eq("userId", user._id).eq("projectId", project._id),
             )
             .first(),
-          ctx.db
-            .query("investmentAnalyses")
-            .withIndex("by_user", (q) => q.eq("userId", user._id))
-            .filter((q) => q.eq(q.field("projectId"), project._id))
-            .order("desc")
-            .first(),
         ]);
 
         return {
           projectId: project._id,
           materialsAnalysisId: materials?._id ?? null,
           roadmapId: roadmap?._id ?? null,
-          investmentAnalysisId: investment?._id ?? null,
         };
       }),
     );

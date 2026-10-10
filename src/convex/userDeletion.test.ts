@@ -79,14 +79,6 @@ async function seedUserData(
       createdAt: now,
       updatedAt: now,
     });
-    await ctx.db.insert("investmentAnalyses", {
-      userId: userId as any,
-      projectId: project1 as any,
-      input: {},
-      results: {},
-      createdAt: now,
-      updatedAt: now,
-    });
     await ctx.db.insert("aiMaterialAnalyses", {
       userId: userId as any,
       projectId: project2 as any,
@@ -236,7 +228,6 @@ describe("deleteUser — cascade complète", () => {
       for (const table of [
         "reports",
         "projectRoadmaps",
-        "investmentAnalyses",
         "aiMaterialAnalyses",
         "quoteRequests",
         "quoteResponses",

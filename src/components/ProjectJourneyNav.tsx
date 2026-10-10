@@ -24,7 +24,6 @@ import {
   downloadCostReport,
   downloadExecutionReport,
   downloadMaterialsReport,
-  downloadInvestmentReport,
   downloadPlansReport,
 } from "@/lib/reportDownloads";
 import { cn } from "@/lib/utils";
@@ -166,7 +165,6 @@ export function ProjectJourneyNav({
     return {
       materialsAnalysisId: row.materialsAnalysisId,
       roadmapId: row.roadmapId,
-      investmentAnalysisId: row.investmentAnalysisId,
     };
   }, [artifacts, projectId, hasProjectId]);
 
@@ -219,10 +217,6 @@ export function ProjectJourneyNav({
         case "materials":
           if (!artifact?.materialsAnalysisId) throw new Error("report-unavailable");
           await downloadMaterialsReport(convex, artifact.materialsAnalysisId);
-          break;
-        case "investment":
-          if (!artifact?.investmentAnalysisId) throw new Error("report-unavailable");
-          await downloadInvestmentReport(convex, artifact.investmentAnalysisId);
           break;
         case "execution":
           await downloadExecutionReport(convex, project._id);

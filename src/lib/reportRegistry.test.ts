@@ -14,18 +14,11 @@ const keys = (category: string): ReportModuleKey[] =>
 
 describe("règle du rapport PDF selon le groupe du projet", () => {
   it("Groupe A — rapport complet, dans l'ordre du registre", () => {
-    expect(keys("villa")).toEqual([
-      "cost",
-      "plans",
-      "materials",
-      "investment",
-      "execution",
-    ]);
+    expect(keys("villa")).toEqual(["cost", "plans", "materials", "execution"]);
   });
 
-  it("Groupe A — le studio suit le parcours complet, sans section Investissement", () => {
-    // Le studio appartient au groupe A (parcours complet) ; le module
-    // « Investissement immobilier » reste exclu car il n'est pas éligible.
+  it("Groupe A — le studio suit le parcours complet", () => {
+    // Le studio appartient au groupe A (parcours complet).
     expect(keys("studio")).toEqual(["cost", "plans", "materials", "execution"]);
   });
 
@@ -48,7 +41,7 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
   });
 
   it("le groupe est déduit du type, sans sélection manuelle", () => {
-    expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(5);
+    expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(4);
     expect(reportModuleKeysForGroup("B")).toEqual(["cost"]);
   });
 
@@ -76,7 +69,6 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     const statuses = reportStatuses(project, {
       materialsAnalysisId: "m1",
       roadmapId: "r1",
-      investmentAnalysisId: "i1",
     });
     const modules = visibleReportModules(allEnabled, project.category);
     expect(countAvailableReports(modules, statuses)).toBe(1);

@@ -1,9 +1,9 @@
 /**
  * STATUTS COMMUNS DES CARTES D'HISTORIQUE D'ANALYSES.
  *
- * Matériaux AI (`src/lib/aiMaterialsHistory.ts`) et Investissement
- * (`src/lib/investmentHistory.ts`) présentent leurs analyses avec la même
- * carte : le badge de statut est donc défini une seule fois ici.
+ * Les cartes d'historique d'analyses (`src/lib/aiMaterialsHistory.ts`)
+ * présentent leurs analyses avec le même badge de statut : celui-ci est donc
+ * défini une seule fois ici.
  *
  * Aucune valeur n'est inventée : chaque module dérive son statut de ses propres
  * données (résultats enregistrés ou non, analyse actuellement ouverte).

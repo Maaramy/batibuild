@@ -50,12 +50,8 @@ import {
   Briefcase,
   User,
   AlertTriangle,
-  Landmark,
-  Wallet,
   Sparkles,
   Headset,
-  Percent,
-  Gauge,
   ChevronDown,
   ChevronLeft,
   Rocket,
@@ -73,12 +69,10 @@ import { toast } from "sonner";
 import { useTheme } from "next-themes";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
-import { fmtTND, fmtPct } from "@/components/investment/shared";
 import {
   MiniStat,
   ProjectCard,
   StatsCard,
-  InvestmentCard,
 } from "@/pages/dashboard-parts";
 
 
@@ -104,7 +98,6 @@ export default function Dashboard() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   // « Voir plus / Voir moins » — 3 éléments par défaut
   const [showAllProjects, setShowAllProjects] = useState(false);
-  const [showAllInvestments, setShowAllInvestments] = useState(false);
   const [savingRole, setSavingRole] = useState(false);
   // Role switch view mode: client | supplier | expert
   const [viewMode, setViewMode] = useState<"client" | "supplier" | "expert">(
@@ -149,7 +142,6 @@ export default function Dashboard() {
 
   const announcements = useQuery(api.announcements.getAnnouncementsForUser) || [];
   const projects = useQuery(api.projects.getUserProjects, {}) || [];
-  const analyses = useQuery(api.investments.listAnalyses) || [];
   const stats = useQuery(api.projects.getProjectStats) || {
     totalProjects: 0, completedProjects: 0, analyzingProjects: 0, draftProjects: 0,
     totalEstimatedCost: 0, averageCostPerProject: 0, recentProjects: [],
@@ -214,26 +206,6 @@ export default function Dashboard() {
         : "/dashboard/messages";
   const handleSignOut = async () => { await signOut(); navigate("/auth"); };
 
-  // ── Statistiques des projets d'investissement enregistrés ──
-  const investStats = useMemo(() => {
-    let totalBudget = 0;
-    const yields: number[] = [];
-    let bestScore = 0;
-    let favorites = 0;
-    (analyses as any[]).forEach((a) => {
-      totalBudget += a.results?.indicators?.totalCost ?? 0;
-      if (typeof a.results?.indicators?.netYieldPct === "number") yields.push(a.results.indicators.netYieldPct);
-      bestScore = Math.max(bestScore, a.results?.score?.total ?? 0);
-      if (a.isFavorite) favorites++;
-    });
-    return {
-      totalBudget,
-      avgYield: yields.length ? yields.reduce((s, v) => s + v, 0) / yields.length : 0,
-      bestScore,
-      favorites,
-    };
-  }, [analyses]);
-
   const filteredProjects = projects.filter((p: any) => {
     if (activeTab === "favorites") return p.isFavorite;
     if (activeTab === "completed") return p.status === "completed";
@@ -246,7 +218,6 @@ export default function Dashboard() {
 
   // ── Tranches affichées (3 par défaut + « Voir plus ») ──
   const visibleProjects = showAllProjects ? filteredProjects : filteredProjects.slice(0, 3);
-  const visibleInvestments = showAllInvestments ? analyses : analyses.slice(0, 3);
   const projectFavorites = projects.filter((p: any) => p.isFavorite).length;
 
   const formatter = new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 });
@@ -324,9 +295,6 @@ export default function Dashboard() {
               { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
               ...(isFeatureEnabled("ai_materials") ? [
                 { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
-              ] : []),
-              ...(isFeatureEnabled("investment_project") ? [
-                { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
               ] : []),
             ] : []),
             // Professional features — parent + submenu
@@ -989,20 +957,6 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
               </Card>
-              {isFeatureEnabled("investment_project") && (
-              <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
-                onClick={() => navigate("/dashboard/investments")}>
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-                    <Landmark className="h-4 w-4 sm:h-5 sm:w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Nouveau investissement</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Analyse immobilière</p>
-                  </div>
-                </CardContent>
-              </Card>
-              )}
               {isFeatureEnabled("ai_materials") && (
               <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
                 onClick={() => navigate("/dashboard/materials")}>
@@ -1156,76 +1110,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* ── Mes projets d'investissement enregistrés (avec statistiques) ── */}
-          {isFeatureEnabled("investment_project") && (
-          <Card className="border border-border/40 bg-background/50 backdrop-blur-sm shadow-none">
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-                  <Landmark className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <CardTitle className="text-sm sm:text-base lg:text-lg">Mes projets d'investissement</CardTitle>
-                  <CardDescription className="text-[10px] sm:text-xs lg:text-sm">
-                    {analyses.length} analyse{analyses.length > 1 ? "s" : ""} enregistrée{analyses.length > 1 ? "s" : ""}
-                  </CardDescription>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <Button size="sm" className="h-8 gap-1 text-xs sm:text-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500" onClick={() => navigate("/dashboard/investments")}>
-                  <Plus className="h-3.5 w-3.5" /> Nouvelle analyse
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-3 sm:p-4 lg:p-5 pt-0">
-              {/* Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                <MiniStat icon={Wallet} label="Budget investi" value={fmtTND(investStats.totalBudget)} tone={{ bg: "bg-emerald-500/10", text: "text-emerald-600 dark:text-emerald-400" }} />
-                <MiniStat icon={Percent} label="Rendement net moyen" value={fmtPct(investStats.avgYield)} tone={{ bg: "bg-teal-500/10", text: "text-teal-600 dark:text-teal-400" }} />
-                <MiniStat icon={Gauge} label="Meilleur score" value={investStats.bestScore ? `${investStats.bestScore}/100` : "—"} tone={{ bg: "bg-blue-500/10", text: "text-blue-600 dark:text-blue-400" }} />
-                <MiniStat icon={Heart} label="Favoris" value={investStats.favorites} tone={{ bg: "bg-rose-500/10", text: "text-rose-600 dark:text-rose-400" }} />
-              </div>
-
-              {analyses.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-emerald-300/40 dark:border-emerald-800/30 bg-emerald-50/40 dark:bg-emerald-950/20 text-center py-6 sm:py-8 px-4">
-                  <div className="mx-auto mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-emerald-500/10">
-                    <Landmark className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-300" />
-                  </div>
-                  <p className="text-sm sm:text-base font-medium mb-1">Aucun projet d'investissement</p>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground mb-3 max-w-md mx-auto">
-                    Analysez un bien immobilier, comparez les scénarios et enregistrez vos prévisions, rendements et score IA — marché tunisien 2026.
-                  </p>
-                  <Button
-                    size="sm"
-                    className="gap-1.5 text-xs bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-600/40 transition-all active:scale-[0.97]"
-                    onClick={() => navigate("/dashboard/investments")}
-
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Lancer une analyse
-                    <ArrowUpRight className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3 lg:gap-4">
-                    {visibleInvestments.map((a: any) => (
-                      <InvestmentCard key={a._id} analysis={a} />
-                    ))}
-                  </div>
-                  {analyses.length > 3 && (
-                    <div className="mt-3 text-center">
-                      <Button variant="outline" size="sm" className="h-9 gap-1 text-xs" onClick={() => setShowAllInvestments((v) => !v)}>
-                        {showAllInvestments ? "Voir moins" : `Voir plus (${analyses.length})`}
-                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllInvestments ? "rotate-180" : ""}`} />
-                      </Button>
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-          )}
               </ClientProPaywall>
             </>
           )}

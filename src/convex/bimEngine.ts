@@ -656,8 +656,8 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 // ============================================================================
 // CATALOGUE OFFICIEL DES 11 TYPES DE BIEN (source unique du moteur BIM)
-// Synchronisé avec le formulaire « Nouveau projet » (src/convex/projectTypes.ts),
-// le module d'investissement et le générateur du Quantitatif détaillé (DQE).
+// Synchronisé avec le formulaire « Nouveau projet » (src/convex/projectTypes.ts)
+// et le générateur du Quantitatif détaillé (DQE).
 // Les libellés rétro-compatibles des anciens types (maison R+1, piscine,
 // jardin, bureau…) restent supportés par MARKET_PRICE_M2 / PROJECT_PCT pour
 // recalculer les projets enregistrés, mais ne sont plus proposés dans

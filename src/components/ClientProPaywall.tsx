@@ -10,8 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 // ============================================================================
 // ClientProPaywall — accès aux services Client Pro
 // ============================================================================
-// Règle : les services de la plateforme (projets de construction, projets
-// d'investissement, matériaux IA, plans architecturaux, suivi de A à Z)
+// Règle : les services de la plateforme (projets de construction, matériaux
+// IA, plans architecturaux, suivi de A à Z)
 // nécessitent un abonnement Client Pro PAYANT actif. En cas d'expiration, le
 // renouvellement est obligatoire. Exception : l'administrateur peut activer le
 // « switch gratuit » sur le forfait Client Pro (accès sans paiement).
@@ -23,7 +23,7 @@ const REASON_COPY: Record<
   not_client_pro: {
     icon: Lock,
     title: "Offre Client Pro requise",
-    desc: "Cet espace est réservé aux clients titulaires de l'offre Client Pro. Souscrivez à un abonnement payant actif pour accéder à l'ensemble des services : projets de construction, projets d'investissement, matériaux IA, plans architecturaux et suivi de A à Z.",
+    desc: "Cet espace est réservé aux clients titulaires de l'offre Client Pro. Souscrivez à un abonnement payant actif pour accéder à l'ensemble des services : projets de construction, matériaux IA, plans architecturaux et suivi de A à Z.",
     cta: "Voir les offres",
   },
   plan_not_allowed_for_profile: {
@@ -35,7 +35,7 @@ const REASON_COPY: Record<
   no_subscription: {
     icon: CreditCard,
     title: "Abonnement requis",
-    desc: "Pour accéder aux services de la plateforme (projets de construction, projets d'investissement, matériaux IA, plans architecturaux et suivi de A à Z), passez au paiement : votre abonnement Client Pro doit être payant et actif.",
+    desc: "Pour accéder aux services de la plateforme (projets de construction, matériaux IA, plans architecturaux et suivi de A à Z), passez au paiement : votre abonnement Client Pro doit être payant et actif.",
     cta: "Passer au paiement",
   },
   expired: {

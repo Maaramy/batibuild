@@ -6,8 +6,8 @@ import { getCurrentUser } from "./users";
 // ============================================================================
 // FEATURE FLAGS — système central de gestion des fonctionnalités
 // ============================================================================
-// Chaque fonctionnalité majeure de la plateforme (estimation, investissement,
-// matériaux IA, plans…) peut être activée/désactivée par l'administrateur.
+// Chaque fonctionnalité majeure de la plateforme (estimation, matériaux IA,
+// plans…) peut être activée/désactivée par l'administrateur.
 //
 // Le flag contrôle UNIQUEMENT la visibilité et l'accessibilité dans l'UI :
 //   - désactivé → entrées masquées (menus, cartes, CTA) + routes bloquées
@@ -29,11 +29,6 @@ export const FEATURE_FLAGS_CATALOG = [
     key: "construction_cost_estimation",
     name: "Estimation des coûts de construction",
     description: "Estimation des projets de construction",
-  },
-  {
-    key: "investment_project",
-    name: "Projet d'investissement",
-    description: "Analyse des projets d'investissement",
   },
   {
     key: "ai_materials",

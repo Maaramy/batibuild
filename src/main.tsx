@@ -71,10 +71,6 @@ const SupportPage = lazy(() => import("./pages/SupportPage.tsx"));
 const ExpertDashboard = lazy(() => import("./pages/ExpertDashboard.tsx"));
 const ExpertServices = lazy(() => import("./pages/ExpertServices.tsx"));
 const ExpertStats = lazy(() => import("./pages/ExpertStats.tsx"));
-const InvestmentAnalysis = lazy(() => import("./pages/InvestmentAnalysis.tsx"));
-const InvestmentResults = lazy(() => import("./pages/InvestmentResults.tsx"));
-const ShareInvestment = lazy(() => import("./pages/ShareInvestment.tsx"));
-const DemoInvestment = lazy(() => import("./pages/DemoInvestment.tsx"));
 const DemoProject = lazy(() => import("./pages/DemoProject.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"),);
 const OfflineTest = lazy(() => import("./pages/OfflineTest.tsx"));
@@ -500,34 +496,8 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
-                <Route
-                  path="/dashboard/investments"
-                  element={
-                    <RequireAuth>
-                      <FeatureGate flag="investment_project">
-                        <InvestmentAnalysis />
-                      </FeatureGate>
-                    </RequireAuth>
-                  }
-                />
-                <Route
-                  path="/dashboard/investments/result/:analysisId"
-                  element={
-                    <RequireAuth>
-                      <FeatureGate flag="investment_project">
-                        <InvestmentResults />
-                      </FeatureGate>
-                    </RequireAuth>
-                  }
-                />
                 <Route path="/contact" element={<ContactPage />} />
                 <Route path="/construction/demo" element={<DemoProject />} />
-                <Route path="/investments/demo" element={
-                  <FeatureGate flag="investment_project">
-                    <DemoInvestment />
-                  </FeatureGate>
-                } />
-                <Route path="/share/investment/:token" element={<ShareInvestment />} />
                 <Route path="/blog" element={<BlogPage />} />
                 <Route path="/blog/:slug" element={<BlogPostPage />} />
                 {/* Page de TEST interne : force `navigator.onLine` et émet les

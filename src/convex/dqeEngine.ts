@@ -801,7 +801,7 @@ function plomberieLots(): LotTpl[] {
 // ════════════════════════════════════════════════════════════════════════
 
 const RESIDENTIAL = new Set([
-  // 11 types officiels — Résidentiel & tourisme (alignés module Investissement)
+  // 11 types officiels — Résidentiel & tourisme
   "maison",
   "villa",
   "appartement",
