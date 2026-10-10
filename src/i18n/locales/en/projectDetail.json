@@ -85,13 +85,6 @@
     "rec1": "Tunisian standard NT 47.01: house live load 150 kg/m², office 250 kg/m².",
     "rec2": "Plan for a crawl space of at least 30 cm for ventilation and insulation."
   },
-  "suppliers": {
-    "title": "AI-recommended service providers",
-    "noSuppliers": "No suppliers recommended for this project.",
-    "contact": "Contact",
-    "verified": "Verified",
-    "projects": "projects"
-  },
   "actions": {
     "downloadDevis": "Download quote",
     "exportExcel": "Export Excel",

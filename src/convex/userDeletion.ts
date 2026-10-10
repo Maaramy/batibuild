@@ -116,7 +116,7 @@ export const deleteUserCompletely = internalMutation({
       (counts.reports ?? 0) +
       (await deleteAll(ctx, await collectByUser(ctx, "reports", userId)));
 
-    // DQE / BIM / roadmaps / prestataires recommandés — dérivés du projet.
+    // DQE / BIM / roadmaps — dérivés du projet.
     for (const project of projects) {
       counts.projectRoadmaps =
         (counts.projectRoadmaps ?? 0) +
@@ -124,15 +124,6 @@ export const deleteUserCompletely = internalMutation({
           ctx,
           await ctx.db
             .query("projectRoadmaps")
-            .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
-            .collect(),
-        ));
-      counts.projectRecommendedProviders =
-        (counts.projectRecommendedProviders ?? 0) +
-        (await deleteAll(
-          ctx,
-          await ctx.db
-            .query("projectRecommendedProviders")
             .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
             .collect(),
         ));

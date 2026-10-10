@@ -85,13 +85,6 @@
     "rec1": "Norme tunisienne NT 47.01 : charge d'exploitation maison 150 kg/m², bureau 250 kg/m².",
     "rec2": "Prévoyez un vide sanitaire d'au moins 30 cm pour l'aération et l'isolation."
   },
-  "suppliers": {
-    "title": "Prestataires recommandés par l'IA",
-    "noSuppliers": "Aucun prestataire recommandé pour ce projet.",
-    "contact": "Contacter",
-    "verified": "Vérifié",
-    "projects": "projets"
-  },
   "actions": {
     "downloadDevis": "Télécharger le devis",
     "exportExcel": "Export Excel",

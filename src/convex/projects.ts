@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { requireClientProAccess, getFreePlanStatus } from "./access";
+import { requireClientProAccess } from "./access";
 import { readFlag } from "./featureFlags";
 import {
   projectCategoryValidator,
@@ -9,7 +9,6 @@ import {
   PROJECT_STATUS,
   materialCategoryValidator,
   regionValidator,
-  SPECIALTY_TO_PROVIDER_TYPE,
 } from "./schema";
 
 // ============================================================================
@@ -386,35 +385,6 @@ export const updateProjectAnalysis = mutation({
     ),
     optimizationTips: v.optional(v.array(v.string())),
     technicalRecommendations: v.optional(v.array(v.string())),
-    providerRecommendations: v.optional(
-      v.object({
-        providers: v.array(
-          v.object({
-            type: v.string(),
-            label: v.string(),
-            icon: v.string(),
-            reason: v.string(),
-            priority: v.union(
-              v.literal("essentiel"),
-              v.literal("recommande"),
-              v.literal("optionnel")
-            ),
-            regionProximity: v.string(),
-            localCities: v.array(v.string()),
-          })
-        ),
-        stats: v.object({
-          total: v.number(),
-          essential: v.number(),
-          recommended: v.number(),
-        }),
-        regionInfo: v.object({
-          name: v.string(),
-          cities: v.array(v.string()),
-          advice: v.string(),
-        }),
-      })
-    ),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -433,9 +403,6 @@ export const updateProjectAnalysis = mutation({
       ...(args.optimizationTips && { optimizationTips: args.optimizationTips }),
       ...(args.technicalRecommendations && {
         technicalRecommendations: args.technicalRecommendations,
-      }),
-      ...(args.providerRecommendations && {
-        providerRecommendations: args.providerRecommendations,
       }),
       updatedAt: Date.now(),
     });
@@ -618,7 +585,6 @@ export const startAnalysis = mutation({
 
 import {
   runBIMEstimation,
-  generateProviderRecommendations,
   buildLivePriceMap,
   withLivePrices,
 } from "./bimEngine";
@@ -713,102 +679,6 @@ export const simulateAnalysis = mutation({
       livePrices,
     });
 
-    // Generate AI provider recommendations
-    const recommendations = generateProviderRecommendations(
-      category,
-      region,
-      result.costEstimate.totalCost,
-      surface,
-      floors,
-      finishLevel
-    );
-
-    // Attach registered suppliers to each provider recommendation
-    const providerTypes = recommendations.providers.map((p: any) => p.type);
-    const supplierMap = new Map<string, any[]>();
-
-    // ── Also fetch registered suppliers from the database ──
-    // « Offre gratuite » (switch admin) : tous les fournisseurs visibles sont
-    // recommandés automatiquement, sans abonnement actif.
-    const now = Date.now();
-    const free = await getFreePlanStatus(ctx);
-    const allProfiles = free.supplierFree
-      ? (await ctx.db.query("supplierProfiles").collect()).filter(
-          (s) => s.isVisible
-        )
-      : [
-          ...(await ctx.db
-            .query("supplierProfiles")
-            .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "active"))
-            .collect()),
-          ...(await ctx.db
-            .query("supplierProfiles")
-            .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "trial"))
-            .collect()),
-        ].filter((s) => s.isVisible);
-
-    // Filter out expired trials/subscriptions
-    const validProfiles = free.supplierFree
-      ? allProfiles
-      : allProfiles.filter((s) => {
-          if (
-            s.subscriptionStatus === "trial" &&
-            s.trialStartDate &&
-            s.trialStartDate + 7 * 24 * 60 * 60 * 1000 < now
-          ) {
-            return false;
-          }
-          if (
-            s.subscriptionStatus === "active" &&
-            s.subscriptionEndDate &&
-            s.subscriptionEndDate < now
-          ) {
-            return false;
-          }
-          return true;
-        });
-
-    // Map registered suppliers to provider types via their specialties
-    for (const profile of validProfiles) {
-      // Determine which provider types this supplier matches
-      const matchedTypes = new Set<string>();
-      for (const specialty of profile.specialties) {
-        const providerTypesForSpecialty =
-          SPECIALTY_TO_PROVIDER_TYPE[specialty] || [];
-        providerTypesForSpecialty.forEach((t: string) => matchedTypes.add(t));
-      }
-
-      // For each matched provider type that's in our recommendations, add this supplier
-      for (const type of matchedTypes) {
-        if (providerTypes.includes(type)) {
-          const existing = supplierMap.get(type) || [];
-          const supplierEntry = {
-            id: `registered_${profile._id}`,
-            name: profile.companyName,
-            phone: profile.phone,
-            email: profile.email || undefined,
-            address: profile.address,
-            website: profile.website || undefined,
-            description:
-              profile.description || `Fournisseur inscrit - ${profile.companyName}`,
-            rating: 4.5,
-          };
-          // Avoid duplicates
-          if (!existing.some((s: any) => s.id === supplierEntry.id)) {
-            existing.push(supplierEntry);
-          }
-          supplierMap.set(type, existing);
-        }
-      }
-    }
-
-    const enhancedProviders = recommendations.providers.map((p: any) => ({
-      ...p,
-      suppliers: supplierMap.get(p.type) || [],
-    }));
-
-    recommendations.providers = enhancedProviders;
-
     // Cast BIM categories to the valid union type for Convex schema
     const costEstimate = {
       ...result.costEstimate,
@@ -825,7 +695,6 @@ export const simulateAnalysis = mutation({
       aiAnalysis: result.aiAnalysis,
       optimizationTips: result.optimizationTips,
       technicalRecommendations: result.technicalRecommendations,
-      providerRecommendations: recommendations,
       updatedAt: Date.now(),
     });
 
