@@ -292,16 +292,27 @@ export function scenarioToFinishLevel(scenario?: string): "economique" | "standa
 
 // ── Conditions d'accès aux travaux complémentaires ─────────────────────────
 //
-// La fonctionnalité « Travaux complémentaires » n'est proposée que pour les
-// projets de type logement/immobilier neuf ET dont la surface couverte est
-// supérieure ou égale à 120 m². En dehors de ces conditions, elle est masquée
-// et le scénario « Personnalisé » se comporte exactement comme avant.
+// La fonctionnalité « Travaux complémentaires personnalisés » n'est proposée
+// que pour les SEPT types de projet autorisés ci-dessous ET dont la surface
+// couverte est supérieure ou égale à 120 m².
+//
+// Types EXCLUS : studio, local commercial, bureau, entrepôt et tous les autres
+// types (groupe B du Project Journey). Pour ces projets : aucune option de
+// sélection affichée, aucun poste dans le Quantitatif détaillé, aucun coût
+// ajouté au total (contrôle identique côté backend, `convex/customWorks.ts`).
+// La sélection déjà enregistrée n'est jamais effacée : elle est simplement
+// neutralisée, puis redevient active si le projet redevient éligible.
+//
+// En dehors de ces conditions, la fonctionnalité est masquée et le scénario
+// « Personnalisé » se comporte exactement comme avant.
 
 export const COMPLEMENTARY_WORK_PROJECT_TYPES: string[] = [
   "maison",
   "villa",
   "appartement",
   "duplex",
+  "immeuble",
+  "residence_touristique",
   "projet_neuf",
 ];
 

@@ -110,7 +110,8 @@ export default function PlanGenerator() {
   const planWorks = useMemo(() => customWorks?.keys ?? [], [customWorks]);
   // Mêmes conditions d'accès que le résultat d'estimation : les travaux
   // complémentaires ne sont pris en compte que pour les projets éligibles
-  // (type de projet logement / immobilier neuf ET surface ≥ 120 m²).
+  // (les sept types autorisés : maison, villa, appartement, duplex, immeuble,
+  // résidence touristique, projet immobilier neuf — ET surface ≥ 120 m²).
   const worksEligible = useMemo(
     () =>
       isComplementaryWorkEligible(

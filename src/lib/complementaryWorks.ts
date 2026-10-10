@@ -6,8 +6,13 @@
 // « Quantitatif détaillé » du résultat d'estimation « Coût de construction ».
 //
 // Règles :
-//   • Les travaux ne sont proposés que pour certains types de projet ET une
-//     surface couverte ≥ 120 m² (`isComplementaryWorkEligible`).
+//   • Les travaux ne sont proposés que pour les SEPT types de projet autorisés
+//     (maison, villa, appartement, duplex, immeuble, résidence touristique,
+//     projet immobilier neuf) ET une surface couverte ≥ 120 m²
+//     (`isComplementaryWorkEligible`) — le même contrôle est appliqué côté
+//     backend (`convex/customWorks.ts`) : aucun poste n'est chiffré ni ajouté
+//     au total pour un type non autorisé, sans jamais effacer la sélection
+//     déjà enregistrée.
 //   • CHAQUE travail sélectionné forme SA PROPRE catégorie (« Piscine »,
 //     « Garage », …) structurée exactement comme « Gros œuvre » et
 //     « Second œuvre et finitions » : mêmes colonnes, mêmes alignements, mêmes

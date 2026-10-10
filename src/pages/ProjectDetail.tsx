@@ -416,9 +416,11 @@ export default function ProjectDetail() {
   );
   const hasCustomization = customizationEntries.length > 0;
   // ── Travaux complémentaires (liste prédéfinie) ──
-  // Accessibles UNIQUEMENT pour les projets de type logement / immobilier neuf
-  // dont la surface couverte est ≥ 120 m². Hors de ces conditions, la
-  // fonctionnalité est masquée et le comportement d'origine est conservé.
+  // Accessibles UNIQUEMENT pour les sept types de projet autorisés (maison,
+  // villa, appartement, duplex, immeuble, résidence touristique, projet
+  // immobilier neuf) dont la surface couverte est ≥ 120 m². Hors de ces
+  // conditions, la fonctionnalité est masquée, aucun poste n'est ajouté au
+  // Quantitatif ni au total, et le comportement d'origine est conservé.
   const complementaryEligible = isComplementaryWorkEligible(
     normalizeLegacyCategory(project?.category as string),
     project?.surface,
@@ -572,7 +574,9 @@ export default function ProjectDetail() {
 
   // Bouton « Return on Investment » : réservé au groupe A (projets neufs /
   // immobiliers) — le parcours du groupe B ne comporte pas d'étape
-  // investissement. Même règle que la barre d'étapes du parcours.
+  // investissement. Raccourci vers le module d'analyse de rentabilité, qui
+  // reste accessible même si le Journey du groupe A s'arrête à « Exécution &
+  // suivi ».
   const showRoiButton =
     project && isFeatureEnabled("investment_project")
       ? projectJourneyGroup(project.category) === "A"
@@ -1293,8 +1297,10 @@ export default function ProjectDetail() {
               )}
 
             {/* ═══ Travaux complémentaires — liste prédéfinie ═══
-                Accessibles uniquement pour les projets éligibles (logement /
-                immobilier neuf, surface couverte ≥ 120 m²). Les travaux
+                Accessibles uniquement pour les projets éligibles (les sept
+                types autorisés : maison, villa, appartement, duplex, immeuble,
+                résidence touristique, projet immobilier neuf — surface
+                couverte ≥ 120 m²). Les travaux
                 sélectionnés n'intègrent QUE le scénario « Personnalisé » et
                 apparaissent dans le Quantitatif détaillé sous forme d'UNE
                 catégorie par travail (même structure que « Gros œuvre » et
@@ -1934,7 +1940,7 @@ export default function ProjectDetail() {
                   { label: "Catégorie", value: ai.category, icon: Building2 },
                   { label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", icon: MapPin },
                   { label: "Surface couverte", value: project.surface ? `${project.surface} m²` : "Non définie", icon: Ruler },
-                  // « Étages » masqué pour le groupe B (studio, rénovation…) :
+                  // « Étages » masqué pour le groupe B (rénovation, travaux…) :
                   // aucune case vide ni espace réservé — données backend intactes.
                   ...(projectJourneyGroup(project.category) === "A"
                     ? [{ label: "Étages", value: String(project.floors ?? 1), icon: Building2 }]

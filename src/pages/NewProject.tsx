@@ -959,8 +959,9 @@ export default function NewProject() {
                   )}
                 </div>
 
-                {/* Nombre de niveaux : masqué pour le groupe B (studio, rénovation,
-                    travaux…) — le champ et les données restent gérés par le backend. */}
+                {/* Nombre de niveaux : affiché pour le groupe A (parcours complet,
+                    studio compris), masqué pour le groupe B (rénovation, travaux…)
+                    — le champ et les données restent gérés par le backend. */}
                 {projectJourneyGroup(selectedCategory) === "A" && (
                 <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
                   <Label htmlFor="floors" className="text-xs sm:text-sm font-semibold">

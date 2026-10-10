@@ -23,9 +23,14 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     ]);
   });
 
+  it("Groupe A — le studio suit le parcours complet, sans section Investissement", () => {
+    // Le studio appartient au groupe A (parcours complet) ; le module
+    // « Investissement immobilier » reste exclu car il n'est pas éligible.
+    expect(keys("studio")).toEqual(["cost", "plans", "materials", "execution"]);
+  });
+
   it("Groupe B — seule la section « Coût estimatif » est présente", () => {
     for (const type of [
-      "studio",
       "renovation_complete",
       "extension_batiment",
       "piscine",

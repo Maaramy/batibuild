@@ -47,18 +47,33 @@ const lotsTotal = (lots: QuantitatifLotLike[]) =>
   lots.reduce((s, l) => s + (Number(l?.subtotal) || 0), 0);
 
 describe("éligibilité aux travaux complémentaires", () => {
-  it("n'autorise que les types logement / immobilier neuf", () => {
+  it("n'autorise que les sept types de projet autorisés", () => {
     for (const type of COMPLEMENTARY_WORK_PROJECT_TYPES) {
       expect(isComplementaryWorkEligible(type, 150)).toBe(true);
     }
-    expect(COMPLEMENTARY_WORK_PROJECT_TYPES).toContain("maison");
-    expect(COMPLEMENTARY_WORK_PROJECT_TYPES).toContain("villa");
-    expect(COMPLEMENTARY_WORK_PROJECT_TYPES).toContain("appartement");
-    expect(COMPLEMENTARY_WORK_PROJECT_TYPES).toContain("duplex");
-    expect(COMPLEMENTARY_WORK_PROJECT_TYPES).toContain("projet_neuf");
-    // Autres types : fonctionnalité masquée.
-    for (const other of ["studio", "immeuble", "bureau", "hotel", "route"]) {
-      expect(isComplementaryWorkEligible(other, 400)).toBe(false);
+    expect(COMPLEMENTARY_WORK_PROJECT_TYPES).toEqual([
+      "maison",
+      "villa",
+      "appartement",
+      "duplex",
+      "immeuble",
+      "residence_touristique",
+      "projet_neuf",
+    ]);
+    // Types exclus : studio, local commercial, bureau, entrepôt, puis tous les
+    // autres types (groupe B du Project Journey).
+    for (const other of [
+      "studio",
+      "local_commercial",
+      "bureau",
+      "entrepot",
+      "renovation_complete",
+      "piscine",
+      "restaurant",
+      "hotel",
+      "route",
+    ]) {
+      expect(isComplementaryWorkEligible(other, 400), other).toBe(false);
     }
   });
 

@@ -10,19 +10,23 @@
  * (`resolveProjectType` gère aussi les anciens slugs et les libellés libres) :
  *
  *   - **Groupe A** — projets neufs / immobiliers (maison, villa, appartement,
- *     studio exclu, duplex, immeuble, local commercial, bureau, entrepôt,
- *     résidence touristique, projet immobilier neuf) : parcours complet en 6
+ *     studio, duplex, immeuble, local commercial, bureau, entrepôt,
+ *     résidence touristique, projet immobilier neuf) : parcours complet en 5
  *     étapes :
  *       1. Coût estimatif
  *       2. Aide à la décision
  *       3. Plans architecturaux AI
  *       4. Mise en relation
  *       5. Exécution & suivi
- *       6. Investissement
  *   - **Groupe B** — tous les autres types (rénovation, extension, piscine,
- *     restaurant, café, travaux techniques…) : 4 étapes
- *     (coût estimatif → plans architecturaux AI → mise en relation →
- *     fournisseurs).
+ *     restaurant, café, travaux techniques…) : parcours simplifié en 3 étapes
+ *     (coût estimatif → aide à la décision → mise en relation).
+ *
+ * Une étape absente du groupe n'est jamais rendue : ni libellé, ni lien, ni
+ * indicateur de progression — il n'y a donc aucun espace vide ni entrée
+ * désactivée. La classification ne dépend que du type de projet enregistré
+ * (aucune intervention de l'administrateur) et se recalcule à chaque changement
+ * de catégorie.
  *
  * Chaque lien conserve le contexte du projet (`?project=…` ou `/:id`) : la
  * navigation ne recrée jamais de projet et ne perd aucune donnée.
@@ -39,7 +43,7 @@
  * Fournisseur ».
  */
 
-import { INVESTMENT_ELIGIBLE_TYPES, resolveProjectType } from "@/convex/projectTypes";
+import { resolveProjectType } from "@/convex/projectTypes";
 
 export type ProjectJourneyGroup = "A" | "B";
 
@@ -123,8 +127,26 @@ export interface ProjectJourneyStep {
   reportKey?: ProjectJourneyReportKey | null;
 }
 
-/** Groupe A : types de projet au parcours complet. */
-export const PROJECT_JOURNEY_GROUP_A: readonly string[] = INVESTMENT_ELIGIBLE_TYPES;
+/**
+ * Groupe A : types de projet au parcours complet (5 étapes).
+ *
+ * Liste fermée, distincte des autres éligibilités de la plateforme : elle
+ * appartient EXCLUSIVEMENT au Project Journey. Toute catégorie absente de cette
+ * liste appartient automatiquement au groupe B.
+ */
+export const PROJECT_JOURNEY_GROUP_A: readonly string[] = [
+  "maison",
+  "villa",
+  "appartement",
+  "studio",
+  "duplex",
+  "immeuble",
+  "local_commercial",
+  "bureau",
+  "entrepot",
+  "residence_touristique",
+  "projet_neuf",
+];
 
 /** Groupe du projet déduit de son type enregistré (jamais choisi par l'utilisateur). */
 export function projectJourneyGroup(category: string | null | undefined): ProjectJourneyGroup {
@@ -167,7 +189,20 @@ export function buildProjectJourney(
     reportKey: null,
   };
 
-  // Étape commune aux deux groupes : la génération des plans d'architecte IA
+  // « Aide à la décision » est une page DÉDIÉE (`DECISION_PAGE_PATH`) qui
+  // affiche uniquement le résultat déjà généré par l'Intelligence prédictive :
+  // elle est retirée de la page de résultat « Coût estimatif ». Son lien
+  // conserve le contexte du projet (`/:id`). Étape commune aux DEUX groupes.
+  const decision: ProjectJourneyStep = {
+    key: "decision",
+    label: "Aide à la décision",
+    path: `/dashboard/decision/${pid}`,
+    href: `/dashboard/decision/${pid}`,
+    // Aucun rapport PDF propre : l'étape affiche un résultat déjà calculé.
+    reportKey: null,
+  };
+
+  // Étape exclusive du groupe A : la génération des plans d'architecte IA
   // s'appuie uniquement sur les données déjà enregistrées du projet.
   const plans: ProjectJourneyStep = {
     key: "plans",
@@ -177,63 +212,25 @@ export function buildProjectJourney(
     reportKey: "plans",
   };
 
-  // Groupe B — coût estimatif → plans architecturaux AI → mise en relation →
-  // fournisseurs.
-  if (group === "B")
-    return filterDisabledSteps(
-      [
-        cost,
-        plans,
-        consult,
-        {
-          key: "suppliers",
-          label: "Fournisseurs",
-          path: SUPPLIERS_DIRECTORY_PATH,
-          href: `/dashboard/suppliers-directory?project=${pid}`,
-          reportKey: null,
-        },
-      ],
-      flags,
-    );
+  // Étape exclusive du groupe A.
+  const execution: ProjectJourneyStep = {
+    key: "execution",
+    label: "Exécution & suivi",
+    path: "/dashboard/guide",
+    href: `/dashboard/guide?project=${pid}`,
+    reportKey: "execution",
+  };
 
-  // Groupe A — parcours complet :
-  //   1. Coût estimatif → 2. Aide à la décision → 3. Plan IA →
-  //   4. Mise en relation → 5. Exécution & suivi → 6. Investissement.
-  //
-  // « Aide à la décision » est une page DÉDIÉE (`DECISION_PAGE_PATH`) qui
-  // affiche uniquement le résultat déjà généré par l'Intelligence prédictive :
-  // elle est retirée de la page de résultat « Coût estimatif ». Son lien
-  // conserve le contexte du projet (`/:id`).
-  return filterDisabledSteps(
-    [
-      cost,
-      {
-        key: "decision",
-        label: "Aide à la décision",
-        path: `/dashboard/decision/${pid}`,
-        href: `/dashboard/decision/${pid}`,
-        // Aucun rapport PDF propre : l'étape affiche un résultat déjà calculé.
-        reportKey: null,
-      },
-      plans,
-      consult,
-      {
-        key: "execution",
-        label: "Exécution & suivi",
-        path: "/dashboard/guide",
-        href: `/dashboard/guide?project=${pid}`,
-        reportKey: "execution",
-      },
-      {
-        key: "investment",
-        label: "Investissement",
-        path: "/dashboard/investments",
-        href: `/dashboard/investments?project=${pid}`,
-        reportKey: "investment",
-      },
-    ],
-    flags,
-  );
+  // Groupe B — parcours simplifié : coût estimatif → aide à la décision →
+  // mise en relation. Ni « Plans architecturaux AI », ni « Exécution & suivi »,
+  // ni « Investissement » : les étapes absentes ne sont PAS rendues (aucun
+  // bouton, lien ou indicateur résiduel).
+  if (group === "B") return filterDisabledSteps([cost, decision, consult], flags);
+
+  // Groupe A — parcours complet (5 étapes) :
+  //   1. Coût estimatif → 2. Aide à la décision → 3. Plans architecturaux AI →
+  //   4. Mise en relation → 5. Exécution & suivi.
+  return filterDisabledSteps([cost, decision, plans, consult, execution], flags);
 }
 
 /** Route de l'annuaire des fournisseurs (page des fournisseurs trouvés). */

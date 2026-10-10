@@ -258,8 +258,9 @@ export interface CapacityDecisionCardProps {
   /** Totaux des scénarios d'estimation (Économique / Standard / Premium). */
   scenarioTotals?: ScenarioTotal[];
   /**
-   * Travaux complémentaires accessibles ? (type de projet logement /
-   * immobilier neuf ET surface couverte ≥ 120 m²). Masqués sinon — les
+   * Travaux complémentaires accessibles ? (SEPT types de projet autorisés :
+   * maison, villa, appartement, duplex, immeuble, résidence touristique, projet
+   * immobilier neuf — ET surface couverte ≥ 120 m²). Masqués sinon — les
    * montants des travaux enregistrés sont alors ignorés eux aussi.
    */
   complementaryWorksEnabled?: boolean;
@@ -645,9 +646,10 @@ export function CapacityDecisionCard({
                   coût de chaque travail est chiffré AUTOMATIQUEMENT par le
                   système selon le scénario budgétaire actif, avec les mêmes
                   données de prix que le reste de l'estimation.
-                  Accessibles uniquement pour les projets éligibles (type de
-                  projet logement / immobilier neuf ET surface couverte ≥ 120
-                  m²) : entièrement masqués sinon. */}
+                  Accessibles uniquement pour les projets éligibles (les sept
+                  types autorisés : maison, villa, appartement, duplex,
+                  immeuble, résidence touristique, projet immobilier neuf — ET
+                  surface couverte ≥ 120 m²) : entièrement masqués sinon. */}
               {complementaryWorksEnabled ? (
               <div className="mt-2 rounded-xl border border-dashed border-border/50 p-2.5">
                 <SectionTitle hint="chiffrés automatiquement — panneaux solaires : nombre × prix unitaire TTC posé">

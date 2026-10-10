@@ -130,8 +130,9 @@ export default function DecisionSupport() {
     ? REGION_LABELS[project.region] ?? project.region
     : undefined;
   // Travaux complémentaires : mêmes conditions d'accès que sur le résultat
-  // d'estimation (type de projet logement / immobilier neuf ET surface
-  // couverte ≥ 120 m²). Masqués sinon.
+  // d'estimation (les sept types de projet autorisés : maison, villa,
+  // appartement, duplex, immeuble, résidence touristique, projet immobilier
+  // neuf — ET surface couverte ≥ 120 m²). Masqués sinon.
   const complementaryWorksEligible = isComplementaryWorkEligible(
     normalizeLegacyCategory(project?.category as string),
     project?.surface,

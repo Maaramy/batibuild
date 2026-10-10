@@ -5,10 +5,12 @@ import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
 import { buildLivePriceMap, withLivePrices } from "./bimEngine";
 import {
+  isComplementaryWorkEligible,
   normalizeCustomWorkKeys,
   normalizeSolarPanelCount,
   type CustomWorkProjectContext,
 } from "../lib/customWorksCatalog";
+import { normalizeLegacyCategory } from "./projectTypes";
 import {
   estimateSelectedCustomWorks,
   type CustomWorksRollup,
@@ -61,6 +63,30 @@ function projectContext(project: {
     pools: project.pools,
     garages: project.garages,
   };
+}
+
+/**
+ * Le projet accepte-t-il les travaux complémentaires personnalisés ?
+ *
+ * Même règle que l'interface (`isComplementaryWorkEligible`) : les SEPT types de
+ * projet autorisés (résidentiel / immobilier neuf, surface couverte ≥ 120 m²).
+ * C'est le contrôle d'API : un accès direct à une requête ne peut ni activer ni
+ * chiffrer les travaux d'un projet non éligible (studio, local commercial,
+ * bureau, entrepôt et tous les autres types du groupe B).
+ *
+ * Un projet devenu non éligible (changement de type) n'est plus chiffré ni
+ * modifiable, mais sa sélection reste stockée : rien n'est effacé et rien n'est
+ * appliqué silencieusement. Elle redevient active si le projet redevient
+ * éligible.
+ */
+function supportsCustomWorks(project: {
+  category?: string | null;
+  surface?: number | null;
+}): boolean {
+  return isComplementaryWorkEligible(
+    normalizeLegacyCategory(project.category),
+    project.surface ?? undefined,
+  );
 }
 
 /** Lit la base de prix officielle (materialPrices) — même source que l'estimation. */
@@ -120,10 +146,13 @@ export const getProjectCustomWorks = query({
     const keys = normalizeCustomWorkKeys(rec?.keys ?? []);
     const solarPanels = normalizeSolarPanelCount(rec?.solarPanels);
     const rollup = await computeRollupAsync(ctx, project, keys, solarPanels);
+    // Projet non éligible : AUCUN poste ni montant n'est renvoyé (la sélection
+    // enregistrée est conservée en base, jamais supprimée).
+    const eligible = supportsCustomWorks(project);
     return {
-      keys: rollup.works.map((w) => w.key),
-      works: rollup.works,
-      total: rollup.total,
+      keys: eligible ? rollup.works.map((w) => w.key) : [],
+      works: eligible ? rollup.works : [],
+      total: eligible ? rollup.total : 0,
       solarPanels,
       scenario: project.selectedScenario ?? "standard",
       finishLevel: rollup.works[0]?.finishLevel ?? "standard",
@@ -147,6 +176,14 @@ export const setProjectCustomWorks = mutation({
     const owned = await loadOwnedProject(ctx, projectId);
     if (!owned) throw new Error("Accès refusé");
     const { project, user } = owned;
+
+    // Contrôle backend : un projet non éligible (type ou surface hors des sept
+    // types autorisés) ne peut ACTIVER aucun travail, même par appel direct.
+    if (!supportsCustomWorks(project)) {
+      throw new Error(
+        "Les travaux complémentaires personnalisés ne sont pas disponibles pour ce type de projet.",
+      );
+    }
 
     const normalized = normalizeCustomWorkKeys(keys);
     const existing = await ctx.db
