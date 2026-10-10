@@ -10,14 +10,15 @@
  *
  * Aucune donnée n'est inventée : l'état de chaque rapport est déduit des
  * données réellement enregistrées sur le projet (`costEstimate`, `surface`) et
- * des artefacts persistés côté serveur (`projectRoadmaps`,
- * `investmentAnalyses`). Voir `src/convex/reportCenter.ts`.
+ * des artefacts persistés côté serveur (`aiMaterialAnalyses`,
+ * `projectRoadmaps`, `investmentAnalyses`). Voir `src/convex/reportCenter.ts`.
  */
 
 import {
   Calculator,
   HardHat,
   Ruler,
+  Sparkles,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -28,6 +29,7 @@ import { projectJourneyGroup, type ProjectJourneyGroup } from "./projectJourney"
 export type ReportModuleKey =
   | "cost"
   | "plans"
+  | "materials"
   | "investment"
   | "execution";
 
@@ -83,6 +85,14 @@ export const REPORT_MODULES: readonly ReportModuleDef[] = [
     buildHref: (id) => `/dashboard/plans/${projectId(id)}`,
   },
   {
+    key: "materials",
+    label: "Matériaux AI",
+    description: "Recommandations de matériaux, optimisation budgétaire et performance.",
+    icon: Sparkles,
+    flag: "ai_materials",
+    buildHref: (id) => `/dashboard/ai-materials?project=${projectId(id)}`,
+  },
+  {
     key: "investment",
     label: "Investissement immobilier",
     description:
@@ -112,6 +122,7 @@ export interface ProjectReportInput {
 
 /** Artefacts persistés côté serveur (`reportCenter.getMyReportArtifacts`). */
 export interface ProjectReportArtifacts {
+  materialsAnalysisId?: string | null;
   roadmapId?: string | null;
   investmentAnalysisId?: string | null;
 }
@@ -127,6 +138,7 @@ export function reportStatuses(
     // Le plan IA est composé de façon déterministe à partir des dimensions du
     // projet : il est disponible dès que le projet porte une surface.
     plans: hasDimensions ? "available" : "not_executed",
+    materials: artifacts?.materialsAnalysisId ? "available" : "not_executed",
     investment: artifacts?.investmentAnalysisId ? "available" : "not_executed",
     execution: artifacts?.roadmapId ? "available" : "not_executed",
   };
@@ -141,7 +153,7 @@ export function reportStatuses(
  *
  *   • **Groupe A** — rapport PDF complet : toutes les fonctionnalités du
  *     parcours réellement activées et compatibles avec le type de projet
- *     (Coût estimatif, Plan IA, Investissement, Exécution).
+ *     (Coût estimatif, Plan IA, Matériaux AI, Investissement, Exécution).
  *   • **Groupe B** — rapport d'estimation uniquement : seule la section
  *     « Coût estimatif » est présente. Les autres étapes du parcours (Plan IA,
  *     Choix matériaux, Consultation / Trouver un expert, Exécution & suivi,
@@ -152,7 +164,7 @@ export function reportStatuses(
  * il n'en crée jamais.
  */
 export const REPORT_MODULE_KEYS_BY_GROUP: Record<ProjectJourneyGroup, readonly ReportModuleKey[]> = {
-  A: ["cost", "plans", "investment", "execution"],
+  A: ["cost", "plans", "materials", "investment", "execution"],
   B: ["cost"],
 };
 

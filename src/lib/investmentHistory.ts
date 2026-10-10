@@ -1,7 +1,8 @@
 /**
  * HISTORIQUE DES ANALYSES D'INVESTISSEMENT (Dashboard).
  *
- * Historique des documents `investmentAnalyses` renvoyés par la requête existante
+ * Même rôle que `src/lib/aiMaterialsHistory.ts`, mais pour les documents
+ * `investmentAnalyses` renvoyés par la requête existante
  * `api.investments.listAnalyses` (déjà utilisée par le Dashboard).
  *
  * Ce module ne fait que **lire** : aucun calcul d'investissement n'est refait,

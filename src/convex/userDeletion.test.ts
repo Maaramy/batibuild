@@ -87,6 +87,14 @@ async function seedUserData(
       createdAt: now,
       updatedAt: now,
     });
+    await ctx.db.insert("aiMaterialAnalyses", {
+      userId: userId as any,
+      projectId: project2 as any,
+      input: {},
+      results: {},
+      createdAt: now,
+    });
+
     // Profil expert + demande reçue d'un autre utilisateur
     const expertProfile = await ctx.db.insert("expertProfiles", {
       userId: userId as any,
@@ -229,6 +237,7 @@ describe("deleteUser — cascade complète", () => {
         "reports",
         "projectRoadmaps",
         "investmentAnalyses",
+        "aiMaterialAnalyses",
         "quoteRequests",
         "quoteResponses",
         "subscriptions",

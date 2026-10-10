@@ -511,6 +511,51 @@ const schema = defineSchema(
         }),
       ),
       
+      // Provider recommendations (real Tunisian companies)
+      providerRecommendations: v.optional(
+        v.object({
+          providers: v.array(
+            v.object({
+              type: v.string(),
+              label: v.string(),
+              icon: v.string(),
+              reason: v.string(),
+              priority: v.union(
+                v.literal("essentiel"),
+                v.literal("recommande"),
+                v.literal("optionnel")
+              ),
+              regionProximity: v.string(),
+              localCities: v.array(v.string()),
+              suppliers: v.optional(
+                v.array(
+                  v.object({
+                    id: v.string(),
+                    name: v.string(),
+                    phone: v.string(),
+                    email: v.optional(v.string()),
+                    address: v.string(),
+                    website: v.optional(v.string()),
+                    description: v.optional(v.string()),
+                    rating: v.optional(v.number()),
+                  })
+                )
+              ),
+            })
+          ),
+          stats: v.object({
+            total: v.number(),
+            essential: v.number(),
+            recommended: v.number(),
+          }),
+          regionInfo: v.object({
+            name: v.string(),
+            cities: v.array(v.string()),
+            advice: v.string(),
+          }),
+        })
+      ),
+
       // Budget optimization suggestions
       optimizationTips: v.optional(v.array(v.string())),
       technicalRecommendations: v.optional(v.array(v.string())),
@@ -1316,6 +1361,17 @@ const schema = defineSchema(
       .index("by_created", ["createdAt"])
       .index("by_share_token", ["shareToken"]),
 
+    aiMaterialAnalyses: defineTable({
+      userId: v.id("users"),
+      projectId: v.optional(v.id("projects")),
+      input: v.any(),
+      results: v.any(),
+      createdAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_project", ["userId", "projectId"])
+      .index("by_created", ["createdAt"]),
+
     // Sélection courante des matériaux du module « Choix matériaux AI ».
     // Une seule ligne par projet et par utilisateur : elle porte le scénario
     // actif (synchronisé avec le Coût estimatif) et le brouillon de sélection.
@@ -1394,6 +1450,24 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_project", ["projectId"])
       .index("by_user_project", ["userId", "projectId"]),
+
+    // Prestataires recommandés par l'IA pour un projet — association unique
+    // (projectId + providerId + type) : un même fournisseur/expert ne peut
+    // jamais être recommandé deux fois pour le même projet. Voir
+    // `src/convex/recommendedProviders.ts` (matching + déduplication backend).
+    projectRecommendedProviders: defineTable({
+      projectId: v.id("projects"),
+      providerId: v.union(v.id("supplierProfiles"), v.id("expertProfiles")),
+      type: v.union(v.literal("supplier"), v.literal("expert")),
+      /** Spécialités réellement en correspondance avec le besoin du projet. */
+      matchedSpecialties: v.array(v.string()),
+      /** 0 = région du projet · 1 = voisine · 2 = reste de la Tunisie. */
+      regionRank: v.union(v.literal(0), v.literal(1), v.literal(2)),
+      createdAt: v.number(),
+    })
+      .index("by_project", ["projectId"])
+      .index("by_provider", ["providerId"])
+      .index("by_pair", ["projectId", "providerId", "type"]),
 
     supplierAnalytics: defineTable({
       supplierId: v.id("supplierProfiles"),

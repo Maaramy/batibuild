@@ -1382,8 +1382,337 @@ function getMethods(cat: string): string[] {
   return ["Fondations semelles filantes","Maçonnerie briques creuses","Dalle pleine béton armé","Enduit traditionnel","Carrelage collé"];
 }
 
+// ============================================================================
+// PROVIDER RECOMMENDATION ENGINE
+// ============================================================================
 
+const PROVIDER_LABELS: Record<string, { icon: string; label: string }> = {
+  architecte: { icon: "Building2", label: "Architecte" },
+  bureau_etudes: { icon: "FileText", label: "Bureau d'études techniques" },
+  ingenieur_structure: { icon: "HardHat", label: "Ingénieur structure" },
+  entreprise_generale: { icon: "Building2", label: "Entreprise générale de construction" },
+  macon: { icon: "HardHat", label: "Maçon" },
+  coffreur: { icon: "HardHat", label: "Coffreur" },
+  ferrailleur: { icon: "HardHat", label: "Ferrailleur" },
+  carreleur: { icon: "Paintbrush", label: "Carreleur" },
+  marbrier: { icon: "Paintbrush", label: "Marbrier" },
+  peintre: { icon: "Paintbrush", label: "Peintre en bâtiment" },
+  platrier: { icon: "Paintbrush", label: "Plâtrier" },
+  menuisier_bois: { icon: "Paintbrush", label: "Menuisier bois" },
+  menuisier_aluminium: { icon: "Paintbrush", label: "Menuisier aluminium" },
+  vitrier: { icon: "Paintbrush", label: "Vitrier" },
+  plombier: { icon: "Wrench", label: "Plombier / Fontainier" },
+  electricien: { icon: "Zap", label: "Électricien" },
+  climatisation: { icon: "Wind", label: "Climatisation / Chauffage" },
+  etancheite: { icon: "Shield", label: "Entreprise d'étanchéité" },
+  pisciniste: { icon: "Droplets", label: "Pisciniste" },
+  paysagiste: { icon: "Leaf", label: "Paysagiste" },
+  demolition: { icon: "TriangleAlert", label: "Entreprise de démolition" },
+  terrassement: { icon: "Truck", label: "Entreprise de terrassement" },
+  location_engins: { icon: "Truck", label: "Loueur d'engins" },
+  transporteur: { icon: "Truck", label: "Transporteur de matériaux" },
+  beton_ready: { icon: "Truck", label: "Centrale à béton prêt à l'emploi" },
+  ciment: { icon: "Package", label: "Fournisseur de ciment" },
+  acier: { icon: "Package", label: "Fournisseur d'acier" },
+  briques: { icon: "Package", label: "Fournisseur de briques et parpaings" },
+  carrelage: { icon: "Package", label: "Fournisseur de carrelage et revêtements" },
+  sanitaire: { icon: "Package", label: "Fournisseur de sanitaires" },
+  cuisine: { icon: "Package", label: "Fournisseur de cuisines" },
+  solaire: { icon: "Sun", label: "Fournisseur d'énergie solaire" },
+  portes_fenetres: { icon: "Package", label: "Fournisseur de portes et fenêtres" },
+  quincaillerie: { icon: "Package", label: "Quincaillerie / Matériaux de construction" },
+  promoteur: { icon: "Building2", label: "Promoteur immobilier" },
+};
 
+const REGION_CITIES: Record<string, { name: string; cities: string[] }> = {
+  tunis: { name: "Tunis", cities: ["Tunis", "La Marsa", "Carthage", "Le Bardo", "El Menzah", "L'Ariana (limitrophe)"] },
+  ariana: { name: "Ariana", cities: ["Ariana", "La Soukra", "Raoued", "Ettadhamen", "Mnihla"] },
+  ben_arous: { name: "Ben Arous", cities: ["Ben Arous", "Rades", "Ezzahra", "Hammam Lif", "Bou Kornine", "Megrine"] },
+  nabeul: { name: "Nabeul", cities: ["Nabeul", "Hammamet", "Dar Chaabane", "Menzel Bouzelfa", "Kélibia"] },
+  sousse: { name: "Sousse", cities: ["Sousse", "Msaken", "Hammam Sousse", "Kalâa Kebira", "Enfidha"] },
+  sfax: { name: "Sfax", cities: ["Sfax", "Sakiet Ezzit", "Sakiet Eddaïer", "Kerkennah"] },
+  bizerte: { name: "Bizerte", cities: ["Bizerte", "Menzel Bourguiba", "Mateur", "Utique", "Ras Jebel"] },
+  kairouan: { name: "Kairouan", cities: ["Kairouan", "Hajeb El Ayoun"] },
+  monastir: { name: "Monastir", cities: ["Monastir", "Moknine", "Jemmal", "Ksar Hellal", "Bekalta"] },
+  mahdia: { name: "Mahdia", cities: ["Mahdia", "Chebba", "El Jem", "Ksour Essef"] },
+  gabes: { name: "Gabès", cities: ["Gabès", "Métouia", "El Hamma"] },
+  gafsa: { name: "Gafsa", cities: ["Gafsa", "El Ksar", "Métlaoui"] },
+  medenine: { name: "Médenine", cities: ["Médenine", "Djerba (Houmt Souk)", "Zarzis", "Ben Gardane"] },
+  beja: { name: "Béja", cities: ["Béja", "Medjez El Bab", "Téboursouk"] },
+  jendouba: { name: "Jendouba", cities: ["Jendouba", "Tabarka", "Ghardimaou", "Bou Salem"] },
+  le_kef: { name: "Le Kef", cities: ["Le Kef", "Tajerouine", "Dahmani"] },
+  siliana: { name: "Siliana", cities: ["Siliana", "Bou Arada", "Gaâfour"] },
+  kasserine: { name: "Kasserine", cities: ["Kasserine", "Sbeitla", "Fériana"] },
+  sidi_bouzid: { name: "Sidi Bouzid", cities: ["Sidi Bouzid", "Ouled Haffouz"] },
+  zaghouan: { name: "Zaghouan", cities: ["Zaghouan", "El Fahs"] },
+  tozeur: { name: "Tozeur", cities: ["Tozeur", "Nefta"] },
+  kebili: { name: "Kébili", cities: ["Kébili", "Douz", "Souk Lahad"] },
+  tataouine: { name: "Tataouine", cities: ["Tataouine", "Remada"] },
+  manouba: { name: "La Manouba", cities: ["La Manouba", "Oued Ellil", "Djedeida"] },
+};
+
+/**
+ * Generate AI-based provider recommendations based on project characteristics.
+ * Uses project type, region, budget, surface, and finish level.
+ */
+export function generateProviderRecommendations(
+  category: string,
+  region: string,
+  budget: number,
+  surface: number,
+  floors: number,
+  finishLevel?: string
+) {
+  const regionInfo = REGION_CITIES[region] || { name: region, cities: [region] };
+  const categoryLabel = CATEGORY_LABEL[category] || category;
+  const isHighBudget = budget > 300000;
+  const isLargeProject = surface > 200 || floors > 2;
+  const isPremium = finishLevel === "premium" || finishLevel === "luxe";
+
+  // Define which providers are needed per project type
+  const providerMap: Record<string, string[]> = {
+    maison: ["architecte","entreprise_generale","macon","coffreur","ferrailleur","carreleur","plombier","electricien","peintre","menuisier_bois","menuisier_aluminium","vitrier","etancheite","terrassement","transporteur","beton_ready","ciment","acier","briques","carrelage","sanitaire","portes_fenetres","quincaillerie"],
+    villa: ["architecte","bureau_etudes","ingenieur_structure","entreprise_generale","macon","coffreur","ferrailleur","carreleur","marbrier","plombier","electricien","climatisation","peintre","menuisier_aluminium","vitrier","etancheite","paysagiste","terrassement","transporteur","beton_ready","ciment","acier","briques","carrelage","sanitaire","cuisine","portes_fenetres","quincaillerie"],
+    piscine: ["architecte","pisciniste","terrassement","plombier","electricien","carreleur","marbrier","etancheite","beton_ready","ciment","acier","quincaillerie","transporteur"],
+    jardin: ["paysagiste","terrassement","plombier","transporteur","quincaillerie"],
+    amenagement_paysager: ["paysagiste","terrassement","plombier","electricien","transporteur","quincaillerie"],
+    garage: ["entreprise_generale","macon","coffreur","ferrailleur","carreleur","electricien","etancheite","terrassement","beton_ready","ciment","acier","briques","portes_fenetres","transporteur"],
+    cloture: ["macon","ferrailleur","terrassement","ciment","briques","transporteur"],
+    terrasse: ["entreprise_generale","macon","carreleur","marbrier","etancheite","ciment","carrelage","transporteur"],
+    pergola: ["menuisier_aluminium","menuisier_bois","macon","ciment","quincaillerie"],
+    toiture: ["menuisier_bois","etancheite","ciment","briques","transporteur"],
+    renovation_interieure: ["architecte","entreprise_generale","macon","carreleur","peintre","platrier","plombier","electricien","menuisier_bois","menuisier_aluminium","vitrier","sanitaire","carrelage","portes_fenetres","quincaillerie","transporteur","demolition"],
+    renovation_salle_de_bain: ["architecte","plombier","electricien","carreleur","marbrier","menuisier_bois","sanitaire","carrelage","etancheite","quincaillerie","demolition"],
+    renovation_cuisine: ["architecte","plombier","electricien","carreleur","menuisier_bois","cuisine","sanitaire","carrelage","quincaillerie","demolition"],
+    renovation_facade: ["entreprise_generale","macon","peintre","etancheite","ciment","transporteur"],
+    demolition: ["entreprise_generale","demolition","terrassement","location_engins","transporteur"],
+    bureau: ["architecte","bureau_etudes","entreprise_generale","macon","coffreur","ferrailleur","carreleur","peintre","platrier","electricien","climatisation","plombier","menuisier_aluminium","vitrier","sanitaire","portes_fenetres","quincaillerie"],
+    local_commercial: ["architecte","bureau_etudes","entreprise_generale","macon","coffreur","ferrailleur","carreleur","peintre","electricien","plombier","climatisation","menuisier_aluminium","vitrier","portes_fenetres","quincaillerie"],
+    restaurant: ["architecte","bureau_etudes","entreprise_generale","plombier","electricien","climatisation","carreleur","peintre","cuisine","sanitaire","portes_fenetres","quincaillerie"],
+    cafe: ["architecte","entreprise_generale","plombier","electricien","climatisation","carreleur","peintre","cuisine","portes_fenetres"],
+    hotel: ["architecte","bureau_etudes","ingenieur_structure","entreprise_generale","climatisation","electricien","plombier","carreleur","marbrier","paysagiste","peintre","menuisier_aluminium","vitrier","etancheite","cuisine","solaire","portes_fenetres"],
+    immeuble_residentiel: ["architecte","bureau_etudes","ingenieur_structure","entreprise_generale","macon","coffreur","ferrailleur","carreleur","peintre","plombier","electricien","etancheite","terrassement","beton_ready","ciment","acier","briques","carrelage","sanitaire","portes_fenetres","quincaillerie","transporteur"],
+    appartement: ["architecte","entreprise_generale","macon","carreleur","peintre","platrier","plombier","electricien","menuisier_bois","menuisier_aluminium","vitrier","climatisation","carrelage","sanitaire","cuisine","portes_fenetres"],
+    installation_solaire: ["ingenieur_structure","electricien","solaire","terrassement","transporteur"],
+    studio: ["architecte","entreprise_generale","macon","carreleur","peintre","platrier","plombier","electricien","menuisier_bois","menuisier_aluminium","vitrier","climatisation","carrelage","sanitaire","cuisine","portes_fenetres"],
+    duplex: ["architecte","bureau_etudes","entreprise_generale","macon","coffreur","ferrailleur","carreleur","peintre","platrier","plombier","electricien","menuisier_bois","menuisier_aluminium","vitrier","climatisation","carrelage","sanitaire","cuisine","portes_fenetres"],
+    immeuble: ["architecte","bureau_etudes","ingenieur_structure","entreprise_generale","macon","coffreur","ferrailleur","carreleur","peintre","plombier","electricien","etancheite","terrassement","beton_ready","ciment","acier","briques","carrelage","sanitaire","portes_fenetres","quincaillerie","transporteur"],
+    residence_touristique: ["architecte","bureau_etudes","ingenieur_structure","entreprise_generale","climatisation","electricien","plombier","carreleur","marbrier","paysagiste","peintre","menuisier_aluminium","vitrier","etancheite","cuisine","solaire","portes_fenetres"],
+    projet_neuf: ["architecte","bureau_etudes","ingenieur_structure","entreprise_generale","macon","coffreur","ferrailleur","carreleur","peintre","plombier","electricien","climatisation","menuisier_aluminium","vitrier","etancheite","terrassement","beton_ready","ciment","acier","briques","carrelage","sanitaire","portes_fenetres","quincaillerie","transporteur"],
+    mosquee: ["architecte","bureau_etudes","entreprise_generale","macon","coffreur","ferrailleur","carreleur","marbrier","electricien","plombier","peintre","menuisier_bois","menuisier_aluminium","vitrier","etancheite","ciment","acier","briques","carrelage","sanitaire","portes_fenetres"],
+    ecole: ["architecte","bureau_etudes","entreprise_generale","macon","coffreur","ferrailleur","carreleur","peintre","plombier","electricien","climatisation","etancheite","terrassement","beton_ready","ciment","acier","briques","carrelage","sanitaire","portes_fenetres"],
+    usine: ["architecte","bureau_etudes","ingenieur_structure","entreprise_generale","terrassement","beton_ready","ciment","acier","electricien","plombier","etancheite","location_engins","transporteur"],
+    entrepot: ["entreprise_generale","terrassement","beton_ready","ciment","acier","electricien","etancheite","portes_fenetres","location_engins"],
+    ferme: ["entreprise_generale","macon","terrassement","plombier","electricien","ciment","briques","acier","transporteur"],
+    serre_agricole: ["entreprise_generale","terrassement","plombier","solaire","acier","transporteur"],
+    parking: ["entreprise_generale","terrassement","beton_ready","ciment","acier","electricien","etancheite","location_engins"],
+    route: ["entreprise_generale","terrassement","beton_ready","ciment","acier","location_engins","transporteur"],
+    trottoir: ["macon","terrassement","ciment","briques","transporteur"],
+    atelier: ["entreprise_generale","macon","electricien","ciment","acier","briques","portes_fenetres"],
+    depot: ["entreprise_generale","terrassement","beton_ready","ciment","acier","electricien","portes_fenetres"],
+    installation_sanitaires: ["plombier","electricien","carreleur","sanitaire","quincaillerie"],
+    installations_electricite: ["electricien","quincaillerie"],
+    chateau_d_eau: ["ingenieur_structure","entreprise_generale","beton_ready","ciment","acier","etancheite","plombier"],
+    systeme_irrigation: ["plombier","paysagiste","terrassement","transporteur"],
+  };
+
+  const providerKeys = providerMap[category] || ["entreprise_generale","macon","electricien","plombier","ciment","acier","transporteur"];
+
+  // Generate recommendations with reasons
+  const recommendations = providerKeys.map((key) => {
+    const info = PROVIDER_LABELS[key] || { icon: "Package", label: key };
+    let reason = "";
+    let priority: "essentiel" | "recommande" | "optionnel" = "recommande";
+
+    // Determine reason based on provider type and project
+    switch (key) {
+      case "entreprise_generale":
+        reason = isLargeProject
+          ? "Projet d'envergure nécessitant une coordination générale des travaux"
+          : "Pour superviser l'ensemble du chantier et garantir la conformité";
+        priority = "essentiel";
+        break;
+      case "architecte":
+        reason = isPremium || isLargeProject
+          ? "Projet haut de gamme ou complexe nécessitant une conception architecturale"
+          : "Pour les plans d'exécution et le suivi architectural";
+        priority = isLargeProject ? "essentiel" : "recommande";
+        break;
+      case "bureau_etudes":
+        reason = floors > 1 ? "Études techniques pour bâtiment à étages (structure, fluides)" : "Dimensionnement et calculs techniques";
+        priority = floors > 2 ? "essentiel" : "recommande";
+        break;
+      case "ingenieur_structure":
+        reason = floors > 1 ? "Calcul de structure R+${floors} obligatoire" : "Vérification de la structure porteuse";
+        priority = floors > 1 ? "essentiel" : "recommande";
+        break;
+      case "macon":
+        reason = `Maçonnerie pour ${surface}m² de ${categoryLabel}`;
+        priority = "essentiel";
+        break;
+      case "coffreur":
+        reason = surface > 100 ? "Volume de béton armé important nécessitant un coffrage professionnel" : "Coffrage des éléments en béton armé";
+        priority = surface > 100 ? "essentiel" : "recommande";
+        break;
+      case "ferrailleur":
+        reason = surface > 100 ? "Ferraillage important pour fondations et dalles" : "Mise en place des armatures";
+        priority = surface > 100 ? "essentiel" : "recommande";
+        break;
+      case "carreleur":
+        reason = `Revêtement de sol et murs pour ${surface}m²`;
+        priority = "essentiel";
+        break;
+      case "marbrier":
+        reason = isPremium ? "Finition haut de gamme : marbre pour escaliers, plans de travail" : "Fourniture et pose de marbre";
+        priority = isPremium ? "recommande" : "optionnel";
+        break;
+      case "peintre":
+        reason = "Peinture intérieure et extérieure, finition";
+        priority = "essentiel";
+        break;
+      case "platrier":
+        reason = "Cloisons en placo, faux plafonds, isolation";
+        priority = "essentiel";
+        break;
+      case "plombier":
+        reason = surface > 100 ? "Réseau d'eau et d'assainissement complet" : "Installation sanitaire";
+        priority = "essentiel";
+        break;
+      case "electricien":
+        reason = surface > 100 ? "Installation électrique complète (NF C 15-100)" : "Mise aux normes électriques";
+        priority = "essentiel";
+        break;
+      case "climatisation":
+        reason = isPremium || category === "bureau" || category === "restaurant" || category === "hotel"
+          ? "Climatisation centrale ou multi-splits pour confort optimal"
+          : "Prévoir les gaines techniques pour climatisation future";
+        priority = isPremium || category === "bureau" || category === "hotel" ? "recommande" : "optionnel";
+        break;
+      case "menuisier_aluminium":
+        reason = "Fenêtres, portes coulissantes, garde-corps en aluminium";
+        priority = "essentiel";
+        break;
+      case "menuisier_bois":
+        reason = "Portes intérieures, placards, boiseries";
+        priority = "recommande";
+        break;
+      case "vitrier":
+        reason = category === "bureau" || category === "local_commercial"
+          ? "Vitrage sécurisé et façade vitrée"
+          : "Double vitrage pour fenêtres et baies";
+        priority = "essentiel";
+        break;
+      case "etancheite":
+        reason = `Étanchéité des toitures et des parties humides`;
+        priority = "essentiel";
+        break;
+      case "pisciniste":
+        reason = `Construction de piscine ${surface}m²`;
+        priority = "essentiel";
+        break;
+      case "paysagiste":
+        reason = "Aménagement des espaces extérieurs, plantations";
+        priority = "recommande";
+        break;
+      case "terrassement":
+        reason = surface > 200
+          ? "Terrassement de grande envergure pour fondations"
+          : "Préparation du terrain et fouilles";
+        priority = "essentiel";
+        break;
+      case "demolition":
+        reason = "Démolition sélective des éléments existants avant rénovation";
+        priority = "essentiel";
+        break;
+      case "location_engins":
+        reason = surface > 300 ? "Nécessite des engins de chantier (pelle, compacteur)" : "Location de petite et moyenne engins";
+        priority = surface > 300 ? "essentiel" : "optionnel";
+        break;
+      case "transporteur":
+        reason = `Transport des matériaux vers ${regionInfo.name}`;
+        priority = "essentiel";
+        break;
+      case "beton_ready":
+        reason = `Fourniture de béton prêt à l'emploi pour ${Math.round(surface * 0.25)}m³`;
+        priority = "essentiel";
+        break;
+      case "ciment":
+        reason = `Approvisionnement en ciment CPJ 42.5 et 32.5`;
+        priority = "essentiel";
+        break;
+      case "acier":
+        reason = `Fourniture d'acier à béton (T12, T14, treillis soudé)`;
+        priority = "essentiel";
+        break;
+      case "briques":
+        reason = "Briques creuses, hourdis, parpaings pour maçonnerie";
+        priority = "essentiel";
+        break;
+      case "carrelage":
+        reason = isPremium
+          ? "Carrelage grès cérame, marbre et pierre naturelle — finition haut de gamme"
+          : "Carrelage sol et mural, faïence";
+        priority = "essentiel";
+        break;
+      case "sanitaire":
+        reason = "WC, lavabos, douches, robinetterie";
+        priority = "essentiel";
+        break;
+      case "cuisine":
+        reason = "Cuisine équipée ou semi-équipée";
+        priority = category === "restaurant" || category === "renovation_cuisine" ? "essentiel" : "optionnel";
+        break;
+      case "solaire":
+        reason = "Installation de panneaux photovoltaïques, chauffe-eau solaire";
+        priority = "essentiel";
+        break;
+      case "portes_fenetres":
+        reason = "Portes intérieures, portes d'entrée, fenêtres et grilles";
+        priority = "essentiel";
+        break;
+      case "quincaillerie":
+        reason = "Quincaillerie, outillage, matériaux de construction courants";
+        priority = "essentiel";
+        break;
+      default:
+        reason = `Prestation pour ${categoryLabel}`;
+    }
+
+    return {
+      type: key,
+      label: info.label,
+      icon: info.icon,
+      reason,
+      priority,
+      regionProximity: regionInfo.name,
+      localCities: regionInfo.cities.slice(0, 3),
+    };
+  });
+
+  // Sort by priority: essentiel first, then recommande, then optionnel
+  const priorityOrder = { essentiel: 0, recommande: 1, optionnel: 2 };
+  recommendations.sort(
+    (a, b) =>
+      (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2)
+  );
+
+  const essentialCount = recommendations.filter((r) => r.priority === "essentiel").length;
+  const recommendedCount = recommendations.filter((r) => r.priority === "recommande").length;
+
+  return {
+    providers: recommendations,
+    stats: {
+      total: recommendations.length,
+      essential: essentialCount,
+      recommended: recommendedCount,
+    },
+    regionInfo: {
+      name: regionInfo.name,
+      cities: regionInfo.cities,
+      advice: `Privilégiez les prestataires locaux (${regionInfo.name}) pour réduire les coûts de transport et faciliter le suivi de chantier.`
+    },
+  };
+}
 
 // ============================================================================
 // MAIN ENTRY POINT

@@ -8,10 +8,20 @@ function byKey(actions: ReturnType<typeof buildProjectQuickActions>) {
 }
 
 describe("buildProjectQuickActions — accès rapides d'un projet", () => {
-  it("propose les modules Démarche · Expert · Plan AI", () => {
+  it("propose les modules Matériaux · Démarche · Expert · Plan AI", () => {
     const actions = buildProjectQuickActions(project);
-    expect(actions.map((a) => a.key)).toEqual(["guide", "expert", "plan"]);
-    expect(actions.map((a) => a.label)).toEqual(["Démarche", "Expert", "Plan AI"]);
+    expect(actions.map((a) => a.key)).toEqual([
+      "materials",
+      "guide",
+      "expert",
+      "plan",
+    ]);
+    expect(actions.map((a) => a.label)).toEqual([
+      "Matériaux",
+      "Démarche",
+      "Expert",
+      "Plan AI",
+    ]);
     expect(actions.every((a) => a.tone.length > 0)).toBe(true);
   });
 
@@ -20,6 +30,12 @@ describe("buildProjectQuickActions — accès rapides d'un projet", () => {
     expect(actions.map((a) => a.key)).not.toContain("roi");
     expect(actions.map((a) => a.label)).not.toContain("ROI");
     expect(actions.every((a) => !a.href.includes("/investments"))).toBe(true);
+  });
+
+  it("Matériaux ouvre l'assistant Matériaux IA avec le BON projet pré-sélectionné", () => {
+    expect(byKey(buildProjectQuickActions(project)).materials.href).toBe(
+      "/dashboard/ai-materials?project=proj_1",
+    );
   });
 
   it("Démarche ouvre le guide de construction A-Z sur le projet concerné", () => {
@@ -40,7 +56,7 @@ describe("buildProjectQuickActions — accès rapides d'un projet", () => {
 
   it("tous les liens portent l'identifiant du projet concerné (projets anciens compris)", () => {
     const legacy = buildProjectQuickActions({ _id: "proj_old" });
-    expect(legacy).toHaveLength(3);
+    expect(legacy).toHaveLength(4);
     expect(legacy.every((a) => a.href.includes("proj_old"))).toBe(true);
   });
 });

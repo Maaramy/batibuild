@@ -182,6 +182,7 @@ export const getActivityStats = query({
     const monthAgo = now - 30 * DAY_MS;
 
     const [
+      materialAnalyses,
       investmentAnalyses,
       roadmaps,
       reports,
@@ -189,6 +190,7 @@ export const getActivityStats = query({
       quoteRequests,
       expertRequests,
     ] = await Promise.all([
+      ctx.db.query("aiMaterialAnalyses").collect(),
       ctx.db.query("investmentAnalyses").collect(),
       ctx.db.query("projectRoadmaps").collect(),
       ctx.db.query("reports").collect(),
@@ -199,6 +201,7 @@ export const getActivityStats = query({
 
     // Série d'activité quotidienne combinée (analyses + calculs + AI)
     const timestamps: number[] = [
+      ...materialAnalyses.map((x) => x.createdAt),
       ...investmentAnalyses.map((x) => x.createdAt),
       ...roadmaps.map((x) => x.createdAt),
       ...reports.map((x) => x.generatedAt),
@@ -210,6 +213,7 @@ export const getActivityStats = query({
       last30d: ts.filter((t) => t > monthAgo).length,
     });
 
+    const materialTs = materialAnalyses.map((x) => x.createdAt);
     const investmentTs = investmentAnalyses.map((x) => x.createdAt);
     const roadmapTs = roadmaps.map((x) => x.createdAt);
     const reportTs = reports.map((x) => x.generatedAt);
@@ -218,6 +222,7 @@ export const getActivityStats = query({
 
     return {
       // Analyses
+      materialAnalyses: { total: materialTs.length, ...countSince(materialTs) },
       investmentAnalyses: { total: investmentTs.length, ...countSince(investmentTs) },
       // Calculs / documents générés
       roadmaps: { total: roadmapTs.length, ...countSince(roadmapTs) },
@@ -230,10 +235,10 @@ export const getActivityStats = query({
       },
       // Connexions
       connections: { total: connectionLogs.length, ...connSince },
-      // Fonctionnalités AI = analyses ROI AI + feuilles de route
+      // Fonctionnalités AI = analyses matériaux + ROI AI + roadmaps
       aiFeaturesUsed: {
-        total: investmentTs.length + roadmapTs.length,
-        ...countSince([...investmentTs, ...roadmapTs]),
+        total: materialTs.length + investmentTs.length + roadmapTs.length,
+        ...countSince([...materialTs, ...investmentTs, ...roadmapTs]),
       },
       // Série d'activité quotidienne (toutes actions confondues) — 30 jours
       activitySeries: await dailySeries(ctx, timestamps, monthAgo, now),
@@ -292,10 +297,11 @@ export const getOverviewStats = query({
     const dayAgo = now - DAY_MS;
     const weekAgo = now - 7 * DAY_MS;
 
-    const [users, projects, investmentAnalyses, roadmaps, tickets] =
+    const [users, projects, materialAnalyses, investmentAnalyses, roadmaps, tickets] =
       await Promise.all([
         ctx.db.query("users").collect(),
         ctx.db.query("projects").collect(),
+        ctx.db.query("aiMaterialAnalyses").collect(),
         ctx.db.query("investmentAnalyses").collect(),
         ctx.db.query("projectRoadmaps").collect(),
         ctx.db.query("supportTickets").collect(),
@@ -315,8 +321,10 @@ export const getOverviewStats = query({
       projectsTotal: projects.length,
       projectsNew7d: projects.filter((p) => p.createdAt > weekAgo).length,
       projectsActive: projects.filter((p) => p.status !== "archived").length,
-      analysesTotal: investmentAnalyses.length + roadmaps.length,
+      analysesTotal:
+        materialAnalyses.length + investmentAnalyses.length + roadmaps.length,
       analyses24h:
+        materialAnalyses.filter((a) => a.createdAt > dayAgo).length +
         investmentAnalyses.filter((a) => a.createdAt > dayAgo).length +
         roadmaps.filter((r) => r.createdAt > dayAgo).length,
       supportOpen: tickets.filter((t) => t.status === "open").length,

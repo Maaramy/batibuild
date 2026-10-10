@@ -266,10 +266,10 @@ export function MiniStat({ icon: Icon, label, value, tone }: any) {
 
 // ============================================================================
 // Investment Analysis Card (projet d'investissement enregistré)
-// Carte d'historique d'une analyse d'investissement enregistrée.
+// Même style de carte que l'historique des analyses Matériaux AI.
 // ============================================================================
 
-/** Style du badge de statut de la carte d'historique. */
+/** Style du badge de statut — mêmes couleurs que les cartes d'historique Matériaux AI. */
 const INVESTMENT_STATUS_STYLE: Record<AnalysisHistoryStatus, { icon: any; className: string }> = {
   completed: {
     icon: CheckCircle2,
@@ -285,7 +285,7 @@ const INVESTMENT_STATUS_STYLE: Record<AnalysisHistoryStatus, { icon: any; classN
   },
 };
 
-/** Date longue affichée sur la carte d'historique. */
+/** Date longue, même format que les cartes d'historique Matériaux AI. */
 function fmtLongDate(ts: number) {
   if (!ts) return "—";
   return new Date(ts).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });

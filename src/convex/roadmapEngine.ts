@@ -261,6 +261,7 @@ export interface RoadmapProjectInput {
       premium: { totalCost: number; costPerM2: number; label: string; multiplier: number };
     };
   };
+  providerRecommendations?: { providers?: { type: string; label: string; priority: string }[] };
 }
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
@@ -401,6 +402,7 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
     construction,
     control: CONTROL_ITEMS,
     reception: RECEPTION_ITEMS,
+    hasProviders: !!project.providerRecommendations?.providers?.length,
   });
 
   // ── Vérification du projet (omissions) ────────────────────────────────────
@@ -704,6 +706,7 @@ interface PhaseInputs {
   construction: ConstructionStep[];
   control: { id: string; label: string; detail: string }[];
   reception: { id: string; label: string; detail: string }[];
+  hasProviders: boolean;
 }
 
 export function phaseStatus(items: PhaseItem[]): StepStatus | "in_progress" {
@@ -797,12 +800,15 @@ function buildPhases(input: PhaseInputs): RoadmapPhase[] {
     icon: "Building2",
     description: "Rechercher, comparer et sélectionner vos partenaires (entreprises, architectes, fournisseurs).",
     items: [
+      ...(input.hasProviders
+        ? [{ id: "providers", label: "Prestataires recommandés disponibles", detail: "Recommandations générées depuis l'estimation du projet.", status: "done" as StepStatus, auto: true }]
+        : [{ id: "providers", label: "Générer les recommandations de prestataires", detail: "Relancez l'estimation pour obtenir des entreprises recommandées.", status: "todo" as StepStatus }]),
       { id: "consultation", label: "Consultation de plusieurs offres", detail: "Demander au minimum 3 devis par lot.", status: "todo" },
       { id: "comparaison", label: "Comparaison des devis", detail: "Prix, spécialité, localisation, expérience, évaluations, disponibilité.", status: "todo" },
       { id: "contrats", label: "Contrats signés", detail: "Contrat de travaux + assurance décennale de l'entreprise.", status: "todo" },
     ],
-    progress: 0,
-    status: "todo",
+    progress: input.hasProviders ? 25 : 0,
+    status: input.hasProviders ? "in_progress" : "todo",
   };
 
   const p07: RoadmapPhase = {

@@ -43,6 +43,7 @@ function fullProject(): RoadmapProjectInput {
         premium: { totalCost: 416000, costPerM2: 2311, label: "Premium", multiplier: 1.3 },
       },
     },
+    providerRecommendations: { providers: [{ type: "entreprise_generale", label: "Entreprise générale", priority: "essentiel" }] },
   };
 }
 

@@ -33,6 +33,10 @@
  * nombre total d'étapes affiché par le Journey est recalculé automatiquement à
  * partir des étapes réellement visibles. Sans état de flags fourni, toutes les
  * étapes restent affichées.
+ *
+ * La page « Résultat de l'analyse IA » utilise en plus un parcours dédié
+ * (`buildAiMaterialsResultJourney`) : « Coût estimatif → Liste prix →
+ * Fournisseur ».
  */
 
 import { INVESTMENT_ELIGIBLE_TYPES, resolveProjectType } from "@/convex/projectTypes";
@@ -62,6 +66,8 @@ export const JOURNEY_FLAG_KEYS = {
   // l'activation du module de coût.
   decision: "construction_cost_estimation",
   plans: "architectural_plans",
+  materials: "ai_materials",
+  priceList: "ai_materials",
   execution: "construction_guide",
   investment: "investment_project",
 } as const;
@@ -90,6 +96,8 @@ export type ProjectJourneyStepKey =
   | "cost"
   | "decision"
   | "plans"
+  | "materials"
+  | "priceList"
   | "consult"
   | "execution"
   | "investment"
@@ -235,3 +243,53 @@ export const SUPPLIERS_DIRECTORY_PATH = "/dashboard/suppliers-directory";
 export const DECISION_PAGE_PATH = "/dashboard/decision";
 
 /** Route de la liste des prix — page « Matériaux de construction ». */
+export const MATERIALS_PAGE_PATH = "/dashboard/materials";
+
+/**
+ * PARCOURS AFFICHÉ SUR LA PAGE « RÉSULTAT DE L'ANALYSE IA »
+ *
+ * Cette page ne déroule pas le parcours complet : elle suit un ordre fixe,
+ * **identique pour tous les types de projet** (le type n'intervient pas) :
+ *
+ *   1. « Coût estimatif » → résultats d'estimation du projet ;
+ *   2. « Liste prix » → page existante « Matériaux de construction » ;
+ *   3. « Fournisseur » → annuaire des fournisseurs trouvés par l'analyse
+ *      (filtré par région et par spécialités lorsqu'un lien est fourni).
+ */
+export function buildAiMaterialsResultJourney(
+  projectId: string | null | undefined,
+  supplierHref?: string | null,
+  flags?: ProjectJourneyFlags,
+): ProjectJourneyStep[] {
+  const raw = (projectId ?? "").trim();
+  if (!raw) return [];
+  const pid = encodeURIComponent(raw);
+
+  return filterDisabledSteps(
+    [
+      {
+        key: "cost",
+        label: "Coût estimatif",
+        path: `/dashboard/project/${pid}`,
+        href: `/dashboard/project/${pid}`,
+        reportKey: "cost",
+      },
+      {
+        key: "priceList",
+        label: "Liste prix",
+        path: MATERIALS_PAGE_PATH,
+        href: `${MATERIALS_PAGE_PATH}?project=${pid}`,
+        reportKey: null,
+      },
+      {
+        key: "supplier",
+        label: "Fournisseur",
+        path: SUPPLIERS_DIRECTORY_PATH,
+        // Annuaire pré-filtré par l'analyse lorsqu'il est fourni.
+        href: (supplierHref ?? "").trim() || SUPPLIERS_DIRECTORY_PATH,
+        reportKey: null,
+      },
+    ],
+    flags,
+  );
+}

@@ -108,6 +108,7 @@ export const generateRoadmapForProject = mutation({
           }
         : undefined,
       costEstimate: project.costEstimate ?? undefined,
+      providerRecommendations: project.providerRecommendations ?? undefined,
     };
 
     const results = generateRoadmap(input);

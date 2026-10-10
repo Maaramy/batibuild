@@ -116,7 +116,7 @@ export const deleteUserCompletely = internalMutation({
       (counts.reports ?? 0) +
       (await deleteAll(ctx, await collectByUser(ctx, "reports", userId)));
 
-    // DQE / BIM / roadmaps — dérivés du projet.
+    // DQE / BIM / roadmaps / prestataires recommandés — dérivés du projet.
     for (const project of projects) {
       counts.projectRoadmaps =
         (counts.projectRoadmaps ?? 0) +
@@ -127,9 +127,21 @@ export const deleteUserCompletely = internalMutation({
             .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
             .collect(),
         ));
+      counts.projectRecommendedProviders =
+        (counts.projectRecommendedProviders ?? 0) +
+        (await deleteAll(
+          ctx,
+          await ctx.db
+            .query("projectRecommendedProviders")
+            .withIndex("by_project", (q: any) => q.eq("projectId", project._id))
+            .collect(),
+        ));
     }
 
     // Analyses IA liées aux projets ou au compte (indexes by_user).
+    counts.aiMaterialAnalyses =
+      (counts.aiMaterialAnalyses ?? 0) +
+      (await deleteAll(ctx, await collectByUser(ctx, "aiMaterialAnalyses", userId)));
     counts.investmentAnalyses =
       (counts.investmentAnalyses ?? 0) +
       (await deleteAll(ctx, await collectByUser(ctx, "investmentAnalyses", userId)));
@@ -403,6 +415,7 @@ export const deleteUserCompletely = internalMutation({
     await verify("quoteRequests", await collectByUser(ctx, "quoteRequests", userId));
     await verify("quoteResponses", await collectByUser(ctx, "quoteResponses", userId));
     await verify("investmentAnalyses", await collectByUser(ctx, "investmentAnalyses", userId));
+    await verify("aiMaterialAnalyses", await collectByUser(ctx, "aiMaterialAnalyses", userId));
     await verify("supportTickets", await collectByUser(ctx, "supportTickets", userId));
     const authLeft = await ctx.db
       .query("authAccounts")
