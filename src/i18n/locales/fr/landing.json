@@ -89,7 +89,7 @@
   },
   "benefits": {
     "time": { "number": "50%", "label": "Gain de temps", "desc": "Réduisez de moitié le temps d'estimation grâce à l'IA" },
-    "projects": { "number": "11", "label": "Types de biens", "desc": "Types de biens unifiés, alignés sur l'investissement" },
+    "projects": { "number": "11", "label": "Types de biens", "desc": "Types de biens unifiés, alignés sur le moteur de construction" },
     "accuracy": { "number": "95%", "label": "Précision", "desc": "Taux de confiance moyen des estimations IA" },
     "materials": { "number": "500+", "label": "Matériaux", "desc": "Prix actualisés dans la base de données" }
   },

@@ -89,7 +89,7 @@
   },
   "benefits": {
     "time": { "number": "50%", "label": "Time saving", "desc": "Cut estimation time in half with AI" },
-    "projects": { "number": "11", "label": "Property types", "desc": "Unified property types aligned with investment" },
+    "projects": { "number": "11", "label": "Property types", "desc": "Unified property types aligned with the construction engine" },
     "accuracy": { "number": "95%", "label": "Accuracy", "desc": "Average AI estimation confidence rate" },
     "materials": { "number": "500+", "label": "Materials", "desc": "Updated prices in the database" }
   },
