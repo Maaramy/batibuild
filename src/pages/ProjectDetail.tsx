@@ -22,10 +22,12 @@ import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { projectJourneyGroup } from "@/lib/projectJourney";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
+import { RecommendedProvidersPanel } from "@/components/RecommendedProvidersPanel";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
 import { ArticleEditDialog } from "@/components/quantitatif/ArticleEditDialog";
 import { QuantitatifDetails } from "@/components/quantitatif/QuantitatifDetails";
 import { ComplementaryWorksSection } from "@/components/complementary/ComplementaryWorksSection";
+import { MaterialIntelligenceSection } from "@/components/decision/MaterialIntelligenceSection";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1831,6 +1833,11 @@ export default function ProjectDetail() {
                 </div>
               </motion.div>
 
+              {/* ═══ Analyse détaillée des matériaux (automatique, sous « Confiance ») ═══ */}
+              <motion.div variants={fadeUp} custom={5} className="lg:col-span-3">
+                <MaterialIntelligenceSection projectId={String(id)} projectTotal={displayTotal} />
+              </motion.div>
+
               {ai.anomalies && ai.anomalies.length > 0 && (
                 <motion.div variants={fadeUp} custom={6} className="lg:col-span-2 rounded-xl border-2 border-amber-200/30 bg-gradient-to-br from-amber-50/30 to-background p-4">
                   <div className="flex items-center gap-2 mb-3">
@@ -1871,6 +1878,12 @@ export default function ProjectDetail() {
                 </motion.div>
               )}
             </div>
+
+            {/* ═══ Prestataires recommandés par l'IA (fournisseurs + experts) ═══ */}
+            <RecommendedProvidersPanel
+              projectId={project._id}
+              projectName={project.name}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {project.optimizationTips && project.optimizationTips.length > 0 && (

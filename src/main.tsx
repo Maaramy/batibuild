@@ -356,6 +356,19 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
+                {/* Module « Matériaux AI » (assistant de choix des matériaux)
+                    retiré. Les anciens chemins renvoient vers la page existante
+                    des prix des matériaux afin qu'aucun lien interne (parcours
+                    du projet, accès rapides, rapports) ne pointe vers une page
+                    morte. */}
+                <Route
+                  path="/dashboard/ai-materials"
+                  element={<Navigate to="/dashboard/materials" replace />}
+                />
+                <Route
+                  path="/dashboard/ai-materials/result/:id"
+                  element={<Navigate to="/dashboard/materials" replace />}
+                />
                 <Route
                   path="/dashboard/plans/:id"
                   element={

@@ -23,6 +23,7 @@ import {
 import {
   downloadCostReport,
   downloadExecutionReport,
+  downloadMaterialsReport,
   downloadInvestmentReport,
   downloadPlansReport,
 } from "@/lib/reportDownloads";
@@ -214,6 +215,10 @@ export function ProjectJourneyNav({
           break;
         case "plans":
           await downloadPlansReport(project);
+          break;
+        case "materials":
+          if (!artifact?.materialsAnalysisId) throw new Error("report-unavailable");
+          await downloadMaterialsReport(convex, artifact.materialsAnalysisId);
           break;
         case "investment":
           if (!artifact?.investmentAnalysisId) throw new Error("report-unavailable");
