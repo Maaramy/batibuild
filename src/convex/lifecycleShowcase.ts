@@ -27,7 +27,7 @@ import {
   EXPERT_OTHER_CATEGORY,
   EXPERT_PROFESSION_LABELS,
   expertCategoryOf,
-} from "./recommendedProviders";
+} from "./expertCategories";
 
 /** Projet de référence des résultats — exemple déterministe (moteurs réels). */
 const DEMO = {
@@ -244,8 +244,7 @@ export const getShowcase = query({
       ctx.runQuery(api.supplierProfiles.getActiveSuppliers, {}).catch(() => [] as any[]),
     ]);
 
-    // Répartition réelle des experts par catégorie (mêmes catégories que le
-    // module « Prestataires recommandés par l'IA »).
+    // Répartition réelle des experts par catégorie normalisée.
     const counts = new Map<string, number>();
     const regionSet = new Set<string>();
     const regionCounts = new Map<string, number>();

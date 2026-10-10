@@ -31,7 +31,6 @@ import {
 import {
   downloadCostReport,
   downloadExecutionReport,
-  downloadMaterialsReport,
   downloadPlansReport,
   downloadInvestmentReport,
 } from "@/lib/reportDownloads";
@@ -149,10 +148,6 @@ export default function ReportCenter() {
           break;
         case "plans":
           await downloadPlansReport(project);
-          break;
-        case "materials":
-          if (!artifact?.materialsAnalysisId) throw new Error("report-unavailable");
-          await downloadMaterialsReport(convex, artifact.materialsAnalysisId);
           break;
         case "investment":
           if (!artifact?.investmentAnalysisId) throw new Error("report-unavailable");

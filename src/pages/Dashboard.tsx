@@ -942,13 +942,6 @@ export default function Dashboard() {
                   to: "/dashboard/projects",
                   enabled: true,
                 },
-                {
-                  icon: Sparkles,
-                  label: "Choisir mes matériaux",
-                  hint: "Sélection IA",
-                  to: "/dashboard/ai-materials",
-                  enabled: isFeatureEnabled("ai_materials"),
-                },
               ]
                 .filter((action) => action.enabled)
                 .map((action) => (

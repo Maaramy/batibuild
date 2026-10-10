@@ -988,17 +988,9 @@ export default function UserMessages() {
                   <MessageSquare className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
                   <p className="text-sm font-medium text-muted-foreground">Aucune demande envoyée</p>
                   <p className="text-xs text-muted-foreground/60 mt-1">
-                    Envoyez une demande de devis depuis la page matériaux IA ou les résultats de votre projet, puis retrouvez les offres des fournisseurs ici.
+                    Envoyez une demande de devis depuis les résultats de votre projet, puis retrouvez les offres des fournisseurs ici.
                   </p>
                   <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs"
-                      onClick={() => navigate("/dashboard/ai-materials")}
-                    >
-                      <FileText className="h-3 w-3 mr-1" /> Aller aux Matériaux IA
-                    </Button>
                     <Button
                       size="sm"
                       variant="outline"

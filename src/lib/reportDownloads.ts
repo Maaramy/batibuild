@@ -2,16 +2,15 @@
  * TÉLÉCHARGEMENTS DES RAPPORTS PDF
  *
  * Chaque fonction réutilise EXACTEMENT le générateur du module concerné
- * (devis estimatif, plan IA, rapport Matériaux AI, analyse d'investissement
- * immobilier, guide construction A-Z) : le PDF téléchargé depuis « Rapports
- * PDF » est donc le rapport réellement généré pour ce projet, avec le branding
- * centralisé (`src/lib/pdfBranding.ts` — nom batibuild, logo officiel, en-tête
- * blanc).
+ * (devis estimatif, plan IA, analyse d'investissement immobilier, guide
+ * construction A-Z) : le PDF téléchargé depuis « Rapports PDF » est donc le
+ * rapport réellement généré pour ce projet, avec le branding centralisé
+ * (`src/lib/pdfBranding.ts` — nom batibuild, logo officiel, en-tête blanc).
  *
  * Les données proviennent soit du projet lui-même (coût, plan), soit des
  * artefacts persistés côté serveur, rechargés via des requêtes Convex qui
- * vérifient l'utilisateur et l'appartenance du rapport (matériaux,
- * investissement, exécution).
+ * vérifient l'utilisateur et l'appartenance du rapport (investissement,
+ * exécution).
  */
 
 import type { ConvexReactClient } from "convex/react";
@@ -26,7 +25,6 @@ import {
 } from "@/convex/quantitatifCustomLogic";
 import { generateFloorPlans, repairFloorPlan } from "./floorPlanEngine";
 import { downloadFloorPlanPdf } from "./floorPlanPdf";
-import { generateMaterialReportPdf } from "./materialReportPdf";
 import { generateProjectPdf } from "./projectPdf";
 import { exportRoadmapPdf } from "./roadmapReportPdf";
 import { generatePdf } from "@/components/investment/shared";
@@ -177,19 +175,6 @@ export async function downloadPlansReport(project: ProjectLike): Promise<void> {
     variantName: best.name,
     floorLabel,
   });
-}
-
-/** Matériaux AI — rapport de recommandation à partir de l'analyse enregistrée. */
-export async function downloadMaterialsReport(
-  convex: ConvexReactClient,
-  analysisId: string,
-): Promise<void> {
-  const doc = await convex.query(api.aiMaterials.getCopilotAnalysis, {
-    analysisId: analysisId as never,
-  });
-  const result = doc?.results?.recommend;
-  if (!result) throw new Error("report-unavailable");
-  generateMaterialReportPdf({ result });
 }
 
 /** Investissement immobilier — rapport d'analyse de rentabilité (analyse enregistrée). */
