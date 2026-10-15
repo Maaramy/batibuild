@@ -940,11 +940,6 @@ export default function NewProject() {
                   placeholder="ex: Villa à Carthage"
                   className="mt-1.5 h-9 sm:h-10 text-xs sm:text-sm"
                 />
-                {selectedCategory && !nameManuallyEdited && (
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Nom généré automatiquement — modifiez-le librement, il sera conservé tel quel.
-                  </p>
-                )}
                 {errors.name && (
                   <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />{errors.name}
