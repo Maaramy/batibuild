@@ -14,9 +14,13 @@ import { getCurrentUser } from "./users";
 import {
   isEditableLot,
   isNoopCustomization,
+  isProtectedLot,
   lockedUnitPriceForScenario,
+  quantitatifDeletionKey,
   quantitatifLineKey,
   resolveLockedArticle,
+  type QuantitatifDeletionEntry,
+  type QuantitatifDeletionKind,
 } from "./quantitatifCustomLogic";
 import { buildLivePriceIndex, getCompatibleArticles } from "./quantitatifCatalog";
 
@@ -63,10 +67,14 @@ export const getCustomization = query({
 
     const doc = await findCustomization(ctx, args.projectId, project.userId);
     if (!doc) return null;
+    const deletions: QuantitatifDeletionEntry[] = doc.deletions ?? [];
     return {
       baseScenario: doc.baseScenario,
       modifications: doc.modifications,
       modifiedCount: doc.modifications.length,
+      // Suppressions de catégories / sous-catégories du Quantitatif détaillé.
+      deletions,
+      deletedCount: deletions.length,
       updatedAt: doc.updatedAt,
     };
   },
@@ -197,6 +205,9 @@ export const saveItemCustomization = mutation({
     const previous = doc?.modifications ?? [];
     const others = previous.filter((m: any) => m.lineKey !== lineKey);
     const modifications = noop ? others : [...others, entry];
+    // Les suppressions de catégories / sous-catégories sont conservées :
+    // enregistrer ou réinitialiser un article ne les restaure jamais.
+    const hasDeletions = (doc?.deletions?.length ?? 0) > 0;
 
     if (!doc) {
       if (!modifications.length) return { lineKey, removed: true, modifiedCount: 0 };
@@ -211,8 +222,13 @@ export const saveItemCustomization = mutation({
     }
 
     if (!modifications.length) {
-      // Plus aucune modification : le scénario Personnalisé n'existe plus.
-      await ctx.db.delete(doc._id);
+      // Plus aucune personnalisation d'article : le document n'est supprimé que
+      // s'il ne porte aucune suppression de catégorie / sous-catégorie.
+      if (!hasDeletions) {
+        await ctx.db.delete(doc._id);
+        return { lineKey, removed: true, modifiedCount: 0 };
+      }
+      await ctx.db.patch(doc._id, { modifications, updatedAt: now });
       return { lineKey, removed: true, modifiedCount: 0 };
     }
 
@@ -232,11 +248,136 @@ export const resetItemCustomization = mutation({
       (m: any) => m.lineKey !== args.lineKey,
     );
     if (!modifications.length) {
+      // Les suppressions de catégories / sous-catégories restent enregistrées.
+      if ((doc.deletions?.length ?? 0) > 0) {
+        await ctx.db.patch(doc._id, { modifications, updatedAt: Date.now() });
+        return { modifiedCount: 0 };
+      }
       await ctx.db.delete(doc._id);
       return { modifiedCount: 0 };
     }
     await ctx.db.patch(doc._id, { modifications, updatedAt: Date.now() });
     return { modifiedCount: modifications.length };
+  },
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Suppression d'une catégorie ou d'une sous-catégorie
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Supprime une catégorie (« lot ») ou une sous-catégorie (« nature ») du
+ * Quantitatif détaillé dans le scénario « Personnalisé ».
+ *
+ * · `nature` absente → la catégorie entière est supprimée (ses sous-catégories
+ *   et toutes ses lignes de travaux disparaissent) ;
+ * · `nature` fournie → seule cette sous-catégorie et ses lignes disparaissent.
+ *
+ * Protections appliquées ici, donc impossibles à contourner par un appel
+ * direct à la mutation : **Gros œuvre** et **Transport et autres**, ainsi que
+ * toutes leurs sous-catégories, ne peuvent jamais être supprimés.
+ *
+ * Le quantitatif du projet (`projects.dqe`) et les données globales ne sont
+ * jamais modifiés : seule la ligne de personnalisation du projet et de
+ * l'utilisateur courant est écrite, ce qui garantit la séparation stricte des
+ * données entre projets et utilisateurs.
+ */
+export const deleteQuantitatifStructure = mutation({
+  args: {
+    projectId: v.id("projects"),
+    lotId: v.string(),
+    /** Sous-catégorie à supprimer — absente pour une catégorie entière. */
+    nature: v.optional(v.string()),
+    /** Scénario de référence, utilisé à la création du scénario Personnalisé. */
+    baseScenario: scenarioValidator,
+  },
+  handler: async (ctx, args) => {
+    const { project } = await requireOwnedProject(ctx, args.projectId);
+
+    // ── La catégorie doit exister dans le quantitatif du projet ──────────
+    const lots: any[] = (project as any)?.dqe?.lots ?? [];
+    const lot = lots.find((l: any) => l?.id === args.lotId);
+    if (!lot) {
+      throw new Error("Catégorie introuvable dans le quantitatif du projet");
+    }
+
+    // ── Catégories protégées : suppression interdite ──────────────────────
+    // « Gros œuvre » et « Transport et autres » (+ leurs sous-catégories).
+    if (isProtectedLot(lot.id, lot.name)) {
+      throw new Error(
+        "Cette catégorie est protégée : sa suppression et celle de ses sous-catégories sont interdites",
+      );
+    }
+
+    const kind: QuantitatifDeletionKind = args.nature ? "nature" : "lot";
+    const lines: any[] = lot.lines ?? [];
+    if (kind === "nature") {
+      const natures = new Set(lines.map((l: any) => String(l?.nature ?? "materiaux")));
+      if (!natures.has(args.nature as string)) {
+        throw new Error("Sous-catégorie introuvable dans cette catégorie");
+      }
+    }
+
+    const now = Date.now();
+    const doc = await findCustomization(ctx, args.projectId, project.userId);
+
+    // Clés des articles retirés : leurs personnalisations sont supprimées pour
+    // qu'aucune donnée de la catégorie supprimée ne puisse réapparaître.
+    const removedKeys = new Set<string>();
+    lines.forEach((l: any, index: number) => {
+      if (kind === "lot" || String(l?.nature ?? "materiaux") === args.nature) {
+        removedKeys.add(quantitatifLineKey(lot.id, index));
+      }
+    });
+
+    const entry: QuantitatifDeletionEntry = {
+      kind,
+      lotId: lot.id,
+      lotName: String(lot.name ?? lot.id),
+      ...(kind === "nature" ? { nature: args.nature as string } : {}),
+      deletedAt: now,
+    };
+    const key = quantitatifDeletionKey(entry);
+    const previous: QuantitatifDeletionEntry[] = doc?.deletions ?? [];
+    const lotAlreadyDeleted = previous.some(
+      (e) => e.kind === "lot" && e.lotId === lot.id,
+    );
+    // Une suppression de catégorie absorbe celles de ses sous-catégories ; une
+    // même suppression n'est jamais enregistrée deux fois (idempotent).
+    const kept = previous.filter(
+      (e) =>
+        quantitatifDeletionKey(e) !== key &&
+        !(kind === "lot" && e.lotId === lot.id),
+    );
+    // La catégorie est déjà entièrement supprimée : la suppression d'une de
+    // ses sous-catégories n'ajoute rien (ni doublon, ni incohérence).
+    const deletions =
+      kind === "nature" && lotAlreadyDeleted ? previous : [...kept, entry];
+    const modifications = (doc?.modifications ?? []).filter(
+      (m: any) => !removedKeys.has(m.lineKey),
+    );
+
+    if (!doc) {
+      await ctx.db.insert("quantitatifCustomizations", {
+        projectId: args.projectId,
+        userId: project.userId,
+        baseScenario: args.baseScenario,
+        modifications: [],
+        deletions,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.patch(doc._id, { deletions, modifications, updatedAt: now });
+    }
+
+    return {
+      kind,
+      lotId: lot.id,
+      nature: entry.nature ?? null,
+      deletedCount: deletions.length,
+      removedLines: removedKeys.size,
+      modifiedCount: modifications.length,
+    };
   },
 });
 

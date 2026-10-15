@@ -633,6 +633,24 @@ const schema = defineSchema(
           updatedAt: v.number(),
         }),
       ),
+      // Suppressions de catégories / sous-catégories du Quantitatif détaillé.
+      // Stockées séparément du quantitatif du projet (jamais modifié) : elles
+      // ne s'appliquent qu'au scénario « Personnalisé ». Les catégories
+      // protégées (« Gros œuvre », « Transport et autres ») ne peuvent jamais
+      // y figurer (contrôle côté mutation).
+      deletions: v.optional(
+        v.array(
+          v.object({
+            // `lot` = catégorie complète, `nature` = sous-catégorie.
+            kind: v.union(v.literal("lot"), v.literal("nature")),
+            lotId: v.string(),
+            lotName: v.string(),
+            // Sous-catégorie supprimée (absente pour une catégorie entière).
+            nature: v.optional(v.string()),
+            deletedAt: v.number(),
+          }),
+        ),
+      ),
       updatedAt: v.number(),
     })
       .index("by_project", ["projectId"])

@@ -41,15 +41,18 @@ import {
 import {
   BUDGET_SCENARIO_LABELS,
   PERSONALIZED_SCENARIO_KEY,
+  applyDeletions,
   budgetScenarioFactor,
   PERSONALIZED_SCENARIO_LABEL,
   computeQuantitatifTotals,
   indexCustomizations,
+  isDeletableLot,
   overlayCustomizations,
   quantitatifLineKey,
   scaleDqeLots,
   type BudgetScenarioKey,
   type QuantitatifCustomizationEntry,
+  type QuantitatifDeletionEntry,
 } from "@/convex/quantitatifCustomLogic";
 import {
   SOLAR_PANEL_DEFAULT_COUNT,
@@ -410,6 +413,14 @@ export default function ProjectDetail() {
     [customizationEntries],
   );
   const hasCustomization = customizationEntries.length > 0;
+  // ── Suppressions de catégories / sous-catégories du Quantitatif détaillé ──
+  // Enregistrées séparément (jamais dans le quantitatif du projet) et
+  // appliquées uniquement au scénario « Personnalisé ».
+  const deletionEntries = useMemo(
+    () => (customization?.deletions ?? []) as QuantitatifDeletionEntry[],
+    [customization],
+  );
+  const hasDeletions = deletionEntries.length > 0;
   // ── Travaux complémentaires (liste prédéfinie) ──
   // Accessibles UNIQUEMENT pour les sept types de projet autorisés (maison,
   // villa, appartement, duplex, immeuble, résidence touristique, projet
@@ -434,14 +445,17 @@ export default function ProjectDetail() {
   const complementaryWorksTotalValue = complementaryWorksTotal(complementaryWorks);
   const hasComplementaryWorks = complementaryKeys.length > 0;
   // Le scénario « Personnalisé » existe dès qu'il porte des modifications
-  // d'articles OU des travaux complémentaires ; sans rien, il retombe sur son
-  // scénario de référence (comportement d'origine).
-  const hasPersonalizedScenario = hasCustomization || hasComplementaryWorks;
-  // Libellé du badge du scénario « Personnalisé » (articles modifiés ou
-  // travaux complémentaires sélectionnés).
+  // d'articles, des suppressions ou des travaux complémentaires ; sans rien, il
+  // retombe sur son scénario de référence (comportement d'origine).
+  const hasPersonalizedScenario =
+    hasCustomization || hasDeletions || hasComplementaryWorks;
+  // Libellé du badge du scénario « Personnalisé » (articles modifiés, éléments
+  // supprimés ou travaux complémentaires sélectionnés).
   const personalizedBadgeLabel = hasCustomization
     ? `${customizationEntries.length} article${customizationEntries.length > 1 ? "s" : ""} modifié${customizationEntries.length > 1 ? "s" : ""}`
-    : `${complementaryKeys.length} travail${complementaryKeys.length > 1 ? "x" : ""} complémentaire${complementaryKeys.length > 1 ? "s" : ""}`;
+    : hasDeletions
+      ? `${deletionEntries.length} élément${deletionEntries.length > 1 ? "s" : ""} supprimé${deletionEntries.length > 1 ? "s" : ""}`
+      : `${complementaryKeys.length} travail${complementaryKeys.length > 1 ? "x" : ""} complémentaire${complementaryKeys.length > 1 ? "s" : ""}`;
   // Scénario de référence du scénario « Personnalisé » : les modifications
   // d'articles priment, sinon le scénario budgétaire courant du projet.
   const storedScenarioKey = (project as any)?.selectedScenario;
@@ -483,6 +497,30 @@ export default function ProjectDetail() {
     return map;
   }, [rawDqeLots]);
 
+  // ── Éléments supprimables du Quantitatif détaillé ───────────────────────
+  // Les protections « Gros œuvre » et « Transport et autres » (et toutes
+  // leurs sous-catégories) sont appliquées ici ET côté backend : aucune icône
+  // de suppression ne leur est présentée et la mutation les refuse.
+  const deletableLotIds = useMemo(
+    () =>
+      new Set(
+        rawDqeLots
+          .filter((l: any) => isDeletableLot(l?.id, l?.name))
+          .map((l: any) => l.id),
+      ),
+    [rawDqeLots],
+  );
+  const deletableNatureKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const lot of rawDqeLots) {
+      if (!isDeletableLot(lot?.id, lot?.name)) continue;
+      for (const line of lot?.lines ?? []) {
+        keys.add(`${lot.id}::${line?.nature ?? "materiaux"}`);
+      }
+    }
+    return keys;
+  }, [rawDqeLots]);
+
   // Surface construite (m²) — base du coût au m².
   const builtSurface = project?.surface ? project.surface * (project.floors || 1) : 0;
 
@@ -499,22 +537,30 @@ export default function ProjectDetail() {
           realCostFactor,
         })
       : { lots: scaled, modifiedCount: 0 };
+    // Suppressions de catégories / sous-catégories : retirées de la copie
+    // affichée, sous-totaux et pourcentages recalculés. Le quantitatif du
+    // projet et les données globales ne sont jamais modifiés.
+    const deleted = applyDeletions(overlay.lots, deletionEntries);
     // Les travaux complémentaires n'intègrent QUE le scénario Personnalisé :
     // les scénarios Économique / Standard / Premium ne sont jamais modifiés.
-    const lots = withComplementaryWorksLots(overlay.lots, complementaryWorks);
+    const lots = withComplementaryWorksLots(deleted.lots, complementaryWorks);
     return {
       lots,
       totals: computeQuantitatifTotals(lots, builtSurface),
       modifiedCount: overlay.modifiedCount,
+      deletedCount: deletionEntries.length,
+      removedLines: deleted.removedLines,
     };
   }, [
     hasPersonalizedScenario,
     hasCustomization,
+    hasDeletions,
     rawDqeLots,
     scenarios,
     baseScenarioKey,
     realCostFactor,
     customizationEntries,
+    deletionEntries,
     complementaryWorks,
     builtSurface,
   ]);
@@ -561,9 +607,9 @@ export default function ProjectDetail() {
     if (count === complementaryCountRef.current) return;
     complementaryCountRef.current = count;
     if (count > 0) setSelectedScenario(PERSONALIZED_SCENARIO_KEY);
-    else if (!hasCustomization)
+    else if (!hasCustomization && !hasDeletions)
       setSelectedScenario((s) => (s === PERSONALIZED_SCENARIO_KEY ? baseScenarioKey : s));
-  }, [complementaryKeys.length, hasCustomization, baseScenarioKey]);
+  }, [complementaryKeys.length, hasCustomization, hasDeletions, baseScenarioKey]);
 
   const { flags: journeyFlags } = useFeatureFlags();
 
@@ -1362,9 +1408,16 @@ export default function ProjectDetail() {
                       modifiedCount={customizationEntries.length}
                       customizationByKey={customizationByKey}
                       rawLineByKey={rawLineByKey}
+                      projectId={project._id}
+                      baseScenario={baseScenarioKey}
+                      deletableLotIds={deletableLotIds}
+                      deletableNatureKeys={deletableNatureKeys}
+                      deletedCount={deletionEntries.length}
+                      onDeleted={() => chooseScenario(PERSONALIZED_SCENARIO_KEY)}
                       refreshing={refreshingQuantitatif}
-                      onRefresh={refreshQuantitatif}                        onOpenArticle={setEditingLine}
-                      />
+                      onRefresh={refreshQuantitatif}
+                      onOpenArticle={setEditingLine}
+                    />
 
                     {/* Popup de modification d'un article du quantitatif */}
                     {editingLine && (
@@ -1407,6 +1460,9 @@ export default function ProjectDetail() {
                             {hasCustomization
                               ? `Les ${customizationEntries.length} article${customizationEntries.length > 1 ? "s" : ""} personnalisé${customizationEntries.length > 1 ? "s" : ""} seront restaurés selon le scénario de référence « ${BUDGET_SCENARIO_LABELS[baseScenarioKey]} ». `
                               : ""}
+                            {hasDeletions
+                              ? `Les ${deletionEntries.length} catégorie${deletionEntries.length > 1 ? "s" : ""} ou sous-catégorie${deletionEntries.length > 1 ? "s" : ""} supprimée${deletionEntries.length > 1 ? "s" : ""} du Quantitatif détaillé seront restaurées. `
+                              : ""}
                             {hasComplementaryWorks
                               ? `Les ${complementaryKeys.length} travail${complementaryKeys.length > 1 ? "x" : ""} complémentaire${complementaryKeys.length > 1 ? "s" : ""} sélectionné${complementaryKeys.length > 1 ? "s" : ""} seront retirés. `
                               : ""}
@@ -1420,7 +1476,10 @@ export default function ProjectDetail() {
                             className="text-xs"
                             onClick={async () => {
                               try {
-                                if (hasCustomization) {
+                                // Les suppressions de catégories / sous-catégories
+                                // sont réinitialisées en même temps que les
+                                // personnalisations d'articles (même document).
+                                if (hasCustomization || hasDeletions) {
                                   await resetAllCustomizations({ projectId: project._id });
                                 }
                                 if (hasComplementaryWorks) {
