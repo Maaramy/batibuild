@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
@@ -24,7 +25,12 @@ import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BIM_CATEGORIES, BIM_CATEGORY_LABELS } from "@/convex/bimEngine";
 import { projectJourneyGroup } from "@/lib/projectJourney";
-import { inferFloorsFromCategory } from "@/convex/projectTypes";
+import {
+  inferFloorsFromCategory,
+  normalizeSurface,
+  surfaceForCategoryChange,
+  surfaceRuleForCategory,
+} from "@/convex/projectTypes";
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
@@ -246,7 +252,7 @@ function ProjectSummary({
   projectName: string;
   selectedCategory: string;
   region: string;
-  surface: string;
+  surface: number;
   importMethod: string;
   files: File[];
   step: StepKey;
@@ -266,7 +272,7 @@ function ProjectSummary({
     const regionName = TUNISIA_REGIONS.find((r) => r.value === region)?.label || region;
     items.push({ label: "Région", value: regionName, icon: MapPin });
   }
-  if (surface && parseFloat(surface) > 0)
+  if (Number.isFinite(surface) && surface > 0)
     items.push({ label: "Surface couverte", value: `${surface} m²`, icon: Ruler });
   if (files.length > 0)
     items.push({ label: "Fichiers", value: `${files.length} fichier${files.length > 1 ? "s" : ""}`, icon: FileText });
@@ -520,7 +526,11 @@ export default function NewProject() {
   const [projectName, setProjectName] = useState("");
   const [description, setDescription] = useState("");
   const [region, setRegion] = useState("");
-  const [surface, setSurface] = useState("");
+  // Surface couverte en m² : nombre toujours borné, aligné sur le pas du type
+  // de projet sélectionné (voir `surfaceRuleForCategory`). Initialisée à la
+  // valeur recommandée de la plage par défaut (50–300 m²), puis recadrée dès
+  // que l'utilisateur choisit un type de projet.
+  const [surface, setSurface] = useState(() => surfaceRuleForCategory("").defaultValue);
   // Nombre de niveaux (RDC = 1). Réinitialisé selon le type sélectionné,
   // puis ajustable manuellement (R+1, R+2, R+3).
   const [floors, setFloors] = useState(1);
@@ -546,7 +556,8 @@ export default function NewProject() {
     if (!projectName.trim()) errs.name = "Le nom du projet est requis";
     if (!selectedCategory) errs.category = "Sélectionnez un type de projet";
     if (!region) errs.region = "La région est requise";
-    if (!surface || parseFloat(surface) <= 0) errs.surface = "La surface couverte est requise";
+    if (!Number.isFinite(surface) || surface <= 0)
+      errs.surface = "La surface couverte est requise";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -581,7 +592,10 @@ export default function NewProject() {
     // Repositionne le sélecteur de niveaux sur la valeur par défaut du type
     // (duplex → étage, types mono-niveaux → RDC), puis ajustable manuellement.
     setFloors(inferFloorsFromCategory(cat));
-    setErrors((e) => ({ ...e, category: "" }));
+    // Adapter la surface à la plage du nouveau type : valeur conservée si elle
+    // est déjà valide, sinon valeur recommandée du type (jamais hors bornes).
+    setSurface((prev) => surfaceForCategoryChange(cat, prev));
+    setErrors((e) => ({ ...e, category: "", surface: "" }));
   };
 
   const handleMethodSelect = (methodId: string) => {
@@ -628,7 +642,9 @@ export default function NewProject() {
         category: selectedCategory as any,
         description: description || undefined,
         region: region ? (region as any) : undefined,
-        surface: surface ? parseFloat(surface) : undefined,
+        // Dernier verrou avant envoi : surface bornée et alignée sur le pas du
+        // type de projet, transmise telle quelle aux moteurs BIM / DQE.
+        surface: normalizeSurface(surfaceRuleForCategory(selectedCategory), surface),
         floors,
       });
 
@@ -647,6 +663,10 @@ export default function NewProject() {
       setAnalyzing(false);
     }
   };
+
+  // Bornes / pas / valeur recommandée de la barre de surface : recalculés à
+  // chaque changement de type de projet.
+  const surfaceRule = surfaceRuleForCategory(selectedCategory);
 
   // ─── RENDER CONTENT FOR CURRENT STEP ──────────────────────────────
 
@@ -936,20 +956,35 @@ export default function NewProject() {
                 </div>
 
                 <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
-                  <Label htmlFor="surface" className="text-xs sm:text-sm font-semibold">
-                    Surface couverte (m²) <span className="text-primary">*</span>
-                  </Label>
-                  <div className="mt-1.5 relative">
-                    <Ruler className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                    <Input
-                      id="surface"
-                      type="number"
-                      value={surface}
-                      onChange={(e) => { setSurface(e.target.value); setErrors((e) => ({...e, surface: ''})); }}
-                      placeholder="ex: 150"
-                      min="1"
-                      className="pl-9 h-9 sm:h-10 text-xs sm:text-sm"
-                    />
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-xs sm:text-sm font-semibold">
+                      Surface couverte <span className="text-primary">*</span>
+                    </Label>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl sm:text-2xl font-bold leading-none tabular-nums text-primary">
+                        {surface}
+                      </span>
+                      <span className="text-xs font-semibold text-muted-foreground">m²</span>
+                    </div>
+                  </div>
+                  <Slider
+                    className="mt-4"
+                    value={[surface]}
+                    min={surfaceRule.min}
+                    max={surfaceRule.max}
+                    step={surfaceRule.step}
+                    aria-label="Surface couverte en mètres carrés"
+                    onValueChange={(v) => {
+                      setSurface(normalizeSurface(surfaceRule, v[0]));
+                      setErrors((e) => ({ ...e, surface: "" }));
+                    }}
+                  />
+                  <div className="mt-2 flex items-center justify-between gap-2 text-[10px] font-medium tabular-nums text-muted-foreground">
+                    <span>{surfaceRule.min} m²</span>
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-semibold text-primary">
+                      Recommandé : {surfaceRule.defaultValue} m²
+                    </span>
+                    <span>{surfaceRule.max} m²</span>
                   </div>
                   {errors.surface && (
                     <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">

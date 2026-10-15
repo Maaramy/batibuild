@@ -183,6 +183,90 @@ export function inferFloorsFromCategory(category: string | undefined | null): nu
   return CATEGORY_DEFAULT_FLOORS[category] ?? 1;
 }
 
+/* ---------------------------------------------------------------------------- *
+ * SURFACE COUVERTE — plages par type de projet
+ * ----------------------------------------------------------------------------
+ * Source unique de vérité pour la barre de sélection de surface du formulaire
+ * « Nouveau projet » : bornes, pas et valeur recommandée par type. Le pas de
+ * 5 m² des grands projets (50 → 300 m²) et de 1 m² des petites surfaces
+ * (cuisine, salle de bain, bassin) vient d'ici, jamais du composant.
+ *
+ * Toute surface transmise au moteur BIM / DQE passe par `normalizeSurface` :
+ * elle est donc toujours un nombre fini, compris dans [min, max] et aligné
+ * sur le pas du type de projet.
+ */
+export interface SurfaceRule {
+  /** Borne basse inclusive (m²). */
+  min: number;
+  /** Borne haute inclusive (m²). */
+  max: number;
+  /** Pas de sélection (m²). */
+  step: number;
+  /** Valeur recommandée / par défaut (m²). */
+  defaultValue: number;
+}
+
+/** Plages spécifiques aux types de projet à petite surface. */
+export const CATEGORY_SURFACE_RULES: Record<string, SurfaceRule> = {
+  renovation_cuisine: { min: 8, max: 12, step: 1, defaultValue: 10 },
+  renovation_salle_de_bain: { min: 4, max: 8, step: 1, defaultValue: 5 },
+  piscine: { min: 15, max: 50, step: 1, defaultValue: 32 },
+};
+
+/** Plage par défaut : tous les autres types de projet. */
+export const DEFAULT_SURFACE_RULE: SurfaceRule = {
+  min: 50,
+  max: 300,
+  step: 5,
+  defaultValue: 100,
+};
+
+/**
+ * Règle de surface applicable à un type de projet.
+ * Le slug « piscine_coque » (legacy) hérite de la plage « piscine ».
+ */
+export function surfaceRuleForCategory(category: string | undefined | null): SurfaceRule {
+  if (!category) return DEFAULT_SURFACE_RULE;
+  if (CATEGORY_SURFACE_RULES[category]) return CATEGORY_SURFACE_RULES[category];
+  if (category.startsWith("piscine")) return CATEGORY_SURFACE_RULES.piscine;
+  return DEFAULT_SURFACE_RULE;
+}
+
+/**
+ * Ramène une surface à un nombre fini, aligné sur le pas et borné dans la
+ * plage de la règle : aucune valeur `undefined`, `null` ou NaN ne peut sortir.
+ */
+export function normalizeSurface(rule: SurfaceRule, value: number | string | null | undefined): number {
+  const n = typeof value === "string" ? parseFloat(value) : value;
+  if (typeof n !== "number" || !Number.isFinite(n)) return rule.defaultValue;
+  const snapped = Math.round(n / rule.step) * rule.step;
+  return Math.min(rule.max, Math.max(rule.min, snapped));
+}
+
+/** La surface est-elle comprise dans la plage autorisée du type ? */
+export function isSurfaceInRange(category: string | undefined | null, value: unknown): boolean {
+  const n = typeof value === "string" ? parseFloat(value) : value;
+  if (typeof n !== "number" || !Number.isFinite(n)) return false;
+  const rule = surfaceRuleForCategory(category);
+  return n >= rule.min && n <= rule.max;
+}
+
+/**
+ * Surface retenue lorsqu'on change de type de projet :
+ *   • si la surface courante est déjà dans la nouvelle plage, elle est
+ *     conservée (simplement alignée sur le pas) ;
+ *   • sinon, la valeur recommandée du nouveau type est appliquée — la surface
+ *     reste donc TOUJOURS valide, jamais hors bornes.
+ */
+export function surfaceForCategoryChange(
+  category: string | undefined | null,
+  current: number | string | null | undefined,
+): number {
+  const rule = surfaceRuleForCategory(category);
+  if (isSurfaceInRange(category, current)) return normalizeSurface(rule, current);
+  return rule.defaultValue;
+}
+
 /** Champs de composition masqués selon le type de bien. */
 export const HIDDEN_ROOM_FIELDS: Record<string, string[]> = {
   bureau: ["kitchens", "livingRooms", "garages"],
