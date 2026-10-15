@@ -85,7 +85,7 @@ export const CUSTOM_WORK_CATALOG: CustomWorkDef[] = [
   {
     key: "cuisine_exterieure",
     label: "Cuisine extérieure",
-    // Même icône que le type « Rénovation cuisine » de la plateforme.
+    // Même icône que le type « Rénovation Cuisine » de la plateforme.
     icon: "CookingPot",
     color: "#f97316",
     category: "cuisine_exterieure",

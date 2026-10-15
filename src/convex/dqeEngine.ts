@@ -378,45 +378,73 @@ function renovationCompleteLots(): LotTpl[] {
   ];
 }
 
-// ── Rénovation cuisine ──────────────────────────────────────────────────────
+// ── Rénovation Cuisine ──────────────────────────────────────────────────────
+/**
+ * Gabarit « Rénovation Cuisine » — MÊME structure et MÊMES mécanismes de
+ * calcul que les autres types de projet de la plateforme : quatre sections
+ * (Frais Préliminaires et Études · Gros œuvre · Second œuvre et finitions ·
+ * Aménagements extérieurs), mêmes unités, sous-total par section et
+ * Montant = Quantité × Prix unitaire.
+ *
+ * Les quatre identifiants de section sont ceux de `EDITABLE_LOT_IDS`
+ * (`quantitatifCustomLogic`) : le quantitatif de ce type est donc
+ * personnalisable exactement comme celui d'un projet neuf — superposition du
+ * scénario « Personnalisé », aide à la décision, DQE et rapport PDF inclus.
+ *
+ * Spécificités d'une rénovation (aucun poste de construction neuve) :
+ *   • la section « Gros œuvre » ne contient QUE des travaux de rénovation
+ *     (dépose, évacuation des gravats, reprises de cloisons et de maçonnerie) :
+ *     ni fondations, ni structure béton armé, ni plancher, ni permis de
+ *     construire, ni étude géotechnique — ces postes ne sont pas applicables ;
+ *   • la section « Aménagements extérieurs » est conservée pour respecter la
+ *     structure commune de la plateforme, mais reste VIDE et à 0 % du budget :
+ *     une rénovation de cuisine standard n'engendre aucun aménagement
+ *     extérieur, donc aucun montant n'est facturé à ce titre.
+ *
+ * Quantités de référence : elles suivent la convention du moteur (surface de
+ * référence 120 m², `quantity = référence × surface / 120`) et sont exprimées
+ * pour qu'une cuisine courante (≈ 10-20 m² saisie) affiche des quantités
+ * physiques réalistes (« 3 ml » de meubles, « 12 m² » de sol…). Les montants
+ * restent ceux des budgets de section : aucune quantité n'est extrapolée.
+ */
 function renovationCuisineLots(): LotTpl[] {
   return [
-    lot("depose", "Dépose", "main_oeuvre", 5, [
-      { d: "Dépose de la cuisine existante", desc: "Meubles, plan de travail, évier, revêtements muraux.", u: "lot", q: 1, qMode: "fixed", up: 600, n: "main_oeuvre" },
-      { d: "Évacuation des gravats", desc: "Benne et transport.", u: "bennes", q: 2, up: 200, n: "transport" },
+    // ── A. Frais préliminaires et études ──
+    lot("frais_preliminaires", "Frais Préliminaires et Études", "etudes", 5, [
+      { d: "Visite et diagnostic de l'existant", desc: "Relevé sur site, contrôle des réseaux et des supports avant travaux.", sl: "Préliminaires", u: "forfait", q: 1, qMode: "fixed", up: 350, n: "etudes" },
+      { d: "Protection des zones conservées", desc: "Bâchage et protection des sols, murs et éléments conservés.", sl: "Préliminaires", u: "m²", q: 150, up: 6, n: "main_oeuvre" },
+      { d: "Préparation et organisation du chantier", desc: "Installation de chantier, protection des accès, tri et évacuation des emballages.", sl: "Préliminaires", u: "forfait", q: 1, qMode: "fixed", up: 450, n: "main_oeuvre" },
+      { d: "Prestations complémentaires (relevé de cotes, plans de cuisine)", desc: "Plans d'implantation et d'élévation, calepinage de la cuisine.", sl: "Études complémentaires", u: "forfait", q: 1, qMode: "fixed", up: 400, n: "etudes", obs: "Selon nécessité du projet" },
     ]),
-    lot("maconnerie", "Maçonnerie et supports", "materiaux", 10, [
-      { d: "Reprise des murs et enduits", desc: "Mise à niveau, enduit de lissage.", u: "m²", q: 30, up: 20, n: "materiaux" },
-      { d: "Ragréage du sol", desc: "Chape de ragréage autolissante.", u: "m²", q: 12, up: 25, n: "materiaux" },
+    // ── B. Gros œuvre — dépose, évacuation et reprises uniquement ──
+    lot("gros_oeuvre", "Gros œuvre", "materiaux", 15, [
+      { d: "Dépose de la cuisine existante", desc: "Meubles, plan de travail, évier, appareils, revêtements muraux.", sl: "Dépose et démolition", u: "lot", q: 1, qMode: "fixed", up: 600, n: "main_oeuvre" },
+      { d: "Démolition des revêtements et doublages", desc: "Piquage du carrelage et de la faïence existants.", sl: "Dépose et démolition", u: "m²", q: 200, up: 18, n: "main_oeuvre" },
+      { d: "Modification des cloisons ou ouvertures", desc: "Création ou suppression de cloison, reprise d'ouverture et linteau.", sl: "Cloisons et ouvertures", u: "ml", q: 30, up: 85, n: "materiaux", obs: "Selon nécessité du projet" },
+      { d: "Évacuation des gravats", desc: "Benne et transport vers décharge agréée.", sl: "Évacuation des gravats", u: "bennes", q: 20, up: 200, n: "transport" },
+      { d: "Reprise des murs et enduits", desc: "Mise à niveau, rebouchage, enduit de lissage.", sl: "Reprises de maçonnerie", u: "m²", q: 200, up: 20, n: "materiaux" },
+      { d: "Ragréage du sol", desc: "Chape de ragréage autolissante.", sl: "Reprises de maçonnerie", u: "m²", q: 120, up: 25, n: "materiaux" },
     ]),
-    lot("revetements", "Revêtements", "materiaux", 20, [
-      { d: "Revêtement de sol (carrelage grès cérame)", desc: "Pose collée, joints.", u: "m²", q: 12, up: 45, n: "materiaux" },
-      { d: "Faïence murale (20×30)", desc: "Faïence jusqu'à 60 cm au-dessus du plan.", u: "m²", q: 25, up: 40, n: "materiaux" },
+    // ── C. Second œuvre et finitions ──
+    lot("second_oeuvre", "Second œuvre et finitions", "materiaux", 80, [
+      { d: "Alimentation eau (PER/PER-AL)", desc: "Réseau neuf vers évier et lave-vaisselle.", sl: "Plomberie de cuisine", u: "ml", q: 120, up: 8, n: "equipements" },
+      { d: "Évacuation (PVC Ø40/Ø50)", desc: "Évacuation évier, lave-vaisselle, siphon.", sl: "Plomberie de cuisine", u: "ml", q: 80, up: 12, n: "equipements" },
+      { d: "Arrivées et robinets d'arrêt", desc: "Robinets d'arrêt encastrés.", sl: "Plomberie de cuisine", u: "unité", q: 3, qMode: "fixed", up: 60, n: "equipements" },
+      { d: "Points électriques cuisine", desc: "Prises dédiées, éclairage sous meubles, hotte.", sl: "Électricité", u: "points", q: 80, up: 90, n: "equipements" },
+      { d: "Câblage et gaines", desc: "Câble 3×2.5 mm², gaines ICTA.", sl: "Électricité", u: "ml", q: 200, up: 6, n: "equipements" },
+      { d: "Revêtement de sol (carrelage grès cérame)", desc: "Pose collée, joints.", sl: "Sols", u: "m²", q: 120, up: 45, n: "materiaux" },
+      { d: "Faïence murale (20×30)", desc: "Faïence (crédence) jusqu'à 60 cm au-dessus du plan.", sl: "Murs et crédence", u: "m²", q: 200, up: 40, n: "materiaux" },
+      { d: "Peinture des murs et plafonds", desc: "2 couches finition lessivable.", sl: "Murs et crédence", u: "m²", q: 200, up: 8, n: "materiaux" },
+      { d: "Meubles hauts et bas", desc: "Cuisine équipée sur mesure ou standard.", sl: "Mobilier de cuisine", u: "ml", q: 30, up: 650, n: "equipements" },
+      { d: "Hotte aspirante", desc: "Hotte 60 cm avec évacuation.", sl: "Mobilier de cuisine", u: "unité", q: 1, qMode: "fixed", up: 350, n: "equipements" },
+      { d: "Plan de travail (stratifié ou quartz)", desc: "Découpe évier, retour mural.", sl: "Plan de travail et crédence", u: "ml", q: 30, up: 450, n: "materiaux" },
+      { d: "Évier inox 1 bac + égouttoir", desc: "Fourniture et pose.", sl: "Évier et robinetterie", u: "unité", q: 1, qMode: "fixed", up: 350, n: "equipements" },
+      { d: "Robinetterie évier", desc: "Mitigeur col de cygne.", sl: "Évier et robinetterie", u: "unité", q: 1, qMode: "fixed", up: 180, n: "equipements" },
+      { d: "Four / table de cuisson / réfrigérateur", desc: "Fourniture des appareils encastrés.", sl: "Équipements intégrés", u: "lot", q: 1, qMode: "fixed", up: 3500, n: "equipements" },
+      { d: "Raccordements des équipements intégrés", desc: "Branchements eau, électricité et évacuation des appareils encastrés.", sl: "Équipements intégrés", u: "unité", q: 3, qMode: "fixed", up: 65, n: "equipements" },
     ]),
-    lot("plan_travail", "Plan de travail et évier", "materiaux", 12, [
-      { d: "Plan de travail (stratifié ou quartz)", desc: "Découpe évier, retour mural.", u: "ml", q: 3, up: 450, n: "materiaux" },
-      { d: "Évier inox 1 bac + égouttoir", desc: "Fourniture et pose.", u: "unité", q: 1, qMode: "fixed", up: 350, n: "equipements" },
-      { d: "Robinetterie évier", desc: "Mitigeur col de cygne.", u: "unité", q: 1, qMode: "fixed", up: 180, n: "equipements" },
-    ]),
-    lot("plomberie", "Plomberie", "equipements", 12, [
-      { d: "Alimentation eau (PER/PER-AL)", desc: "Réseau neuf vers évier et lave-vaisselle.", u: "ml", q: 12, up: 8, n: "equipements" },
-      { d: "Évacuation (PVC Ø40/Ø50)", desc: "Évacuation évier, lave-vaisselle, siphon.", u: "ml", q: 8, up: 12, n: "equipements" },
-      { d: "Arrivées et robinets d'arrêt", desc: "Robinets d'arrêt encastrés.", u: "unité", q: 3, qMode: "fixed", up: 60, n: "equipements" },
-    ]),
-    lot("electricite", "Électricité", "equipements", 10, [
-      { d: "Points électriques cuisine", desc: "Prises dédiées, éclairage sous meubles, hotte.", u: "points", q: 8, up: 90, n: "equipements" },
-      { d: "Câblage et gaines", desc: "Câble 3×2.5 mm², gaines ICTA.", u: "ml", q: 40, up: 6, n: "equipements" },
-    ]),
-    lot("meubles", "Meubles de cuisine", "equipements", 18, [
-      { d: "Meubles hauts et bas", desc: "Cuisine équipée sur mesure ou standard.", u: "ml", q: 3, up: 650, n: "equipements" },
-      { d: "Hotte aspirante", desc: "Hotte 60 cm avec évacuation.", u: "unité", q: 1, qMode: "fixed", up: 350, n: "equipements" },
-    ]),
-    lot("peinture", "Peinture", "materiaux", 5, [
-      { d: "Peinture des murs et plafonds", desc: "2 couches finition lessivable.", u: "m²", q: 60, up: 8, n: "materiaux" },
-    ]),
-    lot("equipements", "Équipements électroménagers", "equipements", 8, [
-      { d: "Four / table de cuisson / réfrigérateur", desc: "Fourniture et branchement.", u: "lot", q: 1, qMode: "fixed", up: 3500, n: "equipements" },
-    ]),
+    // ── D. Aménagements extérieurs — section conservée, aucune dépense ──
+    lot("amenagements_exterieurs", "Aménagements extérieurs", "materiaux", 0, []),
   ];
 }
 

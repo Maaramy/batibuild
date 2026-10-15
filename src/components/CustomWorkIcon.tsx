@@ -29,7 +29,7 @@ import type { CustomWorkIconName } from "@/lib/customWorksCatalog";
 const CUSTOM_WORK_ICONS: Record<CustomWorkIconName, LucideIcon> = {
   Waves, // Piscine — même icône que la catégorie « Matériaux pour piscine ».
   Car, // Garage.
-  CookingPot, // Cuisine extérieure — même icône que « Rénovation cuisine ».
+  CookingPot, // Cuisine extérieure — même icône que « Rénovation Cuisine ».
   TreePine, // Jardin — même icône que la catégorie « Aménagement extérieur ».
   Sun, // Panneaux solaires — même icône que la catégorie « Panneaux solaires ».
 };

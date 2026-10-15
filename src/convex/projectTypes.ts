@@ -61,7 +61,7 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   projet_neuf: "Projet immobilier neuf",
   renovation_complete: "Rénovation complète",
   extension_batiment: "Extension bâtiment",
-  renovation_cuisine: "Rénovation cuisine",
+  renovation_cuisine: "Rénovation Cuisine",
   renovation_salle_de_bain: "Rénovation salle de bain",
   peinture_interieure: "Peinture",
   piscine: "Piscine",
@@ -337,7 +337,7 @@ export const LEGACY_TYPE_LABELS: Record<string, string> = {
   maison_hote: "Maison d'hôte",
   // Anciens types rénovation
   renovation_complete: "Rénovation complète",
-  renovation_cuisine: "Rénovation cuisine",
+  renovation_cuisine: "Rénovation Cuisine",
   renovation_salle_de_bain: "Rénovation salle de bain",
   peinture_interieure: "Peinture intérieure",
   renovation_interieure: "Rénovation intérieure",

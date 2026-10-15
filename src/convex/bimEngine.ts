@@ -647,7 +647,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   renovation_interieure: "Rénovation intérieure", renovation_complete: "Rénovation complète",
   renovation_exterieure: "Rénovation extérieure",
   renovation_salle_de_bain: "Rénovation salle de bain",
-  renovation_cuisine: "Rénovation cuisine", renovation_facade: "Rénovation façade",
+  renovation_cuisine: "Rénovation Cuisine", renovation_facade: "Rénovation façade",
   peinture_interieure: "Peinture intérieure",
   demolition: "Démolition", installations_sanitaires: "Installations sanitaires",
   plomberie_complete: "Plomberie complète", installations_electricite: "Installations électricité",
