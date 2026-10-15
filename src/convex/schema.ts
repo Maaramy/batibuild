@@ -586,7 +586,11 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_user_status", ["userId", "status"])
       .index("by_category", ["category"])
-      .index("by_favorite", ["userId", "isFavorite"]),
+      .index("by_favorite", ["userId", "isFavorite"])
+      // Index par nom : sert à vérifier qu'un nom généré (« #N Ma maison »)
+      // n'est pas déjà attribué avant de le réutiliser (garde-fou du
+      // compteur de numérotation, voir projectCounters).
+      .index("by_name", ["name"]),
 
     // Personnalisation du « Quantitatif détaillé » — scénario « Personnalisé »
     // Les scénarios Économique / Standard / Premium d'origine ne sont jamais
@@ -851,6 +855,20 @@ const schema = defineSchema(
     // la création de la facture : deux paiements simultanés ne peuvent donc
     // JAMAIS obtenir le même numéro (transaction Convex sérialisée).
     invoiceCounters: defineTable({
+      kind: v.string(),
+      value: v.number(),
+    }).index("by_kind", ["kind"]),
+
+    // Compteur séquentiel des numéros de projet (« #1 », « #2 », …) — un seul
+    // compteur global (`kind` = « project »), partagé par tous les utilisateurs
+    // puisque le numéro fait partie du nom affiché et téléchargé (rapports
+    // PDF) : il doit rester unique dans toute la base.
+    //
+    // Lu ET incrémenté dans la même mutation que l'insertion du projet : deux
+    // créations simultanées écrivent le même document et ne peuvent donc
+    // JAMAIS obtenir le même numéro (transaction Convex sérialisée). Un numéro
+    // attribué n'est jamais réutilisé, même si le projet est supprimé ensuite.
+    projectCounters: defineTable({
       kind: v.string(),
       value: v.number(),
     }).index("by_kind", ["kind"]),
