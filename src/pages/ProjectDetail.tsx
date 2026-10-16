@@ -845,9 +845,17 @@ export default function ProjectDetail() {
 
   // Ratio fixe du type de projet (grille 2026, maison = 1) : ramène les prix
   // au m² de la grille sur l'échelle du projet — même ratio que le moteur BIM.
+  // Barème électricité de l'estimation enregistrée : pour les projets
+  // « Électricité complète », le ratio suit le barème administrateur — la
+  // référence nationale reste donc alignée sur le même barème que le projet.
+  const storedElectricityPrices = (ce as any)?.electricity?.prices;
   const projectRatio = useMemo(
-    () => projectPriceRatio(normalizeLegacyCategory(project?.category as string)),
-    [project?.category],
+    () =>
+      projectPriceRatio(
+        normalizeLegacyCategory(project?.category as string),
+        storedElectricityPrices,
+      ),
+    [project?.category, storedElectricityPrices],
   );
 
   // ── Impact régional & comparatif régional DU SCÉNARIO ACTIF ─────────────

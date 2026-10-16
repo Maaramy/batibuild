@@ -1806,9 +1806,19 @@ export interface BIMEstimationOptions {
  * Exporté pour que les pages qui reconstruisent un prix au m² (référence
  * nationale, comparatif régional) restent exactement sur la même échelle.
  */
-export function projectPriceRatio(category: string): number {
+export function projectPriceRatio(
+  category: string,
+  electricityPrices?: Partial<ElectricityPrices>,
+): number {
   const maisonStd = MARKET_PRICE_M2["maison"]?.std || 1800;
-  const projectStd = MARKET_PRICE_M2[category]?.std || 1500;
+  // Les types de projet « Électricité complète » portent le prix du barème
+  // unique (`lib/electricityPricing`) : leur ratio suit donc le barème
+  // configuré par l'administrateur, et non la copie figée au chargement du
+  // module. Le coût d'un projet « Électricité complète » reste ainsi piloté par
+  // le même barème que le poste électrique du Quantitatif détaillé.
+  const projectStd = isElectricityProjectType(category)
+    ? resolveElectricityPrices(electricityPrices).std
+    : MARKET_PRICE_M2[category]?.std || 1500;
   return projectStd / maisonStd;
 }
 
@@ -1846,7 +1856,7 @@ export function runBIMEstimation(
   // Ratio FIXE du type de projet (grille du classeur — base Médenine = 100 %,
   // maison = 1,000). Ce n'est pas un ajustement automatique : c'est la grille
   // tarifaire du document appliquée telle quelle entre types de projet.
-  const projectRatio = projectPriceRatio(category);
+  const projectRatio = projectPriceRatio(category, options?.electricityPrices);
 
   // Prix final par m² = valeur EXACTE de la grille régionale × ratio fixe du
   // type de projet (maison = 1 → le chiffre du classeur est reproduit tel quel).

@@ -20,6 +20,12 @@ import {
   PERSONALIZED_SCENARIO_KEY,
   PERSONALIZED_SCENARIO_LABEL,
 } from "@/convex/quantitatifCustomLogic";
+import {
+  electricityAmount,
+  electricityPriceM2,
+  resolveElectricityPrices,
+  type ElectricityPrices,
+} from "@/lib/electricityPricing";
 
 /** Scénario « Personnalisé » préparé par la page projet (articles modifiés). */
 export interface PersonalizedScenarioData {
@@ -63,6 +69,100 @@ export interface PdfScenarioValues {
   } | null;
   /** Nombre d'articles modifiés (0 hors scénario personnalisé). */
   modifiedCount: number;
+  /** Poste « Électricité » du devis (barème 2026), ou `null`. */
+  electricity: PdfElectricitySummary | null;
+}
+
+/**
+ * Poste « Électricité » tel qu'il doit figurer dans le devis PDF : le barème
+ * appliqué (niveau de qualité, prix au m²) et le montant RÉELLEMENT facturé
+ * dans le quantitatif imprimé. Le montant est toujours celui des lignes
+ * électriques du devis — jamais un second calcul qui contredirait le tableau.
+ */
+export interface PdfElectricitySummary {
+  /** Niveau de qualité du barème (`Économique`, `Standard`, `Premium`). */
+  scenarioLabel: string;
+  /** Prix au m² du barème appliqué (TND TTC). */
+  priceM2: number;
+  /** Le montant correspond-il exactement au barème × surface (projet) ? */
+  matchesBareme: boolean;
+  /** Surface de référence du poste (m² construits). */
+  surface: number;
+  /** Coefficient régional appliqué au barème (base Médenine = 1). */
+  regionFactor: number;
+  /** Montant du poste facturé dans le devis (TND). */
+  amount: number;
+  /** Provision d'électricité déjà comprise dans le coût de marché, retirée (TND). */
+  provision: number;
+}
+
+/** Préfixe des lignes du poste électrique dans le Quantitatif détaillé. */
+const ELECTRICITY_LINE_PREFIX = "Électricité — ";
+
+/** Montant du poste électrique tel qu'il figure dans les lots du devis. */
+function electricityAmountFromLots(lots: any[] | undefined): number | null {
+  let amount = 0;
+  let found = false;
+  for (const lot of lots ?? []) {
+    for (const line of lot?.lines ?? []) {
+      const designation = String(line?.designation ?? line?.name ?? "");
+      if (line?.sousLot === "Électricité" || designation.startsWith(ELECTRICITY_LINE_PREFIX)) {
+        amount += Math.round(Number(line?.total) || 0);
+        found = true;
+      }
+    }
+  }
+  return found ? amount : null;
+}
+
+/**
+ * Résout le poste « Électricité » du devis PDF. Le niveau de qualité est celui
+ * du scénario exporté quand c'est un scénario budgétaire (le barème du niveau
+ * s'applique alors), sinon celui du projet. Le montant provient des lignes
+ * électriques du quantitatif imprimé, pour ne jamais afficher deux montants
+ * contradictoires dans le même devis.
+ *
+ * Fonction pure : ne modifie ni `ce`, ni les lots transmis.
+ */
+export function resolvePdfElectricity(input: {
+  scenario: string;
+  ce: any;
+  dqeLots?: any[];
+}): PdfElectricitySummary | null {
+  const stored = input.ce?.electricity;
+  if (!stored) return null;
+
+  const prices: ElectricityPrices = resolveElectricityPrices(stored.prices);
+  const storedScenario = String(stored.scenario ?? "standard");
+  const scenario =
+    input.scenario === "economique" || input.scenario === "premium"
+      ? input.scenario
+      : storedScenario;
+  const priceM2 = electricityPriceM2(prices, scenario);
+  const surface = Math.round(Number(stored.surface) || 0);
+  const regionFactor =
+    Number(stored.regionFactor) > 0 ? Number(stored.regionFactor) : 1;
+  const baremeAmount = electricityAmount({
+    surface,
+    scenario,
+    prices,
+    regionFactor,
+  });
+  const fromLots = electricityAmountFromLots(input.dqeLots);
+  const amount = fromLots ?? baremeAmount;
+
+  const scenarioLabel =
+    scenario === "economique" ? "Économique" : scenario === "premium" ? "Premium" : "Standard";
+
+  return {
+    scenarioLabel,
+    priceM2,
+    matchesBareme: fromLots === null || amount === baremeAmount,
+    surface,
+    regionFactor,
+    amount,
+    provision: Math.max(0, Math.round(Number(stored.provision) || 0)),
+  };
 }
 
 /**
@@ -194,6 +294,13 @@ export function resolvePdfScenarioValues(input: {
         total: personalized.totals.total,
       },
       modifiedCount: personalized.modifiedCount,
+      // Le poste électrique suit les articles du scénario personnalisé : son
+      // montant est celui des lignes électriques effectivement imprimées.
+      electricity: resolvePdfElectricity({
+        scenario,
+        ce,
+        dqeLots: copyPersonalizedLots(personalized.lots),
+      }),
     };
   }
 
@@ -244,5 +351,6 @@ export function resolvePdfScenarioValues(input: {
     dqeLots,
     dqeTotals,
     modifiedCount: 0,
+    electricity: resolvePdfElectricity({ scenario, ce, dqeLots }),
   };
 }
