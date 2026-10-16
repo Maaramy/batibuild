@@ -10,14 +10,6 @@ import {
   type RegionImpact,
   type RegionScenarioKey,
 } from "../lib/regionImpact";
-import {
-  electricityLevelFromFinishLevel,
-  electricityPricePerM2,
-  electricityRegionIndex,
-  isElectricityCategory,
-  resolveElectricityPrices,
-  type ElectricityPrices,
-} from "../lib/electricityPricing";
 
 // ============================================================================
 // PROFESSIONAL BIM COST ESTIMATION ENGINE
@@ -558,12 +550,8 @@ const RELATIVE_PRICE_M2: Record<string, { eco: number, std: number, premium: num
   demolition:                { eco: 86, std: 125, premium: 211 },
   installations_sanitaires:  { eco: 960, std: 1536, premium: 2880 },
   plomberie_complete:        { eco: 80, std: 165, premium: 250 },
-  installations_electricite: { eco: 35, std: 65, premium: 100 },
-  // Barème électricité 2026 (`lib/electricityPricing`) : le prix au m² de
-  // l'installation électrique vient du barème configurable et non de la grille
-  // générale de construction — voir le branchement BARÈME ÉLECTRICITÉ dans
-  // `runBIMEstimation`. Valeurs de paramétrage, à valider sur le marché réel.
-  electricite_complete:      { eco: 35, std: 65, premium: 100 },
+  installations_electricite: { eco: 300, std: 520, premium: 880 },
+  electricite_complete:      { eco: 60, std: 120, premium: 180 },
 };
 
 /** Base nationale « Standard » — maison neuve conventionnelle (feuille Excel 2026, base Médenine = 1 800 DT/m²). */
@@ -936,7 +924,7 @@ function catProfile(cat: string): string {
   if (["jardin", "amenagement_paysager", "aire_de_jeux"].includes(cat)) return "garden";
   if (["cloture", "mur_de_separation"].includes(cat)) return "fence";
   if (cat === "installation_solaire") return "solar";
-  if (cat === "electricite_complete" || cat === "installations_electricite") return "electrical";
+  if (cat === "electricite_complete") return "electrical";
   if (cat === "plomberie_complete") return "plumbing";
   if (cat === "peinture_interieure") return "paint";
   if (["usine", "depot", "entrepot", "atelier", "chateau_d_eau", "serre_agricole", "batiment_agricole"].includes(cat)) return "industrial";
@@ -1168,19 +1156,6 @@ function genSOItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Peinture marquage au sol", q:Math.round(tb*0.04), u:"litres", up:18},
       {n:"Caniveau béton préfabriqué", q:Math.round(tb*0.06), u:"ml", up:25},
     ];
-  } else if (profile === "electrical") {
-    // Électricité complète : la partie « Second œuvre et finitions » de
-    // l'installation — câblage, gaines, boîtes, mise à la terre, courants
-    // faibles. Le prix au m² du projet est le barème électricité 2026
-    // (`lib/electricityPricing`) ; ces postes en sont la ventilation détaillée.
-    items = [
-      {n:"Câble électrique 1.5mm² (éclairage)", q:Math.round(tb*2.5), u:"ml", up:1.2},
-      {n:"Câble électrique 2.5mm² (prises)", q:Math.round(tb*3.5), u:"ml", up:1.916667},
-      {n:"Gaine ICTA Ø20", q:Math.round(tb*3), u:"ml", up:0.9},
-      {n:"Boîte de dérivation encastrée", q:Math.max(4,Math.round(tb/6)), u:"unités", up:4},
-      {n:"Prise de terre (piquet + boucle)", q:1, u:"lot", up:600},
-      {n:"Câble réseau VDI / interphone", q:Math.round(tb*0.8), u:"ml", up:1.5},
-    ];
   } else if (profile === "commercial") {
     // Commercial / bureau / resto : vitrine au lieu de fenêtres résidentielles
     items = [
@@ -1268,18 +1243,6 @@ function genEQItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Tableau électrique industriel", q:1, u:"unité", up:450},
       {n:"Câble électrique 2.5mm²", q:Math.round(tb*0.8), u:"ml", up:1.5},
       {n:"Prise industrielle triphasée 32A", q:Math.max(2,Math.round(tb/60)), u:"unités", up:60});
-  } else if (profile === "electrical") {
-    // Électricité complète : appareillage et protections (tableau, disjoncteurs,
-    // prises, commandes, luminaires) — le matériel de l'installation, chiffré au
-    // barème électricité 2026 du type de projet.
-    items.push(
-      {n:"Tableau électrique 13 modules", q:1, u:"unité", up:150},
-      {n:"Disjoncteur divisionnaire 20A", q:Math.max(4,Math.round(tb/12)), u:"unités", up:12},
-      {n:"Interrupteur différentiel 30mA", q:Math.max(2,Math.round(tb/60)), u:"unités", up:90},
-      {n:"Parafoudre type 2", q:1, u:"unité", up:180},
-      {n:"Prise de courant 2P+T encastrée", q:Math.max(6,Math.round(tb/6)), u:"unités", up:9},
-      {n:"Interrupteur va-et-vient", q:Math.max(4,Math.round(tb/10)), u:"unités", up:7},
-      {n:"Luminaire LED plafonnier", q:Math.max(4,Math.round(tb/12)), u:"unités", up:30});
   } else if (profile === "commercial") {
     // Commercial / bureau / resto : clim + éclairage pro, sanitaires réduits
     items.push(
@@ -1802,9 +1765,8 @@ export interface RoomCounts {
 }
 
 /**
- * Options du calcul multi-niveaux : surfaces réelles de chaque niveau,
- * coefficients configurés par l'administrateur (table `bimConfig`) et barème
- * électricité 2026 (également configuré par l'administrateur).
+ * Options du calcul multi-niveaux : surfaces réelles de chaque niveau et
+ * coefficients configurés par l'administrateur (table `bimConfig`).
  */
 export interface BIMEstimationOptions {
   /**
@@ -1816,13 +1778,6 @@ export interface BIMEstimationOptions {
   levelSurfaces?: number[];
   /** Coefficients de niveau (RDC 100 % · R+1/R+2 65-80 % · R+3+ 56-80 %). */
   levelConfig?: Partial<LevelCostConfig>;
-  /**
-   * Barème électricité effectif (TND/m² TTC par niveau). Utilisé uniquement
-   * pour les types de projet facturés au barème (« Électricité complète ») :
-   * leur prix au m² est le barème du niveau, indexé par le coefficient
-   * régional de la grille 2026. Absent = barème par défaut.
-   */
-  electricityPrices?: Partial<ElectricityPrices>;
 }
 
 /**
@@ -1874,30 +1829,9 @@ export function runBIMEstimation(
   // tarifaire du document appliquée telle quelle entre types de projet.
   const projectRatio = projectPriceRatio(category);
 
-  // ── BARÈME ÉLECTRICITÉ 2026 (« Électricité complète ») ────────────────
-  // Une installation électrique ne suit pas les niveaux de finition d'un gros
-  // œuvre : le prix au m² du type « Électricité complète » est le BARÈME
-  // électricité du niveau (Économique 35 · Standard 65 · Premium 100 DT/m² —
-  // valeurs de paramétrage modifiables par l'administrateur, voir
-  // `lib/electricityPricing`), indexé UNE seule fois par le coefficient
-  // régional de la grille 2026 (base Médenine = 100 %).
-  const electricityPrices = isElectricityCategory(category)
-    ? resolveElectricityPrices(options?.electricityPrices)
-    : null;
-  const electricityRegionIdx = electricityRegionIndex(
-    regionCosts ? regionCosts.std : BASE_GRID_2026.std,
-  );
-
   // Prix final par m² = valeur EXACTE de la grille régionale × ratio fixe du
-  // type de projet (maison = 1 → le chiffre du classeur est reproduit tel quel)
-  // ou, pour une installation électrique complète, le barème électricité.
-  const finalPriceM2 = electricityPrices
-    ? electricityPricePerM2(
-        electricityLevelFromFinishLevel(fLevel),
-        electricityPrices,
-        electricityRegionIdx,
-      )
-    : Math.round(baseRegionM2 * projectRatio);
+  // type de projet (maison = 1 → le chiffre du classeur est reproduit tel quel).
+  const finalPriceM2 = Math.round(baseRegionM2 * projectRatio);
 
   // ── Calcul multi-niveaux : SOURCE UNIQUE du coût du bâtiment.
   // Le RDC porte 100 % du prix au m² (frais communs — terrassement, fondations
@@ -1990,18 +1924,9 @@ export function runBIMEstimation(
   //   Économique = lvl.eco · Standard = lvl.std · Premium = lvl.hautStanding
   // (base Médenine si aucun gouvernorat fourni). Aucune moyenne nationale.
   const regionForScenarios = regionCosts || null;
-  // Les trois scénarios d'un projet d'électricité suivent le barème du niveau
-  // correspondant (Économique · Standard · Premium) : le barème est la SEULE
-  // source du prix au m², jamais une moyenne nationale ni un ratio déduit.
-  const scenarioEcoPrice = electricityPrices
-    ? electricityPricePerM2("economique", electricityPrices, electricityRegionIdx)
-    : regionForScenarios ? regionForScenarios.eco * projectRatio : BASE_GRID_2026.eco * projectRatio;
-  const scenarioStdPrice = electricityPrices
-    ? electricityPricePerM2("standard", electricityPrices, electricityRegionIdx)
-    : regionForScenarios ? regionForScenarios.std * projectRatio : BASE_GRID_2026.std * projectRatio;
-  const scenarioPremiumPrice = electricityPrices
-    ? electricityPricePerM2("premium", electricityPrices, electricityRegionIdx)
-    : regionForScenarios ? regionForScenarios.premium * projectRatio : BASE_GRID_2026.hautStanding * projectRatio;
+  const scenarioEcoPrice = regionForScenarios ? regionForScenarios.eco * projectRatio : BASE_GRID_2026.eco * projectRatio;
+  const scenarioStdPrice = regionForScenarios ? regionForScenarios.std * projectRatio : BASE_GRID_2026.std * projectRatio;
+  const scenarioPremiumPrice = regionForScenarios ? regionForScenarios.premium * projectRatio : BASE_GRID_2026.hautStanding * projectRatio;
   // Les trois scénarios suivent exactement la même méthode multi-niveaux :
   // seule la valeur du prix au m² change (grille régionale du scénario).
   const totalEco = Math.round(scenarioEcoPrice * levels.equivalentArea);

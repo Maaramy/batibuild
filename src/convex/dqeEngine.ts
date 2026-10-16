@@ -24,7 +24,6 @@
 import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 import { resolveProjectType } from "./projectTypes";
 import { realBuiltArea } from "../lib/buildingLevels";
-import { ELECTRICITY_PRICING_NOTE } from "../lib/electricityPricing";
 
 export type DqeNature =
   | "materiaux"
@@ -43,13 +42,6 @@ export interface DqeLine {
   total: number; // Montant = Quantité × P.U.
   nature: DqeNature;
   observations?: string;
-  /**
-   * `true` = poste de l'installation électrique chiffré au BARÈME électricité
-   * 2026 (TND/m² × surface réellement construite) dans la catégorie
-   * « Second œuvre et finitions ». Poste autoritaire : il n'est pas remis à
-   * l'échelle du lot, les autres postes absorbent l'écart.
-   */
-  electricity?: boolean;
 }
 
 export interface DqeLot {
@@ -61,34 +53,8 @@ export interface DqeLot {
   lines: DqeLine[];
 }
 
-/**
- * Poste électrique du « Quantitatif détaillé » : la partie électrique de la
- * catégorie « Second œuvre et finitions », chiffrée au barème électricité 2026
- * (TND/m² × surface réellement construite).
- */
-export interface DqeElectricityPoste {
-  lotId: string;
-  lotName: string;
-  designation: string;
-  description?: string;
-  unit: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-  /** Libellé du niveau de barème appliqué (`Standard`, `Premium`, …). */
-  levelLabel: string;
-  /**
-   * Part du sous-total du lot que représentaient les forfaits électriques du
-   * gabarit avant remplacement (TND). Le sous-total du lot reste inchangé :
-   * l'écart est absorbé par les autres postes du lot.
-   */
-  replacedProvision: number;
-}
-
 export interface DqeResult {
   lots: DqeLot[];
-  /** Poste électrique du barème 2026 (absent hors catégorie « Second œuvre »). */
-  electricityPoste?: DqeElectricityPoste;
   totals: {
     materiaux: number;
     mainOeuvre: number;
@@ -120,8 +86,6 @@ interface LineTpl {
   up: number; // prix unitaire de référence (TND)
   n: DqeNature;
   obs?: string; // observations
-  /** Forfait électrique du gabarit remplacé par le poste au barème 2026. */
-  elec?: boolean;
 }
 
 interface LotTpl {
@@ -314,18 +278,14 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
     { d: "Peinture intérieure (3 couches, finition standard)", desc: "Sous-couche + 2 couches de finition.", u: "m²", q: paintSurf, up: 8, n: "materiaux", obs: f > 1 ? `${f} niveaux — peinture par niveau` : undefined },
     { d: "Peinture extérieure (façade, monocouche acrylique)", desc: "Impression puis monocouche acrylique.", u: "m²", q: paintExtSurf, up: 12, n: "materiaux", obs: f > 1 ? `Façade ${f} niveaux` : undefined },
     { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau, appareils inclus.", u: "lot", q: 1, qMode: "fixed", up: 14000, n: "equipements", obs: "Installation commune (colonne montante, conduite principale) comptée une seule fois" },
-    // ── Partie électrique de la catégorie « Second œuvre et finitions » ──
-    // Ces forfaits électriques sont REMPLACÉS par le poste au barème
-    // électricité 2026 (TND/m² × surface réellement construite) — voir
-    // `generateDqe`. Le sous-total du lot reste inchangé (aucun double compte).
-    { d: "Électricité", desc: "Installation complète : tableaux, prises, interrupteurs, luminaires basiques.", u: "lot", q: 1, qMode: "fixed", up: 16000, n: "equipements", obs: "Chiffrée au barème électricité 2026 (poste unique du lot)", elec: true },
+    { d: "Électricité", desc: "Installation complète : tableaux, prises, interrupteurs, luminaires basiques.", u: "lot", q: 1, qMode: "fixed", up: 16000, n: "equipements", obs: "Tableau électrique général commun compté une seule fois" },
     { d: "Climatisation (pré-installation)", desc: "Gaines, réservations et support de groupe.", u: "lot", q: 1, qMode: "fixed", up: 2500, n: "equipements" },
     { d: "Cuisine équipée", desc: "Meubles hauts et bas, plan de travail, évier.", u: "lot", q: 1, qMode: "fixed", up: 9000, n: "equipements" },
     { d: "Garde-corps (balcons/escalier, fer forgé/inox)", desc: gardeCorpsDesc, u: "ml", q: gardeCorps, up: 150, n: "materiaux" },
     { d: "Finition escalier", desc: escalierFinitionDesc, u: "unité", q: 1, qMode: "fixed", up: escalierFinition, n: "materiaux" },
     { d: "Faux plafonds (plaque de plâtre)", desc: "Ossature métallique + BA13 + joints.", u: "m²", q: 50, up: 45, n: "materiaux" },
-    { d: "Luminaires intérieurs (LED encastrés)", desc: "Spots LED encastrés + appliques.", u: "unité", q: 12, up: 45, n: "equipements", obs: "Compris dans le poste électricité au barème 2026", elec: true },
-    { d: "Prises et interrupteurs (norme NF)", desc: "Prises 2P+T, interrupteurs, va-et-vient.", u: "unité", q: 25, up: 18, n: "equipements", obs: "Compris dans le poste électricité au barème 2026", elec: true },
+    { d: "Luminaires intérieurs (LED encastrés)", desc: "Spots LED encastrés + appliques.", u: "unité", q: 12, up: 45, n: "equipements", obs: f > 1 ? `Circuit d'éclairage par niveau (${f} niveaux)` : undefined },
+    { d: "Prises et interrupteurs (norme NF)", desc: "Prises 2P+T, interrupteurs, va-et-vient.", u: "unité", q: 25, up: 18, n: "equipements", obs: f > 1 ? `Circuits et points propres à chaque niveau (${f} niveaux)` : undefined },
     { d: "Miroir et accessoires SDB", desc: "Miroir, porte-serviettes, patère, range-médicaments.", u: "lot", q: 1, qMode: "fixed", up: 350, n: "materiaux" },
     { d: "Seuils de portes (marbre ou granit)", desc: "Seuils 90 cm en pierre naturelle.", u: "unité", q: doorCount, up: 45, n: "materiaux", obs: f > 1 ? `6 seuils par niveau (${f} niveaux)` : undefined },
     { d: "Joints silicone sanitaire", desc: "Joints d'étanchéité SDB, cuisine, fenêtres.", u: "lot", q: 1, qMode: "fixed", up: 120, n: "materiaux" },
@@ -410,7 +370,7 @@ function renovationCompleteLots(): LotTpl[] {
       { d: "Peinture intérieure (3 couches)", desc: "Sous-couche + finition.", u: "m²", q: 300, up: 8, n: "materiaux" },
       { d: "Faux plafonds (plaque de plâtre)", desc: "Ossature + BA13.", u: "m²", q: 50, up: 45, n: "materiaux" },
       { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau.", u: "lot", q: 1, qMode: "fixed", up: 9000, n: "equipements" },
-      { d: "Électricité", desc: "Mise aux normes, tableaux, points lumineux.", u: "lot", q: 1, qMode: "fixed", up: 11000, n: "equipements", obs: "Chiffrée au barème électricité 2026 (poste unique du lot)", elec: true },
+      { d: "Électricité", desc: "Mise aux normes, tableaux, points lumineux.", u: "lot", q: 1, qMode: "fixed", up: 11000, n: "equipements" },
     ]),
     lot("equipements", "Équipements techniques", "equipements", 20, [
       { d: "Cuisine équipée", desc: "Meubles hauts et bas, plan de travail, évier.", u: "lot", q: 1, qMode: "fixed", up: 8000, n: "equipements" },
@@ -964,12 +924,6 @@ export interface DqeInput {
    * la surface du RDC est retenue pour tous les niveaux.
    */
   levelSurfaces?: number[];
-  /**
-   * Barème électricité 2026 effectif (`lib/electricityPricing`) : prix au m² du
-   * poste électrique de la catégorie « Second œuvre et finitions ». Absent = les
-   * forfaits électriques du gabarit sont conservés tels quels.
-   */
-  electricity?: { priceM2: number; levelLabel?: string };
 }
 
 /**
@@ -1017,55 +971,10 @@ export function generateDqe(input: DqeInput): DqeResult {
     lotBudgets[heaviest] += remainder;
   }
 
-  let electricityPoste: DqeElectricityPoste | undefined;
-
   const lots: DqeLot[] = lotTpls.map((lt, lotIndex) => {
     const lotBudget = lotBudgets[lotIndex];
-
-    // ══ Poste ÉLECTRICITÉ au barème 2026 (« Second œuvre et finitions ») ══
-    // Le gabarit porte des forfaits électriques (proviennent de la grille :
-    // provision « Électricité », luminaires, prises). Ils sont REMPLACÉS par un
-    // poste unique chiffré au barème électricité 2026 :
-    //
-    //     montant = prix du barème (TND/m² TTC) × surface réellement construite
-    //
-    // Le poste est AUTORITAIRE : il n'est pas remis à l'échelle du lot. Les
-    // autres postes du lot absorbent l'écart de sorte que le sous-total du lot
-    // — et donc le coût global TTC — reste EXACTEMENT celui de la grille :
-    // la partie électrique n'est jamais comptée deux fois.
-    const elecTpls = lt.lines.filter((t) => t.elec);
-    const hasElectricityPoste = Boolean(input.electricity) && elecTpls.length > 0;
-    const elecPriceM2 = hasElectricityPoste
-      ? Math.max(0, Number(input.electricity?.priceM2) || 0)
-      : 0;
-    const elecQuantity = hasElectricityPoste ? roundQty(tb) : 0;
-    const elecAmount = Math.round(elecQuantity * elecPriceM2);
-    const elecLevelLabel = input.electricity?.levelLabel ?? "2026";
-
-    if (hasElectricityPoste) {
-      // Part du sous-total du lot que représentaient les forfaits remplacés
-      // (valeur effective une fois le lot calé sur son budget).
-      const rawElec = elecTpls.reduce((s, t) => s + Math.round(t.q * t.up), 0);
-      const rawAll = lt.lines.reduce((s, t) => s + Math.round(t.q * t.up), 0);
-      electricityPoste = {
-        lotId: lt.id,
-        lotName: lt.name,
-        designation: `Électricité — installation complète (barème ${elecLevelLabel} 2026)`,
-        description:
-          "Tableaux, protections, câblage et gaines, appareillage, points lumineux, courants faibles, mise à la terre et essais.",
-        unit: "m²",
-        quantity: elecQuantity,
-        unitPrice: elecPriceM2,
-        total: elecAmount,
-        levelLabel: elecLevelLabel,
-        replacedProvision:
-          rawAll > 0 ? Math.round((rawElec * lotBudget) / rawAll) : Math.round(rawElec),
-      };
-    }
-
-    // 1. Quantités & prix de référence des autres postes du lot
-    const baseTpls = hasElectricityPoste ? lt.lines.filter((t) => !t.elec) : lt.lines;
-    const baseLines: DqeLine[] = baseTpls.map((tpl) => {
+    // 1. Quantités & prix de référence
+    const lines: DqeLine[] = lt.lines.map((tpl) => {
       const quantity =
         tpl.qMode === "fixed"
           ? tpl.q
@@ -1083,15 +992,10 @@ export function generateDqe(input: DqeInput): DqeResult {
         observations: tpl.obs,
       };
     });
-    // Budget restant pour les autres postes : le poste électrique est retiré du
-    // budget du lot puisqu'il est facturé au barème (jamais les deux).
-    const targetOthers = hasElectricityPoste
-      ? Math.max(0, lotBudget - elecAmount)
-      : lotBudget;
-    // 2. Calage des prix pour tomber exactement sur le budget du lot
-    const rawTotal = baseLines.reduce((s, l) => s + l.total, 0);
-    const factor = rawTotal > 0 ? targetOthers / rawTotal : 1;
-    const scaledLines = baseLines.map((l) => {
+    // 2. Calage des prix pour tomber exactement sur le sous-total du lot
+    const rawTotal = lines.reduce((s, l) => s + l.total, 0);
+    const factor = rawTotal > 0 ? lotBudget / rawTotal : 1;
+    const scaledLines = lines.map((l) => {
       const total = Math.round(l.total * factor);
       const quantity = l.quantity > 0 ? l.quantity : 1;
       return {
@@ -1100,47 +1004,24 @@ export function generateDqe(input: DqeInput): DqeResult {
         total,
       };
     });
-    // Calage exact sur le budget : l'écart d'arrondi est absorbé par la dernière
-    // ligne pour que le lot tombe exactement sur son budget (méthode identique
-    // au finalisateur du moteur BIM).
-    const delta =
-      targetOthers - scaledLines.reduce((s, l) => s + l.total, 0);
+    // Calage exact sur le sous-total du lot : l'écart d'arrondi est absorbé
+    // par la dernière ligne pour que le lot tombe exactement sur son budget
+    // (méthode identique au finalisateur du moteur BIM).
+    let subtotal = scaledLines.reduce((s, l) => s + l.total, 0);
+    const delta = lotBudget - subtotal;
     if (delta !== 0 && scaledLines.length > 0) {
       const last = scaledLines[scaledLines.length - 1];
       last.total += delta;
       last.unitPrice = Math.round((last.total / (last.quantity || 1)) * 100) / 100;
+      subtotal += delta;
     }
-
-    // 3. Insertion du poste électrique à la position de la provision remplacée
-    // (première ligne électrique du gabarit) : aucun autre poste ne bouge.
-    const lines: DqeLine[] = scaledLines;
-    if (hasElectricityPoste && electricityPoste) {
-      const firstElecIndex = lt.lines.findIndex((t) => t.elec);
-      const insertAt = lt.lines
-        .slice(0, firstElecIndex < 0 ? lt.lines.length : firstElecIndex)
-        .filter((t) => !t.elec).length;
-      const elecLine: DqeLine = {
-        designation: electricityPoste.designation,
-        description: electricityPoste.description,
-        unit: electricityPoste.unit,
-        quantity: electricityPoste.quantity,
-        unitPrice: electricityPoste.unitPrice,
-        total: electricityPoste.total,
-        nature: "equipements",
-        observations: `Poste unique de la partie électrique du lot « ${lt.name} » — ${ELECTRICITY_PRICING_NOTE}`,
-        electricity: true,
-      };
-      lines.splice(insertAt, 0, elecLine);
-    }
-
-    const subtotal = lines.reduce((s, l) => s + l.total, 0);
     return {
       id: lt.id,
       name: lt.name,
       nature: lt.nature,
       percent: Math.round((lt.percent / totalPct) * 1000) / 10,
       subtotal,
-      lines,
+      lines: scaledLines,
     };
   });
 
@@ -1150,7 +1031,6 @@ export function generateDqe(input: DqeInput): DqeResult {
 
   return {
     lots,
-    ...(electricityPoste ? { electricityPoste } : {}),
     totals: {
       materiaux: rollup("materiaux"),
       mainOeuvre: rollup("main_oeuvre"),

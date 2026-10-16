@@ -7,7 +7,6 @@ import {
   resolvePdfScenarioValues,
   type PersonalizedScenarioData,
 } from "./projectPdfScenario";
-import { ELECTRICITY_PRICING_NOTE } from "./electricityPricing";
 
 applyAutotablePlugin(jsPDF);
 
@@ -756,17 +755,10 @@ export async function generateProjectPdf({
     doc.setFontSize(5.5);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(C.textLight[0], C.textLight[1], C.textLight[2]);
-    // Poste électrique présent dans le quantitatif exporté ? La mention de
-    // non-officialité du barème électricité 2026 accompagne alors le devis
-    // (le poste lui-même est détaillé dans le lot « Second œuvre et finitions »).
-    const hasElectricityPoste = (values.dqeLots ?? []).some((lot: any) =>
-      (lot?.lines ?? []).some((line: any) => line?.electricity),
-    );
     const disclaimer =
       "Ce document est un devis estimatif généré automatiquement par batibuild. " +
       "Les prix indiqués sont basés sur les moyennes du marché tunisien 2026 et sont " +
       "donnés à titre indicatif. Ils ne constituent pas un engagement contractuel. " +
-      (hasElectricityPoste ? `Poste électricité — ${ELECTRICITY_PRICING_NOTE} ` : "") +
       "Pour un devis précis, veuillez consulter un professionnel du bâtiment.";
     const discLines = doc.splitTextToSize(disclaimer, cw);
     doc.text(discLines, ml, y + 3);
