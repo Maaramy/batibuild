@@ -59,9 +59,15 @@ async function createAndEstimate(
   return { projectId, project };
 }
 
+/**
+ * Total du coût global TTC = somme des niveaux + toiture + variation du poste
+ * électrique (barème 2026 remplaçant la provision déjà comprise dans le prix de
+ * marché au m²). Aucun autre terme n'est ajouté.
+ */
 const sumLevelsAndRoof = (ce: any) =>
   ce.levelBreakdown.levels.reduce((s: number, l: any) => s + l.amount, 0) +
-  ce.levelBreakdown.roof.amount;
+  ce.levelBreakdown.roof.amount +
+  ce.levelBreakdown.electricityAdjustment;
 
 describe("Estimation enregistrée d'un projet à étages (createProject → simulateAnalysis)", () => {
   let t: ReturnType<typeof convexTest>;
@@ -84,7 +90,7 @@ describe("Estimation enregistrée d'un projet à étages (createProject → simu
     const ceRdc = rdc.project.costEstimate;
     const ce = r1.project.costEstimate;
 
-    expect(ceRdc.totalCost).toBe(1980 * 100);
+    expect(ceRdc.totalCost).toBe(1980 * 100 + ceRdc.electricity.adjustment);
     expect(ce.totalCost).toBeGreaterThan(ceRdc.totalCost);
     expect(ce.totalCost).toBeLessThan(ceRdc.totalCost * 2);
 

@@ -49,13 +49,19 @@ describe("runBIMEstimation — impact du nombre de pièces", () => {
     expect(few.costEstimate.totalCost).toBe(base.costEstimate.totalCost);
   });
 
-  it("le coût au m² reste la valeur EXACTE de la grille régionale (aucun ajustement)", () => {
+  it("le coût au m² suit la grille régionale, quel que soit le nombre de pièces", () => {
     const many = runBIMEstimation("maison", 150, 1, "tunis", "standard", MANY_ROOMS);
     const few = runBIMEstimation("maison", 150, 1, "tunis", "standard", FEW_ROOMS);
 
-    // Tunis standard = 1 980 DT/m² (feuille « Couts_24_gouv »), quel que soit le nb de pièces
+    // Identique quel que soit le nombre de pièces…
     expect(many.costEstimate.costPerSquareMeter).toBe(few.costEstimate.costPerSquareMeter);
-    expect(many.costEstimate.costPerSquareMeter).toBe(1980);
+    // …et exactement la grille Tunis standard 1 980 DT/m² (feuille « Couts_24_gouv »)
+    // pour tous les postes, seule la provision d'électricité incluse dans ce prix
+    // étant remplacée par le poste au barème 2026.
+    const ce = many.costEstimate;
+    const lb = ce.levelBreakdown as any;
+    expect(ce.totalCost).toBe(1980 * lb.equivalentArea + ce.electricity.adjustment);
+    expect(ce.costPerSquareMeter).toBe(Math.round(ce.totalCost / lb.realBuiltArea));
   });
 
   it("les WC et douches suivent le nombre de salles de bain", () => {
@@ -141,14 +147,27 @@ describe("runBIMEstimation — grille tarifaire fixe 2026 (feuille « Couts_24_g
       expect(s.premium.costPerM2).toBe(2700);
     }
 
-    // Le coût au m² principal (standard) = valeur exacte de la grille
-    expect(std.costEstimate.costPerSquareMeter).toBe(1944);
+    // Le coût au m² principal (standard) = grille régionale (1 944 DT/m²), le
+    // seul ajustement étant le poste électricité remis au barème 2026.
+    const lb = std.costEstimate.levelBreakdown as any;
+    expect(std.costEstimate.totalCost).toBe(
+      1944 * lb.equivalentArea + std.costEstimate.electricity.adjustment,
+    );
+    expect(std.costEstimate.costPerSquareMeter).toBe(
+      Math.round(std.costEstimate.totalCost / lb.realBuiltArea),
+    );
   });
 
   it("total = somme réelle des coûts calculés (aucun imprévu ajouté)", () => {
     const std = runBIMEstimation("maison", 120, 1, "ariana", "standard");
-    const base = 1944 * 120;
-    expect(std.costEstimate.totalCost).toBe(base);
+    const lb = std.costEstimate.levelBreakdown as any;
+    const base = 1944 * lb.equivalentArea;
+    // Aucune marge d'imprévus : total = grille régionale corrigée du seul poste
+    // électricité (provision incluse retirée, poste au barème ajouté).
+    expect(std.costEstimate.totalCost).toBe(base + std.costEstimate.electricity.adjustment);
+    expect(std.costEstimate.totalCost).toBe(
+      base - std.costEstimate.electricity.provision + std.costEstimate.electricity.amount,
+    );
     expect(std.costEstimate.contingencyBuffer).toBe(0);
     expect(std.costEstimate.contingencyPercentage).toBe(0);
   });
@@ -506,10 +525,12 @@ describe("runBIMEstimation — maisons à étages (sélecteur de niveaux)", () =
     //     les niveaux (les étages sont moins chers au m² que le RDC).
     expect(r1.costPerSquareMeter).toBeLessThan(rdc.costPerSquareMeter);
     expect(r2.costPerSquareMeter).toBeLessThan(r1.costPerSquareMeter);
-    // 3 · Le total est exactement la somme des niveaux + la toiture.
+    // 3 · Le total est exactement la somme des niveaux + la toiture + la seule
+    //     variation du poste électricité (barème 2026 vs provision incluse).
     const sum = (ce: any) =>
       ce.levelBreakdown.levels.reduce((s: number, l: any) => s + l.amount, 0) +
-      ce.levelBreakdown.roof.amount;
+      ce.levelBreakdown.roof.amount +
+      ce.levelBreakdown.electricityAdjustment;
     expect(r1.totalCost).toBe(sum(r1));
     expect(r2.totalCost).toBe(sum(r2));
   });

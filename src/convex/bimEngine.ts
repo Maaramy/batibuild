@@ -10,6 +10,16 @@ import {
   type RegionImpact,
   type RegionScenarioKey,
 } from "../lib/regionImpact";
+import {
+  electricityAmount,
+  electricityEstimate,
+  electricityPriceRow,
+  electricityRegionFactor,
+  isElectricityProjectType,
+  resolveElectricityPrices,
+  type ElectricityPrices,
+} from "../lib/electricityPricing";
+import { dqeElectricityProvision } from "./dqeEngine";
 
 // ============================================================================
 // PROFESSIONAL BIM COST ESTIMATION ENGINE
@@ -550,8 +560,12 @@ const RELATIVE_PRICE_M2: Record<string, { eco: number, std: number, premium: num
   demolition:                { eco: 86, std: 125, premium: 211 },
   installations_sanitaires:  { eco: 960, std: 1536, premium: 2880 },
   plomberie_complete:        { eco: 80, std: 165, premium: 250 },
-  installations_electricite: { eco: 300, std: 520, premium: 880 },
-  electricite_complete:      { eco: 60, std: 120, premium: 180 },
+  // Électricité complète : prix au m² du barème unique
+  // (`lib/electricityPricing`, valeurs configurables par l'administrateur).
+  // Les deux types de projet « électricité » partagent donc EXACTEMENT le même
+  // barème : un seul catalogue de prix électrique dans la plateforme.
+  installations_electricite: electricityPriceRow(),
+  electricite_complete:      electricityPriceRow(),
 };
 
 /** Base nationale « Standard » — maison neuve conventionnelle (feuille Excel 2026, base Médenine = 1 800 DT/m²). */
@@ -1778,6 +1792,11 @@ export interface BIMEstimationOptions {
   levelSurfaces?: number[];
   /** Coefficients de niveau (RDC 100 % · R+1/R+2 65-80 % · R+3+ 56-80 %). */
   levelConfig?: Partial<LevelCostConfig>;
+  /**
+   * Barème électricité configuré par l'administrateur (TND/m² par niveau).
+   * Absent = barème de référence de `lib/electricityPricing`.
+   */
+  electricityPrices?: Partial<ElectricityPrices>;
 }
 
 /**
@@ -1869,12 +1888,83 @@ export function runBIMEstimation(
   // Plus de pièces pour la même surface = plus de cloisons, portes & équipements
   const wallFactor = Math.min(1.25, Math.max(0.8, totalRooms / Math.max(1, stdRooms)));
 
-  // Coût total = somme des postes calculés niveau par niveau (frais communs
+  // Coût de marché = somme des postes calculés niveau par niveau (frais communs
   // comptés une seule fois + étages à leur coefficient + toiture). Aucun autre
   // terme n'est ajouté : ni marge d'imprévus, ni taxe supplémentaire (les prix
   // unitaires de la grille 2026 et du catalogue matériaux sont déjà TTC).
-  const finalTotal = levels.total;
-  const costM2 = levels.costPerM2Real;
+  const marketTotal = levels.total;
+
+  // ══════════════════════════════════════════════════════════════════════
+  // POSTE « ÉLECTRICITÉ » — barème unique, recalcul du coût total
+  // ----------------------------------------------------------------------
+  // Le prix de marché au m² de la grille 2026 comprend déjà une provision
+  // d'électricité : elle est RETIRÉE du total, puis remplacée par le poste au
+  // barème 2026 (mêmes travaux, prix de référence corrigé). Le coût total est
+  // donc recalculé à partir des postes actualisés, et une modification du
+  // barème ne déplace que : le poste électrique, la catégorie « Second œuvre et
+  // finitions » (son sous-total) et le coût total TTC. Tous les autres postes
+  // conservent exactement leurs prix, quantités et montants.
+  //
+  // Le coefficient régional de la grille est appliqué au barème (base
+  // Médenine = 100 %), comme pour tous les autres postes du projet.
+  // ══════════════════════════════════════════════════════════════════════
+  const electricityPrices = resolveElectricityPrices(options?.electricityPrices);
+  // Coefficient régional du barème : rapport entre le prix « Standard » du
+  // gouvernorat et la base Médenine (= 100 % de la grille). Il est INDÉPENDANT
+  // du niveau de qualité, puisque le barème porte déjà les trois niveaux :
+  // aucun cumul de deux coefficients de standing.
+  const elecRegionFactor = electricityRegionFactor(
+    (regionCosts ? regionCosts.std : BASE_GRID_2026.std),
+    BASE_NATIONALE_STANDARD_M2,
+  );
+  const elecProjectType = isElectricityProjectType(category);
+  const elecAmountMarket = electricityAmount({
+    surface: tb,
+    scenario: fLevel,
+    prices: electricityPrices,
+    regionFactor: elecRegionFactor,
+  });
+  // Provision d'électricité déjà comprise dans le coût de marché : le montant
+  // que le quantitatif allouait à l'électricité avant le barème (forfait +
+  // luminaires + prises du gabarit « Second œuvre et finitions »).
+  const elecProvision = elecProjectType
+    ? elecAmountMarket
+    : dqeElectricityProvision({
+        category,
+        surface,
+        floors,
+        levelSurfaces: options?.levelSurfaces,
+        marketBase: marketTotal,
+        // Mêmes prix que le quantitatif (base materialPrices) : la provision
+        // retirée du coût de marché est exactement celle du DQE — aucun écart.
+        livePrices: LIVE_PRICES,
+      });
+  const elecAdjustment = elecProjectType ? 0 : elecAmountMarket - elecProvision;
+  const finalTotal = marketTotal + elecAdjustment;
+  const costM2 = tb > 0 ? Math.round(finalTotal / tb) : levels.costPerM2Real;
+  const electricity = {
+    ...electricityEstimate({
+      surface: tb,
+      scenario: fLevel,
+      prices: electricityPrices,
+      regionFactor: elecRegionFactor,
+      provision: elecProvision,
+    }),
+    /** Le poste représente-t-il à lui seul le projet (« Électricité complète ») ? */
+    isProjectScope: elecProjectType,
+    /** Variation appliquée au coût total par la mise à jour du barème. */
+    adjustment: elecAdjustment,
+    /** Catégorie du quantitatif qui porte le poste. */
+    lotId: "second_oeuvre",
+    /**
+     * Barème effectivement appliqué (TND/m² par niveau de qualité). Exposé pour
+     * que les pages qui relancent un calcul de référence (impact du nombre de
+     * pièces, comparatifs) utilisent EXACTEMENT le même barème que l'estimation
+     * enregistrée : aucun calcul divergent entre frontend et backend.
+     */
+    prices: { eco: electricityPrices.eco, std: electricityPrices.std, premium: electricityPrices.premium },
+  };
+  const elecProvisionShare = marketTotal > 0 ? elecProvision / marketTotal : 0;
 
   const keys = ["gros_oeuvre","second_oeuvre","equipements","main_oeuvre","transport","etudes_imprevus"];
   const labels = ["Gros œuvre","Second œuvre","Équipements","Main-d'œuvre","Transport","Études & permis"];
@@ -1929,8 +2019,24 @@ export function runBIMEstimation(
   const scenarioPremiumPrice = regionForScenarios ? regionForScenarios.premium * projectRatio : BASE_GRID_2026.hautStanding * projectRatio;
   // Les trois scénarios suivent exactement la même méthode multi-niveaux :
   // seule la valeur du prix au m² change (grille régionale du scénario).
-  const totalEco = Math.round(scenarioEcoPrice * levels.equivalentArea);
-  const totalPremium = Math.round(scenarioPremiumPrice * levels.equivalentArea);
+  // Chaque scénario porte SON poste électrique (barème Économique / Standard /
+  // Premium) et SA provision : le coût total affiché suit donc le barème du
+  // scénario choisi, sans mélanger les niveaux de qualité.
+  const elecAmountForScenario = (sc: string) =>
+    elecProjectType
+      ? 0
+      : electricityAmount({
+          surface: tb,
+          scenario: sc,
+          prices: electricityPrices,
+          regionFactor: elecRegionFactor,
+        });
+  const elecAdjustmentFor = (sc: string, scenarioTotal: number) =>
+    elecProjectType ? 0 : elecAmountForScenario(sc) - Math.round(scenarioTotal * elecProvisionShare);
+  const totalEcoBase = Math.round(scenarioEcoPrice * levels.equivalentArea);
+  const totalPremiumBase = Math.round(scenarioPremiumPrice * levels.equivalentArea);
+  const totalEco = totalEcoBase + elecAdjustmentFor("economique", totalEcoBase);
+  const totalPremium = totalPremiumBase + elecAdjustmentFor("premium", totalPremiumBase);
   const scenarios = {
     economique: { label:"Économique", totalCost: totalEco, costPerM2: Math.round(scenarioEcoPrice), multiplier: scenarioEcoPrice / scenarioStdPrice },
     standard: { label:"Standard", totalCost: finalTotal, costPerM2: Math.round(scenarioStdPrice), multiplier: 1.0 },
@@ -1994,8 +2100,18 @@ export function runBIMEstimation(
       // surfaces réelles et vérification automatique des anomalies. Persisté
       // avec l'estimation pour que l'affichage et l'administration restent
       // alignés sur le calcul.
-      levelBreakdown: levels,
+      levelBreakdown: {
+        ...levels,
+        // Poste électricité (barème unique) : la somme des niveaux + toiture +
+        // cette variation d'électricité retombe sur le coût total TTC affiché.
+        electricityAdjustment: elecAdjustment,
+        electricity,
+      },
       breakdown,
+      // Poste « Électricité » du scénario actif : montant au barème, provision
+      // d'électricité déjà comprise dans le coût de marché, variation du total et
+      // ventilation par sous-postes (Quantitatif détaillé, rapports, admin).
+      electricity,
       // Champs conservés pour rester compatible avec le schéma `projects` : la
       // marge d'imprévus est supprimée du calcul, ils valent donc toujours 0.
       contingencyBuffer: 0,

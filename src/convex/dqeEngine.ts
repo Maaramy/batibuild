@@ -24,6 +24,12 @@
 import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 import { resolveProjectType } from "./projectTypes";
 import { realBuiltArea } from "../lib/buildingLevels";
+import {
+  electricityAmount,
+  electricityBreakdown,
+  resolveElectricityPrices,
+  type ElectricityPrices,
+} from "../lib/electricityPricing";
 
 export type DqeNature =
   | "materiaux"
@@ -86,6 +92,15 @@ interface LineTpl {
   up: number; // prix unitaire de référence (TND)
   n: DqeNature;
   obs?: string; // observations
+  /**
+   * Ligne du gabarit historique d'électricité de la catégorie « Second œuvre et
+   * finitions » (forfait « Électricité » + luminaires + prises/interrupteurs).
+   * Elle sert à calculer la PROVISION d'électricité déjà comprise dans le coût
+   * de marché, puis est REMPLACÉE par le poste au barème 2026 (`électricité
+   * complète`, source unique `lib/electricityPricing`) : aucun double comptage,
+   * un seul poste électrique dans le quantitatif.
+   */
+  legacyElec?: boolean;
 }
 
 interface LotTpl {
@@ -97,6 +112,34 @@ interface LotTpl {
 }
 
 const REF_SURFACE = 120;
+
+/**
+ * Descriptions et observations des six sous-postes du poste électrique du
+ * quantitatif (le montant, lui, vient du barème unique `lib/electricityPricing`).
+ */
+const ELECTRICITY_SUBPOST_DESCRIPTIONS: Record<string, string> = {
+  cablage_gaines:
+    "Conducteurs 1,5 / 2,5 / 6 mm², gaines ICTA et tubes IRL, boîtes d'encastrement et de dérivation.",
+  prises_interrupteurs:
+    "Prises 2P+T, prises spécialisées (four, lave-linge), interrupteurs et va-et-vient.",
+  tableau_protections:
+    "Tableau général, disjoncteur de branchement, disjoncteurs divisionnaires, protections différentielles 30 mA.",
+  points_lumineux:
+    "Points lumineux et sorties de câbles (hors luminaires décoratifs haut de gamme).",
+  terre_essais:
+    "Prise de terre, liaisons équipotentielles, contrôles et essais de conformité.",
+  main_oeuvre:
+    "Pose, raccordement, mise en service et essais par l'électricien.",
+};
+
+const ELECTRICITY_SUBPOST_OBSERVATIONS: Record<string, string> = {
+  cablage_gaines: "Montant issu du barème électricité 2026 (prix au m² configurables par l'administrateur)",
+  prises_interrupteurs: "Installation complète : aucun poste électrique n'est facturé deux fois",
+  tableau_protections: "Tableau électrique général compté une seule fois pour le bâtiment",
+  points_lumineux: "Hors luminaires décoratifs haut de gamme (poste traité séparément si présent au catalogue)",
+  terre_essais: "Mise à la terre et essais compris dans le forfait (main-d'œuvre incluse)",
+  main_oeuvre: "Main-d'œuvre d'installation comprise : jamais ajoutée une seconde fois aux matériaux",
+};
 
 const roundQty = (n: number) => (n >= 10 ? Math.round(n) : Math.round(n * 10) / 10);
 
@@ -173,6 +216,41 @@ function resolveUnitPrice(designation: string, refUp: number, live?: DqeLivePric
   const catalog = catName ? CATALOG_BY_NAME.get(normKey(catName)) : undefined;
   if (catalog) return { up: catalog.unitPrice, unit: catalog.unit };
   return { up: refUp };
+}
+
+/**
+ * Lignes de référence d'un gabarit de lot : quantités mises à l'échelle de la
+ * surface réellement construite et prix unitaires résolus (prix en direct de la
+ * base `materialPrices` quand un index est fourni).
+ *
+ * SOURCE UNIQUE : le générateur du quantitatif et le calcul de la provision
+ * d'électricité passent par cette fonction, donc par exactement les mêmes
+ * quantités et les mêmes prix — aucun écart d'arrondi entre les deux.
+ */
+function rawLotLines(
+  lt: LotTpl,
+  scale: number,
+  footprintScale: number,
+  livePrices?: DqeLivePriceMap,
+): DqeLine[] {
+  return lt.lines.map((tpl) => {
+    const quantity =
+      tpl.qMode === "fixed"
+        ? tpl.q
+        : roundQty(tpl.q * (tpl.qMode === "footprint" ? footprintScale : scale));
+    const resolved = resolveUnitPrice(tpl.d, tpl.up, livePrices);
+    return {
+      designation: tpl.d,
+      description: tpl.desc,
+      sousLot: tpl.sl,
+      unit: resolved.unit ?? tpl.u,
+      quantity,
+      unitPrice: resolved.up,
+      total: Math.round(quantity * resolved.up),
+      nature: tpl.n,
+      observations: tpl.obs,
+    };
+  });
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -278,14 +356,17 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
     { d: "Peinture intérieure (3 couches, finition standard)", desc: "Sous-couche + 2 couches de finition.", u: "m²", q: paintSurf, up: 8, n: "materiaux", obs: f > 1 ? `${f} niveaux — peinture par niveau` : undefined },
     { d: "Peinture extérieure (façade, monocouche acrylique)", desc: "Impression puis monocouche acrylique.", u: "m²", q: paintExtSurf, up: 12, n: "materiaux", obs: f > 1 ? `Façade ${f} niveaux` : undefined },
     { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau, appareils inclus.", u: "lot", q: 1, qMode: "fixed", up: 14000, n: "equipements", obs: "Installation commune (colonne montante, conduite principale) comptée une seule fois" },
-    { d: "Électricité", desc: "Installation complète : tableaux, prises, interrupteurs, luminaires basiques.", u: "lot", q: 1, qMode: "fixed", up: 16000, n: "equipements", obs: "Tableau électrique général commun compté une seule fois" },
+    // Poste électrique : ligne de référence remplacée par le poste au barème 2026
+    // (voir `generateDqe`) — elle porte la PROVISION d'électricité déjà comprise
+    // dans le budget de la catégorie, jamais un second poste facturé.
+    { d: "Électricité", desc: "Installation complète : tableaux, prises, interrupteurs, luminaires basiques.", u: "lot", q: 1, qMode: "fixed", up: 16000, n: "equipements", obs: "Tableau électrique général commun compté une seule fois", legacyElec: true },
     { d: "Climatisation (pré-installation)", desc: "Gaines, réservations et support de groupe.", u: "lot", q: 1, qMode: "fixed", up: 2500, n: "equipements" },
     { d: "Cuisine équipée", desc: "Meubles hauts et bas, plan de travail, évier.", u: "lot", q: 1, qMode: "fixed", up: 9000, n: "equipements" },
     { d: "Garde-corps (balcons/escalier, fer forgé/inox)", desc: gardeCorpsDesc, u: "ml", q: gardeCorps, up: 150, n: "materiaux" },
     { d: "Finition escalier", desc: escalierFinitionDesc, u: "unité", q: 1, qMode: "fixed", up: escalierFinition, n: "materiaux" },
     { d: "Faux plafonds (plaque de plâtre)", desc: "Ossature métallique + BA13 + joints.", u: "m²", q: 50, up: 45, n: "materiaux" },
-    { d: "Luminaires intérieurs (LED encastrés)", desc: "Spots LED encastrés + appliques.", u: "unité", q: 12, up: 45, n: "equipements", obs: f > 1 ? `Circuit d'éclairage par niveau (${f} niveaux)` : undefined },
-    { d: "Prises et interrupteurs (norme NF)", desc: "Prises 2P+T, interrupteurs, va-et-vient.", u: "unité", q: 25, up: 18, n: "equipements", obs: f > 1 ? `Circuits et points propres à chaque niveau (${f} niveaux)` : undefined },
+    { d: "Luminaires intérieurs (LED encastrés)", desc: "Spots LED encastrés + appliques.", u: "unité", q: 12, up: 45, n: "equipements", obs: f > 1 ? `Circuit d'éclairage par niveau (${f} niveaux)` : undefined, legacyElec: true },
+    { d: "Prises et interrupteurs (norme NF)", desc: "Prises 2P+T, interrupteurs, va-et-vient.", u: "unité", q: 25, up: 18, n: "equipements", obs: f > 1 ? `Circuits et points propres à chaque niveau (${f} niveaux)` : undefined, legacyElec: true },
     { d: "Miroir et accessoires SDB", desc: "Miroir, porte-serviettes, patère, range-médicaments.", u: "lot", q: 1, qMode: "fixed", up: 350, n: "materiaux" },
     { d: "Seuils de portes (marbre ou granit)", desc: "Seuils 90 cm en pierre naturelle.", u: "unité", q: doorCount, up: 45, n: "materiaux", obs: f > 1 ? `6 seuils par niveau (${f} niveaux)` : undefined },
     { d: "Joints silicone sanitaire", desc: "Joints d'étanchéité SDB, cuisine, fenêtres.", u: "lot", q: 1, qMode: "fixed", up: 120, n: "materiaux" },
@@ -913,6 +994,30 @@ export function buildDqeLots(category: string, floors?: number): LotTpl[] {
 // GÉNÉRATEUR DU DQE
 // ════════════════════════════════════════════════════════════════════════
 
+/**
+ * Poste « Électricité » du scénario actif, calculé par le moteur de coûts à
+ * partir du barème unique (`lib/electricityPricing`). Il est transmis au
+ * générateur du quantitatif pour que le poste électrique de la catégorie
+ * « Second œuvre et finitions » soit EXACTEMENT le montant du moteur : un seul
+ * calcul, aucun écart entre le résultat de l'estimation et le quantitatif.
+ */
+export interface DqeElectricityInput {
+  /** Montant du poste au barème (TND) — autoritaire, non recalibré. */
+  amount: number;
+  /** Provision d'électricité déjà comprise dans `totalBudget` (TND). */
+  provision: number;
+  /** Scénario / niveau de qualité du barème. */
+  scenario?: string;
+  /** Prix au m² du barème appliqué (information, TND). */
+  priceM2?: number;
+  /** Coefficient régional appliqué au barème (base Médenine = 1). */
+  regionFactor?: number;
+  /** Surface de référence du poste électrique (m² construits). */
+  surface?: number;
+  /** Barème utilisé (reventilation des sous-postes). */
+  prices?: ElectricityPrices;
+}
+
 export interface DqeInput {
   category: string;
   surface: number;
@@ -924,6 +1029,49 @@ export interface DqeInput {
    * la surface du RDC est retenue pour tous les niveaux.
    */
   levelSurfaces?: number[];
+  /** Scénario / niveau de qualité du projet (barème électricité du scénario). */
+  scenario?: string;
+  /** Poste électricité du scénario actif (calculé par le moteur de coûts). */
+  electricity?: DqeElectricityInput;
+}
+
+/**
+ * Provision d'électricité d'un projet : le montant que le gabarit du
+ * Quantitatif détaillé allouait à l'électricité AVANT le barème 2026, dans la
+ * catégorie « Second œuvre et finitions ».
+ *
+ * Le moteur de coûts l'utilise pour RETIRER du coût de marché l'électricité
+ * déjà comprise avant d'ajouter le poste au barème : le poste électrique n'est
+ * donc jamais compté deux fois, et aucun autre poste du quantitatif ne bouge
+ * (le budget de la catégorie reste réparti de la même façon sur les autres
+ * lignes).
+ */
+export function dqeElectricityProvision(input: {
+  category: string;
+  surface: number;
+  floors: number;
+  /** Coût de marché du projet (hors mise à jour du barème), TND. */
+  marketBase: number;
+  levelSurfaces?: number[];
+  /** Prix en direct de la base `materialPrices` (mêmes prix que le quantitatif). */
+  livePrices?: DqeLivePriceMap;
+}): number {
+  const { category, surface, floors, marketBase } = input;
+  if (!(marketBase > 0)) return 0;
+  const lotTpls = buildDqeLots(category, floors);
+  const soIndex = lotTpls.findIndex((l) => l.lines.some((t) => t.legacyElec));
+  if (soIndex < 0) return 0;
+  const soTpl = lotTpls[soIndex];
+  const totalPct = lotTpls.reduce((s, l) => s + l.percent, 0);
+  const { scale, footprintScale } = dqeQuantityScales(surface, floors, input.levelSurfaces);
+  const soBudget = Math.round((Math.round(marketBase) * soTpl.percent) / totalPct);
+  const lines = rawLotLines(soTpl, scale, footprintScale, input.livePrices);
+  const rawTotal = lines.reduce((s, l) => s + l.total, 0);
+  const rawElec = lines
+    .filter((_, i) => soTpl.lines[i].legacyElec)
+    .reduce((s, l) => s + l.total, 0);
+  if (rawTotal <= 0 || rawElec <= 0) return 0;
+  return Math.round((rawElec / rawTotal) * soBudget);
 }
 
 /**
@@ -956,13 +1104,76 @@ export function generateDqe(input: DqeInput): DqeResult {
   const lotTpls = buildDqeLots(category, floors);
   const totalPct = lotTpls.reduce((s, l) => s + l.percent, 0);
 
+  // ══════════════════════════════════════════════════════════════════════
+  // POSTE « ÉLECTRICITÉ » — barème 2026, source unique
+  // ---------------------------------------------------------------------- 
+  // Le quantitatif ne facture JAMAIS deux fois l'électricité : les lignes du
+  // gabarit historique (forfait « Électricité » + luminaires + prises) sont
+  // remplacées par le poste au barème (`lib/electricityPricing`), et la
+  // provision qu'elles représentaient est retirée du budget de la catégorie
+  // « Second œuvre et finitions ». Le poste est donc le seul poste électrique,
+  // et tous les autres postes de la catégorie gardent exactement leurs prix,
+  // quantités et montants : une modification du barème ne déplace que
+  // l'électricité, sa catégorie et le coût total.
+  // ══════════════════════════════════════════════════════════════════════
+  const elecLotIndex = lotTpls.findIndex((l) => l.lines.some((t) => t.legacyElec));
+  const elecPrices = resolveElectricityPrices(input.electricity?.prices);
+  const elecScenario = input.electricity?.scenario ?? input.scenario ?? "standard";
+  const elecSurface =
+    input.electricity?.surface && input.electricity.surface > 0
+      ? input.electricity.surface
+      : tb;
+  const elecAmount =
+    input.electricity && Number.isFinite(input.electricity.amount)
+      ? Math.max(0, Math.round(input.electricity.amount))
+      : electricityAmount({
+          surface: elecSurface,
+          scenario: elecScenario,
+          prices: elecPrices,
+          regionFactor: input.electricity?.regionFactor ?? 1,
+        });
+
   // Budgets de lots puis absorption de l'écart d'arrondi par le lot le plus
   // important : la somme des sous-totaux du Quantitatif détaillé retombe
   // EXACTEMENT sur le coût global TTC du moteur de coûts (aucun écart affiché).
   const targetTotal = Math.round(totalBudget);
-  const lotBudgets = lotTpls.map((lt) => Math.round((targetTotal * lt.percent) / totalPct));
+  // Provision d'électricité retirée du coût de marché : montant transmis par le
+  // moteur de coûts (source unique) ou, pour un appel direct au quantitatif,
+  // provision du gabarit historique. Un appel direct n'a pas le coût de marché :
+  // il se déduit du total transmis, la provision étant une part faible du total
+  // (résolution par itérations successives). Le MÊME montant sert au budget du
+  // lot et au poste : le total du quantitatif retombe exactement sur le total
+  // transmis, jamais à quelques dinars près.
+  let elecProvision = input.electricity
+    ? Math.max(0, Math.round(input.electricity.provision))
+    : elecLotIndex >= 0
+      ? dqeElectricityProvision({
+          category,
+          surface,
+          floors,
+          levelSurfaces: input.levelSurfaces,
+          marketBase: targetTotal - elecAmount,
+          livePrices: input.livePrices,
+        })
+      : 0;
+  if (!input.electricity && elecLotIndex >= 0) {
+    for (let i = 0; i < 4; i++) {
+      const next = dqeElectricityProvision({
+        category,
+        surface,
+        floors,
+        levelSurfaces: input.levelSurfaces,
+        marketBase: targetTotal - elecAmount + elecProvision,
+        livePrices: input.livePrices,
+      });
+      if (next === elecProvision) break;
+      elecProvision = next;
+    }
+  }
+  const baseForLots = elecLotIndex >= 0 ? targetTotal - elecAmount + elecProvision : targetTotal;
+  const lotBudgets = lotTpls.map((lt) => Math.round((baseForLots * lt.percent) / totalPct));
   const budgetSum = lotBudgets.reduce((s, b) => s + b, 0);
-  const remainder = targetTotal - budgetSum;
+  const remainder = baseForLots - budgetSum;
   if (remainder !== 0 && lotBudgets.length > 0) {
     let heaviest = 0;
     for (let i = 1; i < lotBudgets.length; i++) {
@@ -974,28 +1185,35 @@ export function generateDqe(input: DqeInput): DqeResult {
   const lots: DqeLot[] = lotTpls.map((lt, lotIndex) => {
     const lotBudget = lotBudgets[lotIndex];
     // 1. Quantités & prix de référence
-    const lines: DqeLine[] = lt.lines.map((tpl) => {
-      const quantity =
-        tpl.qMode === "fixed"
-          ? tpl.q
-          : roundQty(tpl.q * (tpl.qMode === "footprint" ? footprintScale : scale));
-      const resolved = resolveUnitPrice(tpl.d, tpl.up, input.livePrices);
-      return {
-        designation: tpl.d,
-        description: tpl.desc,
-        sousLot: tpl.sl,
-        unit: resolved.unit ?? tpl.u,
-        quantity,
-        unitPrice: resolved.up,
-        total: Math.round(quantity * resolved.up),
-        nature: tpl.n,
-        observations: tpl.obs,
-      };
-    });
-    // 2. Calage des prix pour tomber exactement sur le sous-total du lot
-    const rawTotal = lines.reduce((s, l) => s + l.total, 0);
-    const factor = rawTotal > 0 ? lotBudget / rawTotal : 1;
-    const scaledLines = lines.map((l) => {
+    const lines: DqeLine[] = rawLotLines(lt, scale, footprintScale, input.livePrices);
+    // 2. Calage des prix pour tomber exactement sur le sous-total du lot.
+    //    Le lot qui porte l'électricité est traité à part : sa partie
+    //    électrique est le poste au barème (montant autoritaire, non recalibré)
+    //    et sa partie hors électricité reprend le budget historique de la
+    //    catégorie, provision d'électricité déduite.
+    let workingLines = lines;
+    let lineBudget = lotBudget;
+    let elecLines: DqeLine[] = [];
+    if (lotIndex === elecLotIndex) {
+      // Provision retirée du budget de la catégorie (même montant que celui
+      // utilisé pour reconstituer le coût de marché : aucune dérive de total).
+      workingLines = lines.filter((_, i) => !lt.lines[i].legacyElec);
+      lineBudget = lotBudget - elecProvision;
+      elecLines = electricityBreakdown(elecAmount).map((b) => ({
+        designation: b.label,
+        description: ELECTRICITY_SUBPOST_DESCRIPTIONS[b.key] ?? "Installation électrique complète (barème 2026).",
+        sousLot: "Électricité",
+        unit: "lot",
+        quantity: 1,
+        unitPrice: b.amount,
+        total: b.amount,
+        nature: b.nature,
+        observations: ELECTRICITY_SUBPOST_OBSERVATIONS[b.key],
+      }));
+    }
+    const rawTotal = workingLines.reduce((s, l) => s + l.total, 0);
+    const factor = rawTotal > 0 ? lineBudget / rawTotal : 1;
+    const scaledLines = workingLines.map((l) => {
       const total = Math.round(l.total * factor);
       const quantity = l.quantity > 0 ? l.quantity : 1;
       return {
@@ -1008,20 +1226,23 @@ export function generateDqe(input: DqeInput): DqeResult {
     // par la dernière ligne pour que le lot tombe exactement sur son budget
     // (méthode identique au finalisateur du moteur BIM).
     let subtotal = scaledLines.reduce((s, l) => s + l.total, 0);
-    const delta = lotBudget - subtotal;
+    const delta = lineBudget - subtotal;
     if (delta !== 0 && scaledLines.length > 0) {
       const last = scaledLines[scaledLines.length - 1];
       last.total += delta;
       last.unitPrice = Math.round((last.total / (last.quantity || 1)) * 100) / 100;
       subtotal += delta;
     }
+    const allLines = elecLines.length > 0 ? [...scaledLines, ...elecLines] : scaledLines;
+    const lotSubtotal =
+      elecLines.length > 0 ? subtotal + elecLines.reduce((s, l) => s + l.total, 0) : subtotal;
     return {
       id: lt.id,
       name: lt.name,
       nature: lt.nature,
       percent: Math.round((lt.percent / totalPct) * 1000) / 10,
-      subtotal,
-      lines: scaledLines,
+      subtotal: lotSubtotal,
+      lines: allLines,
     };
   });
 

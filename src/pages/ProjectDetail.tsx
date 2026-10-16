@@ -73,6 +73,14 @@ import {
   runBIMEstimation,
 } from "@/convex/bimEngine";
 import { realBuiltArea } from "@/lib/buildingLevels";
+// Poste ÉLECTRICITÉ : mêmes fonctions pures que le moteur de coûts (source
+// unique). La page ne reconstitue jamais un barème parallèle ni un forfait au
+// m² : elle affiche le poste calculé par le moteur pour le scénario affiché.
+import {
+  electricityAmount,
+  electricityBreakdown,
+  resolveElectricityPrices,
+} from "@/lib/electricityPricing";
 // Impact régional & comparatif régional : UNE seule source de calcul
 // (`lib/regionImpact`), la même que celle du moteur BIM. Elle ne fait varier
 // que le prix régional du SCÉNARIO ACTIF (coefficient régional appliqué une
@@ -669,14 +677,20 @@ export default function ProjectDetail() {
     // est calculé avec EXACTEMENT la même méthode multi-niveaux que l'estimation
     // enregistrée (aucun coût du RDC multiplié par le nombre d'étages).
     const levelSurfaces = project.levelSurfaces;
+    // Barème électricité de l'estimation enregistrée : le comparatif utilise le
+    // même barème que le moteur serveur (aucun calcul divergent).
+    const electricityPrices = (ce as any)?.electricity?.prices;
     const withRooms = runBIMEstimation(category, surface, floors, region, finishLevel, {
       bedrooms: project.bedrooms,
       bathrooms: project.bathrooms,
       kitchens: project.kitchens,
       livingRooms: project.livingRooms,
       garages: project.garages,
-    }, { levelSurfaces });
-    const ref = runBIMEstimation(category, surface, floors, region, finishLevel, undefined, { levelSurfaces });
+    }, { levelSurfaces, electricityPrices });
+    const ref = runBIMEstimation(category, surface, floors, region, finishLevel, undefined, {
+      levelSurfaces,
+      electricityPrices,
+    });
     const refTotal = ref.costEstimate.totalCost || 1;
     const diffPct = Math.round(
       ((withRooms.costEstimate.totalCost - refTotal) / refTotal) * 100,
@@ -731,6 +745,41 @@ export default function ProjectDetail() {
   const displayTotal: number = personalized && isPersonalizedScenario ? Number(personalized.totals.total) : Number(currentTotal);
   const displayCostM2 =
     personalized && isPersonalizedScenario ? personalized.totals.costPerM2 : currentCostM2;
+
+  // ── Poste ÉLECTRICITÉ du scénario affiché ──────────────────────────────
+  // Le moteur enregistre le poste du scénario de finition du projet (montant au
+  // barème, provision d'électricité déjà comprise dans la grille et retirée du
+  // coût total, ventilation par sous-poste). Quand l'utilisateur affiche un
+  // autre scénario, le poste est recalculé avec la MÊME fonction pure
+  // (`electricityAmount`) : même surface, même coefficient régional, seule la
+  // ligne du barème change (35 / 65 / 100 DT/m²).
+  const electricityPoste = useMemo(() => {
+    const stored: any = (ce as any)?.electricity;
+    if (!stored) return null;
+    const prices = resolveElectricityPrices(stored.prices);
+    const scen = selectedScenario === "economique" || selectedScenario === "premium"
+      ? selectedScenario
+      : stored.scenario;
+    const amount = electricityAmount({
+      surface: stored.surface,
+      scenario: scen,
+      prices,
+      regionFactor: stored.regionFactor,
+    });
+    const priceM2 = prices[scen === "economique" ? "eco" : scen === "premium" ? "premium" : "std"];
+    const isStoredScenario = scen === stored.scenario;
+    return {
+      ...stored,
+      scenario: scen,
+      scenarioLabel: scen === "economique" ? "Économique" : scen === "premium" ? "Premium" : "Standard",
+      priceM2,
+      amount,
+      breakdown: isStoredScenario
+        ? stored.breakdown
+        : electricityBreakdown(amount),
+      isStoredScenario,
+    };
+  }, [ce, selectedScenario]);
 
   // ── Catégories réellement affichées par le « Quantitatif détaillé » ────
   // SOURCE UNIQUE du quantitatif affiché : mise à l'échelle du scénario
@@ -1270,6 +1319,59 @@ export default function ProjectDetail() {
                 </div>
               ))}
             </motion.div>
+
+            {/* ═══ Poste ÉLECTRICITÉ — barème unique (aucun double comptage) ═══ */}
+            {electricityPoste && (
+              <SectionCard
+                icon={Plug}
+                title="Électricité — installation complète"
+                badge={`Barème ${electricityPoste.scenarioLabel}`}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border/20 space-y-1 text-xs">
+                    <div className="flex justify-between gap-2 py-0.5">
+                      <span className="text-muted-foreground">Barème appliqué</span>
+                      <span className="font-medium text-right">
+                        {fmt(electricityPoste.priceM2)}/m² × {electricityPoste.surface} m²
+                        {electricityPoste.regionFactor !== 1 &&
+                          ` × ${electricityPoste.regionFactor.toFixed(2)}`}
+                      </span>
+                    </div>
+                    {electricityPoste.isStoredScenario && (
+                      <div className="flex justify-between gap-2 py-0.5">
+                        <span className="text-muted-foreground">
+                          Provision déjà comprise dans la grille (retirée)
+                        </span>
+                        <span className="font-medium">−{fmt(electricityPoste.provision)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between gap-2 py-1 mt-1 border-t border-border/20">
+                      <span className="font-bold">Poste électricité (compté une seule fois)</span>
+                      <span className="font-bold text-primary">{fmt(electricityPoste.amount)}</span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground pt-1">
+                      {electricityPoste.isStoredScenario
+                        ? `Variation du coût total TTC : ${electricityPoste.adjustment >= 0 ? "+" : ""}${fmt(electricityPoste.adjustment)} — le forfait au m² n'est jamais ajouté aux articles du Quantitatif détaillé.`
+                        : `Le coût total du scénario ${electricityPoste.scenarioLabel} inclut ce poste à son propre barème (aucune seconde facturation).`}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border/20">
+                    <p className="text-[10px] font-semibold text-muted-foreground mb-2">
+                      Ventilation du poste (sous-postes du Quantitatif)
+                    </p>
+                    <div className="space-y-1">
+                      {(electricityPoste.breakdown ?? []).map((l: any) => (
+                        <div key={l.key} className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-muted-foreground truncate">
+                            {String(l.label).replace("Électricité — ", "")}
+                          </span>
+                          <span className="text-[11px] font-medium tabular-nums">{fmt(l.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
+            )}
 
             {/* ═══ Impact région & comparatif par région (mise en page d'origine) ═══ */}
             {regionImpact && regionCard && (
