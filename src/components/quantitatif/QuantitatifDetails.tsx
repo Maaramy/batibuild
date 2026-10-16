@@ -58,10 +58,8 @@ export interface QuantitatifDetailsProps {
   };
   /** Total affiché du scénario courant (personnalisé inclus). */
   totalBudg: number;
-  /** Prix moyen par région (référence comparative du scénario affiché). */
+  /** Prix moyen par région (référence comparative). */
   avgM2: number;
-  /** Légende de la référence comparative (niveau du scénario affiché). */
-  avgM2Label?: string;
   /** Coût/m² du scénario affiché. */
   displayedCostM2: number;
   /** Surface construite (m²). */
@@ -108,7 +106,6 @@ export function QuantitatifDetails({
   dqeTotals,
   totalBudg,
   avgM2,
-  avgM2Label,
   displayedCostM2,
   builtSurface,
   regionLabel,
@@ -444,7 +441,7 @@ export function QuantitatifDetails({
                       <span className="text-xs font-normal text-muted-foreground">/m²</span>
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {avgM2Label ?? "Moyenne nationale (24 gouvernorats) · Base marché Tunisie 2026"}
+                      Moyenne nationale (24 gouvernorats) · Base marché Tunisie 2026
                     </p>
                     {regionLabel && avgM2 > 0 && displayedCostM2 !== avgM2 && (
                       <p

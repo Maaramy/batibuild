@@ -5,11 +5,6 @@ import {
   realBuiltArea,
   type LevelCostConfig,
 } from "../lib/buildingLevels";
-import {
-  computeRegionImpact,
-  type RegionImpact,
-  type RegionScenarioKey,
-} from "../lib/regionImpact";
 
 // ============================================================================
 // PROFESSIONAL BIM COST ESTIMATION ENGINE
@@ -752,26 +747,8 @@ export const GOVERNORATE_LEVELS_2026: Record<
 };
 
 /**
- * Libellés français des 24 gouvernorats (affichage : comparatif régional,
- * rapports et interface d'administration).
- */
-export const GOVERNORATE_LABELS: Record<string, string> = {
-  tunis: "Tunis", ariana: "Ariana", ben_arous: "Ben Arous", manouba: "Manouba",
-  nabeul: "Nabeul", zaghouan: "Zaghouan", bizerte: "Bizerte", beja: "Béja",
-  jendouba: "Jendouba", le_kef: "Le Kef", siliana: "Siliana", kairouan: "Kairouan",
-  kasserine: "Kasserine", sidi_bouzid: "Sidi Bouzid", sousse: "Sousse",
-  monastir: "Monastir", mahdia: "Mahdia", sfax: "Sfax", gabes: "Gabès",
-  medenine: "Médenine", tataouine: "Tataouine", gafsa: "Gafsa", tozeur: "Tozeur",
-  kebili: "Kébili",
-};
-
-/**
  * Feuille n°2 « Couts_24_gouv » — facteurs régionaux : matériaux,
  * main-d'œuvre, marché/logistique et coefficient régional global.
- *
- * Ces facteurs DOCUMENTENT la composition du prix régional : ils ne sont
- * jamais multipliés au coût (le coefficient régional est déjà compris dans les
- * prix de la grille), sinon il serait appliqué deux fois.
  */
 export const GOVERNORATE_FACTORS_2026: Record<
   string,
@@ -1780,19 +1757,6 @@ export interface BIMEstimationOptions {
   levelConfig?: Partial<LevelCostConfig>;
 }
 
-/**
- * Ratio FIXE du type de projet par rapport à la référence « maison » de la
- * grille 2026 (maison = 1,000). Ce n'est pas un ajustement automatique : c'est
- * la grille tarifaire du classeur appliquée telle quelle entre types de projet.
- * Exporté pour que les pages qui reconstruisent un prix au m² (référence
- * nationale, comparatif régional) restent exactement sur la même échelle.
- */
-export function projectPriceRatio(category: string): number {
-  const maisonStd = MARKET_PRICE_M2["maison"]?.std || 1800;
-  const projectStd = MARKET_PRICE_M2[category]?.std || 1500;
-  return projectStd / maisonStd;
-}
-
 export function runBIMEstimation(
   category: string, surface: number, floors: number,
   region?: string, finishLevel?: string,
@@ -1800,8 +1764,7 @@ export function runBIMEstimation(
   options?: BIMEstimationOptions,
 ) {
   const pct = PROJECT_PCT[category] || [35, 30, 15, 10, 3, 7];
-  // Le prix au m² du type de projet n'est plus lu ici : le ratio du type de
-  // projet est résolu par `projectPriceRatio` (même grille, un seul endroit).
+  const marketPrices = MARKET_PRICE_M2[category] || { eco: 1000, std: 1500, premium: 2500 };
 
   // Grille tarifaire FIXE 2026 (feuille n°2 « Couts_24_gouv » du classeur) :
   // valeurs EXACTES par gouvernorat et par scénario (Économique · Standard ·
@@ -1814,20 +1777,25 @@ export function runBIMEstimation(
 
   // Prix de base par m² = valeur EXACTE de la grille régionale (ou base Médenine)
   let baseRegionM2: number;
+  let baseRegionLabel: string;
   if (regionCosts) {
     if (fLevel === "economique") baseRegionM2 = regionCosts.eco;
     else if (fLevel === "premium") baseRegionM2 = regionCosts.premium;
     else baseRegionM2 = regionCosts.std;
+    baseRegionLabel = regionCosts.ecoRange + " / " + regionCosts.stdRange + " / " + regionCosts.premiumRange;
   } else {
     if (fLevel === "economique") baseRegionM2 = BASE_GRID_2026.eco;
     else if (fLevel === "premium") baseRegionM2 = BASE_GRID_2026.hautStanding;
     else baseRegionM2 = BASE_GRID_2026.std;
+    baseRegionLabel = "";
   }
 
   // Ratio FIXE du type de projet (grille du classeur — base Médenine = 100 %,
   // maison = 1,000). Ce n'est pas un ajustement automatique : c'est la grille
   // tarifaire du document appliquée telle quelle entre types de projet.
-  const projectRatio = projectPriceRatio(category);
+  const maisonStd = MARKET_PRICE_M2["maison"]?.std || 1800;
+  const projectStd = marketPrices.std || 1500;
+  const projectRatio = projectStd / maisonStd;
 
   // Prix final par m² = valeur EXACTE de la grille régionale × ratio fixe du
   // type de projet (maison = 1 → le chiffre du classeur est reproduit tel quel).
@@ -1959,30 +1927,41 @@ export function runBIMEstimation(
   // Optimization tips with region context
   const tips = generateTips(category, surface, region, finishLevel, costM2);
 
-  // ── Impact régional & comparatif régional — calcul CENTRALISÉ ──────────
-  // MÊME fonction que celle utilisée par la page de résultat
-  // (`lib/regionImpact`) : le total du SCÉNARIO ACTIF (le niveau de finition
-  // effectivement calculé) est comparé aux 24 gouvernorats en ne faisant varier
-  // QUE le prix régional de la grille 2026. Le coefficient régional — déjà
-  // compris dans le prix de la grille — n'est donc appliqué qu'UNE seule fois,
-  // la région du projet retombe exactement sur le total affiché, et aucun poste
-  // (gros œuvre, second œuvre, frais communs, quantités) n'est recalculé.
-  const activeScenarioKey: RegionScenarioKey =
-    fLevel === "economique" ? "economique" : fLevel === "premium" ? "premium" : "standard";
-  const activeScenarioTotal =
-    activeScenarioKey === "economique" ? totalEco
-      : activeScenarioKey === "premium" ? totalPremium
-      : finalTotal;
-  const regionImpact: RegionImpact | undefined = computeRegionImpact({
+  // Region impact info for UI — comparatif entre régions
+  const regionLabel = region ? ({
+    tunis: "Tunis", ariana: "Ariana", ben_arous: "Ben Arous", manouba: "Manouba",
+    nabeul: "Nabeul", zaghouan: "Zaghouan", bizerte: "Bizerte", beja: "Béja",
+    jendouba: "Jendouba", le_kef: "Le Kef", siliana: "Siliana", kairouan: "Kairouan",
+    kasserine: "Kasserine", sidi_bouzid: "Sidi Bouzid", sousse: "Sousse",
+    monastir: "Monastir", mahdia: "Mahdia", sfax: "Sfax", gabes: "Gabès",
+    medenine: "Médenine", tataouine: "Tataouine", gafsa: "Gafsa", tozeur: "Tozeur",
+    kebili: "Kébili",
+  } as Record<string, string>)[region] : undefined;
+
+  // Calcule les totaux pour chaque région (affichage comparatif)
+  const regionTotals: Record<string, number> = {};
+  if (region) {
+    const fLevelKey = fLevel === "economique" ? "eco" : fLevel === "premium" ? "premium" : "std";
+    for (const [regKey, regCost] of Object.entries(REGION_COST_M2)) {
+      const regPrice = (fLevelKey === "eco" ? regCost.eco : fLevelKey === "premium" ? regCost.premium : regCost.std) * projectRatio;
+      regionTotals[regKey] = Math.round(regPrice * tb);
+    }
+  }
+
+  // Référence comparative FIXE (base Médenine du classeur — aucune moyenne nationale)
+  const fLevelGridKey = fLevel === "economique" ? "eco" : fLevel === "premium" ? "hautStanding" : "std";
+  const baseRefPriceM2 = BASE_GRID_2026[fLevelGridKey] * projectRatio;
+  const baseRefTotal = Math.round(baseRefPriceM2 * tb);
+  const regionImpact = region ? {
     region,
-    scenario: activeScenarioKey,
-    gridPrices: REGION_COST_M2,
-    labels: GOVERNORATE_LABELS,
-    nationalAvg: NATIONAL_AVG,
-    activeTotal: activeScenarioTotal,
-    realBuiltArea: tb,
-    equivalentArea: levels.equivalentArea,
-  });
+    regionLabel: regionLabel || region,
+    basePriceM2: finalPriceM2,
+    priceRange: baseRegionLabel,
+    totalWithRegion: finalTotal,
+    totalNationalAvg: baseRefTotal,
+    difference: finalTotal - baseRefTotal,
+    regionTotals,
+  } : undefined;
 
   return {
     costEstimate: {
@@ -2002,13 +1981,7 @@ export function runBIMEstimation(
       contingencyPercentage: 0,
       budgetScenarios: scenarios,
       // Référence comparative fixe : standard de la base Médenine (grille du classeur)
-      // Référence comparative NATIONALE du niveau de finition effectivement
-      // calculé (et non plus figée sur le Standard) : l'écart affiché suit donc
-      // le niveau du projet.
-      avgRegionPriceM2: Math.round(
-        NATIONAL_AVG[fLevel === "economique" ? "eco" : fLevel === "premium" ? "premium" : "std"] *
-          projectRatio,
-      ),
+      avgRegionPriceM2: Math.round(BASE_GRID_2026.std * projectRatio),
     },
     aiAnalysis: {
       category: CATEGORY_LABEL[category] || category,
