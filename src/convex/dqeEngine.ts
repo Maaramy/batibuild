@@ -24,6 +24,17 @@
 import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 import { resolveProjectType } from "./projectTypes";
 import { realBuiltArea } from "../lib/buildingLevels";
+import {
+  PAINT_LINE_DESIGNATIONS,
+  dedupePaintLines,
+  paintBucketUnit,
+  paintLineRole,
+  paintQuantityPlan,
+  replacePaintLines,
+  resolvePaintQuantities,
+  type PaintLineRole,
+  type PaintQuantitiesConfig,
+} from "../lib/paintQuantities";
 
 export type DqeNature =
   | "materiaux"
@@ -80,9 +91,13 @@ interface LineTpl {
    * area = proportionnelle à la surface RÉELLEMENT construite (tous niveaux),
    * fixed = quantité fixe (une seule fois pour tout le bâtiment),
    * footprint = proportionnelle à l'emprise au sol (travaux communs comptés
-   * une seule fois : terrassement, fondations, dallage, toiture).
+   * une seule fois : terrassement, fondations, dallage, toiture),
+   * paint = quantité du barème de peinture (seaux), calculée sur la surface
+   * construite par `lib/paintQuantities` — jamais mise à l'échelle du gabarit.
    */
-  qMode?: "area" | "fixed" | "footprint";
+  qMode?: "area" | "fixed" | "footprint" | "paint";
+  /** Poste de peinture concerné (uniquement avec `qMode: "paint"`). */
+  paintRole?: PaintLineRole;
   up: number; // prix unitaire de référence (TND)
   n: DqeNature;
   obs?: string; // observations
@@ -244,17 +259,24 @@ function grosOeuvreLot(percent: number, opts?: { toiture?: boolean; escalier?: b
 
 /** Lot « Second œuvre et Finitions » — résidentiel.
  * @param floors Nombre d'étages (1 = maison RDC, 2 = R+1, 3 = R+2).
- * Les quantités de menuiserie, peinture, garde-corps et finitions
- * d'escalier sont proportionnelles au nombre de niveaux.
+ * Les quantités de menuiserie, garde-corps et finitions d'escalier sont
+ * proportionnelles au nombre de niveaux.
+ * @param paint Barème de peinture (quantités du projet de référence 100 m² et
+ * prix du seau) réglé par l'administrateur : il alimente les deux postes
+ * « Peinture intérieure (murs et plafonds) » et « Peinture extérieure
+ * (façades) », exprimés au SEAU de 20 litres (voir `lib/paintQuantities`).
  */
-function secondOeuvreLot(percent: number, floors?: number): LotTpl {
+function secondOeuvreLot(
+  percent: number,
+  floors?: number,
+  paint?: Partial<PaintQuantitiesConfig> | null,
+): LotTpl {
   const f = floors || 1;
   // Toutes les quantités ci-dessous sont exprimées POUR UN NIVEAU : elles sont
   // ensuite mises à l'échelle par la surface réellement construite (somme des
   // surfaces des niveaux). Aucune d'elles n'est donc multipliée une seconde
   // fois par le nombre d'étages.
   const doorCount = 6; // ~6 portes par niveau (chambres + SDB + cuisine)
-  const paintSurf = 300; // surface murale peinte par niveau
   const enduitSurf = 300; // surface d'enduit par niveau
   const gardeCorps = 10; // garde-corps escalier + balcons par niveau
   const gardeCorpsDesc = f === 1
@@ -265,18 +287,51 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
   const escalierFinitionDesc = f === 1
     ? "Revêtement sol escalier (pierre ou carrelage)."
     : `Revêtement sol escalier ${f} volées (pierre ou carrelage).`;
-  // Peinture extérieure (façade) : proportionnelle à la surface construite
-  const paintExtSurf = 80;
 
-  return lot("second_oeuvre", "Second œuvre et finitions", "materiaux", percent, [
+  // ── Postes de peinture au seau ──
+  // Les deux lignes sont DÉFINITIVES : elles remplacent les anciens libellés au
+  // m² du gabarit (`replacePaintLines`), qui ne sont donc jamais dupliqués. La
+  // quantité vient du barème administrateur (10 seaux pour 100 m² construits),
+  // le prix unitaire est celui du seau configuré et le montant vaut
+  // Quantité × Prix unitaire du seau — aucun coefficient régional appliqué.
+  const paintCfg = resolvePaintQuantities(paint);
+  const paintUnit = paintBucketUnit(paintCfg);
+  const paintLines: Record<PaintLineRole, LineTpl> = {
+    interior: {
+      d: PAINT_LINE_DESIGNATIONS.interior,
+      desc: `Peinture mate lessivable des murs et plafonds, ${paintCfg.coats} couches (sous-couche + finitions).`,
+      u: paintUnit,
+      q: paintCfg.interiorBuckets,
+      qMode: "paint",
+      paintRole: "interior",
+      up: paintCfg.interiorBucketPrice,
+      n: "materiaux",
+    },
+    exterior: {
+      d: PAINT_LINE_DESIGNATIONS.exterior,
+      desc: `Peinture acrylique des façades, ${paintCfg.coats} couches (impression + finitions).`,
+      u: paintUnit,
+      q: paintCfg.exteriorBuckets,
+      qMode: "paint",
+      paintRole: "exterior",
+      up: paintCfg.exteriorBucketPrice,
+      n: "materiaux",
+    },
+  };
+
+  const baseLines: LineTpl[] = [
     { d: "Enduits intérieurs (ciment, plâtre)", desc: "Enduit au mortier puis enduit de lissage.", u: "m²", q: enduitSurf, up: 16, n: "materiaux", obs: f > 1 ? `${f} niveaux — un jeu d'enduits par niveau` : undefined },
     { d: "Revêtements de sol (carrelage grès cérame premier choix)", desc: "Pose collée, joints, plinthes.", u: "m²", q: 120, up: 45, n: "materiaux" },
     { d: "Revêtements muraux SDB/Cuisine (faïence)", desc: "Faïence 20×30 sur zones humides.", u: "m²", q: 40, up: 40, n: "materiaux" },
     { d: "Menuiserie extérieure (fenêtres et portes-fenêtres PVC double vitrage)", desc: "Fourniture et pose, seuils, habillages.", u: "m²", q: 15, up: 620, n: "materiaux" },
     { d: "Menuiserie extérieure (porte d'entrée en bois massif)", desc: "Porte blindée + serrure multipoints.", u: "unité", q: 1, qMode: "fixed", up: 1200, n: "materiaux" },
     { d: "Menuiserie intérieure (portes en bois semi-massif/stratifié)", desc: "Blocs-portes avec paumelles et poignées.", u: "unité", q: doorCount, up: 450, n: "materiaux", obs: f > 1 ? `Répartition : 6 portes par niveau (${f} niveaux)` : undefined },
-    { d: "Peinture intérieure (3 couches, finition standard)", desc: "Sous-couche + 2 couches de finition.", u: "m²", q: paintSurf, up: 8, n: "materiaux", obs: f > 1 ? `${f} niveaux — peinture par niveau` : undefined },
-    { d: "Peinture extérieure (façade, monocouche acrylique)", desc: "Impression puis monocouche acrylique.", u: "m²", q: paintExtSurf, up: 12, n: "materiaux", obs: f > 1 ? `Façade ${f} niveaux` : undefined },
+    // Postes historiques du gabarit (peinture au m²) : ils marquent la position
+    // des deux postes de peinture et sont REMPLACÉS, à cette place, par les
+    // postes au seau du barème administrateur — les lignes existantes sont donc
+    // mises à jour, jamais recréées à côté (voir `replacePaintLines`).
+    { d: "Peinture intérieure (3 couches, finition standard)", desc: "Sous-couche + 2 couches de finition.", u: "m²", q: 300, up: 8, n: "materiaux" },
+    { d: "Peinture extérieure (façade, monocouche acrylique)", desc: "Impression puis monocouche acrylique.", u: "m²", q: 80, up: 12, n: "materiaux" },
     { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau, appareils inclus.", u: "lot", q: 1, qMode: "fixed", up: 14000, n: "equipements", obs: "Installation commune (colonne montante, conduite principale) comptée une seule fois" },
     { d: "Électricité", desc: "Installation complète : tableaux, prises, interrupteurs, luminaires basiques.", u: "lot", q: 1, qMode: "fixed", up: 16000, n: "equipements", obs: "Tableau électrique général commun compté une seule fois" },
     { d: "Climatisation (pré-installation)", desc: "Gaines, réservations et support de groupe.", u: "lot", q: 1, qMode: "fixed", up: 2500, n: "equipements" },
@@ -291,7 +346,15 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
     { d: "Joints silicone sanitaire", desc: "Joints d'étanchéité SDB, cuisine, fenêtres.", u: "lot", q: 1, qMode: "fixed", up: 120, n: "materiaux" },
     { d: "VMC (ventilation mécanique contrôlée)", desc: "Extracteur hygroréglable + gaine + grille.", u: "lot", q: 1, qMode: "fixed", up: 650, n: "equipements" },
     { d: "Couloirs et circulations (peinture + plinthes)", desc: "Peinture + plinthes PVC sur circulations.", u: "ml", q: 12, up: 35, n: "materiaux", obs: f > 1 ? `${f} niveaux` : undefined },
-  ]);
+  ];
+
+  return lot(
+    "second_oeuvre",
+    "Second œuvre et finitions",
+    "materiaux",
+    percent,
+    replacePaintLines(baseLines, paintLines),
+  );
 }
 
 /** Lot « Aménagements extérieurs ». */
@@ -322,7 +385,7 @@ function vrdLot(percent: number): LotTpl {
 }
 
 // ── Résidentiel : gabarit 5 lots du modèle de référence ─────────────────────
-function residentialLots(cat: string, floors?: number): LotTpl[] {
+function residentialLots(cat: string, floors?: number, paint?: Partial<PaintQuantitiesConfig> | null): LotTpl[] {
   const pct: Record<string, [number, number, number, number, number]> = {
     maison: [5.6, 47.7, 39.1, 5.3, 2.3],
     villa: [5, 44, 42, 6.5, 2.5],
@@ -339,7 +402,7 @@ function residentialLots(cat: string, floors?: number): LotTpl[] {
   return [
     etudesLot(pe),
     grosOeuvreLot(pgo, { floors }),
-    secondOeuvreLot(pso, floors),
+    secondOeuvreLot(pso, floors, paint),
     amenagementsLot(pam),
     vrdLot(pvrd),
   ];
@@ -851,7 +914,29 @@ const RESIDENTIAL = new Set([
   "immeuble_residentiel",
 ]);
 
-export function buildDqeLots(category: string, floors?: number): LotTpl[] {
+export function buildDqeLots(
+  category: string,
+  floors?: number,
+  paint?: Partial<PaintQuantitiesConfig> | null,
+): LotTpl[] {
+  // Garde-fou anti-doublon : au plus un poste de peinture intérieure et un
+  // poste extérieur par lot (les lignes existantes sont conservées, jamais
+  // dupliquées). Les lots sans doublon sont retournés à l'identique.
+  return buildDqeLotsForCategory(category, floors, paint).map((lotTpl) => ({
+    ...lotTpl,
+    lines: dedupePaintLines(lotTpl.lines),
+  }));
+}
+
+/**
+ * Gabarits bruts d'une catégorie (sans le garde-fou anti-doublon de peinture,
+ * appliqué par `buildDqeLots`).
+ */
+function buildDqeLotsForCategory(
+  category: string,
+  floors?: number,
+  paint?: Partial<PaintQuantitiesConfig> | null,
+): LotTpl[] {
   // D'abord, vérifier si le slug brut (ancien ou nouveau) a un gabarit dédié.
   // Cela permet aux anciens slugs spécialisés (renovation_complete, piscine, etc.)
   // de conserver leur gabarit spécifique même si resolveProjectType les mappe
@@ -895,7 +980,7 @@ export function buildDqeLots(category: string, floors?: number): LotTpl[] {
 
   // Ensuite, résoudre vers le type officiel pour les types standards.
   const resolved = resolveProjectType(category) ?? category;
-  if (RESIDENTIAL.has(resolved)) return residentialLots(resolved, floors);
+  if (RESIDENTIAL.has(resolved)) return residentialLots(resolved, floors, paint);
   switch (resolved) {
     case "local_commercial":
       return commercialLots("local_commercial");
@@ -905,7 +990,7 @@ export function buildDqeLots(category: string, floors?: number): LotTpl[] {
       return industrielLots("entrepot");
     default:
       // Anciens slugs inconnus → gabarit résidentiel par défaut.
-      return residentialLots("maison", floors);
+      return residentialLots("maison", floors, paint);
   }
 }
 
@@ -924,6 +1009,12 @@ export interface DqeInput {
    * la surface du RDC est retenue pour tous les niveaux.
    */
   levelSurfaces?: number[];
+  /**
+   * Barème de peinture réglé par l'administrateur (quantités de référence pour
+   * 100 m², volume du seau, nombre de couches, proportionnalité, prix du seau).
+   * Absent = valeurs par défaut de `lib/paintQuantities`.
+   */
+  paint?: Partial<PaintQuantitiesConfig> | null;
 }
 
 /**
@@ -953,8 +1044,14 @@ export function generateDqe(input: DqeInput): DqeResult {
     floors,
     input.levelSurfaces,
   );
-  const lotTpls = buildDqeLots(category, floors);
+  const lotTpls = buildDqeLots(category, floors, input.paint);
   const totalPct = lotTpls.reduce((s, l) => s + l.percent, 0);
+
+  // ── Barème de peinture (postes au seau) ──
+  // Quantités : 10 seaux intérieurs et 7 extérieurs pour 100 m² construits,
+  // proportionnelles à la surface (arrondi supérieur) — jamais de coefficient
+  // régional sur les quantités. Montants : Quantité × Prix unitaire du seau.
+  const paintPlan = paintQuantityPlan(tb, input.paint);
 
   // Budgets de lots puis absorption de l'écart d'arrondi par le lot le plus
   // important : la somme des sous-totaux du Quantitatif détaillé retombe
@@ -974,7 +1071,31 @@ export function generateDqe(input: DqeInput): DqeResult {
   const lots: DqeLot[] = lotTpls.map((lt, lotIndex) => {
     const lotBudget = lotBudgets[lotIndex];
     // 1. Quantités & prix de référence
-    const lines: DqeLine[] = lt.lines.map((tpl) => {
+    // Les postes de peinture (`qMode: "paint"`) prennent leur quantité du barème
+    // administrateur (seaux entiers) et le prix unitaire du seau configuré : ni
+    // la grille générale de construction, ni la base materialPrices, ni un
+    // coefficient régional ne s'y appliquent.
+    const paintIndexes = new Set<number>();
+    const lines: DqeLine[] = lt.lines.map((tpl, lineIndex) => {
+      const role: PaintLineRole | null =
+        tpl.qMode === "paint" ? (tpl.paintRole ?? paintLineRole(tpl.d)) : null;
+      if (role) {
+        paintIndexes.add(lineIndex);
+        const plan = role === "exterior" ? paintPlan.exterior : paintPlan.interior;
+        return {
+          designation: plan.designation,
+          // La description porte le volume total (litres), le nombre de couches
+          // et la surface de référence : lus dans le Quantitatif détaillé.
+          description: tpl.desc ? `${tpl.desc} ${plan.description}` : plan.description,
+          sousLot: tpl.sl,
+          unit: plan.unit,
+          quantity: plan.quantity,
+          unitPrice: plan.unitPrice,
+          total: plan.amount,
+          nature: tpl.n,
+          observations: plan.observations,
+        };
+      }
       const quantity =
         tpl.qMode === "fixed"
           ? tpl.q
@@ -992,10 +1113,26 @@ export function generateDqe(input: DqeInput): DqeResult {
         observations: tpl.obs,
       };
     });
-    // 2. Calage des prix pour tomber exactement sur le sous-total du lot
+    // 2. Calage des prix pour tomber exactement sur le sous-total du lot.
+    // Les postes de peinture font exception : leur montant est déjà
+    // « Quantité × Prix unitaire du seau » et n'est jamais recalibré. Le reste
+    // du lot absorbe la différence, ce qui conserve la règle du produit
+    // « sous-total du lot = budget du lot » (donc coût global = somme du DQE).
     const rawTotal = lines.reduce((s, l) => s + l.total, 0);
-    const factor = rawTotal > 0 ? lotBudget / rawTotal : 1;
-    const scaledLines = lines.map((l) => {
+    const paintTotal = lines.reduce(
+      (s, l, i) => (paintIndexes.has(i) ? s + l.total : s),
+      0,
+    );
+    const restRawTotal = rawTotal - paintTotal;
+    const remainingBudget = lotBudget - paintTotal;
+    const keepPaintAmounts = paintIndexes.size > 0 && remainingBudget > 0 && restRawTotal > 0;
+    const factor = keepPaintAmounts
+      ? remainingBudget / restRawTotal
+      : rawTotal > 0
+        ? lotBudget / rawTotal
+        : 1;
+    const scaledLines = lines.map((l, i) => {
+      if (keepPaintAmounts && paintIndexes.has(i)) return l;
       const total = Math.round(l.total * factor);
       const quantity = l.quantity > 0 ? l.quantity : 1;
       return {
@@ -1005,12 +1142,18 @@ export function generateDqe(input: DqeInput): DqeResult {
       };
     });
     // Calage exact sur le sous-total du lot : l'écart d'arrondi est absorbé
-    // par la dernière ligne pour que le lot tombe exactement sur son budget
-    // (méthode identique au finalisateur du moteur BIM).
+    // par la dernière ligne calibrée (jamais un poste de peinture, dont le
+    // montant reste Quantité × Prix unitaire) pour que le lot tombe exactement
+    // sur son budget (méthode identique au finalisateur du moteur BIM).
     let subtotal = scaledLines.reduce((s, l) => s + l.total, 0);
     const delta = lotBudget - subtotal;
     if (delta !== 0 && scaledLines.length > 0) {
-      const last = scaledLines[scaledLines.length - 1];
+      let lastIndex = scaledLines.length - 1;
+      if (keepPaintAmounts) {
+        while (lastIndex >= 0 && paintIndexes.has(lastIndex)) lastIndex--;
+      }
+      if (lastIndex < 0) lastIndex = scaledLines.length - 1;
+      const last = scaledLines[lastIndex];
       last.total += delta;
       last.unitPrice = Math.round((last.total / (last.quantity || 1)) * 100) / 100;
       subtotal += delta;

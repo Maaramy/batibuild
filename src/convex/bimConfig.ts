@@ -10,6 +10,13 @@ import {
   resolveLevelCostConfig,
   type LevelCostConfig,
 } from "../lib/buildingLevels";
+import {
+  DEFAULT_PAINT_QUANTITIES_JSON,
+  PAINT_QUANTITY_RANGES,
+  parsePaintQuantities,
+  paintOutOfRange,
+  resolvePaintQuantities,
+} from "../lib/paintQuantities";
 
 // ============================================================================
 // COEFFICIENTS MULTI-NIVEAUX — configuration administrateur
@@ -55,6 +62,36 @@ export function parseLevelCoefficients(raw?: string | null): Partial<LevelCostCo
 export const DEFAULT_LEVEL_COEFFICIENTS_JSON = JSON.stringify(DEFAULT_LEVEL_COST_CONFIG);
 
 // ============================================================================
+// QUANTITÉS ET PRIX DU SEAU DE PEINTURE — configuration administrateur
+// ----------------------------------------------------------------------------
+// Le projet de référence de 100 m² construit porte 10 seaux de peinture
+// intérieure (200 L) et 7 seaux de peinture extérieure (140 L), au seau de
+// 20 litres et sur 3 couches. Ces quantités, la règle de proportionnalité, le
+// volume du seau et le prix du seau sont modifiables depuis le panneau
+// d'administration : les valeurs enregistrées pilotent réellement les deux
+// postes de peinture du Quantitatif détaillé (`dqeEngine`), le devis, les
+// scénarios budgétaires et les rapports PDF — aucun changement du code source
+// n'est nécessaire.
+// ============================================================================
+
+/**
+ * Vérifie une configuration de peinture : les paramètres enregistrés doivent
+ * rester dans les fourchettes admises (une saisie incohérente est refusée, pas
+ * silencieusement corrigée).
+ */
+export function assertPaintQuantitiesInRange(raw?: string | null): void {
+  const resolved = resolvePaintQuantities(parsePaintQuantities(raw));
+  const outOfRange = paintOutOfRange(resolved);
+  if (outOfRange.length > 0) {
+    throw new Error(
+      `Paramètres de peinture hors fourchette : ${outOfRange
+        .map((o) => `${o.key} = ${o.value} (${o.min}-${o.max})`)
+        .join(", ")}.`,
+    );
+  }
+}
+
+// ============================================================================
 // Queries — configuration du moteur BIM (barèmes Tunisie 2026)
 // ============================================================================
 
@@ -81,6 +118,7 @@ export const getBIMConfig = query({
     };
 
     const levelOverrides = parseLevelCoefficients(config.levelCoefficients);
+    const paintOverrides = parsePaintQuantities(config.paintQuantities);
 
     return {
       ...config,
@@ -99,6 +137,13 @@ export const getBIMConfig = query({
         config.levelCoefficientsValidFrom ?? LEVEL_COEFFICIENTS_VALIDITY_2026.from,
       levelCoefficientsValidUntil:
         config.levelCoefficientsValidUntil ?? LEVEL_COEFFICIENTS_VALIDITY_2026.until,
+      // Quantités/prix du seau de peinture EFFECTIFS (défauts fusionnés avec la
+      // configuration enregistrée) + fourchettes admises : le panneau
+      // d'administration affiche exactement ce que le Quantitatif détaillé
+      // applique.
+      parsedPaintQuantities: resolvePaintQuantities(paintOverrides),
+      paintQuantityRanges: PAINT_QUANTITY_RANGES,
+      paintQuantitiesAreDefault: paintOverrides === undefined,
     };
   },
 });
@@ -147,6 +192,9 @@ export const refreshBIMData = mutation({
         existing?.levelCoefficientsValidFrom ?? LEVEL_COEFFICIENTS_VALIDITY_2026.from,
       levelCoefficientsValidUntil:
         existing?.levelCoefficientsValidUntil ?? LEVEL_COEFFICIENTS_VALIDITY_2026.until,
+      // Les quantités et prix du seau de peinture réglés par l'administrateur
+      // sont conservés : une actualisation des prix ne les écrase jamais.
+      paintQuantities: existing?.paintQuantities ?? DEFAULT_PAINT_QUANTITIES_JSON,
       version: existing ? existing.version + 1 : 1,
       refreshedAt: now,
       refreshedBy: user._id,
@@ -245,6 +293,10 @@ export const saveBIMConfig = mutation({
     /** Dates de validité des coefficients (bornes incluses, ms epoch). */
     levelCoefficientsValidFrom: v.optional(v.number()),
     levelCoefficientsValidUntil: v.optional(v.number()),
+    /** Quantités et prix du seau de peinture (JSON : interiorBuckets,
+     *  exteriorBuckets, bucketLiters, referenceSurface, coats, proportional,
+     *  interiorBucketPrice, exteriorBucketPrice). */
+    paintQuantities: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -278,6 +330,14 @@ export const saveBIMConfig = mutation({
       }
     }
 
+    // Quantités/prix de peinture : les valeurs enregistrées pilotent les deux
+    // postes du Quantitatif détaillé. Une saisie hors fourchette est refusée
+    // (le panneau d'administration signale déjà l'anomalie avant l'envoi).
+    const rawPaintQuantities =
+      args.paintQuantities ?? existing?.paintQuantities ?? DEFAULT_PAINT_QUANTITIES_JSON;
+    assertPaintQuantitiesInRange(rawPaintQuantities);
+    const resolvedPaint = resolvePaintQuantities(parsePaintQuantities(rawPaintQuantities));
+
     const bimConfigData = {
       version: existing ? existing.version + 1 : 1,
       refreshedAt: now,
@@ -295,6 +355,7 @@ export const saveBIMConfig = mutation({
         args.levelCoefficientsValidUntil ??
         existing?.levelCoefficientsValidUntil ??
         LEVEL_COEFFICIENTS_VALIDITY_2026.until,
+      paintQuantities: rawPaintQuantities,
     };
 
     if (existing) {
@@ -307,7 +368,7 @@ export const saveBIMConfig = mutation({
       adminId: user._id,
       adminName: user.name || "Admin",
       action: "bim_save" as any,
-      details: `Configuration BIM sauvegardée manuellement (v${bimConfigData.version}) — coefficients multi-niveaux ${JSON.stringify(resolvedLevels ?? {})}`,
+      details: `Configuration BIM sauvegardée manuellement (v${bimConfigData.version}) — coefficients multi-niveaux ${JSON.stringify(resolvedLevels ?? {})} · peinture ${JSON.stringify(resolvedPaint)}`,
       createdAt: now,
     });
 
@@ -315,6 +376,7 @@ export const saveBIMConfig = mutation({
       version: bimConfigData.version,
       refreshedAt: now,
       levelCoefficients: resolveLevelCostConfig(resolvedLevels),
+      paintQuantities: resolvedPaint,
     };
   },
 });
@@ -356,6 +418,8 @@ export const refreshBIMDataMonthly = internalMutation({
         existing?.levelCoefficientsValidFrom ?? LEVEL_COEFFICIENTS_VALIDITY_2026.from,
       levelCoefficientsValidUntil:
         existing?.levelCoefficientsValidUntil ?? LEVEL_COEFFICIENTS_VALIDITY_2026.until,
+      // Quantités/prix du seau de peinture : conservés tels quels s'ils existent.
+      paintQuantities: existing?.paintQuantities ?? DEFAULT_PAINT_QUANTITIES_JSON,
       version: existing ? existing.version + 1 : 1,
       refreshedAt: now,
       refreshedBy: adminUser._id,

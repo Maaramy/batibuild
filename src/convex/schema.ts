@@ -1252,6 +1252,12 @@ const schema = defineSchema(
       levelCoefficients: v.optional(v.string()),
       levelCoefficientsValidFrom: v.optional(v.number()),
       levelCoefficientsValidUntil: v.optional(v.number()),
+      // Quantités et prix du seau de peinture du « Quantitatif détaillé »
+      // (JSON : interiorBuckets, exteriorBuckets, bucketLiters,
+      // referenceSurface, coats, proportional, interiorBucketPrice,
+      // exteriorBucketPrice) — réglés par l'administrateur, sans modification
+      // du code source.
+      paintQuantities: v.optional(v.string()),
       version: v.number(),
       refreshedAt: v.number(),
       refreshedBy: v.id("users"),

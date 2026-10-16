@@ -25,6 +25,11 @@ import {
   type LevelCostConfig,
 } from "../lib/buildingLevels";
 import { parseLevelCoefficients } from "./bimConfig";
+import {
+  parsePaintQuantities,
+  resolvePaintQuantities,
+  type PaintQuantitiesConfig,
+} from "../lib/paintQuantities";
 
 type DbCtx = MutationCtx | QueryCtx;
 
@@ -36,6 +41,18 @@ type DbCtx = MutationCtx | QueryCtx;
 async function readLevelCostConfigFromDb(ctx: DbCtx): Promise<LevelCostConfig> {
   const config = await ctx.db.query("bimConfig").order("desc").first();
   return resolveLevelCostConfig(parseLevelCoefficients(config?.levelCoefficients));
+}
+
+/**
+ * Barème de peinture réglé par l'administrateur (table `bimConfig`) : quantités
+ * de référence pour 100 m², volume du seau, nombre de couches, proportionnalité
+ * et prix du seau, qui pilotent les deux postes de peinture du Quantitatif
+ * détaillé. Une configuration absente ou illisible retombe sur les valeurs par
+ * défaut — le calcul ne dépend jamais d'une donnée partiellement écrite.
+ */
+async function readPaintQuantitiesFromDb(ctx: DbCtx): Promise<PaintQuantitiesConfig> {
+  const config = await ctx.db.query("bimConfig").order("desc").first();
+  return resolvePaintQuantities(parsePaintQuantities(config?.paintQuantities));
 }
 
 /**
@@ -856,6 +873,11 @@ export const simulateAnalysis = mutation({
     // n'est nécessaire pour les ajuster.
     const levelConfig = await readLevelCostConfigFromDb(ctx);
     const levelSurfaces = normalizeLevelSurfacesInput(project);
+    // Barème de peinture du « Quantitatif détaillé » (10 seaux intérieures et
+    // 7 extérieures pour 100 m² construits, prix du seau configurables) : les
+    // valeurs enregistrées par l'administrateur pilotent réellement les deux
+    // postes de peinture, leur sous-total et donc le total du DQE.
+    const paintConfig = await readPaintQuantitiesFromDb(ctx);
 
     const result = withLivePrices(livePrices, () =>
       runBIMEstimation(category, surface, floors, region, finishLevel, {
@@ -907,6 +929,7 @@ export const simulateAnalysis = mutation({
       totalBudget: result.costEstimate.totalCost,
       livePrices,
       levelSurfaces,
+      paint: paintConfig,
     });
 
     // ── Vérification automatique « coût global = somme du DQE » ──
