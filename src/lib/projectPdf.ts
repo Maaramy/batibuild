@@ -462,55 +462,6 @@ export async function generateProjectPdf({
       y += 24;
     }
 
-    // ═══ POSTE ÉLECTRICITÉ — BARÈME 2026 ═══════════════════════════════
-    // Le poste électrique est explicité dans le devis : niveau de qualité du
-    // barème, prix au m² appliqué et montant facturé. Le montant est celui des
-    // lignes électriques du Quantitatif détaillé ci-dessous (même source), donc
-    // le devis ne peut jamais afficher deux montants électriques différents.
-    const electricity = values.electricity;
-    if (electricity) {
-      const elecBoxH = electricity.provision > 0 ? 14 : 10.5;
-      addPageIfNeeded(elecBoxH + 3);
-
-      doc.setFillColor(C.bgLight[0], C.bgLight[1], C.bgLight[2]);
-      doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
-      doc.rect(ml, y, cw, elecBoxH, "F");
-      doc.rect(ml, y, cw, elecBoxH, "S");
-
-      doc.setFontSize(7.5);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(C.text[0], C.text[1], C.text[2]);
-      doc.text("Poste électricité — barème 2026", ml + 2, y + 4.5);
-
-      doc.setFontSize(10);
-      doc.setTextColor(C.primary[0], C.primary[1], C.primary[2]);
-      doc.text(fmtPdf(electricity.amount), ml + cw - 2, y + 5, { align: "right" });
-
-      doc.setFontSize(6.5);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
-      // Détail surface × coefficient régional : affiché uniquement quand le
-      // montant correspond EXACTEMENT au barème appliqué au projet.
-      const scaleDetail =
-        electricity.matchesBareme && electricity.surface > 0
-          ? ` · ${electricity.surface} m²${electricity.regionFactor !== 1 ? ` × ${electricity.regionFactor.toFixed(2)}` : ""}`
-          : "";
-      doc.text(
-        `Niveau ${electricity.scenarioLabel} · barème ${fmtPdf(electricity.priceM2)}/m²${scaleDetail}`,
-        ml + 2,
-        y + 8.5,
-      );
-      if (electricity.provision > 0) {
-        doc.text(
-          `Provision d'électricité déjà comprise dans le coût de marché retirée : ${fmtPdf(electricity.provision)} — installation comptée une seule fois.`,
-          ml + 2,
-          y + 12,
-        );
-      }
-
-      y += elecBoxH + 4;
-    }
-
     // ═══ QUANTITATIF DÉTAILLÉ — DQE HIÉRARCHIQUE ═══════════════════════
     onProgress(2);
 

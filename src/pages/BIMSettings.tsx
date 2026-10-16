@@ -25,7 +25,6 @@ import {
   Sparkles,
   Building2,
   Database,
-  Zap,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
@@ -35,20 +34,6 @@ import {
   computeLevelCost,
   type LevelCostConfig,
 } from "@/lib/buildingLevels";
-import {
-  ELECTRICITY_PRICE_DISCLAIMER,
-  ELECTRICITY_PRICE_M2,
-  ELECTRICITY_PRICE_RANGES,
-  resolveElectricityPrices,
-  type ElectricityPrices,
-} from "@/lib/electricityPricing";
-
-/** Champs éditables du barème électricité (TND/m² TTC, main-d'œuvre comprise). */
-const ELECTRICITY_FIELDS: { key: keyof ElectricityPrices; label: string; hint: string }[] = [
-  { key: "eco", label: "Économique", hint: "Installation complète, finition économique" },
-  { key: "std", label: "Standard", hint: "Installation complète, finition standard" },
-  { key: "premium", label: "Premium", hint: "Installation complète, finition haut de gamme" },
-];
 
 /** Champs éditables des coefficients multi-niveaux (RDC, étages, frais communs, toiture). */
 const LEVEL_FIELDS: {
@@ -100,38 +85,6 @@ export default function BIMSettings() {
   const [validFromDraft, setValidFromDraft] = useState<string | null>(null);
   const [validUntilDraft, setValidUntilDraft] = useState<string | null>(null);
   const [savingLevels, setSavingLevels] = useState(false);
-
-  // ── Barème ÉLECTRICITÉ : édition par l'administrateur ──
-  // Source unique du poste électrique (installation complète au m²) : les
-  // valeurs enregistrées pilotent le poste, la catégorie « Second œuvre et
-  // finitions », le coût total TTC et le coût au m² des nouvelles estimations.
-  const [elecPrices, setElecPrices] = useState<ElectricityPrices | null>(null);
-  const [savingElec, setSavingElec] = useState(false);
-  const effectiveElecPrices: ElectricityPrices = resolveElectricityPrices(
-    bimConfig?.parsedElectricityPrices ?? ELECTRICITY_PRICE_M2,
-  );
-  const elecPricesDraft = elecPrices ?? effectiveElecPrices;
-  const elecRanges = (bimConfig?.electricityPriceRanges ?? ELECTRICITY_PRICE_RANGES) as Record<
-    keyof ElectricityPrices,
-    { min: number; max: number; label: string }
-  >;
-  const outOfRangeElec = ELECTRICITY_FIELDS.filter(({ key }) => {
-    const bounds = elecRanges[key] ?? ELECTRICITY_PRICE_RANGES[key];
-    const value = elecPricesDraft[key];
-    return !Number.isFinite(value) || value < bounds.min || value > bounds.max;
-  });
-
-  const handleSaveElectricity = async () => {
-    setSavingElec(true);
-    try {
-      await saveBIMConfig({ electricityPricesM2: JSON.stringify(elecPricesDraft) });
-      toast.success("Barème électricité enregistré");
-      setElecPrices(null);
-    } catch (err: any) {
-      toast.error(err?.message || "Erreur lors de l'enregistrement du barème électricité");
-    }
-    setSavingElec(false);
-  };
 
   const effectiveLevelCoeffs: LevelCostConfig =
     bimConfig?.parsedLevelCoefficients ?? DEFAULT_LEVEL_COST_CONFIG;
@@ -740,110 +693,6 @@ export default function BIMSettings() {
               </ul>
             )}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Barème ÉLECTRICITÉ : installation complète au m² ── */}
-      <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-        <CardHeader className="p-4 sm:p-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <Zap className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm">Barème électricité (installation complète)</CardTitle>
-            <Badge variant="secondary" className="ml-auto text-[9px]">
-              v{bimConfig?.version ?? "—"} · {elecPrices ? "modifié" : "enregistré"}
-            </Badge>
-          </div>
-          <CardDescription className="text-xs leading-relaxed">
-            Prix au m² de l'installation électrique complète : gaines et câblage, prises et
-            interrupteurs, tableau et protections, points lumineux, mise à la terre et main-d'œuvre.
-            Ce <strong>barème unique</strong> alimente le poste « Électricité » du Second œuvre et
-            finitions du Quantitatif détaillé : la provision d'électricité déjà comprise dans le prix
-            de marché au m² est <strong>retirée</strong> du coût total avant d'ajouter le poste, donc
-            l'électricité n'est jamais comptée deux fois. Modifier une valeur recalcule le poste,
-            la catégorie « Second œuvre et finitions » et le coût total TTC des nouvelles
-            estimations ; tous les autres postes gardent leurs prix, quantités et montants.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {ELECTRICITY_FIELDS.map(({ key, label, hint }) => {
-              const bounds = elecRanges[key] ?? ELECTRICITY_PRICE_RANGES[key];
-              const value = elecPricesDraft[key];
-              const invalid = !Number.isFinite(value) || value < bounds.min || value > bounds.max;
-              return (
-                <div key={key}>
-                  <label className="text-[10px] font-semibold" htmlFor={`elec-${key}`}>
-                    {label}
-                  </label>
-                  <Input
-                    id={`elec-${key}`}
-                    type="number"
-                    step="1"
-                    min={bounds.min}
-                    max={bounds.max}
-                    value={value}
-                    onChange={(e) => {
-                      const next = Number(e.target.value);
-                      setElecPrices({
-                        ...elecPricesDraft,
-                        [key]: Number.isFinite(next) ? next : 0,
-                      });
-                    }}
-                    className={cn("mt-1 h-8 text-xs", invalid && "border-amber-500 text-amber-600")}
-                  />
-                  <p className="mt-1 text-[9px] leading-tight text-muted-foreground">
-                    {hint} · {bounds.min}-{bounds.max} DT/m²
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              onClick={handleSaveElectricity}
-              disabled={savingElec || outOfRangeElec.length > 0}
-            >
-              {savingElec ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              Enregistrer le barème électricité
-            </Button>
-            {elecPrices && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs"
-                onClick={() => setElecPrices(null)}
-              >
-                Réinitialiser
-              </Button>
-            )}
-            <span className="text-[10px] text-muted-foreground">
-              Aperçu 100 m² : {elecPricesDraft.eco * 100} · {elecPricesDraft.std * 100} ·{" "}
-              {elecPricesDraft.premium * 100} TND (éco · standard · premium)
-            </span>
-          </div>
-
-          {outOfRangeElec.length > 0 && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-              <p className="text-[11px] text-amber-700">
-                Barème hors fourchette admise ({outOfRangeElec.map((f) => f.label).join(", ")}) :
-                l'enregistrement est refusé pour ne jamais calculer le poste électrique sur un prix
-                invalide.
-              </p>
-            </div>
-          )}
-
-          <p className="flex items-start gap-1.5 text-[10px] leading-relaxed text-muted-foreground">
-            <Sparkles className="mt-0.5 h-3 w-3 shrink-0" />
-            {bimConfig?.electricityPriceDisclaimer ?? ELECTRICITY_PRICE_DISCLAIMER}
-          </p>
         </CardContent>
       </Card>
 

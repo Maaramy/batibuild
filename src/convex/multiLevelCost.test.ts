@@ -36,7 +36,6 @@ import {
   realBuiltArea,
   resolveLevelCostConfig,
 } from "../lib/buildingLevels";
-import { electricityAmount, resolveElectricityPrices } from "../lib/electricityPricing";
 
 const REGION = "tunis";
 const LEVEL = "standard";
@@ -52,28 +51,17 @@ function estimate(
   return runBIMEstimation("maison", surface, floors, region, finishLevel, undefined, options);
 }
 
-/**
- * Total du coût global TTC = somme des niveaux + toiture + variation du poste
- * électrique (barème 2026 remplaçant la provision d'électricité déjà comprise
- * dans le prix de marché au m²). Aucun autre terme n'est ajouté.
- */
 const sumLevelsAndRoof = (ce: any) =>
   ce.levelBreakdown.levels.reduce((s: number, l: any) => s + l.amount, 0) +
-  ce.levelBreakdown.roof.amount +
-  ce.levelBreakdown.electricityAdjustment;
+  ce.levelBreakdown.roof.amount;
 
 describe("1 · Maison de plain-pied 100 m²", () => {
   const ce = estimate(100, 1).costEstimate;
 
-  it("le total reste la grille régionale × surface, corrigée du seul poste électricité", () => {
-    // Tunis standard 2026 = 1 980 TND/m² pour TOUS les autres postes : seule la
-    // provision d'électricité incluse dans ce prix est remplacée par le barème.
-    const lb = ce.levelBreakdown as any;
-    expect(ce.totalCost).toBe(1980 * lb.equivalentArea + lb.electricityAdjustment);
-    expect(ce.totalCost).toBe(
-      1980 * lb.equivalentArea - ce.electricity.provision + ce.electricity.amount,
-    );
-    expect(ce.costPerSquareMeter).toBe(Math.round(ce.totalCost / lb.realBuiltArea));
+  it("le total reste exactement la grille régionale × surface (comportement inchangé)", () => {
+    // Tunis standard 2026 = 1 980 TND/m²
+    expect(ce.totalCost).toBe(1980 * 100);
+    expect(ce.costPerSquareMeter).toBe(1980);
   });
 
   it("un seul niveau RDC, sans ligne d'étage ni toiture ajoutée deux fois", () => {
@@ -337,8 +325,7 @@ describe("8 · Changement de région et de scénario de finition", () => {
       expect(lb.pricePerM2).toBe(priceM2);
       expect(ce.totalCost).toBe(
         lb.levels.reduce((s, l) => s + Math.round(priceM2 * l.area * l.coefficient), 0) +
-          Math.round(priceM2 * lb.roof.area * lb.roof.weight) +
-          lb.electricityAdjustment,
+          Math.round(priceM2 * lb.roof.area * lb.roof.weight),
       );
     }
   });
@@ -348,26 +335,11 @@ describe("8 · Changement de région et de scénario de finition", () => {
     const s = ce.budgetScenarios;
     expect(s.economique.totalCost).toBeLessThan(s.standard.totalCost);
     expect(s.standard.totalCost).toBeLessThan(s.premium.totalCost);
-    // Chaque scénario = même surface équivalente au prix du scénario, corrigée
-    // du SEUL poste électricité de son niveau de qualité (barème 35/65/100) :
-    // la provision d'électricité est retirée au prorata du coût de marché.
-    const lb = ce.levelBreakdown;
-    const eq = lb.equivalentArea;
-    const prices = resolveElectricityPrices();
-    const provisionShare = ce.electricity.provision / lb.total;
-    const expected = (key: "economique" | "standard" | "premium", scenario: string) => {
-      const base = Math.round(s[key].costPerM2 * eq);
-      const amount = electricityAmount({
-        surface: lb.realBuiltArea,
-        scenario,
-        prices,
-        regionFactor: ce.electricity.regionFactor,
-      });
-      return base + amount - Math.round(base * provisionShare);
-    };
-    expect(s.economique.totalCost).toBe(expected("economique", "economique"));
-    expect(s.standard.totalCost).toBe(expected("standard", "standard"));
-    expect(s.premium.totalCost).toBe(expected("premium", "premium"));
+    // Chaque scénario est la même surface équivalente au prix du scénario.
+    const eq = ce.levelBreakdown.equivalentArea;
+    expect(s.standard.totalCost).toBe(Math.round(s.standard.costPerM2 * eq));
+    expect(Math.abs(s.economique.totalCost - Math.round(s.economique.costPerM2 * eq))).toBeLessThanOrEqual(1);
+    expect(Math.abs(s.premium.totalCost - Math.round(s.premium.costPerM2 * eq))).toBeLessThanOrEqual(1);
   });
 });
 

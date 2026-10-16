@@ -25,11 +25,6 @@ import {
   type LevelCostConfig,
 } from "../lib/buildingLevels";
 import { parseLevelCoefficients } from "./bimConfig";
-import {
-  parseElectricityPrices,
-  resolveElectricityPrices,
-  type ElectricityPrices,
-} from "../lib/electricityPricing";
 
 type DbCtx = MutationCtx | QueryCtx;
 
@@ -41,17 +36,6 @@ type DbCtx = MutationCtx | QueryCtx;
 async function readLevelCostConfigFromDb(ctx: DbCtx): Promise<LevelCostConfig> {
   const config = await ctx.db.query("bimConfig").order("desc").first();
   return resolveLevelCostConfig(parseLevelCoefficients(config?.levelCoefficients));
-}
-
-/**
- * Barème ÉLECTRICITÉ configuré par l'administrateur (table `bimConfig`,
- * champ `electricityPricesM2`). Comme pour les coefficients multi-niveaux, une
- * configuration absente ou illisible retombe sur le barème de référence : le
- * poste électrique n'est jamais calculé sur une donnée partielle.
- */
-async function readElectricityPricesFromDb(ctx: DbCtx): Promise<ElectricityPrices> {
-  const config = await ctx.db.query("bimConfig").order("desc").first();
-  return resolveElectricityPrices(parseElectricityPrices(config?.electricityPricesM2));
 }
 
 /**
@@ -871,9 +855,6 @@ export const simulateAnalysis = mutation({
     // par défaut de `lib/buildingLevels` : aucune modification du code source
     // n'est nécessaire pour les ajuster.
     const levelConfig = await readLevelCostConfigFromDb(ctx);
-    // Barème électricité administrateur : même source unique que le poste
-    // électrique du Quantitatif détaillé (aucun barème parallèle).
-    const electricityPrices = await readElectricityPricesFromDb(ctx);
     const levelSurfaces = normalizeLevelSurfacesInput(project);
 
     const result = withLivePrices(livePrices, () =>
@@ -885,7 +866,7 @@ export const simulateAnalysis = mutation({
         garages: project.garages,
         wcs: project.wcs,
         pools: project.pools,
-      }, { levelSurfaces, levelConfig, electricityPrices }),
+      }, { levelSurfaces, levelConfig }),
     );
 
     // Portes & fenêtres du « Quantitatif détaillé » : quantités réalistes par
@@ -926,20 +907,6 @@ export const simulateAnalysis = mutation({
       totalBudget: result.costEstimate.totalCost,
       livePrices,
       levelSurfaces,
-      scenario: finishLevel,
-      // Poste électrique AUTORITAIRE du moteur de coûts : le Quantitatif
-      // détaillé affiche le même montant (même barème, même coefficient
-      // régional, même provision), donc aucun double comptage et aucune
-      // divergence entre le résultat d'estimation et le DQE.
-      electricity: {
-        amount: result.costEstimate.electricity.amount,
-        provision: result.costEstimate.electricity.provision,
-        scenario: result.costEstimate.electricity.scenario,
-        priceM2: result.costEstimate.electricity.priceM2,
-        regionFactor: result.costEstimate.electricity.regionFactor,
-        surface: result.costEstimate.electricity.surface,
-        prices: electricityPrices,
-      },
     });
 
     // ── Vérification automatique « coût global = somme du DQE » ──

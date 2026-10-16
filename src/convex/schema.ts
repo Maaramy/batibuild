@@ -1252,11 +1252,6 @@ const schema = defineSchema(
       levelCoefficients: v.optional(v.string()),
       levelCoefficientsValidFrom: v.optional(v.number()),
       levelCoefficientsValidUntil: v.optional(v.number()),
-      // Barème ÉLECTRICITÉ (JSON : eco, std, premium — TND/m² TTC) réglé par
-      // l'administrateur. Source unique du poste électrique : sa modification
-      // recalcule le poste, la catégorie « Second œuvre et finitions » et le
-      // coût total TTC, sans toucher aux autres postes.
-      electricityPricesM2: v.optional(v.string()),
       version: v.number(),
       refreshedAt: v.number(),
       refreshedBy: v.id("users"),

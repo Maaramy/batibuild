@@ -10,12 +10,10 @@ import {
 import {
   isPersonalizedPdfScenario,
   pdfScenarioLabel,
-  resolvePdfElectricity,
   resolvePdfScenarioValues,
   scaleBreakdownToTotal,
   type PersonalizedScenarioData,
 } from "@/lib/projectPdfScenario";
-import { ELECTRICITY_PRICE_M2 } from "@/lib/electricityPricing";
 
 // ── Jeu de données : devis « Standard » de référence (250 m², 500 000 TND) ──
 const BUILT_SURFACE = 250;
@@ -442,111 +440,6 @@ describe("devis PDF — intégrité des données du projet", () => {
       personalized,
     });
     expect(JSON.stringify(rawLots)).toBe(rawBefore);
-  });
-});
-
-describe("devis PDF — poste électricité (barème 2026)", () => {
-  const ceElectricity = {
-    ...ce,
-    // Poste du scénario Standard : 65 DT/m² × 250 m² × 1,10 = 17 875 TND.
-    electricity: {
-      scenario: "standard",
-      priceM2: 65,
-      regionFactor: 1.1,
-      surface: 250,
-      amount: 17_875,
-      provision: 15_000,
-      prices: { ...ELECTRICITY_PRICE_M2 },
-    },
-  };
-
-  const dqeWithElectricity = {
-    lots: [
-      {
-        id: "second_oeuvre",
-        name: "Second œuvre et finitions",
-        subtotal: 120_000,
-        lines: [
-          { designation: "Carrelage 60×60", sousLot: "Revêtements", unit: "m2", quantity: 200, unitPrice: 500, total: 100_000 },
-          { designation: "Électricité — Câblage, gaines et boîtes d'encastrement", sousLot: "Électricité", unit: "lot", quantity: 1, unitPrice: 5_362, total: 5_362 },
-          { designation: "Électricité — Main-d'œuvre de pose, raccordement et essais", sousLot: "Électricité", unit: "lot", quantity: 1, unitPrice: 12_513, total: 12_513 },
-        ],
-      },
-    ],
-  };
-
-  it("n'affiche rien quand l'estimation ne porte pas de poste électrique", () => {
-    expect(resolvePdfElectricity({ scenario: "standard", ce })).toBeNull();
-  });
-
-  it("prend le montant des lignes électriques du devis imprimé", () => {
-    const values = resolvePdfScenarioValues({
-      scenario: "standard",
-      scenarios,
-      ce: ceElectricity,
-      dqe: dqeWithElectricity,
-    });
-    expect(values.electricity).not.toBeNull();
-    expect(values.electricity!.amount).toBe(17_875);
-    // 5 362 + 12 513 = 17 875 : le poste est exactement le prix de référence.
-    expect(values.electricity!.scenarioLabel).toBe("Standard");
-    expect(values.electricity!.priceM2).toBe(65);
-    expect(values.electricity!.matchesBareme).toBe(true);
-    expect(values.electricity!.surface).toBe(250);
-    expect(values.electricity!.regionFactor).toBeCloseTo(1.1, 5);
-    expect(values.electricity!.provision).toBe(15_000);
-  });
-
-  it("suit le montant réellement imprimé, même modifié par l'utilisateur", () => {
-    const summary = resolvePdfElectricity({
-      scenario: PERSONALIZED_SCENARIO_KEY,
-      ce: ceElectricity,
-      dqeLots: [
-        {
-          id: "second_oeuvre",
-          lines: [
-            { designation: "Électricité — Câblage, gaines et boîtes", sousLot: "Électricité", total: 6_000 },
-            { designation: "Électricité — Main-d'œuvre de pose", sousLot: "Électricité", total: 12_000 },
-          ],
-        },
-      ],
-    });
-    expect(summary).not.toBeNull();
-    expect(summary!.amount).toBe(18_000);
-    // Le montant ne vaut plus « barème × surface » : le détail n'est pas annoncé.
-    expect(summary!.matchesBareme).toBe(false);
-  });
-
-  it("retombe sur le barème quand le quantitatif imprimé n'a pas de ligne électrique", () => {
-    const summary = resolvePdfElectricity({
-      scenario: "standard",
-      ce: ceElectricity,
-      dqeLots: [{ id: "second_oeuvre", lines: [{ designation: "Carrelage", total: 100_000 }] }],
-    });
-    expect(summary!.amount).toBe(17_875);
-    expect(summary!.matchesBareme).toBe(true);
-  });
-
-  it("le scénario budgétaire exporté impose son propre niveau de barème", () => {
-    const values = resolvePdfScenarioValues({
-      scenario: "premium",
-      scenarios,
-      ce: ceElectricity,
-      dqe: dqeWithElectricity,
-      dqeScaleFactor: 1.3,
-    });
-    expect(values.electricity!.scenarioLabel).toBe("Premium");
-    expect(values.electricity!.priceM2).toBe(ELECTRICITY_PRICE_M2.premium);
-    // Le montant reste celui du quantitatif mis à l'échelle du scénario :
-    // jamais un second montant électrique dans le même devis.
-    const printed = values
-      .dqeLots!.flatMap((l: any) => l.lines ?? [])
-      .filter((l: any) => l.sousLot === "Électricité")
-      .reduce((s: number, l: any) => s + l.total, 0);
-    expect(printed).toBeGreaterThan(17_875);
-    expect(values.electricity!.amount).toBe(printed);
-    // Le montant n'est plus « barème × surface » : le détail n'est pas annoncé.
-    expect(values.electricity!.matchesBareme).toBe(false);
   });
 });
 

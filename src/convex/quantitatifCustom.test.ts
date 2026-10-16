@@ -930,8 +930,7 @@ describe("quantitatifCustomLogic — clé stable et protections de poste", () =>
       ["second_oeuvre", "Cuisine équipée"],
       ["second_oeuvre", "Climatisation"],
       ["second_oeuvre", "Faux plafonds"],
-      // Les luminaires intérieurs ne sont plus une ligne supprimable : ils font
-      // partie du poste ÉLECTRICITÉ (barème 2026), protégé par défaut.
+      ["second_oeuvre", "Luminaires intérieurs"],
       ["second_oeuvre", "Miroir et accessoires"],
       ["amenagements_exterieurs", "Portail d'accès"],
       ["amenagements_exterieurs", "Allées et terrasses"],
@@ -951,24 +950,6 @@ describe("quantitatifCustomLogic — clé stable et protections de poste", () =>
         }),
         `${lotId} · ${needle}`,
       ).toBeNull();
-    }
-  });
-
-  it("protège les sous-postes électriques, y compris les points lumineux", () => {
-    const dqe = generateDqe({ category: "maison", surface: 120, floors: 1, totalBudget: 100_000 });
-    const lot = dqe.lots.find((l) => l.id === "second_oeuvre")!;
-    const elecLines = lot.lines.filter((l) => l.designation.startsWith("Électricité —"));
-    expect(elecLines.length).toBeGreaterThan(0);
-    for (const line of elecLines) {
-      expect(
-        posteProtectionReason({
-          lotId: lot.id,
-          lotName: lot.name,
-          designation: line.designation,
-          nature: line.nature,
-        }),
-        line.designation,
-      ).not.toBeNull();
     }
   });
 
