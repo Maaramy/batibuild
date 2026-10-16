@@ -84,7 +84,8 @@ import {
   RotateCcw, Wand2,
 } from "lucide-react";
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Cell, LabelList, Tooltip, ResponsiveContainer,
+  XAxis, YAxis, CartesianGrid,
 } from "recharts";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -139,6 +140,22 @@ const CONFIDENCE_STEPS = [
 const fmt = (n: number) => new Intl.NumberFormat("fr-TN", {
   style: "currency", currency: "TND", maximumFractionDigits: 0,
 }).format(n);
+
+// Valeurs des barres de « Répartition » : forme compacte (« 102k ») pour que
+// l'étiquette tienne dans la largeur d'une barre sur téléphone. L'unité (TND)
+// est rappelée sous le titre, la valeur exacte dans l'infobulle et la légende.
+const fmtCompact = (n: number) => {
+  const v = Number(n) || 0;
+  return Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v));
+};
+
+// Tronque un libellé d'axe : sur téléphone, dix catégories ne peuvent pas
+// afficher leur nom complet sous les barres. Le libellé entier reste lisible
+// dans l'infobulle et dans la légende située sous le graphique.
+const truncateLabel = (value: unknown, max = 10) => {
+  const text = String(value ?? "");
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+};
 
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -1741,31 +1758,65 @@ export default function ProjectDetail() {
               );
             })()}
 
-            {/* ═══ Pie + Detail ═══ */}
+            {/* ═══ Répartition (barres) + Détail par catégorie ═══ */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
               <motion.div variants={fadeUp} custom={3} className="lg:col-span-2 rounded-xl border bg-card shadow-sm p-4">
                 <h3 className="text-sm font-semibold mb-1">Répartition</h3>
-                <p className="text-[10px] text-muted-foreground mb-3">Par catégorie de coût</p>
-                <div className="h-[180px] sm:h-[210px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={chartBreakdown} cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={3} dataKey="estimatedCost" nameKey="label">
-                        {chartBreakdown.map((e: any) => <Cell key={e.label} fill={chartColor(e)} />)}
-                      </Pie>
-                      <Tooltip content={({ active, payload }) => {
-                        if (!active || !payload?.length) return null;
-                        const d = payload[0].payload;
-                        return (
-                          <div className="bg-background/95 backdrop-blur border border-border/40 rounded-lg p-2.5 text-xs shadow-lg">
-                            <p className="font-semibold">{d.label}</p>
-                            <p className="text-muted-foreground">{fmt(d.estimatedCost)}</p>
-                            <p className="text-muted-foreground">{d.percentage}% du total</p>
-                          </div>
-                        );
-                      }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+                <p className="text-[10px] text-muted-foreground mb-3">Par catégorie de coût · montants en TND</p>
+                {chartBreakdown.length === 0 ? (
+                  <div className="flex h-[220px] sm:h-[250px] items-center justify-center rounded-lg bg-muted/20 border border-border/20">
+                    <p className="text-xs text-muted-foreground">Aucune donnée à afficher</p>
+                  </div>
+                ) : (
+                  <div className="h-[220px] sm:h-[250px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      {/* Graphique en barres : mêmes parts, mêmes montants et
+                          mêmes couleurs que la légende ci-dessous et que
+                          « Détail par catégorie » — une barre par catégorie. */}
+                      <BarChart data={chartBreakdown} margin={{ top: 18, right: 6, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" vertical={false} />
+                        <XAxis
+                          dataKey="label"
+                          tickFormatter={(v) => truncateLabel(v, 10)}
+                          tick={{ fontSize: 9, fill: "#94a3b8" }}
+                          angle={-40}
+                          textAnchor="end"
+                          height={58}
+                          interval={0}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 9, fill: "#94a3b8" }}
+                          tickFormatter={fmtCompact}
+                          width={32}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <Tooltip cursor={{ fill: "rgba(100,116,139,0.08)" }} content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const d = payload[0].payload;
+                          return (
+                            <div className="bg-background/95 backdrop-blur border border-border/40 rounded-lg p-2.5 text-xs shadow-lg">
+                              <p className="font-semibold">{d.label}</p>
+                              <p className="text-muted-foreground">{fmt(d.estimatedCost)}</p>
+                              <p className="text-muted-foreground">{d.percentage}% du total</p>
+                            </div>
+                          );
+                        }} />
+                        <Bar dataKey="estimatedCost" name="Montant" radius={[4, 4, 0, 0]} maxBarSize={38}>
+                          {chartBreakdown.map((e: any) => <Cell key={e.label} fill={chartColor(e)} />)}
+                          <LabelList
+                            dataKey="estimatedCost"
+                            position="top"
+                            formatter={(value: unknown) => fmtCompact(Number(value))}
+                            style={{ fontSize: 8, fill: "#64748b", fontWeight: 600 }}
+                          />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-1 mt-2 pt-3 border-t border-border/10">
                   {chartBreakdown.map((item: any) => {
                     const Icon = BIM_ICONS[item.category] ?? Layers;
