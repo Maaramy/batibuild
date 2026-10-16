@@ -61,6 +61,7 @@ import {
 } from "@/lib/customWorksCatalog";
 import {
   buildChartBreakdown,
+  buildChartBreakdownFromLots,
   complementaryWorksTotal,
   withComplementaryWorksLots,
 } from "@/lib/complementaryWorks";
@@ -100,11 +101,17 @@ const REGION_MULTIPLIER: Record<string, number> = {
 const BIM_COLORS: Record<string, string> = {
   gros_oeuvre: "#3b82f6", second_oeuvre: "#f59e0b", equipements: "#8b5cf6",
   main_oeuvre: "#22c55e", transport: "#84cc16", etudes_imprevus: "#ef4444",
+  // Catégories du « Quantitatif détaillé » (lots du moteur DQE) : « Répartition »
+  // et « Détail par catégorie » reprennent EXACTEMENT ces catégories, elles
+  // doivent donc porter une couleur elles aussi.
+  frais_preliminaires: "#ef4444", amenagements_exterieurs: "#14b8a6", vrd: "#84cc16",
 };
 
 const BIM_ICONS: Record<string, any> = {
   gros_oeuvre: Building2, second_oeuvre: Paintbrush, equipements: Plug,
   main_oeuvre: Users, transport: Truck, etudes_imprevus: FileText,
+  // Icônes des catégories propres au « Quantitatif détaillé ».
+  frais_preliminaires: FileText, amenagements_exterieurs: Map, vrd: Truck,
 };
 
 // Couleur d'une part affichée dans « Répartition » / « Détail par catégorie » :
@@ -690,18 +697,37 @@ export default function ProjectDetail() {
   const displayCostM2 =
     personalized && isPersonalizedScenario ? personalized.totals.costPerM2 : currentCostM2;
 
+  // ── Catégories réellement affichées par le « Quantitatif détaillé » ────
+  // SOURCE UNIQUE du quantitatif affiché : mise à l'échelle du scénario
+  // sélectionné, puis (scénario « Personnalisé ») modifications d'articles,
+  // postes supprimés et catégories de travaux complémentaires. Elle alimente à
+  // la fois « Quantitatif détaillé », « Répartition » et « Détail par
+  // catégorie » : ces trois blocs ne peuvent donc jamais diverger.
+  const quantitatifLots = useMemo<any[]>(
+    () =>
+      rawDqeLots.length
+        ? isPersonalizedScenario && personalized
+          ? personalized.lots
+          : scaleDqeLots(rawDqeLots, scaleFactor * realCostFactor)
+        : [],
+    [rawDqeLots, isPersonalizedScenario, personalized, scaleFactor, realCostFactor],
+  );
+
   // ── Répartition / Détail par catégorie ─────────────────────────────────
-  // Le scénario « Personnalisé » ajoute la part de CHAQUE travail
-  // complémentaire sélectionné (comme une catégorie de travaux) et recalcule
-  // les pourcentages sur le total affiché. Dans tous les autres cas,
-  // `buildChartBreakdown` retourne le tableau d'origine à l'identique : les
-  // scénarios Économique / Standard / Premium ne sont jamais modifiés.
+  // UNE part par catégorie du Quantitatif détaillé : mêmes libellés, mêmes
+  // sous-totaux et mêmes pourcentages que les étapes affichées par le
+  // quantitatif (travaux complémentaires inclus, postes supprimés exclus).
+  // Un projet sans quantitatif enregistré retombe sur la répartition BIM
+  // d'origine : les scénarios Économique / Standard / Premium ne sont jamais
+  // modifiés.
   const chartBreakdown = useMemo(
     () =>
-      isPersonalizedScenario
-        ? buildChartBreakdown(scaledBreakdown, complementaryWorks)
-        : scaledBreakdown,
-    [scaledBreakdown, isPersonalizedScenario, complementaryWorks],
+      quantitatifLots.length
+        ? buildChartBreakdownFromLots(quantitatifLots)
+        : isPersonalizedScenario
+          ? buildChartBreakdown(scaledBreakdown, complementaryWorks)
+          : scaledBreakdown,
+    [quantitatifLots, scaledBreakdown, isPersonalizedScenario, complementaryWorks],
   );
 
   // Main-d'œuvre : 1 lot affiché sur la page de résultat.
@@ -1315,17 +1341,12 @@ export default function ProjectDetail() {
                 etudes: { label: "Études & Permis", icon: FileText, color: "text-red-600" },
               };
               const NATURE_ORDER = ["materiaux", "main_oeuvre", "equipements", "transport", "etudes"];
-              // ── Données DQE (lots hiérarchiques) — calés sur le scénario ──
-              // Le scénario « Personnalisé » réutilise le quantitatif mis à
-              // l'échelle de son scénario de référence, modifications
-              // superposées. Les autres scénarios gardent leurs données d'origine.
-              const scaledDqeLots: any[] = hasDqeLots
-                ? scaleDqeLots(dqe.lots, scaleFactor * realCostFactor)
-                : [];
-              const dqeLots: any[] =
-                isPersonalizedScenario && personalized
-                  ? personalized.lots
-                  : scaledDqeLots;
+              // ── Données DQE (lots hiérarchiques) — calées sur le scénario ──
+              // EXACTEMENT les mêmes lots que « Répartition » et « Détail par
+              // catégorie » (source unique `quantitatifLots`) : le détail et sa
+              // répartition affichent toujours les mêmes catégories, montants
+              // et pourcentages.
+              const dqeLots: any[] = hasDqeLots ? quantitatifLots : [];
               // Totaux DQE recalculés à partir des lots scalés
               const dqeTotals = isPersonalizedScenario && personalized
                 ? personalized.totals
@@ -1756,7 +1777,10 @@ export default function ProjectDetail() {
                         ) : (
                           <Icon className="h-3 w-3 text-muted-foreground/50 shrink-0 hidden sm:block" />
                         )}
-                        <span className="truncate">{item.label}</span>
+                        {/* Les catégories reprennent les libellés du Quantitatif
+                            détaillé (« Gros œuvre (fondations, structures) », …) :
+                            min-w-0 permet la troncature dans la cellule. */}
+                        <span className="min-w-0 truncate">{item.label}</span>
                         <span className="font-semibold ml-auto">{item.percentage}%</span>
                       </div>
                     );
@@ -1778,7 +1802,7 @@ export default function ProjectDetail() {
                             <div className="flex h-5 w-5 items-center justify-center rounded shrink-0" style={{ backgroundColor: color + "18", color }}>
                               {item.icon ? <CustomWorkIcon icon={item.icon} className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
                             </div>
-                            <span className="text-xs sm:text-sm font-medium truncate">{item.label}</span>
+                            <span className="text-xs sm:text-sm font-medium min-w-0 truncate">{item.label}</span>
                           </div>
                           <span className="text-xs sm:text-sm font-bold shrink-0 ml-2">{fmt(item.estimatedCost)} <span className="text-[9px] text-muted-foreground font-normal">({item.percentage}%)</span></span>
                         </div>

@@ -21,9 +21,11 @@
 //   • Les catégories sont insérées à la suite de « Second œuvre et finitions »,
 //     IMMÉDIATEMENT AVANT « Aménagement extérieur ».
 //   • Elles n'alimentent que le scénario « Personnalisé » : les scénarios
-//     Économique / Standard / Premium ne sont jamais modifiés. Il en va de même
-//     dans « Répartition » et « Détail par catégorie » (`buildChartBreakdown`,
-//     qui n'ajoute les parts qu'en présence de travaux sélectionnés).
+//     Économique / Standard / Premium ne sont jamais modifiés. « Répartition »
+//     et « Détail par catégorie » étant dérivés des catégories réellement
+//     affichées par le Quantitatif détaillé (`buildChartBreakdownFromLots`),
+//     une part par travail y apparaît exactement comme la catégorie du
+//     quantitatif, avec le même montant et le même pourcentage.
 //   • Aucun montant n'est inventé ici : chaque ligne vient du chiffrage
 //     automatique du moteur (`customWorksEngine`), lui-même basé sur le
 //     moteur BIM et la base de prix officielle. Quantités, unités, prix
@@ -31,6 +33,7 @@
 // ============================================================================
 
 import {
+  COMPLEMENTARY_WORKS_LOT_PREFIX,
   EXTERIOR_LOT_ID,
   EXTERIOR_LOT_MATCH,
   complementaryWorkLotId,
@@ -193,6 +196,56 @@ export function buildChartBreakdown(
     ...e,
     percentage: round1(((Number(e.estimatedCost) || 0) / total) * 100),
   }));
+}
+
+/**
+ * Composition de « Répartition » et « Détail par catégorie » dérivée des
+ * catégories (étapes) réellement affichées par le Quantitatif détaillé.
+ *
+ * UNE part par catégorie, avec STRICTEMENT le même libellé, le même sous-total
+ * et le même pourcentage que la catégorie correspondante du Quantitatif
+ * détaillé : la répartition ne peut donc jamais diverger de son détail, quel
+ * que soit le scénario affiché.
+ *
+ * C'est la conséquence directe du fait que le quantitatif affiché porte déjà :
+ *   • la mise à l'échelle du scénario budgétaire sélectionné ;
+ *   • les modifications d'articles du scénario « Personnalisé » ;
+ *   • les postes supprimés (sous-totaux et pourcentages recalculés) ;
+ *   • les catégories de travaux complémentaires (une par travail).
+ *
+ * Aucun montant n'est recalculé : `subtotal` est repris tel quel. La part d'une
+ * catégorie dont le sous-total est nul est omise (aucune part invisible dans le
+ * graphique) ; `percentage` vient du quantitatif lui-même et n'est recalculé
+ * qu'en son absence.
+ */
+export function buildChartBreakdownFromLots(
+  lots: readonly QuantitatifLotLike[] | null | undefined,
+): ChartBreakdownEntry[] {
+  const list = (lots ?? []).filter((l) => l && (Number(l?.subtotal) || 0) > 0);
+  const total = list.reduce((s, l) => s + (Number(l?.subtotal) || 0), 0);
+
+  return list.map((l) => {
+    const id = String(l?.id ?? "");
+    // Catégorie de travail complémentaire : la couleur et l'icône du travail
+    // sont reprises du catalogue (identité visuelle de la part).
+    const workKey = isComplementaryWorkLotId(id)
+      ? id.slice(COMPLEMENTARY_WORKS_LOT_PREFIX.length + 1)
+      : undefined;
+    const def = workKey ? getCustomWorkDef(workKey) : undefined;
+    const subtotal = Number(l?.subtotal) || 0;
+    const percent = Number(l?.percent);
+    return {
+      category: id,
+      label: String(l?.name ?? ""),
+      estimatedCost: round2(subtotal),
+      percentage: Number.isFinite(percent)
+        ? round1(percent)
+        : total > 0
+          ? round1((subtotal / total) * 100)
+          : 0,
+      ...(workKey ? { workKey, color: def?.color, icon: def?.icon } : {}),
+    };
+  });
 }
 
 /**

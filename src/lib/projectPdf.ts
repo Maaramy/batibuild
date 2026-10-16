@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { applyPlugin as applyAutotablePlugin } from "jspdf-autotable";
 import { toast } from "sonner";
 import { drawReportFooters, drawReportHeader } from "./pdfBranding";
+import { buildChartBreakdownFromLots } from "./complementaryWorks";
 import {
   resolvePdfScenarioValues,
   type PersonalizedScenarioData,
@@ -138,7 +139,20 @@ export async function generateProjectPdf({
       main_oeuvre: [34, 197, 94],
       transport: [132, 204, 22],
       etudes_imprevus: [239, 68, 68],
+      // Catégories propres au « Quantitatif détaillé » (lots du moteur DQE) :
+      // la répartition les reprend telles quelles, elles ont donc une couleur.
+      frais_preliminaires: [239, 68, 68],
+      amenagements_exterieurs: [20, 184, 166],
+      vrd: [132, 204, 22],
     };
+
+    // Catégories de « Répartition par catégorie » : celles du « Quantitatif
+    // détaillé » du même devis (mêmes libellés, mêmes sous-totaux et mêmes
+    // pourcentages), dès qu'un quantitatif est exporté. Un projet sans
+    // quantitatif garde la répartition BIM d'origine.
+    const breakdownRows = values.dqeLots?.length
+      ? buildChartBreakdownFromLots(values.dqeLots)
+      : breakdown;
 
     const regionName = project.region
       ? REGION_LABELS[project.region] ?? project.region
@@ -297,7 +311,7 @@ export async function generateProjectPdf({
     y += 12;
 
     // ═══ CATEGORY BREAKDOWN TABLE ══════════════════════════════════
-    addPageIfNeeded(8 + breakdown.length * 5.5 + 10);
+    addPageIfNeeded(8 + breakdownRows.length * 5.5 + 10);
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
@@ -315,7 +329,7 @@ export async function generateProjectPdf({
     doc.text("%", ml + cw * 0.55, y + 7, { align: "right" });
     doc.text("Montant", ml + cw * 0.75, y + 7, { align: "right" });
 
-    const sortedBD = [...breakdown].sort(
+    const sortedBD = [...breakdownRows].sort(
       (a: any, b: any) => b.estimatedCost - a.estimatedCost,
     );
 

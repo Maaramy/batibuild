@@ -13,6 +13,7 @@ import {
 } from "./customWorksCatalog";
 import {
   buildChartBreakdown,
+  buildChartBreakdownFromLots,
   buildComplementaryWorksLots,
   complementaryWorksTotal,
   withComplementaryWorksLots,
@@ -286,5 +287,101 @@ describe("travaux complémentaires dans « Répartition » et « Détail par cat
     const colors = CUSTOM_WORK_CATALOG.map((w) => w.color);
     for (const color of colors) expect(color).toMatch(/^#[0-9a-f]{6}$/i);
     expect(new Set(colors).size).toBe(colors.length);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// « Répartition » / « Détail par catégorie » SYNCHRONISÉS AVEC LE QUANTITATIF
+// ----------------------------------------------------------------------------
+// La source est le quantitatif RÉELLEMENT affiché (catégories du moteur DQE +
+// travaux complémentaires, mises à l'échelle du scénario, modifications
+// d'articles superposées, postes supprimés retirés). Il ne peut donc jamais y
+// avoir deux descriptions différentes du même projet dans l'écran projet ni
+// dans le devis PDF.
+describe("Répartition et Détail par catégorie dérivés du Quantitatif détaillé", () => {
+  /** Quantitatif « Personnalisé » : DQE + deux travaux complémentaires. */
+  const LOTS = withComplementaryWorksLots(DQE_LOTS, works(["piscine", "garage"]));
+
+  it("reprend EXACTEMENT les catégories du quantitatif (libellé, sous-total, pourcentage)", () => {
+    const rows = buildChartBreakdownFromLots(LOTS);
+    const total = lotsTotal(LOTS);
+
+    expect(rows.map((r) => r.label)).toEqual(LOTS.map((l) => l.name));
+    expect(rows.map((r) => r.category)).toEqual(LOTS.map((l) => l.id));
+
+    rows.forEach((row, i) => {
+      const lot = LOTS[i];
+      expect(row.estimatedCost).toBe(lot.subtotal);
+      // Même pourcentage que celui affiché par la catégorie du quantitatif.
+      expect(row.percentage).toBe(lot.percent);
+      expect(
+        Math.abs((row.percentage ?? 0) - ((Number(lot.subtotal) || 0) / total) * 100),
+      ).toBeLessThanOrEqual(0.05);
+    });
+
+    // Les parts décrivent le même total que le quantitatif : somme des montants
+    // égale au total des catégories, somme des pourcentages égale à 100 %.
+    expect(rows.reduce((s, r) => s + r.estimatedCost, 0)).toBeCloseTo(total, 2);
+    const share = rows.reduce((s, r) => s + (r.percentage ?? 0), 0);
+    expect(Math.abs(share - 100)).toBeLessThan(1);
+  });
+
+  it("donne aux catégories de travaux la couleur et l'icône du travail", () => {
+    const rows = buildChartBreakdownFromLots(LOTS);
+    for (const key of ["piscine", "garage"] as const) {
+      const row = rows.find((r) => r.category === complementaryWorkLotId(key));
+      expect(row?.workKey).toBe(key);
+      expect(row?.label).toBe(getCustomWorkDef(key)?.label);
+      expect(row?.color).toBe(getCustomWorkDef(key)?.color);
+      expect(row?.icon).toBe(getCustomWorkDef(key)?.icon);
+    }
+    // Les catégories du moteur DQE n'ont pas d'identité visuelle propre : elles
+    // sont colorées par la palette de la page, jamais laissées orphelines.
+    for (const row of rows) {
+      if (row.workKey) continue;
+      expect(row.color).toBeUndefined();
+      expect(row.icon).toBeUndefined();
+    }
+  });
+
+  it("suit le quantitatif affiché : poste supprimé retiré, article modifié répercuté", () => {
+    // Quantitatif affiché après suppression d'un poste du second œuvre
+    // (`applyPosteRemovals` recalcule le sous-total puis les pourcentages).
+    const afterRemoval = LOTS.map((l) =>
+      l.id === "second_oeuvre" ? { ...l, subtotal: 60000 } : l,
+    );
+    const total = lotsTotal(afterRemoval);
+    const displayed = afterRemoval.map((l) => ({
+      ...l,
+      percent: Math.round(((Number(l.subtotal) || 0) / total) * 1000) / 10,
+    }));
+
+    const rows = buildChartBreakdownFromLots(displayed);
+    const second = rows.find((r) => r.category === "second_oeuvre");
+    expect(second?.estimatedCost).toBe(60000);
+    expect(second?.percentage).toBe(
+      displayed.find((l) => l.id === "second_oeuvre")?.percent,
+    );
+    // Aucun montant périmé : le total des parts est celui du quantitatif affiché.
+    expect(rows.reduce((s, r) => s + r.estimatedCost, 0)).toBeCloseTo(total, 2);
+  });
+
+  it("recalcule le pourcentage quand le quantitatif n'en porte pas", () => {
+    const rows = buildChartBreakdownFromLots([
+      { id: "gros_oeuvre", name: "Gros œuvre", subtotal: 75 },
+      { id: "second_oeuvre", name: "Second œuvre", subtotal: 25 },
+    ]);
+    expect(rows.map((r) => r.percentage)).toEqual([75, 25]);
+  });
+
+  it("ignore une catégorie à 0 TND et ne casse jamais sans quantitatif", () => {
+    expect(buildChartBreakdownFromLots(null)).toEqual([]);
+    expect(buildChartBreakdownFromLots([])).toEqual([]);
+    expect(
+      buildChartBreakdownFromLots([
+        { id: "gros_oeuvre", name: "Gros œuvre", subtotal: 100 },
+        { id: "vide", name: "Catégorie vide", subtotal: 0 },
+      ]).map((r) => r.label),
+    ).toEqual(["Gros œuvre"]);
   });
 });
