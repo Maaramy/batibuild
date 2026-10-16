@@ -39,6 +39,16 @@ async function readLevelCostConfigFromDb(ctx: DbCtx): Promise<LevelCostConfig> {
 }
 
 /**
+ * Barème électricité 2026 configuré par l'administrateur (table `bimConfig`).
+ * Absent ou illisible = barème par défaut (Économique 35 · Standard 65 ·
+ * Premium 100 DT/m² — paramètres initiaux à valider sur le marché tunisien).
+ */
+async function readElectricityPricesFromDb(ctx: DbCtx): Promise<ElectricityPrices> {
+  const config = await ctx.db.query("bimConfig").order("desc").first();
+  return resolveElectricityPrices(parseElectricityPrices(config?.electricityPricesM2));
+}
+
+/**
  * Surfaces couvertes réelles niveau par niveau d'un projet : la surface saisie
  * pour un niveau est conservée telle quelle ; un niveau non renseigné reprend
  * la surface du RDC.
@@ -806,9 +816,21 @@ import {
   generateProviderRecommendations,
   buildLivePriceMap,
   withLivePrices,
+  REGION_COST_M2,
 } from "./bimEngine";
 import { applyRealisticDoorsWindows } from "./bimQuantitatif";
 import { generateDqe } from "./dqeEngine";
+import {
+  buildElectricityPoste,
+  electricityLevelFromFinishLevel,
+  electricityLevelLabel,
+  electricityPricePerM2,
+  electricityRegionIndex,
+  isElectricityCategory,
+  parseElectricityPrices,
+  resolveElectricityPrices,
+  type ElectricityPrices,
+} from "../lib/electricityPricing";
 import { inferFloorsFromCategory, normalizeLegacyCategory } from "./projectTypes";
 import { autoLaunchMaterialSelection } from "./materialSelections";
 
@@ -857,6 +879,20 @@ export const simulateAnalysis = mutation({
     const levelConfig = await readLevelCostConfigFromDb(ctx);
     const levelSurfaces = normalizeLevelSurfacesInput(project);
 
+    // ── Barème électricité 2026 (configuré par l'administrateur) ──
+    // Une seule source pour les deux usages : le prix au m² du type
+    // « Électricité complète » et le poste électrique de la catégorie
+    // « Second œuvre et finitions » du Quantitatif détaillé. Le coefficient
+    // régional de la grille 2026 (base Médenine = 100 %) est appliqué UNE fois.
+    const electricityPrices = await readElectricityPricesFromDb(ctx);
+    const electricityLevelKey = electricityLevelFromFinishLevel(finishLevel);
+    const electricityRegionIdx = electricityRegionIndex(REGION_COST_M2[region]?.std ?? null);
+    const electricityPriceM2 = electricityPricePerM2(
+      electricityLevelKey,
+      electricityPrices,
+      electricityRegionIdx,
+    );
+
     const result = withLivePrices(livePrices, () =>
       runBIMEstimation(category, surface, floors, region, finishLevel, {
         bedrooms: project.bedrooms,
@@ -866,7 +902,7 @@ export const simulateAnalysis = mutation({
         garages: project.garages,
         wcs: project.wcs,
         pools: project.pools,
-      }, { levelSurfaces, levelConfig }),
+      }, { levelSurfaces, levelConfig, electricityPrices }),
     );
 
     // Portes & fenêtres du « Quantitatif détaillé » : quantités réalistes par
@@ -907,7 +943,37 @@ export const simulateAnalysis = mutation({
       totalBudget: result.costEstimate.totalCost,
       livePrices,
       levelSurfaces,
+      // Partie électrique de la catégorie « Second œuvre et finitions » chiffrée
+      // au barème 2026 : poste unique, autoritaire dans son lot.
+      electricity: {
+        priceM2: electricityPriceM2,
+        levelLabel: electricityLevelLabel(electricityLevelKey),
+      },
     });
+
+    // ── Poste ÉLECTRICITÉ du projet (barème 2026) ────────────────────────
+    // • « Électricité complète » : le coût global de l'installation EST le coût
+    //   estimatif du projet (barème × surface, coefficients multi-niveaux) ;
+    // • projet de bâtiment : le poste est la partie électrique du lot
+    //   « Second œuvre et finitions », chiffrée au barème (poste autoritaire,
+    //   le sous-total du lot et le coût global TTC restent inchangés).
+    const electricityPoste =
+      isElectricityCategory(category) || dqe.electricityPoste
+        ? buildElectricityPoste({
+            scope: isElectricityCategory(category) ? "installation_complete" : "second_oeuvre",
+            finishLevel,
+            prices: electricityPrices,
+            regionStdM2: REGION_COST_M2[region]?.std ?? null,
+            builtArea: tb,
+            amount: isElectricityCategory(category)
+              ? result.costEstimate.totalCost
+              : dqe.electricityPoste?.total ?? null,
+            lot: dqe.electricityPoste
+              ? { id: dqe.electricityPoste.lotId, name: dqe.electricityPoste.lotName }
+              : null,
+            replacedProvision: dqe.electricityPoste?.replacedProvision ?? 0,
+          })
+        : null;
 
     // ── Vérification automatique « coût global = somme du DQE » ──
     // Le Quantitatif détaillé doit toujours retomber exactement sur le coût
@@ -1026,6 +1092,7 @@ export const simulateAnalysis = mutation({
         ...b,
         category: b.category as typeof materialCategoryValidator.type,
       })),
+      ...(electricityPoste ? { electricityPoste } : {}),
     };
 
     await ctx.db.patch(args.projectId, {

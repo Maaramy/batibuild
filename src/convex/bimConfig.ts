@@ -10,6 +10,14 @@ import {
   resolveLevelCostConfig,
   type LevelCostConfig,
 } from "../lib/buildingLevels";
+import {
+  DEFAULT_ELECTRICITY_PRICES,
+  DEFAULT_ELECTRICITY_PRICES_JSON,
+  ELECTRICITY_PRICE_RANGES,
+  parseElectricityPrices,
+  resolveElectricityPrices,
+  validateElectricityPrices,
+} from "../lib/electricityPricing";
 
 // ============================================================================
 // COEFFICIENTS MULTI-NIVEAUX — configuration administrateur
@@ -81,6 +89,8 @@ export const getBIMConfig = query({
     };
 
     const levelOverrides = parseLevelCoefficients(config.levelCoefficients);
+    const storedElectricity = parseElectricityPrices(config.electricityPricesM2);
+    const resolvedElectricity = resolveElectricityPrices(storedElectricity);
 
     return {
       ...config,
@@ -95,6 +105,18 @@ export const getBIMConfig = query({
       parsedLevelCoefficients: resolveLevelCostConfig(levelOverrides),
       levelCoefficientRanges: LEVEL_COEFFICIENT_RANGES,
       levelCoefficientsAreDefault: levelOverrides === undefined,
+      // Barème électricité EFFECTIF (valeurs enregistrées complétées par les
+      // défauts) + fourchettes admises : le panneau d'administration affiche
+      // exactement le barème que le moteur applique au poste électrique et aux
+      // projets « Électricité complète ».
+      parsedElectricityPrices: resolvedElectricity,
+      electricityPriceRanges: ELECTRICITY_PRICE_RANGES,
+      // Un barème est-il explicitement enregistré, et porte-t-il encore les
+      // valeurs initiales (hypothèses de paramétrage à valider) ?
+      electricityPricesStored: storedElectricity !== undefined,
+      electricityPricesAreDefault: (["economique", "standard", "premium"] as const).every(
+        (key) => resolvedElectricity[key] === DEFAULT_ELECTRICITY_PRICES[key],
+      ),
       levelCoefficientsValidFrom:
         config.levelCoefficientsValidFrom ?? LEVEL_COEFFICIENTS_VALIDITY_2026.from,
       levelCoefficientsValidUntil:
@@ -147,6 +169,9 @@ export const refreshBIMData = mutation({
         existing?.levelCoefficientsValidFrom ?? LEVEL_COEFFICIENTS_VALIDITY_2026.from,
       levelCoefficientsValidUntil:
         existing?.levelCoefficientsValidUntil ?? LEVEL_COEFFICIENTS_VALIDITY_2026.until,
+      // Barème électricité : réglé par l'administrateur, jamais écrasé par une
+      // actualisation des prix.
+      electricityPricesM2: existing?.electricityPricesM2 ?? DEFAULT_ELECTRICITY_PRICES_JSON,
       version: existing ? existing.version + 1 : 1,
       refreshedAt: now,
       refreshedBy: user._id,
@@ -245,6 +270,8 @@ export const saveBIMConfig = mutation({
     /** Dates de validité des coefficients (bornes incluses, ms epoch). */
     levelCoefficientsValidFrom: v.optional(v.number()),
     levelCoefficientsValidUntil: v.optional(v.number()),
+    /** Barème électricité 2026 (JSON : economique, standard, premium — TND/m²). */
+    electricityPricesM2: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -278,6 +305,19 @@ export const saveBIMConfig = mutation({
       }
     }
 
+    // Barème électricité 2026 : une saisie hors fourchette est REFUSÉE (le
+    // barème pilote le poste électrique de la catégorie « Second œuvre et
+    // finitions » et le prix au m² du type « Électricité complète » — jamais un
+    // prix invalide). Absent = barème enregistré conservé, sinon barème par
+    // défaut (Économique 35 · Standard 65 · Premium 100 DT/m²).
+    const rawElectricityPrices =
+      args.electricityPricesM2 ?? existing?.electricityPricesM2 ?? DEFAULT_ELECTRICITY_PRICES_JSON;
+    const electricityError = validateElectricityPrices(rawElectricityPrices);
+    if (electricityError) throw new Error(electricityError);
+    const resolvedElectricity = resolveElectricityPrices(
+      parseElectricityPrices(rawElectricityPrices),
+    );
+
     const bimConfigData = {
       version: existing ? existing.version + 1 : 1,
       refreshedAt: now,
@@ -295,6 +335,7 @@ export const saveBIMConfig = mutation({
         args.levelCoefficientsValidUntil ??
         existing?.levelCoefficientsValidUntil ??
         LEVEL_COEFFICIENTS_VALIDITY_2026.until,
+      electricityPricesM2: JSON.stringify(resolvedElectricity),
     };
 
     if (existing) {
@@ -307,7 +348,7 @@ export const saveBIMConfig = mutation({
       adminId: user._id,
       adminName: user.name || "Admin",
       action: "bim_save" as any,
-      details: `Configuration BIM sauvegardée manuellement (v${bimConfigData.version}) — coefficients multi-niveaux ${JSON.stringify(resolvedLevels ?? {})}`,
+      details: `Configuration BIM sauvegardée manuellement (v${bimConfigData.version}) — coefficients multi-niveaux ${JSON.stringify(resolvedLevels ?? {})} — barème électricité ${resolvedElectricity.economique}/${resolvedElectricity.standard}/${resolvedElectricity.premium} DT/m² (Économique/Standard/Premium)`,
       createdAt: now,
     });
 
@@ -315,6 +356,7 @@ export const saveBIMConfig = mutation({
       version: bimConfigData.version,
       refreshedAt: now,
       levelCoefficients: resolveLevelCostConfig(resolvedLevels),
+      electricityPrices: resolvedElectricity,
     };
   },
 });
@@ -356,6 +398,8 @@ export const refreshBIMDataMonthly = internalMutation({
         existing?.levelCoefficientsValidFrom ?? LEVEL_COEFFICIENTS_VALIDITY_2026.from,
       levelCoefficientsValidUntil:
         existing?.levelCoefficientsValidUntil ?? LEVEL_COEFFICIENTS_VALIDITY_2026.until,
+      // Barème électricité : conservé tel quel s'il est réglé par l'administrateur.
+      electricityPricesM2: existing?.electricityPricesM2 ?? DEFAULT_ELECTRICITY_PRICES_JSON,
       version: existing ? existing.version + 1 : 1,
       refreshedAt: now,
       refreshedBy: adminUser._id,

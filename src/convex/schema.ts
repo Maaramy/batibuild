@@ -509,6 +509,10 @@ const schema = defineSchema(
           // Détail du calcul multi-niveaux (RDC, étages, toiture, frais communs,
           // surfaces réelles) et vérification automatique des anomalies.
           levelBreakdown: v.optional(v.any()),
+          // Poste ÉLECTRICITÉ du barème 2026 : partie électrique de la catégorie
+          // « Second œuvre et finitions » (ou installation complète du type
+          // « Électricité complète »), chiffrée au barème TND/m² configurable.
+          electricityPoste: v.optional(v.any()),
         }),
       ),
       
@@ -1252,6 +1256,10 @@ const schema = defineSchema(
       levelCoefficients: v.optional(v.string()),
       levelCoefficientsValidFrom: v.optional(v.number()),
       levelCoefficientsValidUntil: v.optional(v.number()),
+      // Barème électricité 2026 (JSON : economique, standard, premium — TND/m²
+      // TTC). Paramètres modifiables par l'administrateur : hypothèses de
+      // départ à valider sur le marché tunisien, jamais des tarifs officiels.
+      electricityPricesM2: v.optional(v.string()),
       version: v.number(),
       refreshedAt: v.number(),
       refreshedBy: v.id("users"),

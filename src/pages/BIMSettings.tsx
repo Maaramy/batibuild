@@ -25,6 +25,7 @@ import {
   Sparkles,
   Building2,
   Database,
+  Zap,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,14 @@ import {
   computeLevelCost,
   type LevelCostConfig,
 } from "@/lib/buildingLevels";
+import {
+  DEFAULT_ELECTRICITY_PRICES,
+  ELECTRICITY_LEVELS,
+  ELECTRICITY_PRICING_NOTE,
+  ELECTRICITY_PRICE_RANGES,
+  type ElectricityLevelKey,
+  type ElectricityPrices,
+} from "@/lib/electricityPricing";
 
 /** Champs éditables des coefficients multi-niveaux (RDC, étages, frais communs, toiture). */
 const LEVEL_FIELDS: {
@@ -114,6 +123,36 @@ export default function BIMSettings() {
     pricePerM2: 1980,
     config: levelCoeffsDraft,
   });
+
+  // ── Barème électricité 2026 : édition par l'administrateur ──
+  // Une seule source pour les deux postes électriques : le prix au m² du type
+  // « Électricité complète » et la partie électrique de la catégorie
+  // « Second œuvre et finitions » du Quantitatif détaillé.
+  const [elecPrices, setElecPrices] = useState<ElectricityPrices | null>(null);
+  const [savingElec, setSavingElec] = useState(false);
+
+  const effectiveElecPrices: ElectricityPrices =
+    bimConfig?.parsedElectricityPrices ?? DEFAULT_ELECTRICITY_PRICES;
+  const elecPricesDraft = elecPrices ?? effectiveElecPrices;
+  const elecRanges = (bimConfig?.electricityPriceRanges ??
+    ELECTRICITY_PRICE_RANGES) as Record<ElectricityLevelKey, { min: number; max: number }>;
+  const outOfRangeElec = ELECTRICITY_LEVELS.filter(({ key }) => {
+    const bounds = elecRanges[key] ?? ELECTRICITY_PRICE_RANGES[key];
+    const value = elecPricesDraft[key];
+    return !(value >= bounds.min && value <= bounds.max);
+  });
+
+  const handleSaveElec = async () => {
+    setSavingElec(true);
+    try {
+      await saveBIMConfig({ electricityPricesM2: JSON.stringify(elecPricesDraft) });
+      toast.success("Barème électricité enregistré");
+      setElecPrices(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Erreur lors de l'enregistrement du barème électricité");
+    }
+    setSavingElec(false);
+  };
 
   const handleSaveLevels = async () => {
     setSavingLevels(true);
@@ -692,6 +731,113 @@ export default function BIMSettings() {
                 ))}
               </ul>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Barème électricité 2026 (Économique · Standard · Premium) ── */}
+      <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+        <CardHeader className="p-4 sm:p-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <Zap className="h-4 w-4 text-amber-500" />
+            <CardTitle className="text-sm">Barème électricité 2026 (TND/m² TTC)</CardTitle>
+            <Badge variant="secondary" className="ml-auto text-[9px]">
+              v{bimConfig?.version ?? "—"} · {elecPrices ? "modifié" : "enregistré"}
+              {bimConfig?.electricityPricesAreDefault ? " · valeurs initiales" : ""}
+            </Badge>
+          </div>
+          <CardDescription className="text-xs leading-relaxed">
+            Une seule source pour les <strong>deux</strong> postes électriques : le prix au m² du
+            type <strong>« Électricité complète »</strong> (coût global de l'installation d'un
+            bâtiment neuf) et la partie électrique de la catégorie{" "}
+            <strong>« Second œuvre et finitions »</strong> du Quantitatif détaillé (barème ×
+            surface réellement construite, à la place des forfaits du gabarit — aucun poste compté
+            deux fois). Le coefficient régional de la grille 2026 (base Médenine = 100 %) est
+            appliqué une seule fois.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {ELECTRICITY_LEVELS.map(({ key, label }) => {
+              const bounds = elecRanges[key] ?? ELECTRICITY_PRICE_RANGES[key];
+              const value = elecPricesDraft[key];
+              const invalid = !(value >= bounds.min && value <= bounds.max);
+              return (
+                <div key={key}>
+                  <label className="text-[10px] font-semibold" htmlFor={`elec-${key}`}>
+                    {label}
+                  </label>
+                  <Input
+                    id={`elec-${key}`}
+                    type="number"
+                    step="1"
+                    min={bounds.min}
+                    max={bounds.max}
+                    value={value}
+                    onChange={(e) => {
+                      const next = Number(e.target.value);
+                      setElecPrices({
+                        ...elecPricesDraft,
+                        [key]: Number.isFinite(next) ? next : 0,
+                      });
+                    }}
+                    className={cn("mt-1 h-8 text-xs", invalid && "border-amber-500 text-amber-600")}
+                  />
+                  <p className="mt-1 text-[9px] leading-tight text-muted-foreground">
+                    Admis {bounds.min}-{bounds.max} DT/m² · poste pour 120 m² :{" "}
+                    {Math.round(value) * 120 > 0 ? (Math.round(value) * 120).toLocaleString("fr-FR") : "—"} TND
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={handleSaveElec}
+              disabled={savingElec || outOfRangeElec.length > 0}
+            >
+              {savingElec ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Save className="h-3.5 w-3.5" />
+              )}
+              Enregistrer le barème électricité
+            </Button>
+            {elecPrices && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() => setElecPrices(null)}
+              >
+                Réinitialiser
+              </Button>
+            )}
+          </div>
+
+          {outOfRangeElec.length > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <div className="text-[11px] text-amber-700">
+                <p className="font-semibold">Barème hors fourchette recommandée</p>
+                <p>
+                  {outOfRangeElec.map((l) => l.label).join(", ")} — admissible : Économique
+                  15-60 · Standard 30-120 · Premium 50-200 DT/m². Le serveur refuse toute valeur
+                  hors de ces bornes : le barème pilote le poste électrique, jamais un prix
+                  invalide.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-start gap-2 rounded-lg border border-border/50 bg-muted/20 p-3">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <p className="text-[10px] leading-snug text-muted-foreground">
+              {ELECTRICITY_PRICING_NOTE}
+            </p>
           </div>
         </CardContent>
       </Card>

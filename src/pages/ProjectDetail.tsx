@@ -421,6 +421,27 @@ export default function ProjectDetail() {
   const ai = project?.aiAnalysis;
   const done = project?.status === "completed";
 
+  // ── Poste ÉLECTRICITÉ (barème 2026) enregistré avec le coût estimatif ──
+  // « Électricité complète » : coût global de l'installation d'un bâtiment
+  // neuf, calculé au barème (TND/m²). Projet de bâtiment : partie électrique de
+  // la catégorie « Second œuvre et finitions », chiffrée au même barème.
+  const electricityPoste = (ce as any)?.electricityPoste as
+    | {
+        scope: "installation_complete" | "second_oeuvre";
+        levelLabel: string;
+        prices?: { economique: number; standard: number; premium: number };
+        basePriceM2: number;
+        regionIndex: number;
+        priceM2: number;
+        builtArea: number;
+        amount: number;
+        subPostes?: { key: string; label: string; amount: number }[];
+        lot?: { id: string; name: string } | null;
+        replacedProvision: number;
+        note: string;
+      }
+    | undefined;
+
   // Compatibilité : les analyses prédictives enregistrées avant la suppression
   // des imprévus portent encore l'ancien libellé du poste « divers ».
   const legacyReasoning = (text?: string) =>
@@ -1270,6 +1291,86 @@ export default function ProjectDetail() {
                 </div>
               ))}
             </motion.div>
+
+            {/* ═══ Poste ÉLECTRICITÉ — barème 2026 (une seule fois) ═══ */}
+            {electricityPoste && (
+              <SectionCard
+                icon={Plug}
+                title={
+                  electricityPoste.scope === "installation_complete"
+                    ? "Électricité — installation complète"
+                    : "Électricité — Second œuvre et finitions"
+                }
+                badge={`Barème ${electricityPoste.levelLabel}`}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* ── Barème appliqué et montant du poste ── */}
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border/20 space-y-1 text-xs">
+                    <div className="flex justify-between gap-2 py-0.5">
+                      <span className="text-muted-foreground">Barème {electricityPoste.levelLabel}</span>
+                      <span className="font-medium tabular-nums">
+                        {fmt(electricityPoste.basePriceM2)}/m²
+                        {electricityPoste.regionIndex !== 1 &&
+                          ` × ${electricityPoste.regionIndex.toFixed(2)} (région)`}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-2 py-0.5">
+                      <span className="text-muted-foreground">Prix appliqué</span>
+                      <span className="font-medium tabular-nums">
+                        {fmt(electricityPoste.priceM2)}/m² × {electricityPoste.builtArea} m²
+                      </span>
+                    </div>
+                    {electricityPoste.scope === "second_oeuvre" &&
+                      electricityPoste.replacedProvision > 0 && (
+                        <div className="flex justify-between gap-2 py-0.5">
+                          <span className="text-muted-foreground">
+                            Forfaits électriques remplacés dans le lot
+                          </span>
+                          <span className="font-medium tabular-nums">
+                            {fmt(electricityPoste.replacedProvision)}
+                          </span>
+                        </div>
+                      )}
+                    <div className="flex justify-between gap-2 py-1 mt-1 border-t border-border/20">
+                      <span className="font-bold">Poste électricité (compté une seule fois)</span>
+                      <span className="font-bold tabular-nums text-primary">
+                        {fmt(electricityPoste.amount)}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground pt-1 leading-snug">
+                      {electricityPoste.scope === "second_oeuvre"
+                        ? `Intégré à la catégorie « ${electricityPoste.lot?.name ?? "Second œuvre et finitions"} » du Quantitatif détaillé : le sous-total du lot et le coût global TTC restent ceux de la grille 2026 (forfaits électriques remplacés, aucun poste compté deux fois).`
+                        : "Coût global de l'installation électrique du bâtiment neuf, calculé au barème électricité (coefficients multi-niveaux appliqués par le moteur de coûts)."}
+                    </p>
+                    {electricityPoste.prices && (
+                      <p className="text-[9px] text-muted-foreground pt-1 tabular-nums">
+                        Barème en vigueur : Éco {fmt(electricityPoste.prices.economique)} · Std{" "}
+                        {fmt(electricityPoste.prices.standard)} · Premium{" "}
+                        {fmt(electricityPoste.prices.premium)} — par m² TTC
+                      </p>
+                    )}
+                    <p className="text-[9px] text-muted-foreground/80 pt-1 leading-snug">
+                      {electricityPoste.note}
+                    </p>
+                  </div>
+                  {/* ── Ventilation du poste ── */}
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border/20">
+                    <p className="text-[10px] font-semibold text-muted-foreground mb-2">
+                      Ventilation indicative du poste
+                    </p>
+                    <div className="space-y-1">
+                      {(electricityPoste.subPostes ?? []).map((sp: any) => (
+                        <div key={sp.key} className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-muted-foreground truncate">{sp.label}</span>
+                          <span className="text-[11px] font-medium tabular-nums">
+                            {fmt(sp.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
+            )}
 
             {/* ═══ Impact région & comparatif par région (mise en page d'origine) ═══ */}
             {regionImpact && regionCard && (
