@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -319,11 +318,6 @@ export function ArticleEditDialog({
             <Wand2 className="h-4 w-4 text-primary" />
             Modifier l'article
           </DialogTitle>
-          <DialogDescription className="text-xs">
-            Personnalisation limitée aux catégories Frais Préliminaires, Gros œuvre,
-            Second œuvre et Aménagements extérieurs. Les scénarios Économique, Standard
-            et Premium ne sont jamais modifiés.
-          </DialogDescription>
         </DialogHeader>
 
         {showPicker && hasCompatible ? (
