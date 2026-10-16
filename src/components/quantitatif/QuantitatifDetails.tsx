@@ -1,19 +1,6 @@
 import { useState } from "react";
-import { useMutation } from "convex/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "sonner";
-import { api } from "@/convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   ChevronDown,
   ChevronUp,
@@ -24,7 +11,6 @@ import {
   Pencil,
   Plug,
   RefreshCw,
-  Trash2,
   Truck,
   Users,
   Wallet,
@@ -32,16 +18,8 @@ import {
 import {
   isEditableLot,
   quantitatifLineKey,
-  type BudgetScenarioKey,
   type QuantitatifCustomizationEntry,
 } from "@/convex/quantitatifCustomLogic";
-
-/**
- * Message exact affiché avant toute suppression d'une catégorie ou d'une
- * sous-catégorie du Quantitatif détaillé.
- */
-export const DELETE_STRUCTURE_CONFIRMATION =
-  "Voulez-vous vraiment supprimer cette catégorie ou sous-catégorie ? Cette action modifiera le montant total de votre projet.";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("fr-TN", {
@@ -97,22 +75,6 @@ export interface QuantitatifDetailsProps {
   customizationByKey: Map<string, QuantitatifCustomizationEntry>;
   /** Lignes brutes du quantitatif (référentiel du moteur), par clé d'article. */
   rawLineByKey: Map<string, any>;
-  /** Identifiant du projet — requis pour enregistrer une suppression. */
-  projectId?: string;
-  /** Scénario de référence du scénario « Personnalisé ». */
-  baseScenario?: BudgetScenarioKey;
-  /**
-   * Catégories dont la suppression est autorisée. Les catégories protégées
-   * (Gros œuvre, Transport et autres) n'y figurent jamais : aucune icône de
-   * suppression ne leur est présentée.
-   */
-  deletableLotIds?: Set<string>;
-  /** Sous-catégories supprimables, clés `${lotId}::${nature}`. */
-  deletableNatureKeys?: Set<string>;
-  /** Nombre de catégories / sous-catégories supprimées (scénario Personnalisé). */
-  deletedCount?: number;
-  /** Appelé après une suppression effectivement enregistrée. */
-  onDeleted?: () => void;
   refreshing?: boolean;
   onRefresh?: () => void;
   /** Ouvre le popup de modification d'un article. */
@@ -150,67 +112,11 @@ export function QuantitatifDetails({
   modifiedCount = 0,
   customizationByKey,
   rawLineByKey,
-  projectId,
-  baseScenario,
-  deletableLotIds,
-  deletableNatureKeys,
-  deletedCount = 0,
-  onDeleted,
   refreshing,
   onRefresh,
   onOpenArticle,
 }: QuantitatifDetailsProps) {
   const [openCat, setOpenCat] = useState<string>("__all_expanded");
-  const deleteStructure = useMutation(api.quantitatifCustom.deleteQuantitatifStructure);
-
-  // Cible de la confirmation : catégorie entière ou une seule sous-catégorie.
-  const [pendingDelete, setPendingDelete] = useState<{
-    kind: "lot" | "nature";
-    lotId: string;
-    lotName: string;
-    nature?: string;
-    label: string;
-    /** Articles déjà personnalisés dans la cible (avertissement renforcé). */
-    customCount: number;
-  } | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  // Protections : une catégorie protégée (Gros œuvre, Transport et autres) et
-  // TOUTES ses sous-catégories ne présentent aucune option de suppression.
-  const canDeleteLot = (lot: any) => !!deletableLotIds?.has(lot?.id);
-  const canDeleteNature = (lot: any, nature: string) =>
-    canDeleteLot(lot) && !!deletableNatureKeys?.has(`${lot?.id}::${nature}`);
-
-  const customCountForLines = (lot: any, lines: { index: number }[]) =>
-    lines.reduce(
-      (count, e) => count + (customizationByKey.has(quantitatifLineKey(lot.id, e.index)) ? 1 : 0),
-      0,
-    );
-
-  /** Enregistre la suppression confirmée (mise à jour immédiate, sans rechargement). */
-  const confirmDelete = async () => {
-    if (!pendingDelete || !projectId || deleting) return;
-    setDeleting(true);
-    try {
-      await deleteStructure({
-        projectId: projectId as any,
-        lotId: pendingDelete.lotId,
-        ...(pendingDelete.nature ? { nature: pendingDelete.nature } : {}),
-        baseScenario: baseScenario ?? "standard",
-      });
-      toast.success(
-        pendingDelete.kind === "lot"
-          ? `Catégorie « ${pendingDelete.label} » supprimée du scénario Personnalisé`
-          : `Sous-catégorie « ${pendingDelete.label} » supprimée du scénario Personnalisé`,
-      );
-      setPendingDelete(null);
-      onDeleted?.();
-    } catch (err: any) {
-      toast.error(err?.message || "Erreur lors de la suppression");
-    } finally {
-      setDeleting(false);
-    }
-  };
 
   return (
     <motion.div
@@ -353,32 +259,6 @@ export function QuantitatifDetails({
                             <ChevronDown className="h-4 w-4 text-muted-foreground/50 shrink-0" />
                           )}
                         </button>
-                        {/* Suppression d'une catégorie : jamais proposée pour
-                            les catégories protégées (Gros œuvre, Transport et
-                            autres) ni pour leurs sous-catégories. */}
-                        {canDeleteLot(lot) && (
-                          <button
-                            type="button"
-                            title="Supprimer cette catégorie"
-                            aria-label={`Supprimer la catégorie ${lot.name}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPendingDelete({
-                                kind: "lot",
-                                lotId: lot.id,
-                                lotName: lot.name,
-                                label: lot.name,
-                                customCount: customCountForLines(
-                                  lot,
-                                  (lot.lines ?? []).map((_: any, index: number) => ({ index })),
-                                ),
-                              });
-                            }}
-                            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/40 shrink-0 transition-colors hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
                       </div>
 
                       {/* Sous-étapes (lignes du lot) */}
@@ -401,29 +281,6 @@ export function QuantitatifDetails({
                                   <span className="text-[10px] text-muted-foreground/50 ml-auto">
                                     {fmt(natureTotal)}
                                   </span>
-                                  {/* Suppression d'une sous-catégorie : jamais
-                                      proposée dans une catégorie protégée. */}
-                                  {canDeleteNature(lot, nature) && (
-                                    <button
-                                      type="button"
-                                      title="Supprimer cette sous-catégorie"
-                                      aria-label={`Supprimer la sous-catégorie ${meta.label} de ${lot.name}`}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setPendingDelete({
-                                          kind: "nature",
-                                          lotId: lot.id,
-                                          lotName: lot.name,
-                                          nature,
-                                          label: `${meta.label} — ${lot.name}`,
-                                          customCount: customCountForLines(lot, lines),
-                                        });
-                                      }}
-                                      className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground/40 shrink-0 transition-colors hover:bg-destructive/10 hover:text-destructive"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </button>
-                                  )}
                                 </div>
                                 {/* Lignes */}
                                 {lines.map((entry: any) => {
@@ -531,14 +388,6 @@ export function QuantitatifDetails({
                         {modifiedCount > 1 ? "s" : ""} par rapport au scénario de référence.
                       </p>
                     )}
-                    {isPersonalized && deletedCount > 0 && (
-                      <p className="text-[9px] text-amber-700 mt-0.5">
-                        Scénario Personnalisé — {deletedCount} catégorie
-                        {deletedCount > 1 ? "s" : ""} ou sous-catégorie
-                        {deletedCount > 1 ? "s" : ""} supprimée
-                        {deletedCount > 1 ? "s" : ""} (hors catégories protégées).
-                      </p>
-                    )}
                     {isPersonalized &&
                       lots.some((l: { customWorks?: boolean }) => l?.customWorks) && (
                       <p className="text-[9px] text-amber-700 mt-0.5">
@@ -602,64 +451,6 @@ export function QuantitatifDetails({
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Confirmation avant toute suppression : l'opération peut être annulée
-          et n'est enregistrée qu'après validation explicite. */}
-      <AlertDialog
-        open={!!pendingDelete}
-        onOpenChange={(v) => {
-          if (!v && !deleting) setPendingDelete(null);
-        }}
-      >
-        <AlertDialogContent className="max-w-sm">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-sm">
-              {pendingDelete?.kind === "lot"
-                ? "Supprimer cette catégorie ?"
-                : "Supprimer cette sous-catégorie ?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs space-y-2">
-              <span className="block">{DELETE_STRUCTURE_CONFIRMATION}</span>
-              {pendingDelete && (
-                <span className="block">
-                  Élément concerné :{" "}
-                  <span className="font-semibold text-foreground/80">{pendingDelete.label}</span>
-                  {pendingDelete.kind === "lot"
-                    ? " — ses sous-catégories et toutes ses lignes de travaux seront également supprimées."
-                    : " — seule cette sous-catégorie et ses lignes seront supprimées."}
-                </span>
-              )}
-              {pendingDelete && pendingDelete.customCount > 0 && (
-                <span className="block text-amber-700">
-                  Attention : cet élément contient {pendingDelete.customCount} article
-                  {pendingDelete.customCount > 1 ? "s" : ""} personnalisé
-                  {pendingDelete.customCount > 1 ? "s" : ""} : cette personnalisation sera
-                  définitivement perdue.
-                </span>
-              )}
-              <span className="block">
-                Seul le scénario Personnalisé est modifié : les scénarios Économique,
-                Standard et Premium restent inchangés.
-              </span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="text-xs" disabled={deleting}>
-              Annuler
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleting}
-              onClick={(e) => {
-                e.preventDefault();
-                void confirmDelete();
-              }}
-            >
-              {deleting ? "Suppression…" : "Supprimer"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </motion.div>
   );
 }
