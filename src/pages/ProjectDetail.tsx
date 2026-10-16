@@ -82,6 +82,7 @@ import {
   REFERENCE_REGION,
   computeRegionImpact,
   nationalAvgPriceM2,
+  type RegionComparisonRow,
 } from "@/lib/regionImpact";
 
 import {
@@ -128,6 +129,15 @@ const BIM_ICONS: Record<string, any> = {
 const chartColor = (item: { category?: string; color?: string }) =>
   item.color ?? BIM_COLORS[String(item.category ?? "")] ?? "#888";
 
+// Régions comparées dans la carte « Impact région » : mise en page et ordre
+// d'origine (inchangés). Les montants viennent du comparatif calculé pour le
+// scénario actif ; la région du projet y figure toujours, même hors de cette
+// liste.
+const COMPARE_REGIONS = [
+  { key: "tunis", name: "Tunis" }, { key: "sousse", name: "Sousse" },
+  { key: "sfax", name: "Sfax" }, { key: "nabeul", name: "Nabeul" },
+  { key: "kairouan", name: "Kairouan" }, { key: "kasserine", name: "Kasserine" },
+];
 
 const CONFIDENCE_STEPS = [
   { min: 80, label: "Fiable", color: "text-emerald-600", bg: "bg-emerald-100", bar: "bg-emerald-500" },
@@ -834,6 +844,42 @@ export default function ProjectDetail() {
     return price > 0 ? Math.round(price * projectRatio) : 0;
   }, [effectiveScenario, projectRatio]);
 
+  // ── Chiffres affichés par la carte « Impact région » (mise en page d'origine) ──
+  // Écart et ajustement sont lus sur la MÊME référence que la ligne « Moyenne
+  // nationale » du bloc : le pourcentage et le montant restent donc cohérents
+  // entre eux, et suivent le scénario actif.
+  const regionCard = useMemo(() => {
+    if (!regionImpact) return undefined;
+    const nationalTotal = regionImpact.totalNationalAvg ?? regionImpact.total;
+    return {
+      nationalTotal,
+      adjustment: regionImpact.total - nationalTotal,
+      pct: nationalTotal > 0 ? Math.round((regionImpact.total / nationalTotal - 1) * 100) : 0,
+    };
+  }, [regionImpact]);
+
+  // Lignes du « Comparatif par région » : les six régions de la mise en page
+  // d'origine, complétées par la région du projet si elle n'y figure pas —
+  // montants du comparatif complet du scénario actif. Les montants restent
+  // classés du plus cher au moins cher, comme dans la mise en page validée :
+  // les barres décroissent toujours régulièrement.
+  const compareRows = useMemo<RegionComparisonRow[]>(() => {
+    if (!regionImpact) return [];
+    const wanted = COMPARE_REGIONS.map((r) => r.key);
+    const keys = wanted.includes(regionImpact.region)
+      ? wanted
+      : [...wanted, regionImpact.region];
+    return keys
+      .map((k) => regionImpact.regions.find((r) => r.region === k))
+      .filter((r): r is RegionComparisonRow => Boolean(r))
+      .sort((a, b) => b.totalCost - a.totalCost);
+  }, [regionImpact]);
+
+  const maxCompareTotal = useMemo(
+    () => compareRows.reduce((max, r) => Math.max(max, r.totalCost), 0),
+    [compareRows],
+  );
+
   // ── Loading / Skeleton ──────────────────────────────────────────────────
 
   if (!project) {
@@ -1225,55 +1271,36 @@ export default function ProjectDetail() {
               ))}
             </motion.div>
 
-            {/* ═══ Impact régional & comparatif régional ═══ */}
-            {regionImpact && (
+            {/* ═══ Impact région & comparatif par région (mise en page d'origine) ═══ */}
+            {regionImpact && regionCard && (
               <SectionCard
                 icon={Map}
-                title={`Impact régional — ${regionImpact.regionLabel}`}
-                badge={`Scénario ${regionImpact.scenarioLabel}`}>
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+                title={`Impact région : ${regionImpact.regionLabel}`}
+                badge={`×${regionImpact.factor.toFixed(2)}`}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* ── Résumé de l'impact régional du scénario actif ── */}
-                  <div className="lg:col-span-2 p-3 rounded-lg bg-muted/30 border border-border/20">
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border/20">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", regionImpact.differencePct > 0 ? "bg-amber-100" : "bg-emerald-100")}>
-                        <TrendingUp className={cn("h-4 w-4", regionImpact.differencePct > 0 ? "text-amber-600" : "text-emerald-600")} />
+                      <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg", regionCard.pct > 0 ? "bg-amber-100" : "bg-emerald-100")}>
+                        <TrendingUp className={cn("h-4 w-4", regionCard.pct > 0 ? "text-amber-600" : "text-emerald-600")} />
                       </div>
-                      <div>
-                        <p className="text-xs font-semibold">
-                          {regionImpact.differencePct === 0
-                            ? "Prix de référence"
-                            : regionImpact.differencePct > 0
-                              ? `${regionImpact.differencePct}% plus cher`
-                              : `${Math.abs(regionImpact.differencePct)}% moins cher`}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          vs {regionImpact.referenceLabel} — base 100 % de la grille 2026
-                        </p>
-                      </div>
+                      <p className="text-xs font-semibold">
+                        {regionCard.pct === 0
+                          ? "Au niveau de la moyenne nationale"
+                          : regionCard.pct > 0
+                            ? `${regionCard.pct}% plus cher`
+                            : `${Math.abs(regionCard.pct)}% moins cher`}
+                      </p>
                     </div>
                     <div className="space-y-1 text-xs">
                       <div className="flex justify-between py-0.5">
-                        <span className="text-muted-foreground">Prix du scénario ({regionImpact.scenarioLabel})</span>
-                        <span className="font-medium">{fmt(regionImpact.priceM2)}/m²</span>
+                        <span className="text-muted-foreground">Moyenne nationale</span>
+                        <span className="font-medium">{fmt(regionCard.nationalTotal)}</span>
                       </div>
                       <div className="flex justify-between py-0.5">
-                        <span className="text-muted-foreground">Coefficient régional (base {regionImpact.referenceLabel})</span>
-                        <span className="font-medium tabular-nums">×{regionImpact.factor.toFixed(3)}</span>
-                      </div>
-                      <div className="flex justify-between py-0.5">
-                        <span className="text-muted-foreground">Total à {regionImpact.referenceLabel}</span>
-                        <span className="font-medium">{fmt(regionImpact.totalReference)}</span>
-                      </div>
-                      {regionImpact.totalNationalAvg != null && (
-                        <div className="flex justify-between py-0.5">
-                          <span className="text-muted-foreground">Moyenne nationale du scénario</span>
-                          <span className="font-medium">{fmt(regionImpact.totalNationalAvg)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between py-0.5">
-                        <span className="text-muted-foreground">Écart régional</span>
-                        <span className={cn("font-medium", regionImpact.difference > 0 ? "text-amber-600" : "text-emerald-600")}>
-                          {regionImpact.difference > 0 ? "+" : ""}{fmt(regionImpact.difference)}
+                        <span className="text-muted-foreground">Ajustement</span>
+                        <span className={cn("font-medium", regionCard.adjustment > 0 ? "text-amber-600" : "text-emerald-600")}>
+                          {regionCard.adjustment > 0 ? "+" : ""}{fmt(regionCard.adjustment)}
                         </span>
                       </div>
                       <div className="flex justify-between py-1 mt-1 border-t border-border/20">
@@ -1281,103 +1308,41 @@ export default function ProjectDetail() {
                         <span className="font-bold text-primary">{fmt(regionImpact.total)}</span>
                       </div>
                     </div>
-                    {regionImpact.priceRange && (
-                      <p className="text-[9px] text-muted-foreground mt-1.5">
-                        Fourchette grille 2026 : {regionImpact.priceRange} TND/m²
-                      </p>
-                    )}
-                    <p className="text-[9px] text-muted-foreground mt-0.5">
-                      Même projet, même surface ({regionImpact.realBuiltArea} m² construits
-                      {regionImpact.equivalentArea != null ? ` · ${regionImpact.equivalentArea} m² équivalents` : ""}),
-                      mêmes quantités du quantitatif : seuls les prix régionaux changent.
-                    </p>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">
-                      Le coefficient régional est déjà compris dans le prix de la grille 2026 :
-                      il n'est appliqué qu'une seule fois, gros œuvre et second œuvre compris.
-                    </p>
                   </div>
 
-                  {/* ── Comparatif régional + graphique des écarts ── */}
-                  <div className="lg:col-span-3 p-3 rounded-lg bg-muted/30 border border-border/20">
+                  {/* ── Comparatif par région du scénario actif ── */}
+                  <div className="p-3 rounded-lg bg-muted/30 border border-border/20">
                     <p className="text-[10px] font-semibold text-muted-foreground mb-2">
-                      Comparatif régional — scénario {regionImpact.scenarioLabel} · {regionImpact.regions.length} gouvernorats
+                      Comparatif par région
                     </p>
-                    <div className="h-[190px] mb-2">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          data={regionImpact.regions}
-                          layout="vertical"
-                          margin={{ top: 4, right: 10, left: 0, bottom: 0 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,116,139,0.15)" horizontal={false} />
-                          <XAxis type="number" tick={{ fontSize: 9, fill: "#94a3b8" }} tickFormatter={fmtCompact} tickLine={false} axisLine={false} />
-                          <YAxis type="category" dataKey="label" width={70} tick={{ fontSize: 9, fill: "#94a3b8" }} tickLine={false} axisLine={false} interval={0} />
-                          <Tooltip cursor={{ fill: "rgba(100,116,139,0.08)" }} content={({ active, payload }) => {
-                            if (!active || !payload?.length) return null;
-                            const d = payload[0].payload as any;
-                            return (
-                              <div className="bg-background/95 backdrop-blur border border-border/40 rounded-lg p-2.5 text-xs shadow-lg">
-                                <p className="font-semibold">{d.label}{d.isActive ? " (projet)" : d.isReference ? " (référence)" : ""}</p>
-                                <p className="text-muted-foreground">Total TTC : {fmt(d.totalCost)}</p>
-                                <p className="text-muted-foreground">{fmt(d.costPerM2)}/m² · {d.priceM2} TND/m² grille</p>
-                                <p className="text-muted-foreground">
-                                  Écart : {d.deltaAmount > 0 ? "+" : ""}{fmt(d.deltaAmount)} ({d.deltaPct > 0 ? "+" : ""}{d.deltaPct} %)
-                                </p>
-                                <p className="text-muted-foreground">
-                                  Coefficient régional : ×{Number(d.factor).toFixed(3)} (base {regionImpact.referenceLabel})
-                                </p>
-                                <p className="text-muted-foreground">
-                                  Multiplicateur appliqué au total : ×{Number(d.appliedFactor).toFixed(3)}
-                                </p>
-                              </div>
-                            );
-                          }} />
-                          <Bar dataKey="totalCost" name="Total TTC" radius={[0, 4, 4, 0]} maxBarSize={11}>
-                            {regionImpact.regions.map((r) => (
-                              <Cell key={r.region} fill={r.isActive ? "#059669" : r.isReference ? "#0ea5e9" : "#cbd5e1"} />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="max-h-[200px] overflow-y-auto rounded-md border border-border/20">
-                      <table className="w-full text-[10px]">
-                        <thead className="sticky top-0 bg-muted/70 backdrop-blur">
-                          <tr className="text-muted-foreground">
-                            <th className="text-left font-semibold px-2 py-1">Région</th>
-                            <th className="text-right font-semibold px-1 py-1">Total TTC</th>
-                            <th className="text-right font-semibold px-1 py-1">/m²</th>
-                            <th className="text-right font-semibold px-1 py-1">Écart</th>
-                            <th className="text-right font-semibold px-1 py-1">%</th>
-                            <th className="text-right font-semibold px-2 py-1">Coeff. réf.</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {regionImpact.regions.map((r) => (
-                            <tr
-                              key={r.region}
-                              className={cn(
-                                "border-t border-border/10",
-                                r.isActive && "bg-primary/[0.07] font-semibold",
-                              )}>
-                              <td className="px-2 py-1">
-                                <span>{r.label}</span>
-                                {r.isActive && <span className="ml-1 text-[8px] text-primary">projet</span>}
-                                {r.isReference && !r.isActive && <span className="ml-1 text-[8px] text-sky-600">réf.</span>}
-                              </td>
-                              <td className="px-1 py-1 text-right tabular-nums">{fmt(r.totalCost)}</td>
-                              <td className="px-1 py-1 text-right tabular-nums text-muted-foreground">{fmt(r.costPerM2)}</td>
-                              <td className={cn("px-1 py-1 text-right tabular-nums", r.deltaAmount > 0 ? "text-amber-600" : r.deltaAmount < 0 ? "text-emerald-600" : "text-muted-foreground")}>
-                                {r.deltaAmount > 0 ? "+" : ""}{fmt(r.deltaAmount)}
-                              </td>
-                              <td className={cn("px-1 py-1 text-right tabular-nums", r.deltaPct > 0 ? "text-amber-600" : r.deltaPct < 0 ? "text-emerald-600" : "text-muted-foreground")}>
-                                {r.deltaPct > 0 ? "+" : ""}{r.deltaPct}%
-                              </td>
-                              <td className="px-2 py-1 text-right tabular-nums text-muted-foreground">×{r.factor.toFixed(3)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="space-y-1.5">
+                      {compareRows.map((r) => {
+                        const barW = maxCompareTotal > 0 ? (r.totalCost / maxCompareTotal) * 100 : 0;
+                        return (
+                          <div
+                            key={r.region}
+                            // Détail de la région (total, coût/m², écart TND et %, coefficient)
+                            // accessible sans alourdir la mise en page.
+                            title={`${r.label} · ${fmt(r.totalCost)} TTC · ${fmt(r.costPerM2)}/m² · écart ${r.deltaAmount > 0 ? "+" : ""}${fmt(r.deltaAmount)} (${r.deltaPct > 0 ? "+" : ""}${r.deltaPct} %) · coefficient ×${r.factor.toFixed(3)}`}
+                            className={cn(
+                              "flex items-center gap-2 px-2 py-1 rounded-md",
+                              r.isActive && "bg-primary/5",
+                            )}>
+                            <span className={cn("text-[11px] w-16 shrink-0 truncate", r.isActive && "font-semibold text-primary")}>
+                              {r.label}
+                            </span>
+                            <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
+                              <div
+                                className={cn("h-full rounded-full", r.isActive ? "bg-primary" : "bg-primary/20")}
+                                style={{ width: `${barW}%` }}
+                              />
+                            </div>
+                            <span className={cn("text-[10px] font-mono w-[62px] text-right tabular-nums", r.isActive ? "font-semibold text-primary" : "text-muted-foreground")}>
+                              {fmt(r.totalCost)}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -1578,7 +1543,6 @@ export default function ProjectDetail() {
                       avgM2={avgM2}
                       displayedCostM2={currentCostM2}
                       builtSurface={surfaceTot}
-                      avgM2Label={`Moyenne nationale (24 gouvernorats) — prix ${regionImpact?.scenarioLabel ?? BUDGET_SCENARIO_LABELS[effectiveScenario]} · Base marché Tunisie 2026`}
                       regionLabel={
                         project?.region
                           ? REGION_LABELS[project.region] ?? project.region
@@ -1905,7 +1869,7 @@ export default function ProjectDetail() {
                                 </div>
                                 <p className="text-lg font-black tabular-nums text-foreground">{fmt(avgM2)}<span className="text-xs font-normal text-muted-foreground">/m²</span></p>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                                  Moyenne nationale 24 gouvernorats · prix {regionImpact?.scenarioLabel ?? BUDGET_SCENARIO_LABELS[effectiveScenario]} · Base marché Tunisie 2026
+                                  Moyenne nationale 24 gouvernorats · Base marché Tunisie 2026
                                 </p>
                                 {project?.region && currentCostM2 !== avgM2 && (
                                   <p className={cn("text-[10px] font-medium mt-1", currentCostM2 > avgM2 ? "text-amber-600" : "text-emerald-600")}>
