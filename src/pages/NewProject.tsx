@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { useMutation, useQuery } from "convex/react";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft, Upload, FileText, Map, Pen, Ruler,
@@ -542,6 +542,28 @@ export default function NewProject() {
   // Nombre de niveaux (RDC = 1). Réinitialisé selon le type sélectionné,
   // puis ajustable manuellement (R+1, R+2, R+3).
   const [floors, setFloors] = useState(1);
+  // Surfaces couvertes réelles des étages supérieurs (R+1, R+2, …) : un étage
+  // plus petit que le RDC est facturé sur SA surface, jamais sur celle du RDC.
+  // Un champ laissé vide reprend la surface du rez-de-chaussée.
+  const [upperSurfaces, setUpperSurfaces] = useState<number[]>([]);
+
+  const setUpperSurface = (index: number, raw: string) => {
+    setUpperSurfaces((prev) => {
+      const next = [...prev];
+      while (next.length < floors - 1) next.push(NaN);
+      next[index] = raw.trim() === "" ? NaN : Math.max(0, Number(raw) || 0);
+      return next;
+    });
+  };
+
+  /** Surfaces réelles de chaque niveau transmises au moteur (RDC en premier). */
+  const levelSurfaces = useMemo(() => {
+    if (floors <= 1) return undefined;
+    return [surface, ...Array.from({ length: floors - 1 }, (_, i) => {
+      const value = upperSurfaces[i];
+      return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : surface;
+    })];
+  }, [floors, surface, upperSurfaces]);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -693,6 +715,9 @@ export default function NewProject() {
         // type de projet, transmise telle quelle aux moteurs BIM / DQE.
         surface: normalizeSurface(surfaceRuleForCategory(selectedCategory), surface),
         floors,
+        // Surfaces réelles par niveau (RDC inclus) : transmises telles quelles au
+        // moteur de coûts, au DQE et à l'aide à la décision.
+        levelSurfaces,
       });
 
       await simulateAnalysis({ projectId });
@@ -1079,6 +1104,40 @@ export default function NewProject() {
                   <p className="text-[10px] text-muted-foreground mt-1.5">
                     Ajusté automatiquement selon le type de projet sélectionné.
                   </p>
+
+                  {/* Surfaces réelles de chaque étage : un étage plus petit que
+                      le rez-de-chaussée est chiffré sur sa propre surface. */}
+                  {floors > 1 && (
+                    <div className="mt-3 space-y-2 rounded-lg border border-border/40 bg-background/40 p-3">
+                      <p className="text-[10px] font-semibold text-muted-foreground">
+                        Surfaces couvertes par niveau (m²)
+                      </p>
+                      <div className="flex items-center justify-between gap-2 text-[10px]">
+                        <span className="font-medium">RDC</span>
+                        <span className="tabular-nums text-muted-foreground">{surface} m²</span>
+                      </div>
+                      {Array.from({ length: floors - 1 }, (_, i) => (
+                        <div key={i} className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-medium">R+{i + 1}</span>
+                          <Input
+                            inputMode="decimal"
+                            value={
+                              Number.isFinite(upperSurfaces[i] as number)
+                                ? String(upperSurfaces[i])
+                                : ""
+                            }
+                            onChange={(e) => setUpperSurface(i, e.target.value)}
+                            placeholder={`${surface}`}
+                            className="h-8 w-24 text-right text-xs tabular-nums"
+                          />
+                        </div>
+                      ))}
+                      <p className="text-[10px] text-muted-foreground">
+                        Laisser vide pour reprendre la surface du RDC. Les étages sont estimés sur leur
+                        surface réelle — jamais sur le coût complet du rez-de-chaussée.
+                      </p>
+                    </div>
+                  )}
                 </div>
                 )}
 

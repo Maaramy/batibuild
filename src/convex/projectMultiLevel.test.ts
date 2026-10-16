@@ -1,0 +1,233 @@
+/// <reference types="vite/client" />
+
+// ============================================================================
+// COÛT MULTI-NIVEAUX — TEST DE BOUT EN BOUT (interface réelle du produit)
+// ----------------------------------------------------------------------------
+// Le calcul est vérifié à travers le CHEMIN RÉEL utilisé par l'application :
+//   createProject (surfaces par niveau) → simulateAnalysis (moteur BIM + DQE)
+//   → projet enregistré (coût estimatif + Quantitatif détaillé).
+// Il couvre :
+//   • la correction du calcul R+1 / R+2 (jamais deux RDC complets) ;
+//   • l'usage des surfaces RÉELLES saisies par niveau ;
+//   • la configuration des coefficients par l'administrateur, sans code ;
+//   • la cohérence coût global TTC ↔ somme du DQE ;
+//   • l'absence de double comptage des travaux communs (fondations, toiture).
+// ============================================================================
+
+import { describe, it, expect, beforeEach } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "./schema.js";
+import { api } from "./_generated/api.js";
+
+const modules = import.meta.glob("./**/*.*s");
+
+async function createAdminUser(t: ReturnType<typeof convexTest>) {
+  return t.run(async (ctx) =>
+    ctx.db.insert("users", {
+      name: "Admin Test",
+      email: "admin-multiniveau@test.com",
+      role: "admin",
+      status: "active",
+      subscriptionPlan: "free",
+      image: undefined,
+      company: undefined,
+      phone: undefined,
+      subscriptionEndDate: undefined,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }),
+  );
+}
+
+/** Crée un projet puis lance l'estimation réelle (moteur BIM + DQE). */
+async function createAndEstimate(
+  t: ReturnType<typeof convexTest>,
+  userId: string,
+  input: { surface: number; floors: number; levelSurfaces?: number[]; name: string },
+) {
+  const userT = t.withIdentity({ subject: userId });
+  const projectId = await userT.mutation(api.projects.createProject, {
+    name: input.name,
+    category: "maison" as any,
+    region: "tunis" as any,
+    surface: input.surface,
+    floors: input.floors,
+    levelSurfaces: input.levelSurfaces,
+  });
+  await userT.mutation(api.projects.simulateAnalysis, { projectId });
+  const project: any = await t.run(async (ctx) => ctx.db.get(projectId));
+  return { projectId, project };
+}
+
+const sumLevelsAndRoof = (ce: any) =>
+  ce.levelBreakdown.levels.reduce((s: number, l: any) => s + l.amount, 0) +
+  ce.levelBreakdown.roof.amount;
+
+describe("Estimation enregistrée d'un projet à étages (createProject → simulateAnalysis)", () => {
+  let t: ReturnType<typeof convexTest>;
+  let userId: string;
+
+  beforeEach(async () => {
+    t = convexTest(schema, modules);
+    userId = await createAdminUser(t);
+  });
+
+  it("R+1 (100 + 100 m²) : jamais deux coûts complets de RDC", async () => {
+    const rdc = await createAndEstimate(t, userId, { surface: 100, floors: 1, name: "RDC 100" });
+    const r1 = await createAndEstimate(t, userId, {
+      surface: 100,
+      floors: 2,
+      levelSurfaces: [100, 100],
+      name: "R+1 100/100",
+    });
+
+    const ceRdc = rdc.project.costEstimate;
+    const ce = r1.project.costEstimate;
+
+    expect(ceRdc.totalCost).toBe(1980 * 100);
+    expect(ce.totalCost).toBeGreaterThan(ceRdc.totalCost);
+    expect(ce.totalCost).toBeLessThan(ceRdc.totalCost * 2);
+
+    // Détail du calcul persisté : RDC 100 % (frais communs une seule fois) + R+1 75 %.
+    const lb = ce.levelBreakdown;
+    expect(lb.levels.map((l: any) => l.label)).toEqual(["RDC", "R+1"]);
+    expect(lb.levels[0].coefficient).toBe(1);
+    expect(lb.levels[0].commonAmount).toBeGreaterThan(0);
+    expect(lb.levels[1].commonAmount).toBe(0);
+    expect(lb.levels[1].coefficient).toBe(0.75);
+    expect(lb.levels[1].amount).toBe(Math.round(1980 * 100 * 0.75));
+    expect(ce.totalCost).toBe(sumLevelsAndRoof(ce));
+    expect(lb.anomalies).toEqual([]);
+  });
+
+  it("le Quantitatif détaillé enregistré retombe exactement sur le coût estimatif", async () => {
+    const { project } = await createAndEstimate(t, userId, {
+      surface: 100,
+      floors: 2,
+      levelSurfaces: [100, 100],
+      name: "R+1 DQE",
+    });
+    const ce = project.costEstimate;
+    const dqe = project.dqe;
+    const sumLots = dqe.lots.reduce((s: number, l: any) => s + l.subtotal, 0);
+    expect(sumLots).toBe(dqe.totals.total);
+    expect(Math.abs(dqe.totals.total - ce.totalCost)).toBeLessThanOrEqual(dqe.lots.length);
+    // Aucune anomalie de cohérence DQE ↔ coût global.
+    expect(ce.levelBreakdown.anomalies).toEqual([]);
+  });
+
+  it("R+2 avec surfaces réelles 100 / 100 / 80 m² : chaque niveau garde SA surface", async () => {
+    const { project } = await createAndEstimate(t, userId, {
+      surface: 100,
+      floors: 3,
+      levelSurfaces: [100, 100, 80],
+      name: "R+2 100/100/80",
+    });
+    const ce = project.costEstimate;
+    const lb = ce.levelBreakdown;
+
+    expect(project.levelSurfaces).toEqual([100, 100, 80]);
+    expect(lb.realBuiltArea).toBe(280);
+    expect(lb.levels.map((l: any) => l.area)).toEqual([100, 100, 80]);
+    expect(lb.levels[2].amount).toBe(Math.round(1980 * 80 * 0.72));
+    // La surface de l'étage n'est jamais remplacée par celle du RDC.
+    expect(lb.levels[2].amount).toBeLessThan(lb.levels[1].amount);
+    expect(ce.totalCost).toBe(sumLevelsAndRoof(ce));
+  });
+
+  it("les fondations et le terrassement du DQE suivent l'emprise au sol, pas les niveaux", async () => {
+    const { project } = await createAndEstimate(t, userId, {
+      surface: 100,
+      floors: 3,
+      name: "R+2 emprise",
+    });
+    const go = project.dqe.lots.find((l: any) => l.id === "gros_oeuvre");
+    const fondations = go.lines.find((l: any) => l.designation === "Terrassement et fondations");
+    const toiture = go.lines.find((l: any) => l.designation.includes("Toiture"));
+    // Comptés une seule fois sur 100 m² d'emprise (et non 300 m² de niveaux).
+    expect(fondations.quantity).toBe(100);
+    expect(toiture.quantity).toBe(100);
+  });
+
+  it("les coefficients enregistrés par l'administrateur pilotent le calcul, sans code", async () => {
+    const before = await createAndEstimate(t, userId, {
+      surface: 100,
+      floors: 2,
+      name: "Avant config",
+    });
+
+    const adminT = t.withIdentity({ subject: userId });
+    await adminT.mutation(api.bimConfig.saveBIMConfig, {
+      levelCoefficients: JSON.stringify({ rPlus1: 0.72, commonShare: 0.25, roofWeight: 0.04 }),
+      levelCoefficientsValidFrom: Date.UTC(2026, 0, 1),
+      levelCoefficientsValidUntil: Date.UTC(2026, 11, 31),
+    });
+
+    const after = await createAndEstimate(t, userId, {
+      surface: 100,
+      floors: 2,
+      name: "Après config",
+    });
+
+    const lb = after.project.costEstimate.levelBreakdown;
+    // Les coefficients enregistrés sont ceux appliqués par le moteur.
+    expect(lb.config.rPlus1).toBe(0.72);
+    expect(lb.config.commonShare).toBe(0.25);
+    expect(lb.config.roofWeight).toBe(0.04);
+    expect(lb.levels[1].amount).toBe(Math.round(1980 * 100 * 0.72));
+    expect(lb.levels[0].commonAmount).toBe(Math.round(1980 * 100 * 0.25));
+    // Coefficient d'étage abaissé → coût global plus bas, sans anomalie.
+    expect(after.project.costEstimate.totalCost).toBeLessThan(
+      before.project.costEstimate.totalCost,
+    );
+    // Toujours exactement la somme des niveaux + toiture.
+    expect(after.project.costEstimate.totalCost).toBe(sumLevelsAndRoof(after.project.costEstimate));
+    expect(lb.anomalies).toEqual([]);
+  });
+
+  it("un coefficient incohérent est signalé dans le projet enregistré, jamais masqué", async () => {
+    // R+1 à 80 % avec 25 % de frais communs : le coefficient dépasse la part non
+    // commune du RDC → les frais fixes seraient comptés deux fois. La valeur reste
+    // dans la fourchette admise (65-80 %), elle est donc acceptée puis SIGNALÉE.
+    const adminT = t.withIdentity({ subject: userId });
+    await adminT.mutation(api.bimConfig.saveBIMConfig, {
+      levelCoefficients: JSON.stringify({ rPlus1: 0.8, commonShare: 0.25 }),
+    });
+
+    const { project } = await createAndEstimate(t, userId, {
+      surface: 100,
+      floors: 2,
+      name: "Config incohérente",
+    });
+    const anomalies = project.costEstimate.levelBreakdown.anomalies;
+    expect(anomalies.map((a: any) => a.code)).toContain("frais_fixes_dupliques_R+1");
+    // Le calcul reste explicite : total = somme des niveaux + toiture.
+    expect(project.costEstimate.totalCost).toBe(sumLevelsAndRoof(project.costEstimate));
+  });
+
+  it("un coefficient d'étage hors fourchette est refusé à l'enregistrement", async () => {
+    const adminT = t.withIdentity({ subject: userId });
+    await expect(
+      adminT.mutation(api.bimConfig.saveBIMConfig, {
+        levelCoefficients: JSON.stringify({ rPlus1: 0.95 }),
+      }),
+    ).rejects.toThrow(/hors fourchette/);
+  });
+
+  it("le tableau de bord admin expose les coefficients effectifs et leur validité", async () => {
+    const adminT = t.withIdentity({ subject: userId });
+    await adminT.mutation(api.bimConfig.saveBIMConfig, {
+      levelCoefficients: JSON.stringify({ rPlus2: 0.7 }),
+      levelCoefficientsValidFrom: Date.UTC(2026, 0, 1),
+      levelCoefficientsValidUntil: Date.UTC(2026, 11, 31),
+    });
+    const config: any = await adminT.query(api.bimConfig.getBIMConfig, {});
+    // Les valeurs EFFECTIVES (défauts fusionnés) sont celles appliquées au moteur.
+    expect(config.parsedLevelCoefficients.rPlus2).toBe(0.7);
+    expect(config.parsedLevelCoefficients.rPlus1).toBe(0.75);
+    expect(config.levelCoefficientsAreDefault).toBe(false);
+    expect(config.levelCoefficientsValidFrom).toBe(Date.UTC(2026, 0, 1));
+    expect(config.levelCoefficientsValidUntil).toBe(Date.UTC(2026, 11, 31));
+    expect(config.levelCoefficientRanges.rPlus1).toEqual({ min: 0.65, max: 0.8 });
+  });
+});

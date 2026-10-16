@@ -1,5 +1,10 @@
 import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 import { PROJECT_TYPES, PROJECT_TYPE_LABELS } from "./projectTypes";
+import {
+  computeLevelCost,
+  realBuiltArea,
+  type LevelCostConfig,
+} from "../lib/buildingLevels";
 
 // ============================================================================
 // PROFESSIONAL BIM COST ESTIMATION ENGINE
@@ -1029,24 +1034,30 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Parpaing creux 20cm", q:Math.round(tb*12*dW), u:"unités", up:P.bricks.parpaing_20},
     ];
   } else {
-    // Résidentiel / rénovation : structure classique tunisienne
-    // Facteur multi-niveaux : pour R+1 (floors=2) et R+2 (floors=3),
-    // les structures sont plus robustes (plus de dalles, escalier, armatures)
-    const sf = floors <= 1 ? 1 : floors === 2 ? 1.5 : 2.0;
-    const slabCount = Math.max(1, floors || 1);
+    // Résidentiel / rénovation : structure classique tunisienne.
+    // DEUX échelles de quantité, jamais combinées (sinon les quantités sont
+    // comptées deux fois, ce qui faussait aussi le partage interne du lot) :
+    //   • tb = surface RÉELLEMENT construite (tous niveaux) → travaux répétés à
+    //     chaque niveau : murs, cloisons, dalles, maçonnerie, coffrage ;
+    //   • surface = emprise au sol → travaux COMMUNS dimensionnés pour la
+    //     structure TOTALE et comptés une seule fois : terrassement, fouilles,
+    //     fondations, renforcement des poteaux/poutres et des armatures.
+    // `structFactor` traduit ce renforcement (R+1 : 1,30 · R+2 : 1,60 · R+3+ : 1,90).
+    const structFactor = floors <= 1 ? 1 : floors === 2 ? 1.3 : floors === 3 ? 1.6 : 1.9;
+    const reinforce = (structFactor - 1) * d;
     items = [
-      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*3.5*d*sf), u:"sacs", up:P.cement.bag42_5},
-      {n:"Ciment CPJ 32.5 (Maçonnerie)", q:Math.round(tb*1.0*d*sf), u:"sacs", up:P.cement.bag32_5},
-      {n:"Sable de construction 0/4", q:Math.round(tb*0.25*d*sf*10)/10, u:"m³", up:P.sand.construction},
-      {n:"Gravier 15/25mm", q:Math.round(tb*0.15*d*sf*10)/10, u:"m³", up:P.gravel["15_25mm"]},
-      {n:"Acier à béton T12", q:Math.round(tb*0.02*d*sf*100)/100, u:"tonnes", up:P.steel.t12_ton},
-      {n:"Treillis soudé ST25", q:Math.round(tb*0.12*sf), u:"m²", up:P.steel.treillis_m2},
-      {n:"Brique creuse 10cm", q:Math.round(tb*45*dW*sf), u:"unités", up:P.bricks.hollow_10},
-      {n:"Hourdis 16x50", q:Math.round(tb*7*d*slabCount), u:"unités", up:P.bricks.hourdis_16},
-      {n:"Béton prêt à l'emploi 300kg/m³", q:Math.round(tb*0.25*d*sf*10)/10, u:"m³", up:P.concrete.ready_mix_300},
-      {n:"Bois de coffrage", q:Math.round(tb*0.04*sf*100)/100, u:"m³", up:P.wood.formwork_m3},
-      {n:"Fouilles en rigole", q:Math.round(tb*0.1), u:"m³", up:18},
-      {n:"Parpaing creux 20cm", q:Math.round(tb*12*dW*sf), u:"unités", up:P.bricks.parpaing_20},
+      {n:"Ciment CPJ 42.5 (Sac 50kg)", q:Math.round(tb*3.5*d + surface*2.0*reinforce), u:"sacs", up:P.cement.bag42_5},
+      {n:"Ciment CPJ 32.5 (Maçonnerie)", q:Math.round(tb*1.0*d + surface*0.6*reinforce), u:"sacs", up:P.cement.bag32_5},
+      {n:"Sable de construction 0/4", q:Math.round((tb*0.25*d + surface*0.1*reinforce)*10)/10, u:"m³", up:P.sand.construction},
+      {n:"Gravier 15/25mm", q:Math.round((tb*0.15*d + surface*0.06*reinforce)*10)/10, u:"m³", up:P.gravel["15_25mm"]},
+      {n:"Acier à béton T12", q:Math.round((tb*0.02*d + surface*0.008*reinforce)*100)/100, u:"tonnes", up:P.steel.t12_ton},
+      {n:"Treillis soudé ST25", q:Math.round(tb*0.12 + surface*0.05*reinforce), u:"m²", up:P.steel.treillis_m2},
+      {n:"Brique creuse 10cm", q:Math.round(tb*45*dW), u:"unités", up:P.bricks.hollow_10},
+      {n:"Hourdis 16x50", q:Math.round(tb*7*d), u:"unités", up:P.bricks.hourdis_16},
+      {n:"Béton prêt à l'emploi 300kg/m³", q:Math.round((tb*0.25*d + surface*0.1*reinforce)*10)/10, u:"m³", up:P.concrete.ready_mix_300},
+      {n:"Bois de coffrage", q:Math.round(tb*0.04*100)/100, u:"m³", up:P.wood.formwork_m3},
+      {n:"Fouilles en rigole", q:Math.round(surface*0.1*d), u:"m³", up:18},
+      {n:"Parpaing creux 20cm", q:Math.round(tb*12*dW), u:"unités", up:P.bricks.parpaing_20},
     ];
     if (floors >= 2) {
       const escUp = floors === 2 ? 5500 : 7500;
@@ -1133,9 +1144,11 @@ function genSOItems(surface: number, floors: number, cat: string, targetBudget: 
       {n:"Étanchéité liquide bitumeuse", q:Math.round(tb*0.25), u:"m²", up:22},
     ];
   } else {
-    // Résidentiel / rénovation : finitions classiques tunisiennes
-    const doorMultiplier = floors <= 1 ? 1 : floors === 2 ? 1.5 : 2.0;
-    const multiDoorC = Math.max(1, Math.round(doorC * doorMultiplier));
+    // Résidentiel / rénovation : finitions classiques tunisiennes.
+    // Les portes suivent le nombre de pièces (`doorC`, lui-même dérivé de la
+    // surface construite) : aucun multiplicateur d'étages supplémentaire, sinon
+    // les portes seraient comptées deux fois pour un R+1 / R+2.
+    const multiDoorC = Math.max(1, Math.round(doorC));
     items = [
       {n:"Carrelage sol grès cérame 40x40", q:tileQty, u:"m²", up:22},
       {n:"Carrelage mural faïence 20x30", q:Math.round(tileQty*0.25), u:"m²", up:18},
@@ -1728,10 +1741,27 @@ export interface RoomCounts {
   pools?: number;
 }
 
+/**
+ * Options du calcul multi-niveaux : surfaces réelles de chaque niveau et
+ * coefficients configurés par l'administrateur (table `bimConfig`).
+ */
+export interface BIMEstimationOptions {
+  /**
+   * Surfaces couvertes réelles, niveau par niveau (1er élément = RDC). Un étage
+   * dont la surface diffère de celle du RDC reçoit donc son propre montant —
+   * aucune surface n'est recopiée automatiquement. Absent = surface du RDC pour
+   * tous les niveaux.
+   */
+  levelSurfaces?: number[];
+  /** Coefficients de niveau (RDC 100 % · R+1/R+2 65-80 % · R+3+ 56-80 %). */
+  levelConfig?: Partial<LevelCostConfig>;
+}
+
 export function runBIMEstimation(
   category: string, surface: number, floors: number,
   region?: string, finishLevel?: string,
-  rooms?: RoomCounts
+  rooms?: RoomCounts,
+  options?: BIMEstimationOptions,
 ) {
   const pct = PROJECT_PCT[category] || [35, 30, 15, 10, 3, 7];
   const marketPrices = MARKET_PRICE_M2[category] || { eco: 1000, std: 1500, premium: 2500 };
@@ -1771,7 +1801,25 @@ export function runBIMEstimation(
   // type de projet (maison = 1 → le chiffre du classeur est reproduit tel quel).
   const finalPriceM2 = Math.round(baseRegionM2 * projectRatio);
 
-  const tb = surface * (floors || 1);
+  // ── Calcul multi-niveaux : SOURCE UNIQUE du coût du bâtiment.
+  // Le RDC porte 100 % du prix au m² (frais communs — terrassement, fondations
+  // dimensionnées pour la structure totale, études, VRD, aménagements
+  // extérieurs — comptés UNE seule fois) et chaque étage supérieur est chiffré
+  // sur sa surface RÉELLE × son coefficient de niveau (65-80 %). La toiture /
+  // terrasse supérieure est chiffrée séparément, une seule fois. Le coût d'un
+  // R+1 n'est donc jamais le double du coût complet d'un RDC.
+  const levels = computeLevelCost({
+    surface,
+    floors,
+    levelSurfaces: options?.levelSurfaces,
+    config: options?.levelConfig,
+    pricePerM2: finalPriceM2,
+  });
+
+  // Surface réellement construite (somme des surfaces de tous les niveaux) :
+  // base des QUANTITÉS du quantitatif — jamais le nombre de niveaux appliqué
+  // aveuglément au coût du RDC.
+  const tb = realBuiltArea(surface, floors, options?.levelSurfaces);
 
   // ── Nombre de pièces : impacte uniquement les QUANTITÉS du quantitatif
   // (portes, WC, main-d'œuvre…) — jamais le prix au m², qui reste celui de la
@@ -1789,9 +1837,12 @@ export function runBIMEstimation(
   // Plus de pièces pour la même surface = plus de cloisons, portes & équipements
   const wallFactor = Math.min(1.25, Math.max(0.8, totalRooms / Math.max(1, stdRooms)));
 
-  // Coût total = grille exacte (TND/m²) × surface bâtie — aucune dérive possible
-  const finalTotal = Math.round(finalPriceM2 * tb);
-  const costM2 = tb > 0 ? Math.round(finalTotal / tb) : 0;
+  // Coût total = somme des postes calculés niveau par niveau (frais communs
+  // comptés une seule fois + étages à leur coefficient + toiture). Aucun autre
+  // terme n'est ajouté : ni marge d'imprévus, ni taxe supplémentaire (les prix
+  // unitaires de la grille 2026 et du catalogue matériaux sont déjà TTC).
+  const finalTotal = levels.total;
+  const costM2 = levels.costPerM2Real;
 
   const keys = ["gros_oeuvre","second_oeuvre","equipements","main_oeuvre","transport","etudes_imprevus"];
   const labels = ["Gros œuvre","Second œuvre","Équipements","Main-d'œuvre","Transport","Études & permis"];
@@ -1844,8 +1895,10 @@ export function runBIMEstimation(
   const scenarioEcoPrice = regionForScenarios ? regionForScenarios.eco * projectRatio : BASE_GRID_2026.eco * projectRatio;
   const scenarioStdPrice = regionForScenarios ? regionForScenarios.std * projectRatio : BASE_GRID_2026.std * projectRatio;
   const scenarioPremiumPrice = regionForScenarios ? regionForScenarios.premium * projectRatio : BASE_GRID_2026.hautStanding * projectRatio;
-  const totalEco = Math.round(scenarioEcoPrice * tb);
-  const totalPremium = Math.round(scenarioPremiumPrice * tb);
+  // Les trois scénarios suivent exactement la même méthode multi-niveaux :
+  // seule la valeur du prix au m² change (grille régionale du scénario).
+  const totalEco = Math.round(scenarioEcoPrice * levels.equivalentArea);
+  const totalPremium = Math.round(scenarioPremiumPrice * levels.equivalentArea);
   const scenarios = {
     economique: { label:"Économique", totalCost: totalEco, costPerM2: Math.round(scenarioEcoPrice), multiplier: scenarioEcoPrice / scenarioStdPrice },
     standard: { label:"Standard", totalCost: finalTotal, costPerM2: Math.round(scenarioStdPrice), multiplier: 1.0 },
@@ -1916,6 +1969,11 @@ export function runBIMEstimation(
       totalCost: finalTotal,
       costPerSquareMeter: costM2,
       currency: "TND",
+      // Détail multi-niveaux : RDC, chacun des étages, toiture, frais communs,
+      // surfaces réelles et vérification automatique des anomalies. Persisté
+      // avec l'estimation pour que l'affichage et l'administration restent
+      // alignés sur le calcul.
+      levelBreakdown: levels,
       breakdown,
       // Champs conservés pour rester compatible avec le schéma `projects` : la
       // marge d'imprévus est supprimée du calcul, ils valent donc toujours 0.

@@ -21,6 +21,7 @@ import { useQuery } from "convex/react";
 import { Building2, MapPin, Ruler } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
+import { realBuiltArea } from "@/lib/buildingLevels";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { DecisionSupportModule } from "@/components/decision/DecisionSupportModule";
 import { Button } from "@/components/ui/button";
@@ -123,8 +124,10 @@ export default function DecisionSupport() {
     return rows;
   }, [scenarios, scenarioKey, customization]);
 
+  // Surface réellement construite : somme des surfaces de chaque niveau
+  // (un étage plus petit que le RDC n'emprunte jamais la surface du RDC).
   const builtSurface = project?.surface
-    ? project.surface * (project.floors || 1)
+    ? realBuiltArea(project.surface, project.floors || 1, project.levelSurfaces)
     : 0;
   const regionLabel = project?.region
     ? REGION_LABELS[project.region] ?? project.region

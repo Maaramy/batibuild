@@ -398,6 +398,10 @@ const schema = defineSchema(
       // Surface (unified field, in m²)
       surface: v.optional(v.number()),
       floors: v.optional(v.number()),
+      // Surfaces couvertes RÉELLES de chaque niveau (1er élément = RDC). Absent
+      // = la surface du RDC s'applique à tous les niveaux. Un étage de surface
+      // différente n'est donc jamais facturé comme le RDC.
+      levelSurfaces: v.optional(v.array(v.number())),
       // Nombre de pièces (maison, villa, immeuble résidentiel)
       bedrooms: v.optional(v.number()),
       bathrooms: v.optional(v.number()),
@@ -502,6 +506,9 @@ const schema = defineSchema(
             }),
           ),
           dqe: v.optional(v.any()),
+          // Détail du calcul multi-niveaux (RDC, étages, toiture, frais communs,
+          // surfaces réelles) et vérification automatique des anomalies.
+          levelBreakdown: v.optional(v.any()),
         }),
       ),
       
@@ -1239,6 +1246,12 @@ const schema = defineSchema(
       projectPercentages: v.string(),
       regionMultipliers: v.string(),
       unitPrices: v.string(),
+      // Coefficients multi-niveaux (JSON : rdc, rPlus1, rPlus2,
+      // rPlus3AndAbove, commonShare, roofWeight) réglés par l'administrateur,
+      // avec leur date de validité — sans modification du code source.
+      levelCoefficients: v.optional(v.string()),
+      levelCoefficientsValidFrom: v.optional(v.number()),
+      levelCoefficientsValidUntil: v.optional(v.number()),
       version: v.number(),
       refreshedAt: v.number(),
       refreshedBy: v.id("users"),

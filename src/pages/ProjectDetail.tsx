@@ -67,6 +67,7 @@ import {
 } from "@/lib/complementaryWorks";
 import { CustomWorkIcon } from "@/components/CustomWorkIcon";
 import { runBIMEstimation } from "@/convex/bimEngine";
+import { realBuiltArea } from "@/lib/buildingLevels";
 
 import {
   inferFloorsFromCategory,
@@ -521,8 +522,12 @@ export default function ProjectDetail() {
     return map;
   }, [rawDqeLots]);
 
-  // Surface construite (m²) — base du coût au m².
-  const builtSurface = project?.surface ? project.surface * (project.floors || 1) : 0;
+  // Surface RÉELLEMENT construite (m²) — base du coût au m² : somme des
+  // surfaces couvertes de chaque niveau (un étage plus petit que le RDC ne
+  // reçoit jamais la surface du RDC).
+  const builtSurface = project?.surface
+    ? realBuiltArea(project.surface, project.floors || 1, project.levelSurfaces)
+    : 0;
 
   // Totaux du scénario « Personnalisé » = scénario de référence + modifications
   // d'articles + travaux complémentaires (une catégorie par travail, insérée
@@ -651,14 +656,18 @@ export default function ProjectDetail() {
     const region = project.region ?? "tunis";
     // Anciens slugs supprimés « Maison R+1 » / « Maison R+2 » → maison / villa.
     const category = normalizeLegacyCategory(project.category);
+    // Surfaces réelles par niveau : le comparatif « impact du nombre de pièces »
+    // est calculé avec EXACTEMENT la même méthode multi-niveaux que l'estimation
+    // enregistrée (aucun coût du RDC multiplié par le nombre d'étages).
+    const levelSurfaces = project.levelSurfaces;
     const withRooms = runBIMEstimation(category, surface, floors, region, finishLevel, {
       bedrooms: project.bedrooms,
       bathrooms: project.bathrooms,
       kitchens: project.kitchens,
       livingRooms: project.livingRooms,
       garages: project.garages,
-    });
-    const ref = runBIMEstimation(category, surface, floors, region, finishLevel);
+    }, { levelSurfaces });
+    const ref = runBIMEstimation(category, surface, floors, region, finishLevel, undefined, { levelSurfaces });
     const refTotal = ref.costEstimate.totalCost || 1;
     const diffPct = Math.round(
       ((withRooms.costEstimate.totalCost - refTotal) / refTotal) * 100,

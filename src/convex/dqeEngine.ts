@@ -23,6 +23,7 @@
 
 import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 import { resolveProjectType } from "./projectTypes";
+import { realBuiltArea } from "../lib/buildingLevels";
 
 export type DqeNature =
   | "materiaux"
@@ -75,7 +76,13 @@ interface LineTpl {
   sl?: string; // sous-lot
   u: string; // unité
   q: number; // quantité de référence (surface de référence 120 m²)
-  qMode?: "area" | "fixed"; // area = proportionnelle à la surface
+  /**
+   * area = proportionnelle à la surface RÉELLEMENT construite (tous niveaux),
+   * fixed = quantité fixe (une seule fois pour tout le bâtiment),
+   * footprint = proportionnelle à l'emprise au sol (travaux communs comptés
+   * une seule fois : terrassement, fondations, dallage, toiture).
+   */
+  qMode?: "area" | "fixed" | "footprint";
   up: number; // prix unitaire de référence (TND)
   n: DqeNature;
   obs?: string; // observations
@@ -197,12 +204,11 @@ function etudesLot(percent: number): LotTpl {
  */
 function grosOeuvreLot(percent: number, opts?: { toiture?: boolean; escalier?: boolean; floors?: number }): LotTpl {
   const f = opts?.floors || 1;
-  // Multiplicateurs structure proportionnels aux étages :
-  // fondations = ×1 (quel que soit le nb de niveaux)
-  // murs, armatures, planchers = ×facteur
-  const wallFactor = Math.round(100 + (f - 1) * 55) / 100;   // R+1: 1.55, R+2: 2.10
-  const structFactor = Math.round(100 + (f - 1) * 60) / 100;  // R+1: 1.60, R+2: 2.20
-  const slabCount = f; // 1 dalle par niveau (RDC = 1, R+1 = 2, R+2 = 3)
+  // Structure dimensionnée pour l'ENSEMBLE du bâtiment : plus le bâtiment est
+  // haut, plus les fondations, poteaux, poutres et chaînages sont renforcés.
+  // Ce renforcement est chiffré sur l'EMPRISE AU SOL et compté UNE seule fois
+  // (aucune multiplication par le nombre de niveaux) : R+1 : 1,30 · R+2 : 1,60.
+  const structFactor = Math.round(100 + (f - 1) * 30) / 100;
   const escalierUp = f === 1 ? 3500 : f === 2 ? 5500 : 7500; // escalier plus complexe pour R+1/R+2
   const escalierDesc = f === 1
     ? "1 volée droite ou quart tournant, finition brute."
@@ -211,22 +217,23 @@ function grosOeuvreLot(percent: number, opts?: { toiture?: boolean; escalier?: b
       : "3 volées avec paliers, béton armé, finition brute.";
 
   const lines: LineTpl[] = [
-    { d: "Terrassement et fondations", desc: "Fouilles, remblais, radier / semelles filantes.", u: "m²", q: 120, up: 75, n: "materiaux", obs: "Selon étude de sol" },
-    { d: "Soubassement et dallage", desc: "Hérisson, film polyane, isolant, dalle béton.", u: "m²", q: 120, up: 68, n: "materiaux" },
-    { d: "Murs porteurs et refends", desc: "Briques 12T / 8T, parpaings, chaînages verticaux.", u: "m²", q: Math.round(120 * wallFactor), up: 120, n: "materiaux", obs: f > 1 ? `${f} niveaux — murs cumulés` : undefined },
-    { d: "Poteaux, poutres et chaînages", desc: "Béton armé C25/30, acier T12, coffrage.", u: "m²", q: Math.round(120 * structFactor), up: 88, n: "materiaux", obs: f > 1 ? `${f} niveaux — structures renforcées` : undefined },
-    { d: "Planchers", desc: "Dalle pleine ou corps creux (hourdis + poutrelles).", u: "m²", q: Math.round(120 * slabCount), up: 105, n: "materiaux", obs: slabCount > 1 ? `${slabCount} dalles (1 par niveau)` : undefined },
+    { d: "Terrassement et fondations", desc: "Fouilles, remblais, radier / semelles filantes.", u: "m²", q: 120, qMode: "footprint", up: 75, n: "materiaux", obs: "Compté une seule fois selon étude de sol" },
+    { d: "Soubassement et dallage", desc: "Hérisson, film polyane, isolant, dalle béton.", u: "m²", q: 120, qMode: "footprint", up: 68, n: "materiaux", obs: "Compté une seule fois (emprise au sol)" },
+    { d: "Murs porteurs et refends", desc: "Briques 12T / 8T, parpaings, chaînages verticaux.", u: "m²", q: 120, up: 120, n: "materiaux", obs: f > 1 ? `${f} niveaux — un jeu de murs par niveau` : undefined },
+    { d: "Poteaux, poutres et chaînages", desc: "Béton armé C25/30, acier T12, coffrage.", u: "m²", q: Math.round(120 * structFactor), qMode: "footprint", up: 88, n: "materiaux", obs: f > 1 ? `Structure dimensionnée pour ${f} niveaux — comptée une seule fois` : undefined },
+    { d: "Planchers", desc: "Dalle pleine ou corps creux (hourdis + poutrelles).", u: "m²", q: 120, up: 105, n: "materiaux", obs: f > 1 ? `${f} dalles (1 par niveau)` : undefined },
     { d: "Escalier (béton armé)", desc: escalierDesc, u: "unité", q: 1, qMode: "fixed", up: escalierUp, n: "materiaux" },
-    { d: "Isolant sous dalle (polystyrène expansé 80 mm)", desc: "Film PE + polystyrène 20 kg/m³, joints bandés.", u: "m²", q: 120, up: 18, n: "materiaux" },
-    { d: "Joint bitumineux d'étanchéité soubassement", desc: "Bande bitumineuse autocollante sur radier.", u: "ml", q: 45, up: 12, n: "materiaux" },
-    { d: "Béton de propreté (C12/15 — 5 cm)", desc: "Dalle de propreté avant hérisson.", u: "m²", q: 120, up: 18, n: "materiaux" },
-    { d: "Coffrage permanent (banchage)", desc: "Coffrage perdu pour murs porteurs en béton.", u: "m²", q: Math.round(40 * wallFactor), up: 35, n: "materiaux", obs: f > 1 ? `${f} niveaux` : undefined },
+    { d: "Isolant sous dalle (polystyrène expansé 80 mm)", desc: "Film PE + polystyrène 20 kg/m³, joints bandés.", u: "m²", q: 120, qMode: "footprint", up: 18, n: "materiaux" },
+    { d: "Joint bitumineux d'étanchéité soubassement", desc: "Bande bitumineuse autocollante sur radier.", u: "ml", q: 45, qMode: "footprint", up: 12, n: "materiaux" },
+    { d: "Béton de propreté (C12/15 — 5 cm)", desc: "Dalle de propreté avant hérisson.", u: "m²", q: 120, qMode: "footprint", up: 18, n: "materiaux" },
+    { d: "Coffrage permanent (banchage)", desc: "Coffrage perdu pour murs porteurs en béton.", u: "m²", q: 40, up: 35, n: "materiaux", obs: f > 1 ? `${f} niveaux — un jeu de murs par niveau` : undefined },
   ];
   if (opts?.toiture !== false) {
     lines.push({
       d: "Toiture (dalle inaccessible, étanchéité multicouche, protection lourde)",
       desc: "Étanchéité bicouche + gravillons, relevés, noues.",
-      u: "m²", q: 120, up: 95, n: "materiaux",
+      u: "m²", q: 120, qMode: "footprint", up: 95, n: "materiaux",
+      obs: f > 1 ? "Terrasse supérieure — une seule fois, sur le dernier niveau" : undefined,
     });
   }
   if (opts?.escalier === false) {
@@ -242,48 +249,48 @@ function grosOeuvreLot(percent: number, opts?: { toiture?: boolean; escalier?: b
  */
 function secondOeuvreLot(percent: number, floors?: number): LotTpl {
   const f = floors || 1;
-  // Portes intérieures : ~3 par niveau (chambres + SDB + cuisine)
-  const doorCount = f === 1 ? 6 : f === 2 ? 9 : 12;
-  // Surface de peinture intérieure ≈ surface murale × nb niveaux
-  const paintSurf = Math.round(300 * (1 + (f - 1) * 0.55));
-  // Enduits intérieurs proportionnels aux murs cumulés
-  const enduitSurf = Math.round(300 * (1 + (f - 1) * 0.55));
-  // Garde-corps escalier + balcons
-  const gardeCorps = f === 1 ? 10 : f === 2 ? 18 : 25;
+  // Toutes les quantités ci-dessous sont exprimées POUR UN NIVEAU : elles sont
+  // ensuite mises à l'échelle par la surface réellement construite (somme des
+  // surfaces des niveaux). Aucune d'elles n'est donc multipliée une seconde
+  // fois par le nombre d'étages.
+  const doorCount = 6; // ~6 portes par niveau (chambres + SDB + cuisine)
+  const paintSurf = 300; // surface murale peinte par niveau
+  const enduitSurf = 300; // surface d'enduit par niveau
+  const gardeCorps = 10; // garde-corps escalier + balcons par niveau
   const gardeCorpsDesc = f === 1
     ? "Main courante, garde-corps balcons."
     : `Main courante + garde-corps escalier ${f} niveaux et balcons.`;
   // Finition escalier
-  const escalierFinition = f === 1 ? 800 : f === 2 ? 1500 : 2200;
+  const escalierFinition = 800; // par volée
   const escalierFinitionDesc = f === 1
     ? "Revêtement sol escalier (pierre ou carrelage)."
     : `Revêtement sol escalier ${f} volées (pierre ou carrelage).`;
-  // Peinture extérieure proportionnelle à la façade
-  const paintExtSurf = f === 1 ? 80 : f === 2 ? 130 : 180;
+  // Peinture extérieure (façade) : proportionnelle à la surface construite
+  const paintExtSurf = 80;
 
   return lot("second_oeuvre", "Second œuvre et finitions", "materiaux", percent, [
-    { d: "Enduits intérieurs (ciment, plâtre)", desc: "Enduit au mortier puis enduit de lissage.", u: "m²", q: enduitSurf, up: 16, n: "materiaux", obs: f > 1 ? `${f} niveaux` : undefined },
+    { d: "Enduits intérieurs (ciment, plâtre)", desc: "Enduit au mortier puis enduit de lissage.", u: "m²", q: enduitSurf, up: 16, n: "materiaux", obs: f > 1 ? `${f} niveaux — un jeu d'enduits par niveau` : undefined },
     { d: "Revêtements de sol (carrelage grès cérame premier choix)", desc: "Pose collée, joints, plinthes.", u: "m²", q: 120, up: 45, n: "materiaux" },
     { d: "Revêtements muraux SDB/Cuisine (faïence)", desc: "Faïence 20×30 sur zones humides.", u: "m²", q: 40, up: 40, n: "materiaux" },
     { d: "Menuiserie extérieure (fenêtres et portes-fenêtres PVC double vitrage)", desc: "Fourniture et pose, seuils, habillages.", u: "m²", q: 15, up: 620, n: "materiaux" },
     { d: "Menuiserie extérieure (porte d'entrée en bois massif)", desc: "Porte blindée + serrure multipoints.", u: "unité", q: 1, qMode: "fixed", up: 1200, n: "materiaux" },
-    { d: "Menuiserie intérieure (portes en bois semi-massif/stratifié)", desc: "Blocs-portes avec paumelles et poignées.", u: "unité", q: doorCount, qMode: "fixed", up: 450, n: "materiaux", obs: `${doorCount} portes (${f} niveau${f > 1 ? 'x' : ''})` },
-    { d: "Peinture intérieure (3 couches, finition standard)", desc: "Sous-couche + 2 couches de finition.", u: "m²", q: paintSurf, up: 8, n: "materiaux", obs: f > 1 ? `${f} niveaux` : undefined },
+    { d: "Menuiserie intérieure (portes en bois semi-massif/stratifié)", desc: "Blocs-portes avec paumelles et poignées.", u: "unité", q: doorCount, up: 450, n: "materiaux", obs: f > 1 ? `Répartition : 6 portes par niveau (${f} niveaux)` : undefined },
+    { d: "Peinture intérieure (3 couches, finition standard)", desc: "Sous-couche + 2 couches de finition.", u: "m²", q: paintSurf, up: 8, n: "materiaux", obs: f > 1 ? `${f} niveaux — peinture par niveau` : undefined },
     { d: "Peinture extérieure (façade, monocouche acrylique)", desc: "Impression puis monocouche acrylique.", u: "m²", q: paintExtSurf, up: 12, n: "materiaux", obs: f > 1 ? `Façade ${f} niveaux` : undefined },
-    { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau, appareils inclus.", u: "lot", q: 1, qMode: "fixed", up: 14000, n: "equipements" },
-    { d: "Électricité", desc: "Installation complète : tableaux, prises, interrupteurs, luminaires basiques.", u: "lot", q: 1, qMode: "fixed", up: 16000, n: "equipements" },
+    { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau, appareils inclus.", u: "lot", q: 1, qMode: "fixed", up: 14000, n: "equipements", obs: "Installation commune (colonne montante, conduite principale) comptée une seule fois" },
+    { d: "Électricité", desc: "Installation complète : tableaux, prises, interrupteurs, luminaires basiques.", u: "lot", q: 1, qMode: "fixed", up: 16000, n: "equipements", obs: "Tableau électrique général commun compté une seule fois" },
     { d: "Climatisation (pré-installation)", desc: "Gaines, réservations et support de groupe.", u: "lot", q: 1, qMode: "fixed", up: 2500, n: "equipements" },
     { d: "Cuisine équipée", desc: "Meubles hauts et bas, plan de travail, évier.", u: "lot", q: 1, qMode: "fixed", up: 9000, n: "equipements" },
     { d: "Garde-corps (balcons/escalier, fer forgé/inox)", desc: gardeCorpsDesc, u: "ml", q: gardeCorps, up: 150, n: "materiaux" },
     { d: "Finition escalier", desc: escalierFinitionDesc, u: "unité", q: 1, qMode: "fixed", up: escalierFinition, n: "materiaux" },
     { d: "Faux plafonds (plaque de plâtre)", desc: "Ossature métallique + BA13 + joints.", u: "m²", q: 50, up: 45, n: "materiaux" },
-    { d: "Luminaires intérieurs (LED encastrés)", desc: "Spots LED encastrés + appliques.", u: "unité", q: 12, up: 45, n: "equipements", obs: f > 1 ? `${12 + (f-1)*4} points` : undefined },
-    { d: "Prises et interrupteurs (norme NF)", desc: "Prises 2P+T, interrupteurs, va-et-vient.", u: "unité", q: 25, up: 18, n: "equipements", obs: f > 1 ? `${25 + (f-1)*8} points` : undefined },
+    { d: "Luminaires intérieurs (LED encastrés)", desc: "Spots LED encastrés + appliques.", u: "unité", q: 12, up: 45, n: "equipements", obs: f > 1 ? `Circuit d'éclairage par niveau (${f} niveaux)` : undefined },
+    { d: "Prises et interrupteurs (norme NF)", desc: "Prises 2P+T, interrupteurs, va-et-vient.", u: "unité", q: 25, up: 18, n: "equipements", obs: f > 1 ? `Circuits et points propres à chaque niveau (${f} niveaux)` : undefined },
     { d: "Miroir et accessoires SDB", desc: "Miroir, porte-serviettes, patère, range-médicaments.", u: "lot", q: 1, qMode: "fixed", up: 350, n: "materiaux" },
-    { d: "Seuils de portes (marbre ou granit)", desc: "Seuils 90 cm en pierre naturelle.", u: "unité", q: doorCount, qMode: "fixed", up: 45, n: "materiaux", obs: `${doorCount} seuils` },
+    { d: "Seuils de portes (marbre ou granit)", desc: "Seuils 90 cm en pierre naturelle.", u: "unité", q: doorCount, up: 45, n: "materiaux", obs: f > 1 ? `6 seuils par niveau (${f} niveaux)` : undefined },
     { d: "Joints silicone sanitaire", desc: "Joints d'étanchéité SDB, cuisine, fenêtres.", u: "lot", q: 1, qMode: "fixed", up: 120, n: "materiaux" },
     { d: "VMC (ventilation mécanique contrôlée)", desc: "Extracteur hygroréglable + gaine + grille.", u: "lot", q: 1, qMode: "fixed", up: 650, n: "equipements" },
-    { d: "Couloirs et circulations (peinture + plinthes)", desc: "Peinture + plinthes PVC sur circulations.", u: "ml", q: f === 1 ? 12 : f === 2 ? 18 : 24, up: 35, n: "materiaux", obs: f > 1 ? `${f} niveaux` : undefined },
+    { d: "Couloirs et circulations (peinture + plinthes)", desc: "Peinture + plinthes PVC sur circulations.", u: "ml", q: 12, up: 35, n: "materiaux", obs: f > 1 ? `${f} niveaux` : undefined },
   ]);
 }
 
@@ -912,20 +919,66 @@ export interface DqeInput {
   floors: number;
   totalBudget: number; // coût total des travaux (sans imprévus), TND
   livePrices?: DqeLivePriceMap;
+  /**
+   * Surfaces couvertes réelles niveau par niveau (1er élément = RDC). Absent =
+   * la surface du RDC est retenue pour tous les niveaux.
+   */
+  levelSurfaces?: number[];
+}
+
+/**
+ * Échelles de quantité du quantitatif :
+ *   • `scale` = surface RÉELLEMENT construite (tous les niveaux) — travaux
+ *     répétés à chaque niveau (murs, cloisons, sols, finitions, circuits) ;
+ *   • `footprintScale` = emprise au sol — travaux COMMUNS au bâtiment, comptés
+ *     une seule fois (terrassement, fondations, dallage, toiture).
+ */
+export function dqeQuantityScales(
+  surface: number,
+  floors: number,
+  levelSurfaces?: number[],
+): { builtArea: number; scale: number; footprintScale: number } {
+  const builtArea = Math.max(1, realBuiltArea(surface, floors, levelSurfaces));
+  return {
+    builtArea,
+    scale: builtArea / REF_SURFACE,
+    footprintScale: Math.max(0, surface) / REF_SURFACE,
+  };
 }
 
 export function generateDqe(input: DqeInput): DqeResult {
   const { category, surface, floors, totalBudget } = input;
-  const tb = Math.max(1, surface * (floors || 1));
-  const scale = tb / REF_SURFACE;
+  const { builtArea: tb, scale, footprintScale } = dqeQuantityScales(
+    surface,
+    floors,
+    input.levelSurfaces,
+  );
   const lotTpls = buildDqeLots(category, floors);
   const totalPct = lotTpls.reduce((s, l) => s + l.percent, 0);
 
-  const lots: DqeLot[] = lotTpls.map((lt) => {
-    const lotBudget = Math.round((totalBudget * lt.percent) / totalPct);
+  // Budgets de lots puis absorption de l'écart d'arrondi par le lot le plus
+  // important : la somme des sous-totaux du Quantitatif détaillé retombe
+  // EXACTEMENT sur le coût global TTC du moteur de coûts (aucun écart affiché).
+  const targetTotal = Math.round(totalBudget);
+  const lotBudgets = lotTpls.map((lt) => Math.round((targetTotal * lt.percent) / totalPct));
+  const budgetSum = lotBudgets.reduce((s, b) => s + b, 0);
+  const remainder = targetTotal - budgetSum;
+  if (remainder !== 0 && lotBudgets.length > 0) {
+    let heaviest = 0;
+    for (let i = 1; i < lotBudgets.length; i++) {
+      if (lotBudgets[i] > lotBudgets[heaviest]) heaviest = i;
+    }
+    lotBudgets[heaviest] += remainder;
+  }
+
+  const lots: DqeLot[] = lotTpls.map((lt, lotIndex) => {
+    const lotBudget = lotBudgets[lotIndex];
     // 1. Quantités & prix de référence
     const lines: DqeLine[] = lt.lines.map((tpl) => {
-      const quantity = tpl.qMode === "fixed" ? tpl.q : roundQty(tpl.q * scale);
+      const quantity =
+        tpl.qMode === "fixed"
+          ? tpl.q
+          : roundQty(tpl.q * (tpl.qMode === "footprint" ? footprintScale : scale));
       const resolved = resolveUnitPrice(tpl.d, tpl.up, input.livePrices);
       return {
         designation: tpl.d,

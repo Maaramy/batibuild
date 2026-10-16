@@ -27,6 +27,34 @@ import {
   Database,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { Input } from "@/components/ui/input";
+import {
+  DEFAULT_LEVEL_COST_CONFIG,
+  LEVEL_COEFFICIENT_RANGES,
+  computeLevelCost,
+  type LevelCostConfig,
+} from "@/lib/buildingLevels";
+
+/** Champs éditables des coefficients multi-niveaux (RDC, étages, frais communs, toiture). */
+const LEVEL_FIELDS: {
+  key: keyof LevelCostConfig;
+  label: string;
+  hint: string;
+}[] = [
+  { key: "rdc", label: "RDC", hint: "Rez-de-chaussée (référence 100 %)" },
+  { key: "rPlus1", label: "R+1", hint: "Premier étage (65-80 %)" },
+  { key: "rPlus2", label: "R+2", hint: "Deuxième étage (65-80 %)" },
+  { key: "rPlus3AndAbove", label: "R+3 et +", hint: "Troisième étage et suivants (56-80 %)" },
+  { key: "commonShare", label: "Frais communs", hint: "Part comptée une seule fois avec le RDC" },
+  { key: "roofWeight", label: "Toiture", hint: "Terrasse supérieure, chiffrée une fois" },
+];
+
+/** ms epoch → valeur d'un champ <input type="date">. */
+const toDateInput = (ms?: number) =>
+  typeof ms === "number" && ms > 0 ? new Date(ms).toISOString().slice(0, 10) : "";
+/** Valeur d'un <input type="date"> → ms epoch (UTC). */
+const fromDateInput = (value: string) =>
+  value ? Date.parse(`${value}T00:00:00Z`) : undefined;
 
 export default function BIMSettings() {
   const bimConfig = useQuery(api.bimConfig.getBIMConfig);
@@ -47,6 +75,61 @@ export default function BIMSettings() {
   const [result, setResult] = useState<any>(null);
   const [syncingMarket, setSyncingMarket] = useState(false);
   const [marketResult, setMarketResult] = useState<any>(null);
+
+  // ── Coefficients multi-niveaux : édition par l'administrateur ──
+  // Les valeurs enregistrées pilotent réellement le moteur de coûts (coût
+  // estimatif, Quantitatif détaillé, aide à la décision, rapports) : aucun
+  // changement du code source n'est nécessaire.
+  const saveBIMConfig = useMutation(api.bimConfig.saveBIMConfig);
+  const [levelCoeffs, setLevelCoeffs] = useState<LevelCostConfig | null>(null);
+  const [validFromDraft, setValidFromDraft] = useState<string | null>(null);
+  const [validUntilDraft, setValidUntilDraft] = useState<string | null>(null);
+  const [savingLevels, setSavingLevels] = useState(false);
+
+  const effectiveLevelCoeffs: LevelCostConfig =
+    bimConfig?.parsedLevelCoefficients ?? DEFAULT_LEVEL_COST_CONFIG;
+  const levelCoeffsDraft = levelCoeffs ?? effectiveLevelCoeffs;
+  const levelRanges = (bimConfig?.levelCoefficientRanges ?? LEVEL_COEFFICIENT_RANGES) as Record<
+    keyof LevelCostConfig,
+    { min: number; max: number }
+  >;
+  const validFromValue =
+    validFromDraft ?? toDateInput(bimConfig?.levelCoefficientsValidFrom);
+  const validUntilValue =
+    validUntilDraft ?? toDateInput(bimConfig?.levelCoefficientsValidUntil);
+
+  // Contrôle immédiat : tout coefficient hors fourchette est signalé avant
+  // enregistrement (le serveur refuse également une saisie incohérente).
+  const outOfRangeLevels = LEVEL_FIELDS.filter(({ key }) => {
+    const bounds = levelRanges[key] ?? LEVEL_COEFFICIENT_RANGES[key];
+    const value = levelCoeffsDraft[key];
+    return value < bounds.min || value > bounds.max;
+  });
+
+  // Aperçu du calcul sur un bâtiment de référence 100 m² en R+2 (3 niveaux) :
+  // RDC + deux étages + toiture, et vérification automatique des anomalies.
+  const levelPreview = computeLevelCost({
+    surface: 100,
+    floors: 3,
+    pricePerM2: 1980,
+    config: levelCoeffsDraft,
+  });
+
+  const handleSaveLevels = async () => {
+    setSavingLevels(true);
+    try {
+      await saveBIMConfig({
+        levelCoefficients: JSON.stringify(levelCoeffsDraft),
+        levelCoefficientsValidFrom: fromDateInput(validFromValue),
+        levelCoefficientsValidUntil: fromDateInput(validUntilValue),
+      });
+      toast.success("Coefficients multi-niveaux enregistrés");
+      setLevelCoeffs(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Erreur lors de l'enregistrement des coefficients");
+    }
+    setSavingLevels(false);
+  };
 
   // Calculate next automatic update (1st of next month at 01:00)
   const getNextUpdate = () => {
@@ -420,6 +503,195 @@ export default function BIMSettings() {
                 </div>
               )}
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Coefficients multi-niveaux : RDC / R+1 / R+2 / R+3+ ── */}
+      <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
+        <CardHeader className="p-4 sm:p-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <Building2 className="h-4 w-4 text-primary" />
+            <CardTitle className="text-sm">Coefficients multi-niveaux (RDC · R+1 · R+2 · R+3+)</CardTitle>
+            <Badge variant="secondary" className="ml-auto text-[9px]">
+              v{bimConfig?.version ?? "—"} · {levelCoeffs ? "modifié" : "enregistré"}
+            </Badge>
+          </div>
+          <CardDescription className="text-xs leading-relaxed">
+            Le rez-de-chaussée porte 100 % du prix au m² : il comprend les travaux communs au
+            bâtiment entier (terrassement, fondations dimensionnées pour la structure totale,
+            études, VRD, aménagements extérieurs), comptés <strong>une seule fois</strong>. Chaque
+            étage supérieur est chiffré sur sa <strong>surface réelle</strong> × son coefficient, et
+            la toiture-terrasse une seule fois. Ces valeurs pilotent le coût estimatif, le
+            Quantitatif détaillé, l'aide à la décision et les rapports — sans modifier le code
+            source.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {LEVEL_FIELDS.map(({ key, label, hint }) => {
+              const bounds = levelRanges[key] ?? LEVEL_COEFFICIENT_RANGES[key];
+              const value = levelCoeffsDraft[key];
+              const invalid = value < bounds.min || value > bounds.max;
+              return (
+                <div key={key}>
+                  <label className="text-[10px] font-semibold" htmlFor={`level-${key}`}>
+                    {label}
+                  </label>
+                  <Input
+                    id={`level-${key}`}
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={value}
+                    onChange={(e) => {
+                      const next = Number(e.target.value);
+                      setLevelCoeffs({
+                        ...levelCoeffsDraft,
+                        [key]: Number.isFinite(next) ? next : 0,
+                      });
+                    }}
+                    className={cn("mt-1 h-8 text-xs", invalid && "border-amber-500 text-amber-600")}
+                  />
+                  <p className="mt-1 text-[9px] leading-tight text-muted-foreground">
+                    {hint} · {Math.round(bounds.min * 100)}-{Math.round(bounds.max * 100)} %
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className="text-[10px] font-semibold" htmlFor="level-valid-from">
+                Valable à partir du
+              </label>
+              <Input
+                id="level-valid-from"
+                type="date"
+                value={validFromValue}
+                onChange={(e) => setValidFromDraft(e.target.value)}
+                className="mt-1 h-8 text-xs"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold" htmlFor="level-valid-until">
+                Valable jusqu'au
+              </label>
+              <Input
+                id="level-valid-until"
+                type="date"
+                value={validUntilValue}
+                onChange={(e) => setValidUntilDraft(e.target.value)}
+                className="mt-1 h-8 text-xs"
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 text-xs"
+                onClick={handleSaveLevels}
+                disabled={savingLevels || outOfRangeLevels.length > 0}
+              >
+                {savingLevels ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                Enregistrer les coefficients
+              </Button>
+              {levelCoeffs && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs"
+                  onClick={() => setLevelCoeffs(null)}
+                >
+                  Réinitialiser
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Fourchettes : hypothèses de départ à calibrer sur les DQE réels */}
+          {outOfRangeLevels.length > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+              <div className="text-[11px] text-amber-700">
+                <p className="font-semibold">Coefficients hors fourchette recommandée</p>
+                <p>
+                  {outOfRangeLevels.map((f) => f.label).join(", ")} — RDC 100 % · R+1 et R+2 65-80 %
+                  · R+3 et suivants 56-80 %. Ces fourchettes sont des hypothèses de départ à calibrer
+                  sur les DQE et devis réels tunisiens, pas des tarifs officiels.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Aperçu du calcul : bâtiment de référence 100 m² en R+2 (3 niveaux) */}
+          <div className="rounded-lg border border-border/50 p-3">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold">
+              <Clock className="h-3 w-3 text-muted-foreground" />
+              Aperçu — bâtiment de référence 100 m² (RDC + R+1 + R+2), 1 980 TND/m²
+            </p>
+            <div className="mt-2 space-y-1">
+              {levelPreview.levels.map((l) => (
+                <div
+                  key={l.index}
+                  className="flex items-center justify-between gap-2 border-b border-border/10 py-0.5 text-[10px]"
+                >
+                  <span className="font-medium">{l.label}</span>
+                  <span className="text-muted-foreground">
+                    {l.area} m² × {Math.round(l.coefficient * 100)} %
+                    {l.commonAmount > 0 ? " (frais communs inclus, une seule fois)" : ""}
+                  </span>
+                  <span className="font-semibold tabular-nums">
+                    {l.amount.toLocaleString("fr-FR")} TND
+                  </span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between gap-2 border-b border-border/10 py-0.5 text-[10px]">
+                <span className="font-medium">{levelPreview.roof.label}</span>
+                <span className="text-muted-foreground">
+                  {levelPreview.roof.counted
+                    ? `${levelPreview.roof.area} m² × ${Math.round(levelPreview.roof.weight * 100)} % (une seule fois)`
+                    : "comprise dans le coût du RDC (plain-pied)"}
+                </span>
+                <span className="font-semibold tabular-nums">
+                  {levelPreview.roof.amount.toLocaleString("fr-FR")} TND
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1 text-[11px]">
+                <span className="font-semibold">Coût global TTC</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {levelPreview.realBuiltArea} m² construits ·{" "}
+                  {levelPreview.costPerM2Real.toLocaleString("fr-FR")} TND/m²
+                </span>
+                <span className="font-bold tabular-nums">
+                  {levelPreview.total.toLocaleString("fr-FR")} TND
+                </span>
+              </div>
+            </div>
+
+            {/* Vérification automatique des anomalies : rien n'est masqué */}
+            {levelPreview.anomalies.length === 0 ? (
+              <p className="mt-2 flex items-center gap-1.5 text-[10px] text-emerald-600">
+                <CheckCheck className="h-3 w-3" />
+                Aucune anomalie : aucun poste compté deux fois, frais fixes non multipliés par les
+                niveaux, toiture chiffrée une seule fois, coût global = somme des niveaux.
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-1">
+                {levelPreview.anomalies.map((a) => (
+                  <li key={a.code} className="flex items-start gap-1.5 text-[10px] text-amber-700">
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span>
+                      <strong>{a.code}</strong> ({a.severity}) — {a.message} {a.recommendation}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </CardContent>
       </Card>

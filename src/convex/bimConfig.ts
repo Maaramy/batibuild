@@ -3,6 +3,56 @@ import { mutation, query, internalMutation } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { getCurrentUser } from "./users";
 import { P, MARKET_PRICE_M2, PROJECT_PCT, REGION_COST_M2 } from "./bimEngine";
+import {
+  DEFAULT_LEVEL_COST_CONFIG,
+  LEVEL_COEFFICIENTS_VALIDITY_2026,
+  LEVEL_COEFFICIENT_RANGES,
+  resolveLevelCostConfig,
+  type LevelCostConfig,
+} from "../lib/buildingLevels";
+
+// ============================================================================
+// COEFFICIENTS MULTI-NIVEAUX — configuration administrateur
+// ----------------------------------------------------------------------------
+// Les coefficients de coût par niveau (RDC 100 % · R+1 et R+2 65-80 % · R+3 et
+// suivants 56-80 %), la part des frais communs et le poids de la toiture sont
+// modifiables depuis le panneau d'administration avec leur date de validité :
+// aucun changement du code source n'est nécessaire. Les valeurs enregistrées
+// sont celles qui pilotent réellement le moteur de coûts, le DQE et l'aide à la
+// décision.
+// ============================================================================
+
+/**
+ * Lit les coefficients multi-niveaux stockés en JSON par l'administrateur.
+ * Toute valeur manquante ou invalide est ignorée (repli sur les défauts).
+ */
+export function parseLevelCoefficients(raw?: string | null): Partial<LevelCostConfig> | undefined {
+  if (typeof raw !== "string" || raw.trim() === "") return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return undefined;
+    const out: Partial<LevelCostConfig> = {};
+    for (const key of [
+      "rdc",
+      "rPlus1",
+      "rPlus2",
+      "rPlus3AndAbove",
+      "commonShare",
+      "roofWeight",
+    ] as const) {
+      const value = (parsed as Record<string, unknown>)[key];
+      if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+        out[key] = value;
+      }
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Coefficients par défaut, sérialisés pour la base (JSON). */
+export const DEFAULT_LEVEL_COEFFICIENTS_JSON = JSON.stringify(DEFAULT_LEVEL_COST_CONFIG);
 
 // ============================================================================
 // Queries — configuration du moteur BIM (barèmes Tunisie 2026)
@@ -30,6 +80,8 @@ export const getBIMConfig = query({
       }
     };
 
+    const levelOverrides = parseLevelCoefficients(config.levelCoefficients);
+
     return {
       ...config,
       // Parse JSON strings back to objects for the client
@@ -37,6 +89,16 @@ export const getBIMConfig = query({
       parsedPercentages: safeParse(config.projectPercentages, {}),
       parsedMultipliers: safeParse(config.regionMultipliers, {}),
       parsedUnitPrices: safeParse(config.unitPrices, {}),
+      // Coefficients multi-niveaux EFFECTIFS (défauts fusionnés avec la
+      // configuration enregistrée) + fourchettes admises : le panneau
+      // d'administration affiche exactement ce que le moteur applique.
+      parsedLevelCoefficients: resolveLevelCostConfig(levelOverrides),
+      levelCoefficientRanges: LEVEL_COEFFICIENT_RANGES,
+      levelCoefficientsAreDefault: levelOverrides === undefined,
+      levelCoefficientsValidFrom:
+        config.levelCoefficientsValidFrom ?? LEVEL_COEFFICIENTS_VALIDITY_2026.from,
+      levelCoefficientsValidUntil:
+        config.levelCoefficientsValidUntil ?? LEVEL_COEFFICIENTS_VALIDITY_2026.until,
     };
   },
 });
@@ -78,6 +140,13 @@ export const refreshBIMData = mutation({
       projectPercentages,
       regionMultipliers,
       unitPrices,
+      // Les coefficients multi-niveaux réglés par l'administrateur sont
+      // conservés : une actualisation des prix ne les écrase jamais.
+      levelCoefficients: existing?.levelCoefficients ?? DEFAULT_LEVEL_COEFFICIENTS_JSON,
+      levelCoefficientsValidFrom:
+        existing?.levelCoefficientsValidFrom ?? LEVEL_COEFFICIENTS_VALIDITY_2026.from,
+      levelCoefficientsValidUntil:
+        existing?.levelCoefficientsValidUntil ?? LEVEL_COEFFICIENTS_VALIDITY_2026.until,
       version: existing ? existing.version + 1 : 1,
       refreshedAt: now,
       refreshedBy: user._id,
@@ -170,6 +239,12 @@ export const saveBIMConfig = mutation({
     projectPercentages: v.optional(v.string()),
     regionMultipliers: v.optional(v.string()),
     unitPrices: v.optional(v.string()),
+    /** Coefficients multi-niveaux (JSON : rdc, rPlus1, rPlus2, rPlus3AndAbove,
+     *  commonShare, roofWeight). */
+    levelCoefficients: v.optional(v.string()),
+    /** Dates de validité des coefficients (bornes incluses, ms epoch). */
+    levelCoefficientsValidFrom: v.optional(v.number()),
+    levelCoefficientsValidUntil: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -183,6 +258,26 @@ export const saveBIMConfig = mutation({
       .order("desc")
       .first();
 
+    // Coefficients multi-niveaux : les valeurs enregistrées pilotent le moteur
+    // de coûts. Une saisie hors fourchette est acceptée mais signalée comme
+    // anomalie dans l'interface d'administration (rien n'est masqué).
+    const rawLevelCoefficients =
+      args.levelCoefficients ?? existing?.levelCoefficients ?? DEFAULT_LEVEL_COEFFICIENTS_JSON;
+    const resolvedLevels = parseLevelCoefficients(rawLevelCoefficients);
+    if (resolvedLevels) {
+      const outOfRange = Object.entries(resolvedLevels).filter(([key, value]) => {
+        const bounds = (LEVEL_COEFFICIENT_RANGES as Record<string, { min: number; max: number }>)[key];
+        return bounds ? value < bounds.min || value > bounds.max : false;
+      });
+      if (outOfRange.length > 0) {
+        throw new Error(
+          `Coefficients multi-niveaux hors fourchette : ${outOfRange
+            .map(([key, value]) => `${key} = ${value}`)
+            .join(", ")}. Admissible : RDC 100 % · R+1 et R+2 65-80 % · R+3 et suivants 56-80 % · frais communs 10-40 % · toiture 2-15 %.`,
+        );
+      }
+    }
+
     const bimConfigData = {
       version: existing ? existing.version + 1 : 1,
       refreshedAt: now,
@@ -191,6 +286,15 @@ export const saveBIMConfig = mutation({
       projectPercentages: args.projectPercentages ?? (existing?.projectPercentages ?? JSON.stringify(PROJECT_PCT)),
       regionMultipliers: args.regionMultipliers ?? (existing?.regionMultipliers ?? JSON.stringify(REGION_COST_M2)),
       unitPrices: args.unitPrices ?? (existing?.unitPrices ?? JSON.stringify(P)),
+      levelCoefficients: rawLevelCoefficients,
+      levelCoefficientsValidFrom:
+        args.levelCoefficientsValidFrom ??
+        existing?.levelCoefficientsValidFrom ??
+        LEVEL_COEFFICIENTS_VALIDITY_2026.from,
+      levelCoefficientsValidUntil:
+        args.levelCoefficientsValidUntil ??
+        existing?.levelCoefficientsValidUntil ??
+        LEVEL_COEFFICIENTS_VALIDITY_2026.until,
     };
 
     if (existing) {
@@ -203,11 +307,15 @@ export const saveBIMConfig = mutation({
       adminId: user._id,
       adminName: user.name || "Admin",
       action: "bim_save" as any,
-      details: `Configuration BIM sauvegardée manuellement (v${bimConfigData.version})`,
+      details: `Configuration BIM sauvegardée manuellement (v${bimConfigData.version}) — coefficients multi-niveaux ${JSON.stringify(resolvedLevels ?? {})}`,
       createdAt: now,
     });
 
-    return { version: bimConfigData.version, refreshedAt: now };
+    return {
+      version: bimConfigData.version,
+      refreshedAt: now,
+      levelCoefficients: resolveLevelCostConfig(resolvedLevels),
+    };
   },
 });
 
@@ -242,6 +350,12 @@ export const refreshBIMDataMonthly = internalMutation({
       projectPercentages,
       regionMultipliers,
       unitPrices,
+      // Coefficients multi-niveaux : conservés tels quels s'ils existent.
+      levelCoefficients: existing?.levelCoefficients ?? DEFAULT_LEVEL_COEFFICIENTS_JSON,
+      levelCoefficientsValidFrom:
+        existing?.levelCoefficientsValidFrom ?? LEVEL_COEFFICIENTS_VALIDITY_2026.from,
+      levelCoefficientsValidUntil:
+        existing?.levelCoefficientsValidUntil ?? LEVEL_COEFFICIENTS_VALIDITY_2026.until,
       version: existing ? existing.version + 1 : 1,
       refreshedAt: now,
       refreshedBy: adminUser._id,

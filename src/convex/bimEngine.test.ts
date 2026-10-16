@@ -490,14 +490,28 @@ describe("runBIMEstimation — maisons à étages (sélecteur de niveaux)", () =
   });
 
   it("à surface constante, le coût total croît avec le nombre de niveaux", () => {
-    const rdc = runBIMEstimation("maison", S, 1, "tunis", "standard");
-    const r1 = runBIMEstimation("villa", S, 1, "tunis", "standard");
-    expect(r1.costEstimate.totalCost).toBeGreaterThan(rdc.costEstimate.totalCost);
-    // Le prix au m² reste cohérent entre les niveaux d'un même type
-    // (la majoration multi-niveaux est linéaire : surface totale × étages).
-    const m2r1 = r1.costEstimate.totalCost / (S * 1);
-    const m2v3 = runBIMEstimation("villa", S, 3, "tunis", "standard").costEstimate.totalCost / (S * 3);
-    expect(Math.abs(m2v3 - m2r1) / m2r1).toBeLessThan(0.15);
+    // Un étage supplémentaire coûte PLUS cher, mais jamais le coût complet du
+    // RDC une nouvelle fois : le RDC porte 100 % du prix au m² (frais communs
+    // compris) et chaque étage une part comparable (coefficient de niveau).
+    const rdc = runBIMEstimation("maison", S, 1, "tunis", "standard").costEstimate;
+    const r1 = runBIMEstimation("maison", S, 2, "tunis", "standard").costEstimate;
+    const r2 = runBIMEstimation("maison", S, 3, "tunis", "standard").costEstimate;
+    expect(r1.totalCost).toBeGreaterThan(rdc.totalCost);
+    expect(r2.totalCost).toBeGreaterThan(r1.totalCost);
+
+    // 1 · Aucune multiplication du coût complet du RDC (exigence de calcul).
+    expect(r1.totalCost).toBeLessThan(rdc.totalCost * 2);
+    expect(r2.totalCost).toBeLessThan(rdc.totalCost * 3);
+    // 2 · Le coût moyen au m² de la surface RÉELLEMENT construite baisse avec
+    //     les niveaux (les étages sont moins chers au m² que le RDC).
+    expect(r1.costPerSquareMeter).toBeLessThan(rdc.costPerSquareMeter);
+    expect(r2.costPerSquareMeter).toBeLessThan(r1.costPerSquareMeter);
+    // 3 · Le total est exactement la somme des niveaux + la toiture.
+    const sum = (ce: any) =>
+      ce.levelBreakdown.levels.reduce((s: number, l: any) => s + l.amount, 0) +
+      ce.levelBreakdown.roof.amount;
+    expect(r1.totalCost).toBe(sum(r1));
+    expect(r2.totalCost).toBe(sum(r2));
   });
 
   it("un escalier béton est ajouté dès le R+1, plus coûteux en R+2", () => {
