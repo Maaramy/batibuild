@@ -3,20 +3,24 @@
 // ----------------------------------------------------------------------------
 // Les scénarios Économique / Standard / Premium d'origine ne sont jamais
 // modifiés. Les modifications d'articles (prix, niveau de finition, article de
-// remplacement) sont enregistrées dans une ligne dédiée par projet et par
-// utilisateur, puis superposées côté affichage pour former le scénario
-// « Personnalisé ».
+// remplacement) et les suppressions de postes (« Modifier l'article ») sont
+// enregistrées dans une ligne dédiée par projet et par utilisateur, puis
+// superposées côté affichage pour former le scénario « Personnalisé ».
 // ============================================================================
 
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUser } from "./users";
 import {
+  PROTECTED_POSTE_MESSAGE,
   isEditableLot,
   isNoopCustomization,
   lockedUnitPriceForScenario,
+  posteProtectionReason,
   quantitatifLineKey,
+  quantitatifPosteKey,
   resolveLockedArticle,
+  type QuantitatifPosteRemovalEntry,
 } from "./quantitatifCustomLogic";
 import { buildLivePriceIndex, getCompatibleArticles } from "./quantitatifCatalog";
 
@@ -63,10 +67,14 @@ export const getCustomization = query({
 
     const doc = await findCustomization(ctx, args.projectId, project.userId);
     if (!doc) return null;
+    const removedPostes: QuantitatifPosteRemovalEntry[] = doc.removedPostes ?? [];
     return {
       baseScenario: doc.baseScenario,
       modifications: doc.modifications,
       modifiedCount: doc.modifications.length,
+      // Postes supprimés depuis « Modifier l'article » (scénario Personnalisé).
+      removedPostes,
+      removedCount: removedPostes.length,
       updatedAt: doc.updatedAt,
     };
   },
@@ -197,6 +205,9 @@ export const saveItemCustomization = mutation({
     const previous = doc?.modifications ?? [];
     const others = previous.filter((m: any) => m.lineKey !== lineKey);
     const modifications = noop ? others : [...others, entry];
+    // Les postes supprimés restent enregistrés : enregistrer ou réinitialiser
+    // un article ne les fait jamais réapparaître.
+    const hasRemovals = (doc?.removedPostes?.length ?? 0) > 0;
 
     if (!doc) {
       if (!modifications.length) return { lineKey, removed: true, modifiedCount: 0 };
@@ -211,7 +222,13 @@ export const saveItemCustomization = mutation({
     }
 
     if (!modifications.length) {
-      await ctx.db.delete(doc._id);
+      // Plus aucune personnalisation d'article : le document n'est supprimé que
+      // s'il ne porte aucune suppression de poste.
+      if (!hasRemovals) {
+        await ctx.db.delete(doc._id);
+        return { lineKey, removed: true, modifiedCount: 0 };
+      }
+      await ctx.db.patch(doc._id, { modifications, updatedAt: now });
       return { lineKey, removed: true, modifiedCount: 0 };
     }
 
@@ -231,11 +248,153 @@ export const resetItemCustomization = mutation({
       (m: any) => m.lineKey !== args.lineKey,
     );
     if (!modifications.length) {
+      // Les postes supprimés restent enregistrés (scénario Personnalisé).
+      if ((doc.removedPostes?.length ?? 0) > 0) {
+        await ctx.db.patch(doc._id, { modifications, updatedAt: Date.now() });
+        return { modifiedCount: 0 };
+      }
       await ctx.db.delete(doc._id);
       return { modifiedCount: 0 };
     }
     await ctx.db.patch(doc._id, { modifications, updatedAt: Date.now() });
     return { modifiedCount: modifications.length };
+  },
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// Suppression d'un poste (ligne de travaux) — « Modifier l'article »
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Supprime UN poste de travaux du Quantitatif détaillé dans le scénario
+ * « Personnalisé » (appelé depuis le popup « Modifier l'article »).
+ *
+ * · un seul poste par appel : aucune opération groupée, donc aucun moyen de
+ *   retirer un poste protégé en contournant le contrôle unitaire ;
+ * · la catégorie doit être personnalisable (`isEditableLot`) ;
+ * · le poste est relu côté serveur dans le quantitatif du projet : sa
+ *   désignation, sa nature et son montant ne viennent jamais du client ;
+ * · les protections sont appliquées ICI (`posteProtectionReason`) : catégories
+ *   protégées (Gros œuvre, Transport et autres), postes d'études / permis,
+ *   postes porteurs (structure, enveloppe, réseaux) et tout poste dont
+ *   l'identité n'est pas exploitable sont refusés — y compris par un appel
+ *   direct à la mutation (args forgés) ;
+ * · le quantitatif du projet (`projects.dqe`), le DQE généré et les données
+ *   globales ne sont JAMAIS modifiés : seule la ligne de personnalisation du
+ *   projet et de l'utilisateur courant est écrite, ce qui garantit la
+ *   séparation stricte des données entre projets et utilisateurs.
+ */
+export const removeQuantitatifPoste = mutation({
+  args: {
+    projectId: v.id("projects"),
+    lotId: v.string(),
+    lineIndex: v.number(),
+    /** Désignation d'origine : repli si le quantitatif a été régénéré. */
+    baseDesignation: v.string(),
+    /** Scénario de référence, utilisé à la création du scénario Personnalisé. */
+    baseScenario: scenarioValidator,
+  },
+  handler: async (ctx, args) => {
+    const { project } = await requireOwnedProject(ctx, args.projectId);
+
+    const lots: any[] = (project as any)?.dqe?.lots ?? [];
+    const lot = lots.find((l: any) => l?.id === args.lotId);
+    if (!lot) {
+      throw new Error("Catégorie introuvable dans le quantitatif du projet");
+    }
+
+    const reference = resolveLockedArticle(
+      lots,
+      args.lotId,
+      args.lineIndex,
+      args.baseDesignation,
+    );
+    if (!reference) {
+      throw new Error("Poste introuvable dans le quantitatif du projet");
+    }
+
+    // ── Protections : identifiants stables uniquement (lot, nature, clé) ──
+    const reason = posteProtectionReason({
+      lotId: lot.id,
+      lotName: String(lot.name ?? lot.id),
+      designation: reference.designation,
+      nature: reference.nature,
+    });
+    if (reason) {
+      throw new Error(`${PROTECTED_POSTE_MESSAGE} (${reason})`);
+    }
+
+    // Hors protections, la suppression reste réservée aux 4 catégories
+    // personnalisables : aucune autre catégorie n'est modifiable.
+    if (!isEditableLot(args.lotId)) {
+      throw new Error("Cette catégorie n'est pas modifiable");
+    }
+
+    // Position courante du poste dans le lot (repli par désignation lorsque le
+    // quantitatif a été régénéré et que la ligne a bougé).
+    const lines: any[] = lot.lines ?? [];
+    const atIndex = lines[args.lineIndex];
+    const lineIndex =
+      atIndex && atIndex.designation === reference.designation
+        ? args.lineIndex
+        : lines.findIndex((l: any) => l?.designation === reference.designation);
+    if (lineIndex < 0) {
+      throw new Error("Poste introuvable dans le quantitatif du projet");
+    }
+
+    const lineKey = quantitatifLineKey(lot.id, lineIndex);
+    const now = Date.now();
+    const entry: QuantitatifPosteRemovalEntry = {
+      lineKey,
+      lotId: lot.id,
+      lotName: String(lot.name ?? lot.id),
+      designation: reference.designation,
+      nature: reference.nature,
+      amount: Math.round(reference.quantity * reference.unitPrice),
+      removedAt: now,
+    };
+
+    const doc = await findCustomization(ctx, args.projectId, project.userId);
+    const previous: QuantitatifPosteRemovalEntry[] = doc?.removedPostes ?? [];
+    // Idempotent : un même poste n'est jamais enregistré deux fois (position ou
+    // clé stable déjà présente).
+    const entryPosteKey = quantitatifPosteKey(entry.lotId, entry.designation);
+    const removedPostes = [
+      ...previous.filter(
+        (e) =>
+          e.lineKey !== lineKey &&
+          quantitatifPosteKey(e.lotId, e.designation) !== entryPosteKey,
+      ),
+      entry,
+    ];
+    // La personnalisation d'article du poste supprimé est retirée : aucune
+    // donnée du poste supprimé ne peut réapparaître.
+    const modifications = (doc?.modifications ?? []).filter(
+      (m: any) => m.lineKey !== lineKey,
+    );
+
+    if (!doc) {
+      await ctx.db.insert("quantitatifCustomizations", {
+        projectId: args.projectId,
+        userId: project.userId,
+        baseScenario: args.baseScenario,
+        modifications: [],
+        removedPostes,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.patch(doc._id, { removedPostes, modifications, updatedAt: now });
+    }
+
+    return {
+      lineKey,
+      lotId: lot.id,
+      designation: entry.designation,
+      nature: entry.nature,
+      amount: entry.amount,
+      removedCount: removedPostes.length,
+      modifiedCount: modifications.length,
+    };
   },
 });
 

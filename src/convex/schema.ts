@@ -633,6 +633,28 @@ const schema = defineSchema(
           updatedAt: v.number(),
         }),
       ),
+      // Postes (lignes de travaux) supprimés depuis « Modifier l'article ».
+      // Stockés séparément du quantitatif du projet (jamais modifié) : ils ne
+      // s'appliquent qu'au scénario « Personnalisé ». Les postes protégés
+      // (Gros œuvre, Transport et autres, études/permis, structure, enveloppe,
+      // réseaux) ne peuvent jamais y figurer : le contrôle est fait dans la
+      // mutation `removeQuantitatifPoste`.
+      removedPostes: v.optional(
+        v.array(
+          v.object({
+            // Identité de position du poste : `${lotId}::${index de ligne}`.
+            lineKey: v.string(),
+            lotId: v.string(),
+            lotName: v.string(),
+            // Désignation d'origine (repli lorsque le quantitatif est régénéré).
+            designation: v.string(),
+            nature: v.string(),
+            // Montant au niveau de référence du moteur (avant mise à l'échelle).
+            amount: v.number(),
+            removedAt: v.number(),
+          }),
+        ),
+      ),
       updatedAt: v.number(),
     })
       .index("by_project", ["projectId"])

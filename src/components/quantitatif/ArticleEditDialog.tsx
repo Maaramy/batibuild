@@ -20,13 +20,18 @@ import {
   RotateCcw,
   Search,
   Sparkles,
+  Trash2,
+  TriangleAlert,
   Wand2,
 } from "lucide-react";
 import {
   BUDGET_SCENARIO_KEYS,
   BUDGET_SCENARIO_LABELS,
+  DELETE_POSTE_CONFIRMATION,
   PERSONALIZED_SCENARIO_KEY,
   PERSONALIZED_SCENARIO_LABEL,
+  PROTECTED_POSTE_MESSAGE,
+  posteProtectionReason,
   standardLevelFromPrice,
   unitPriceForScenario,
   type BudgetScenarioKey,
@@ -104,6 +109,7 @@ export function ArticleEditDialog({
 }: ArticleEditDialogProps) {
   const saveItem = useMutation(api.quantitatifCustom.saveItemCustomization);
   const resetItem = useMutation(api.quantitatifCustom.resetItemCustomization);
+  const removePoste = useMutation(api.quantitatifCustom.removeQuantitatifPoste);
 
   // Le popup est monté à chaque ouverture sur un article : l'état initial est
   // donc dérivé directement des props (aucune synchronisation nécessaire).
@@ -119,6 +125,10 @@ export function ArticleEditDialog({
   );
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  // Confirmation de suppression du poste : la suppression n'est enregistrée
+  // qu'après validation explicite, et peut toujours être annulée.
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [pickerQuery, setPickerQuery] = useState("");
 
@@ -166,6 +176,20 @@ export function ArticleEditDialog({
 
   const unit = article?.unit || line?.unit || "";
   const designation = article?.name || line?.designation || "";
+
+  // ── Protection du poste ────────────────────────────────────────────────
+  // Évaluée sur le POSTE DE RÉFÉRENCE du quantitatif du projet (jamais sur un
+  // libellé saisi par l'utilisateur) avec les identifiants stables de
+  // l'architecture (catégorie, nature, clé de libellé normalisée). La mutation
+  // Convex applique exactement la même règle : l'option masquée ici ne peut
+  // pas être contournée par un appel direct.
+  const protectionReason = posteProtectionReason({
+    lotId,
+    lotName,
+    designation: line?.designation,
+    nature: line?.nature,
+  });
+  const posteDeletable = protectionReason === null;
 
   // Les articles compatibles sont chargés dès l'ouverture du popup : leur
   // absence doit masquer complètement la barre « Choisir un article
@@ -242,6 +266,34 @@ export function ArticleEditDialog({
       toast.error(err?.message || "Erreur lors de l'enregistrement");
     } finally {
       setSaving(false);
+    }
+  };
+
+  /**
+   * Supprime le poste depuis « Modifier l'article ». Un poste protégé est
+   * refusé avant même l'appel réseau (et de nouveau côté serveur).
+   */
+  const handleDeletePoste = async () => {
+    if (deleting || !posteDeletable) return;
+    setDeleting(true);
+    try {
+      const result = await removePoste({
+        projectId: projectId as any,
+        lotId,
+        lineIndex,
+        baseDesignation: line?.designation ?? "",
+        baseScenario,
+      });
+      toast.success(
+        `Poste « ${result?.designation ?? line?.designation ?? designation} » supprimé du scénario Personnalisé`,
+      );
+      setConfirmDelete(false);
+      onSaved?.();
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err?.message || "Erreur lors de la suppression du poste");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -530,6 +582,84 @@ export function ArticleEditDialog({
                   </p>
                 )}
               </div>
+            </div>
+
+            {/* Suppression du poste (distincte de toute suppression de
+                catégorie / sous-catégorie, qui n'existe pas dans l'app) */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Supprimer ce poste
+              </p>
+              {!posteDeletable ? (
+                <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-2.5 py-2 space-y-1">
+                  <p className="flex items-center gap-1.5 text-[10px] font-semibold text-amber-800">
+                    <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
+                    {PROTECTED_POSTE_MESSAGE}
+                  </p>
+                  <p className="text-[9px] leading-snug text-amber-700">
+                    Motif : <span className="font-medium">{protectionReason}</span>. Ce poste est
+                    indispensable au DQE, aux quantités et aux calculs de coûts : il ne peut pas
+                    être retiré du quantitatif.
+                  </p>
+                </div>
+              ) : confirmDelete ? (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-2.5 space-y-2">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold text-destructive">
+                    <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
+                    Supprimer ce poste ?
+                  </p>
+                  <p className="text-[10px] leading-snug text-foreground/80">
+                    {DELETE_POSTE_CONFIRMATION}
+                  </p>
+                  <div className="rounded-md border border-border/40 bg-background/70 px-2 py-1.5 space-y-1">
+                    <Row label="Poste" value={line?.designation ?? designation} />
+                    <Row label="Montant retiré" value={fmt(oldAmount)} strong />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground">
+                    Seul le scénario Personnalisé est modifié : les scénarios Économique,
+                    Standard et Premium restent inchangés, et le poste reste présent dans le DQE
+                    de référence du projet.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="text-xs gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={handleDeletePoste}
+                      disabled={deleting}
+                    >
+                      {deleting ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3 w-3" />
+                      )}
+                      Supprimer le poste
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => setConfirmDelete(false)}
+                      disabled={deleting}
+                    >
+                      Annuler la suppression
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-8 text-xs gap-1.5 text-destructive hover:text-destructive"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={saving || resetting || deleting}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Supprimer ce poste
+                </Button>
+              )}
             </div>
 
             {/* Actions */}

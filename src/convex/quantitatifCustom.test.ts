@@ -4,22 +4,33 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "./schema.js";
 import { api } from "./_generated/api.js";
-import { generateDqe } from "./dqeEngine.js";
+import { generateDqe, normalizeDesignationKey } from "./dqeEngine.js";
 import { getCompatibleArticles } from "./quantitatifCatalog.js";
 import {
+  DELETE_POSTE_CONFIRMATION,
   EDITABLE_LOT_IDS,
+  PROTECTED_POSTE_LOT_IDS,
+  PROTECTED_POSTE_MESSAGE,
+  applyPosteRemovals,
   budgetScenarioFactor,
   computeQuantitatifTotals,
   indexCustomizations,
+  indexPosteRemovals,
   isEditableLot,
   isNoopCustomization,
+  isPosteDeletable,
+  isProtectedPosteLot,
+  normalizePosteKey,
   overlayCustomizations,
   overlayRawCustomizations,
+  posteProtectionReason,
   quantitatifLineKey,
+  quantitatifPosteKey,
   scaleDqeLots,
   standardLevelFromPrice,
   unitPriceForScenario,
   type QuantitatifCustomizationEntry,
+  type QuantitatifPosteRemovalEntry,
 } from "./quantitatifCustomLogic.js";
 
 const modules = import.meta.glob("./**/*.*s");
@@ -780,5 +791,637 @@ describe("quantitatifCustom — persistance", () => {
     );
     expect(refused.articles).toEqual([]);
     expect(refused.reference).toBeNull();
+  });
+});
+
+// ============================================================================
+// Suppression d'un poste — clé stable et protections
+// ============================================================================
+
+/** Entrée de suppression d'un poste (écrite par la mutation, jamais par le client). */
+function removal(
+  lotId: string,
+  lotName: string,
+  index: number,
+  line: any,
+  overrides: Partial<QuantitatifPosteRemovalEntry> = {},
+): QuantitatifPosteRemovalEntry {
+  return {
+    lineKey: quantitatifLineKey(lotId, index),
+    lotId,
+    lotName,
+    designation: line.designation,
+    nature: line.nature,
+    amount: Math.round(line.quantity * line.unitPrice),
+    removedAt: 1,
+    ...overrides,
+  };
+}
+
+/** Poste du gabarit résidentiel qui n'est ni structure, ni réseau, ni étude. */
+const POSTE_LIBRE = "Cuisine équipée";
+
+describe("quantitatifCustomLogic — clé stable et protections de poste", () => {
+  it("utilise la même normalisation de libellé que le moteur DQE", () => {
+    for (const label of [
+      "Étude des sols (géotechnique)",
+      "Menuiserie extérieure (fenêtres et portes-fenêtres PVC double vitrage)",
+      "Dalle 40×40",
+      "Cuisine équipée",
+      "   ",
+    ]) {
+      expect(normalizePosteKey(label)).toBe(normalizeDesignationKey(label));
+    }
+    // La clé de poste combine l'identifiant stable de catégorie et le libellé.
+    expect(quantitatifPosteKey("second_oeuvre", "Cuisine équipée")).toBe(
+      "second_oeuvre::cuisineequipee",
+    );
+  });
+
+  it("protège Gros œuvre et Transport et autres (tous leurs postes)", () => {
+    expect(PROTECTED_POSTE_LOT_IDS).toEqual(["gros_oeuvre", "vrd"]);
+    for (const category of [
+      "maison",
+      "villa",
+      "appartement",
+      "immeuble",
+      "renovation_complete",
+      "renovation_cuisine",
+    ]) {
+      const dqe = generateDqe({ category, surface: 150, floors: 2, totalBudget: 120_000 });
+      let checked = 0;
+      for (const lot of dqe.lots) {
+        if (!isProtectedPosteLot(lot.id, lot.name)) continue;
+        for (const line of lot.lines) {
+          checked += 1;
+          expect(
+            isPosteDeletable({
+              lotId: lot.id,
+              lotName: lot.name,
+              designation: line.designation,
+              nature: line.nature,
+            }),
+            `${category} · ${lot.name} · ${line.designation}`,
+          ).toBe(false);
+        }
+      }
+      expect(checked, category).toBeGreaterThan(0);
+    }
+    // Variantes de libellé selon le type de projet (repli par libellé).
+    expect(isProtectedPosteLot("gros_oeuvre", "Gros œuvre — reprises et réparations")).toBe(true);
+    expect(isProtectedPosteLot(undefined, "Transports & autres")).toBe(true);
+    expect(isProtectedPosteLot("", "Transport et autres")).toBe(true);
+    // Les catégories voisines ne sont pas protégées à tort.
+    expect(isProtectedPosteLot("second_oeuvre", "Second œuvre et finitions")).toBe(false);
+    expect(isProtectedPosteLot("amenagements_exterieurs", "Aménagements extérieurs")).toBe(false);
+  });
+
+  it("protège les postes d'études et de permis (essentiels au DQE)", () => {
+    const dqe = generateDqe({ category: "maison", surface: 120, floors: 1, totalBudget: 100_000 });
+    const lot = dqe.lots.find((l) => l.id === "frais_preliminaires")!;
+    expect(lot.lines.length).toBeGreaterThan(0);
+    for (const line of lot.lines) {
+      expect(line.nature).toBe("etudes");
+      expect(
+        posteProtectionReason({
+          lotId: lot.id,
+          lotName: lot.name,
+          designation: line.designation,
+          nature: line.nature,
+        }),
+      ).toContain("études");
+    }
+  });
+
+  it("protège les postes porteurs (enveloppe, réseaux, sécurité)", () => {
+    const dqe = generateDqe({ category: "maison", surface: 120, floors: 1, totalBudget: 100_000 });
+    const second = dqe.lots.find((l) => l.id === "second_oeuvre")!;
+    const amena = dqe.lots.find((l) => l.id === "amenagements_exterieurs")!;
+    const targets: [any, string][] = [
+      [second, "Enduits intérieurs"],
+      [second, "Menuiserie extérieure"],
+      [second, "Plomberie sanitaire"],
+      [second, "Électricité"],
+      [second, "VMC"],
+      [second, "Garde-corps"],
+      [amena, "Clôture"],
+      [amena, "Drainage"],
+    ];
+    for (const [lot, needle] of targets) {
+      const line = lot.lines.find((l: any) => l.designation.includes(needle));
+      expect(line, `${lot.name} · ${needle}`).toBeDefined();
+      expect(
+        isPosteDeletable({
+          lotId: lot.id,
+          lotName: lot.name,
+          designation: line!.designation,
+          nature: line!.nature,
+        }),
+        `${lot.name} · ${needle}`,
+      ).toBe(false);
+    }
+  });
+
+  it("autorise la suppression des finitions et équipements non porteurs", () => {
+    const dqe = generateDqe({ category: "maison", surface: 120, floors: 1, totalBudget: 100_000 });
+    const allowed: [string, string][] = [
+      ["second_oeuvre", "Revêtements de sol"],
+      ["second_oeuvre", "Peinture intérieure"],
+      ["second_oeuvre", "Cuisine équipée"],
+      ["second_oeuvre", "Climatisation"],
+      ["second_oeuvre", "Faux plafonds"],
+      ["second_oeuvre", "Luminaires intérieurs"],
+      ["second_oeuvre", "Miroir et accessoires"],
+      ["amenagements_exterieurs", "Portail d'accès"],
+      ["amenagements_exterieurs", "Allées et terrasses"],
+      ["amenagements_exterieurs", "Plantation et gazon"],
+      ["amenagements_exterieurs", "Éclairage extérieur"],
+    ];
+    for (const [lotId, needle] of allowed) {
+      const lot = dqe.lots.find((l) => l.id === lotId)!;
+      const line = lot.lines.find((l) => l.designation.includes(needle));
+      expect(line, `${lotId} · ${needle}`).toBeDefined();
+      expect(
+        posteProtectionReason({
+          lotId,
+          lotName: lot.name,
+          designation: line!.designation,
+          nature: line!.nature,
+        }),
+        `${lotId} · ${needle}`,
+      ).toBeNull();
+    }
+  });
+
+  it("protège par défaut tout poste non identifiable", () => {
+    expect(
+      isPosteDeletable({ lotId: "", lotName: "Second œuvre", designation: "Peinture", nature: "materiaux" }),
+    ).toBe(false);
+    expect(
+      isPosteDeletable({ lotId: "second_oeuvre", lotName: "Second œuvre", designation: "", nature: "materiaux" }),
+    ).toBe(false);
+    expect(
+      isPosteDeletable({ lotId: "second_oeuvre", lotName: "Second œuvre", designation: null, nature: null }),
+    ).toBe(false);
+  });
+
+  it("expose les messages exacts attendus par le produit", () => {
+    expect(DELETE_POSTE_CONFIRMATION).toBe(
+      "Voulez-vous vraiment supprimer ce poste ? Cette opération modifiera le quantitatif et le coût total de votre projet.",
+    );
+    expect(PROTECTED_POSTE_MESSAGE).toBe("Poste protégé — suppression interdite");
+  });
+});
+
+// ============================================================================
+// Suppression d'un poste — application au scénario Personnalisé
+// ============================================================================
+
+describe("quantitatifCustomLogic — application des suppressions de poste", () => {
+  it("retire le poste ciblé, garde ses voisins et recalcule les totaux", () => {
+    const { scaled } = dqeFixture();
+    const lot = scaled.find((l: any) => l.id === "second_oeuvre")!;
+    const target = lot.lines.find((l: any) => l.designation === POSTE_LIBRE)!;
+    const index = lot.lines.indexOf(target);
+    const before = computeQuantitatifTotals(scaled, 300);
+
+    const res = applyPosteRemovals(scaled, [removal(lot.id, lot.name, index, target)]);
+    const after = res.lots.find((l) => l.id === lot.id)!;
+
+    expect(res.removedLines).toBe(1);
+    expect(after.lines.some((l: any) => l.designation === POSTE_LIBRE)).toBe(false);
+    expect(after.lines.length).toBe(lot.lines.length - 1);
+    // Toutes les autres sous-catégories (natures) et tous les autres postes
+    // restent strictement identiques.
+    for (const line of lot.lines) {
+      if (line.designation === POSTE_LIBRE) continue;
+      expect(after.lines.find((l: any) => l.designation === line.designation)).toEqual(line);
+    }
+    expect(after.subtotal).toBe(lot.subtotal - target.total);
+    // Coût global et coût au m² recalculés.
+    const totals = computeQuantitatifTotals(res.lots, 300);
+    expect(totals.total).toBe(before.total - target.total);
+    expect(totals.costPerM2).toBe(Math.round(totals.total / 300));
+    // Total affiché = somme des sous-totaux affichés (aucun écart).
+    expect(totals.total).toBe(res.lots.reduce((s, l) => s + l.subtotal, 0));
+    const sumPercent = res.lots.reduce((s, l) => s + l.percent, 0);
+    expect(sumPercent).toBeGreaterThanOrEqual(99.5);
+    expect(sumPercent).toBeLessThanOrEqual(100.5);
+    // Les autres catégories ne perdent ni ligne ni sous-total (leurs lignes
+    // restent les mêmes objets : aucune donnée du projet n'est recopiée).
+    for (const other of scaled.filter((l) => l.id !== lot.id)) {
+      const kept = res.lots.find((l) => l.id === other.id)!;
+      expect(kept.subtotal).toBe(other.subtotal);
+      expect(kept.lines).toBe(other.lines);
+    }
+  });
+
+  it("ne modifie jamais le quantitatif d'origine (DQE et scénarios intacts)", () => {
+    const { scaled } = dqeFixture();
+    const lot = scaled.find((l: any) => l.id === "second_oeuvre")!;
+    const target = lot.lines.find((l: any) => l.designation === POSTE_LIBRE)!;
+    const snapshot = JSON.stringify(scaled);
+    applyPosteRemovals(scaled, [removal(lot.id, lot.name, lot.lines.indexOf(target), target)]);
+    expect(JSON.stringify(scaled)).toBe(snapshot);
+  });
+
+  it("retrouve le poste par sa clé stable après régénération du quantitatif", () => {
+    const { scaled } = dqeFixture();
+    const lot = scaled.find((l: any) => l.id === "second_oeuvre")!;
+    const target = lot.lines.find((l: any) => l.designation === POSTE_LIBRE)!;
+    const indexAvant = lot.lines.indexOf(target);
+    // Le quantitatif est régénéré : une ligne a été insérée, toutes les
+    // positions ont bougé, les postes sont les mêmes.
+    const regenerated = [
+      {
+        ...lot,
+        lines: [
+          { designation: "Nouveau poste", quantity: 1, unitPrice: 10, total: 10, nature: "materiaux" },
+          ...lot.lines,
+        ],
+      },
+    ];
+    const res = applyPosteRemovals(regenerated as any, [
+      removal(lot.id, lot.name, indexAvant, target),
+    ]);
+    const after = res.lots[0];
+    expect(res.removedLines).toBe(1);
+    expect(after.lines.some((l: any) => l.designation === POSTE_LIBRE)).toBe(false);
+    expect(after.lines.some((l: any) => l.designation === "Nouveau poste")).toBe(true);
+  });
+
+  it("ne retire jamais un poste au hasard d'après sa seule position", () => {
+    const { scaled } = dqeFixture();
+    const lot = scaled.find((l: any) => l.id === "second_oeuvre")!;
+    const target = lot.lines.find((l: any) => l.designation === POSTE_LIBRE)!;
+    const index = lot.lines.indexOf(target);
+    // La ligne enregistrée n'existe plus à cette position : un autre poste y est.
+    const remplacelot = {
+      ...lot,
+      lines: lot.lines.map((l: any, i: number) =>
+        i === index
+          ? { designation: "Poste tout autre", quantity: 1, unitPrice: 10, total: 10, nature: "materiaux" }
+          : l,
+      ),
+    };
+    const res = applyPosteRemovals([remplacelot as any], [removal(lot.id, lot.name, index, target)]);
+    expect(res.removedLines).toBe(0);
+    expect(res.lots[0].lines.length).toBe(remplacelot.lines.length);
+  });
+
+  it("ignore une suppression inconnue (autre projet) et reste sans effet si vide", () => {
+    const { scaled } = dqeFixture();
+    const inconnu = applyPosteRemovals(scaled, [
+      {
+        lineKey: "lot_inconnu::0",
+        lotId: "lot_inconnu",
+        lotName: "Ailleurs",
+        designation: "Poste",
+        nature: "materiaux",
+        amount: 1,
+        removedAt: 1,
+      },
+    ]);
+    expect(inconnu.removedLines).toBe(0);
+    expect(inconnu.lots).toBe(scaled);
+    expect(applyPosteRemovals(scaled, []).lots).toBe(scaled);
+    expect(applyPosteRemovals(scaled, undefined).lots).toBe(scaled);
+  });
+
+  it("indexe les suppressions par position et par clé stable", () => {
+    const { scaled } = dqeFixture();
+    const lot = scaled.find((l: any) => l.id === "second_oeuvre")!;
+    const target = lot.lines.find((l: any) => l.designation === POSTE_LIBRE)!;
+    const index = indexPosteRemovals([
+      removal(lot.id, lot.name, lot.lines.indexOf(target), target),
+    ]);
+    expect(index.byLineKey.size).toBe(1);
+    expect(index.byPosteKey.has(quantitatifPosteKey(lot.id, POSTE_LIBRE))).toBe(true);
+  });
+});
+
+// ============================================================================
+// Backend — suppression d'un poste (« Modifier l'article »)
+// ============================================================================
+
+describe("quantitatifCustom — suppression d'un poste", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  async function setup(overrides: Record<string, unknown> = {}) {
+    const userId = await createUser(t, { email: "poste@test.com" });
+    const { dqe } = dqeFixture();
+    const projectId = await createProject(t, userId, { dqe, ...overrides });
+    return { userId, projectId, dqe };
+  }
+
+  const removeArgs = (projectId: any, lot: any, index: number, line: any) => ({
+    projectId,
+    lotId: lot.id,
+    lineIndex: index,
+    baseDesignation: line.designation,
+    baseScenario: "standard" as const,
+  });
+
+  const getDoc = (userId: string, projectId: any) =>
+    asUser(t, userId).query(api.quantitatifCustom.getCustomization, { projectId });
+
+  /** Reproduit exactement le calcul de la page : référence → suppressions. */
+  function personalized(dqeLots: any[], removed: any[], surface: number) {
+    const baseFactor = budgetScenarioFactor(SCENARIOS, "standard");
+    const scaled = scaleDqeLots(dqeLots, baseFactor);
+    const overlay = overlayCustomizations(scaled, [], {
+      scaleFactor: baseFactor,
+      realCostFactor: 1,
+    });
+    const applied = applyPosteRemovals(overlay.lots, removed as QuantitatifPosteRemovalEntry[]);
+    return { lots: applied.lots, totals: computeQuantitatifTotals(applied.lots, surface) };
+  }
+
+  it("supprime un poste autorisé et synchronise le scénario Personnalisé", async () => {
+    const { userId, projectId, dqe } = await setup();
+    const lot = dqe.lots.find((l) => l.id === "second_oeuvre")!;
+    const target = lot.lines.find((l: any) => l.designation === POSTE_LIBRE)!;
+    const index = lot.lines.indexOf(target);
+    const before = computeQuantitatifTotals(dqe.lots, 300);
+
+    const res = await asUser(t, userId).mutation(
+      api.quantitatifCustom.removeQuantitatifPoste,
+      removeArgs(projectId, lot, index, target),
+    );
+    expect(res.designation).toBe(target.designation);
+    expect(res.nature).toBe(target.nature);
+    expect(res.amount).toBe(Math.round(target.quantity * target.unitPrice));
+
+    const doc = await getDoc(userId, projectId);
+    expect(doc?.removedCount).toBe(1);
+    expect(doc?.removedPostes[0]).toMatchObject({
+      lineKey: quantitatifLineKey(lot.id, index),
+      lotId: lot.id,
+      designation: target.designation,
+      nature: target.nature,
+    });
+
+    // Le Quantitatif détaillé affiché = référence moins le poste supprimé,
+    // sous-totaux et coût global recalculés.
+    const page = personalized(dqe.lots, doc!.removedPostes, 300);
+    const after = page.lots.find((l: any) => l.id === lot.id)!;
+    expect(page.totals.total).toBe(before.total - target.total);
+    expect(page.totals.costPerM2).toBe(Math.round(page.totals.total / 300));
+    expect(after.subtotal).toBe(lot.subtotal - target.total);
+    expect(after.lines.some((l: any) => l.designation === POSTE_LIBRE)).toBe(false);
+    // Montant du scénario Personnalisé = Quantitatif détaillé affiché.
+    expect(page.totals.total).toBe(page.lots.reduce((s: number, l: any) => s + l.subtotal, 0));
+    // Le quantitatif du projet (données partagées, DQE, autres scénarios) est intact.
+    const project = await t.run(async (ctx) => ctx.db.get(projectId));
+    expect((project as any).dqe.lots).toEqual(dqe.lots);
+  });
+
+  it("refuse tout poste de Gros œuvre et de Transport et autres", async () => {
+    const { userId, projectId, dqe } = await setup();
+    for (const lotId of ["gros_oeuvre", "vrd"]) {
+      const lot = dqe.lots.find((l) => l.id === lotId)!;
+      expect(lot.lines.length).toBeGreaterThan(0);
+      for (let index = 0; index < lot.lines.length; index += 1) {
+        await expect(
+          asUser(t, userId).mutation(
+            api.quantitatifCustom.removeQuantitatifPoste,
+            removeArgs(projectId, lot, index, lot.lines[index]),
+          ),
+          `${lot.name} · ${lot.lines[index].designation}`,
+        ).rejects.toThrow(/Poste protégé — suppression interdite/i);
+      }
+    }
+    // Aucune suppression enregistrée, aucune donnée modifiée.
+    expect(await getDoc(userId, projectId)).toBeNull();
+    const project = await t.run(async (ctx) => ctx.db.get(projectId));
+    expect((project as any).dqe.lots).toEqual(dqe.lots);
+  });
+
+  it("refuse les postes d'études et les postes porteurs (enveloppe, réseaux)", async () => {
+    const { userId, projectId, dqe } = await setup();
+    const targets: [string, string][] = [
+      ["frais_preliminaires", "Étude des sols"],
+      ["frais_preliminaires", "permis de construire"],
+      ["second_oeuvre", "Menuiserie extérieure"],
+      ["second_oeuvre", "Plomberie sanitaire"],
+      ["second_oeuvre", "Électricité"],
+      ["second_oeuvre", "VMC"],
+      ["second_oeuvre", "Garde-corps"],
+      ["amenagements_exterieurs", "Clôture"],
+      ["amenagements_exterieurs", "Drainage"],
+    ];
+    for (const [lotId, needle] of targets) {
+      const lot = dqe.lots.find((l) => l.id === lotId)!;
+      const line = lot.lines.find((l) => l.designation.includes(needle));
+      expect(line, `${lotId} · ${needle}`).toBeDefined();
+      await expect(
+        asUser(t, userId).mutation(
+          api.quantitatifCustom.removeQuantitatifPoste,
+          removeArgs(projectId, lot, lot.lines.indexOf(line!), line!),
+        ),
+        `${lotId} · ${needle}`,
+      ).rejects.toThrow(/Poste protégé — suppression interdite/i);
+    }
+    expect(await getDoc(userId, projectId)).toBeNull();
+  });
+
+  it("refuse une catégorie non personnalisable et un poste introuvable", async () => {
+    const userId = await createUser(t, { email: "poste-renov@test.com" });
+    const dqe = generateDqe({
+      category: "renovation_complete",
+      surface: 120,
+      floors: 1,
+      totalBudget: 90_000,
+    });
+    const projectId = await createProject(t, userId, { dqe, category: "renovation_complete" });
+
+    // « Équipements techniques » n'est pas une catégorie personnalisable.
+    const equip = dqe.lots.find((l) => l.id === "equipements")!;
+    await expect(
+      asUser(t, userId).mutation(
+        api.quantitatifCustom.removeQuantitatifPoste,
+        removeArgs(projectId, equip, 0, equip.lines[0]),
+      ),
+    ).rejects.toThrow(/n'est pas modifiable/i);
+
+    // Poste et catégorie inexistants.
+    const second = dqe.lots.find((l) => l.id === "second_oeuvre")!;
+    await expect(
+      asUser(t, userId).mutation(api.quantitatifCustom.removeQuantitatifPoste, {
+        projectId,
+        lotId: "second_oeuvre",
+        lineIndex: 999,
+        baseDesignation: "Poste inexistant",
+        baseScenario: "standard" as const,
+      }),
+    ).rejects.toThrow(/introuvable/i);
+    await expect(
+      asUser(t, userId).mutation(api.quantitatifCustom.removeQuantitatifPoste, {
+        projectId,
+        lotId: "categorie_inexistante",
+        lineIndex: 0,
+        baseDesignation: second.lines[0].designation,
+        baseScenario: "standard" as const,
+      }),
+    ).rejects.toThrow(/introuvable/i);
+  });
+
+  it("est idempotent : un même poste n'est jamais enregistré deux fois", async () => {
+    const { userId, projectId, dqe } = await setup();
+    const lot = dqe.lots.find((l) => l.id === "second_oeuvre")!;
+    const target = lot.lines.find((l: any) => l.designation === POSTE_LIBRE)!;
+    const index = lot.lines.indexOf(target);
+    const args = removeArgs(projectId, lot, index, target);
+    await asUser(t, userId).mutation(api.quantitatifCustom.removeQuantitatifPoste, args);
+    await asUser(t, userId).mutation(api.quantitatifCustom.removeQuantitatifPoste, args);
+    const doc = await getDoc(userId, projectId);
+    expect(doc?.removedCount).toBe(1);
+    expect(doc?.removedPostes.length).toBe(1);
+  });
+
+  it("retire la personnalisation du poste supprimé et ne le réintroduit jamais", async () => {
+    const { userId, projectId, dqe } = await setup();
+    const lot = dqe.lots.find((l) => l.id === "second_oeuvre")!;
+    const target = lot.lines.find((l: any) => l.designation === POSTE_LIBRE)!;
+    const index = lot.lines.indexOf(target);
+    const other = lot.lines.find((l: any) => l.designation.includes("Peinture intérieure"))!;
+
+    await asUser(t, userId).mutation(api.quantitatifCustom.saveItemCustomization, {
+      projectId,
+      lotId: lot.id,
+      lotName: lot.name,
+      lineIndex: index,
+      baseDesignation: target.designation,
+      designation: `${target.designation} — variante`,
+      unit: target.unit,
+      nature: target.nature,
+      priceScenario: "standard",
+      replacedArticle: true,
+      baseScenario: "standard",
+    });
+    await asUser(t, userId).mutation(
+      api.quantitatifCustom.removeQuantitatifPoste,
+      removeArgs(projectId, lot, index, target),
+    );
+
+    let doc = await getDoc(userId, projectId);
+    expect(doc?.modifiedCount).toBe(0);
+    expect(doc?.removedCount).toBe(1);
+
+    // Une autre personnalisation d'article n'efface pas la suppression.
+    await asUser(t, userId).mutation(api.quantitatifCustom.saveItemCustomization, {
+      projectId,
+      lotId: lot.id,
+      lotName: lot.name,
+      lineIndex: lot.lines.indexOf(other),
+      baseDesignation: other.designation,
+      designation: `${other.designation} — variante`,
+      unit: other.unit,
+      nature: other.nature,
+      priceScenario: "standard",
+      replacedArticle: true,
+      baseScenario: "standard",
+    });
+    doc = await getDoc(userId, projectId);
+    expect(doc?.modifiedCount).toBe(1);
+    expect(doc?.removedCount).toBe(1);
+
+    // La réinitialisation du dernier article ne restaure pas le poste supprimé.
+    await asUser(t, userId).mutation(api.quantitatifCustom.resetItemCustomization, {
+      projectId,
+      lineKey: quantitatifLineKey(lot.id, lot.lines.indexOf(other)),
+    });
+    doc = await getDoc(userId, projectId);
+    expect(doc).not.toBeNull();
+    expect(doc?.modifiedCount).toBe(0);
+    expect(doc?.removedCount).toBe(1);
+
+    // La réinitialisation totale restaure le poste (scénario supprimé).
+    await asUser(t, userId).mutation(api.quantitatifCustom.resetAllCustomizations, {
+      projectId,
+    });
+    expect(await getDoc(userId, projectId)).toBeNull();
+  });
+
+  it("conserve le poste supprimé après régénération du quantitatif", async () => {
+    const { userId, projectId, dqe } = await setup();
+    const lot = dqe.lots.find((l) => l.id === "second_oeuvre")!;
+    const target = lot.lines.find((l: any) => l.designation === POSTE_LIBRE)!;
+    await asUser(t, userId).mutation(
+      api.quantitatifCustom.removeQuantitatifPoste,
+      removeArgs(projectId, lot, lot.lines.indexOf(target), target),
+    );
+
+    // Le quantitatif est régénéré (mise à jour des prix / synchronisation) :
+    // une ligne est ajoutée, les positions changent.
+    const project = await t.run(async (ctx) => ctx.db.get(projectId));
+    const refreshed = dqe.lots.map((l: any) =>
+      l.id === "second_oeuvre"
+        ? {
+            ...l,
+            lines: [
+              {
+                designation: "Poste ajouté à la régénération",
+                quantity: 1,
+                unitPrice: 10,
+                total: 10,
+                nature: "materiaux",
+              },
+              ...l.lines,
+            ],
+          }
+        : l,
+    );
+    await t.run(async (ctx) =>
+      ctx.db.patch(projectId, { dqe: { ...(project as any).dqe, lots: refreshed } }),
+    );
+
+    const doc = await getDoc(userId, projectId);
+    const page = personalized(refreshed, doc!.removedPostes, 300);
+    const after = page.lots.find((l: any) => l.id === "second_oeuvre")!;
+    expect(after.lines.some((l: any) => l.designation === POSTE_LIBRE)).toBe(false);
+    expect(after.lines.some((l: any) => l.designation === "Poste ajouté à la régénération")).toBe(true);
+  });
+
+  it("isole les suppressions par projet et par utilisateur", async () => {
+    const { userId, projectId, dqe } = await setup();
+    const lot = dqe.lots.find((l) => l.id === "second_oeuvre")!;
+    const target = lot.lines.find((l: any) => l.designation === POSTE_LIBRE)!;
+    const index = lot.lines.indexOf(target);
+
+    const intruder = await createUser(t, { email: "intrus-poste@test.com" });
+    const otherProject = await createProject(t, intruder, {
+      dqe: dqeFixture().dqe,
+      name: "Projet de l'intrus",
+      category: "maison",
+    });
+
+    await expect(
+      asUser(t, intruder).mutation(
+        api.quantitatifCustom.removeQuantitatifPoste,
+        removeArgs(projectId, lot, index, target),
+      ),
+    ).rejects.toThrow(/Accès refusé/i);
+
+    await asUser(t, userId).mutation(
+      api.quantitatifCustom.removeQuantitatifPoste,
+      removeArgs(projectId, lot, index, target),
+    );
+
+    // La suppression du projet A n'existe ni pour l'autre utilisateur, ni sur
+    // ses propres projets.
+    expect(await getDoc(intruder, projectId)).toBeNull();
+    expect(await getDoc(intruder, otherProject)).toBeNull();
+    expect(await getDoc(userId, otherProject)).toBeNull();
+    // Un seul document écrit, sur le projet concerné uniquement.
+    const docs = await t.run(async (ctx) =>
+      ctx.db.query("quantitatifCustomizations").collect(),
+    );
+    expect(docs.length).toBe(1);
+    expect(docs[0].projectId).toBe(projectId);
   });
 });

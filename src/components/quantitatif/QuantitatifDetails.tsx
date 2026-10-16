@@ -71,6 +71,8 @@ export interface QuantitatifDetailsProps {
   isPersonalized?: boolean;
   /** Nombre d'articles modifiés (scénario Personnalisé). */
   modifiedCount?: number;
+  /** Nombre de postes supprimés (scénario Personnalisé). */
+  removedCount?: number;
   /** Personnalisations enregistrées, indexées par clé d'article. */
   customizationByKey: Map<string, QuantitatifCustomizationEntry>;
   /** Lignes brutes du quantitatif (référentiel du moteur), par clé d'article. */
@@ -110,6 +112,7 @@ export function QuantitatifDetails({
   scenarioBadge,
   isPersonalized,
   modifiedCount = 0,
+  removedCount = 0,
   customizationByKey,
   rawLineByKey,
   refreshing,
@@ -386,6 +389,14 @@ export function QuantitatifDetails({
                         Scénario Personnalisé — {modifiedCount} article
                         {modifiedCount > 1 ? "s" : ""} modifié
                         {modifiedCount > 1 ? "s" : ""} par rapport au scénario de référence.
+                      </p>
+                    )}
+                    {isPersonalized && removedCount > 0 && (
+                      <p className="text-[9px] text-amber-700 mt-0.5">
+                        Scénario Personnalisé — {removedCount} poste
+                        {removedCount > 1 ? "s" : ""} supprimé
+                        {removedCount > 1 ? "s" : ""} (hors postes protégés : Gros œuvre,
+                        Transport et autres, études et postes porteurs).
                       </p>
                     )}
                     {isPersonalized &&

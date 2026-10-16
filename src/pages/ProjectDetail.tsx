@@ -41,8 +41,9 @@ import {
 import {
   BUDGET_SCENARIO_LABELS,
   PERSONALIZED_SCENARIO_KEY,
-  budgetScenarioFactor,
   PERSONALIZED_SCENARIO_LABEL,
+  applyPosteRemovals,
+  budgetScenarioFactor,
   computeQuantitatifTotals,
   indexCustomizations,
   overlayCustomizations,
@@ -50,6 +51,7 @@ import {
   scaleDqeLots,
   type BudgetScenarioKey,
   type QuantitatifCustomizationEntry,
+  type QuantitatifPosteRemovalEntry,
 } from "@/convex/quantitatifCustomLogic";
 import {
   SOLAR_PANEL_DEFAULT_COUNT,
@@ -410,6 +412,15 @@ export default function ProjectDetail() {
     [customizationEntries],
   );
   const hasCustomization = customizationEntries.length > 0;
+  // ── Postes supprimés depuis « Modifier l'article » ──────────────────────
+  // Enregistrés séparément (jamais dans le quantitatif du projet) et retirés
+  // uniquement de la copie affichée du scénario « Personnalisé ». Les postes
+  // protégés ne peuvent jamais s'y trouver (contrôle dans la mutation).
+  const removedPosteEntries = useMemo(
+    () => (customization?.removedPostes ?? []) as QuantitatifPosteRemovalEntry[],
+    [customization],
+  );
+  const hasRemovals = removedPosteEntries.length > 0;
   // ── Travaux complémentaires (liste prédéfinie) ──
   // Accessibles UNIQUEMENT pour les sept types de projet autorisés (maison,
   // villa, appartement, duplex, immeuble, résidence touristique, projet
@@ -436,12 +447,15 @@ export default function ProjectDetail() {
   // Le scénario « Personnalisé » existe dès qu'il porte des modifications
   // d'articles ou des travaux complémentaires ; sans rien, il retombe sur son
   // scénario de référence (comportement d'origine).
-  const hasPersonalizedScenario = hasCustomization || hasComplementaryWorks;
-  // Libellé du badge du scénario « Personnalisé » (articles modifiés ou travaux
-  // complémentaires sélectionnés).
+  const hasPersonalizedScenario =
+    hasCustomization || hasRemovals || hasComplementaryWorks;
+  // Libellé du badge du scénario « Personnalisé » (articles modifiés, postes
+  // supprimés ou travaux complémentaires sélectionnés).
   const personalizedBadgeLabel = hasCustomization
     ? `${customizationEntries.length} article${customizationEntries.length > 1 ? "s" : ""} modifié${customizationEntries.length > 1 ? "s" : ""}`
-    : `${complementaryKeys.length} travail${complementaryKeys.length > 1 ? "x" : ""} complémentaire${complementaryKeys.length > 1 ? "s" : ""}`;
+    : hasRemovals
+      ? `${removedPosteEntries.length} poste${removedPosteEntries.length > 1 ? "s" : ""} supprimé${removedPosteEntries.length > 1 ? "s" : ""}`
+      : `${complementaryKeys.length} travail${complementaryKeys.length > 1 ? "x" : ""} complémentaire${complementaryKeys.length > 1 ? "s" : ""}`;
   // Scénario de référence du scénario « Personnalisé » : les modifications
   // d'articles priment, sinon le scénario budgétaire courant du projet.
   const storedScenarioKey = (project as any)?.selectedScenario;
@@ -499,22 +513,31 @@ export default function ProjectDetail() {
           realCostFactor,
         })
       : { lots: scaled, modifiedCount: 0 };
+    // Postes supprimés depuis « Modifier l'article » : retirés de la copie
+    // affichée, sous-totaux des catégories et pourcentages recalculés. Le
+    // quantitatif du projet, le DQE et les données globales ne sont jamais
+    // modifiés (nouveaux objets uniquement).
+    const removal = applyPosteRemovals(overlay.lots, removedPosteEntries);
     // Les travaux complémentaires n'intègrent QUE le scénario Personnalisé :
     // les scénarios Économique / Standard / Premium ne sont jamais modifiés.
-    const lots = withComplementaryWorksLots(overlay.lots, complementaryWorks);
+    const lots = withComplementaryWorksLots(removal.lots, complementaryWorks);
     return {
       lots,
       totals: computeQuantitatifTotals(lots, builtSurface),
       modifiedCount: overlay.modifiedCount,
+      removedCount: removedPosteEntries.length,
+      removedLines: removal.removedLines,
     };
   }, [
     hasPersonalizedScenario,
     hasCustomization,
+    hasRemovals,
     rawDqeLots,
     scenarios,
     baseScenarioKey,
     realCostFactor,
     customizationEntries,
+    removedPosteEntries,
     complementaryWorks,
     builtSurface,
   ]);
@@ -561,9 +584,9 @@ export default function ProjectDetail() {
     if (count === complementaryCountRef.current) return;
     complementaryCountRef.current = count;
     if (count > 0) setSelectedScenario(PERSONALIZED_SCENARIO_KEY);
-    else if (!hasCustomization)
+    else if (!hasCustomization && !hasRemovals)
       setSelectedScenario((s) => (s === PERSONALIZED_SCENARIO_KEY ? baseScenarioKey : s));
-  }, [complementaryKeys.length, hasCustomization, baseScenarioKey]);
+  }, [complementaryKeys.length, hasCustomization, hasRemovals, baseScenarioKey]);
 
   const { flags: journeyFlags } = useFeatureFlags();
 
@@ -1360,6 +1383,7 @@ export default function ProjectDetail() {
                       scenarioBadge={dqeScenarioBadge}
                       isPersonalized={isPersonalizedScenario}
                       modifiedCount={customizationEntries.length}
+                      removedCount={removedPosteEntries.length}
                       customizationByKey={customizationByKey}
                       rawLineByKey={rawLineByKey}
                       refreshing={refreshingQuantitatif}
@@ -1408,6 +1432,9 @@ export default function ProjectDetail() {
                             {hasCustomization
                               ? `Les ${customizationEntries.length} article${customizationEntries.length > 1 ? "s" : ""} personnalisé${customizationEntries.length > 1 ? "s" : ""} seront restaurés selon le scénario de référence « ${BUDGET_SCENARIO_LABELS[baseScenarioKey]} ». `
                               : ""}
+                            {hasRemovals
+                              ? `Les ${removedPosteEntries.length} poste${removedPosteEntries.length > 1 ? "s" : ""} supprimé${removedPosteEntries.length > 1 ? "s" : ""} du Quantitatif détaillé seront restaurés. `
+                              : ""}
                             {hasComplementaryWorks
                               ? `Les ${complementaryKeys.length} travail${complementaryKeys.length > 1 ? "x" : ""} complémentaire${complementaryKeys.length > 1 ? "s" : ""} sélectionné${complementaryKeys.length > 1 ? "s" : ""} seront retirés. `
                               : ""}
@@ -1421,7 +1448,9 @@ export default function ProjectDetail() {
                             className="text-xs"
                             onClick={async () => {
                               try {
-                                if (hasCustomization) {
+                                // Les postes supprimés sont restaurés en même
+                                // temps que les personnalisations d'articles.
+                                if (hasCustomization || hasRemovals) {
                                   await resetAllCustomizations({ projectId: project._id });
                                 }
                                 if (hasComplementaryWorks) {

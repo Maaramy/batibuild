@@ -65,6 +65,289 @@ export function quantitatifLineKey(lotId: string, lineIndex: number): string {
   return `${lotId}::${lineIndex}`;
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// SUPPRESSION D'UN POSTE (depuis « Modifier l'article »)
+// ----------------------------------------------------------------------------
+// Un « poste » est une ligne de travaux du Quantitatif détaillé
+// (`projects.dqe.lots[].lines[]`). Seule la suppression d'UN poste est
+// autorisée, et uniquement depuis le popup « Modifier l'article » : la
+// suppression d'une catégorie ou d'une sous-catégorie n'existe pas dans
+// l'application, aucun chemin (dialogue, opération groupée, mutation) ne
+// permet donc de retirer indirectement des postes protégés.
+//
+// ÉLÉMENTS PROTÉGÉS — liste établie à partir de l'architecture réelle (gabarits
+// de `dqeEngine.ts` et méthodes du moteur BIM `bimEngine.getMethods`), jamais
+// inventée :
+//
+//   1. Catégories protégées, PAR IDENTIFIANT STABLE (`lot.id`) :
+//        · `gros_oeuvre` → « Gros œuvre (fondations, structures) » et, pour les
+//          rénovations, « Gros œuvre — reprises et réparations » / « Gros
+//          œuvre » : terrassement/fondations, soubassement et dallage, murs
+//          porteurs, poteaux/poutres, planchers, toiture et étanchéité. TOUS
+//          les postes du lot et de ses sous-catégories (natures) sont protégés ;
+//        · `vrd` → « Transports & autres » : raccordements SONEDE / STEG / ONAS
+//          / TGM / TT, fosse septique, réseau pluvial, bornes de délimitation.
+//      Un repli par libellé (`PROTECTED_POSTE_LOT_NAME_RE`) couvre les variantes
+//      de nommage selon le type de projet.
+//   2. Nature protégée, PAR IDENTIFIANT STABLE (`line.nature`) :
+//        · `etudes` → études, permis de construire, étude géotechnique,
+//          honoraires OPC : indispensables au DQE, au dossier administratif et
+//          aux synchronisations (aucun substitut chiffrable à la surface).
+//   3. Postes porteurs protégés, PAR CLÉ STABLE DE POSTE
+//      (`lotId::cléNormalisée(designation)`, même normalisation que le moteur
+//      DQE) : enveloppe, réseaux et sécurité, sur lesquels reposent les
+//      quantités, les formules et la synchronisation BIM ↔ DQE :
+//        · second œuvre : enduits intérieurs (support des finitions — méthode
+//          « Enduit traditionnel » du moteur), menuiseries extérieures et porte
+//          d'entrée (enveloppe), plomberie sanitaire, électricité, VMC,
+//          garde-corps (sécurité), réseaux de cuisine (alimentation,
+//          évacuation, robinets d'arrêt, points électriques, câblage) ;
+//        · aménagements extérieurs : clôture (maçonnerie de délimitation) et
+//          drainage périphérique (protection des fondations).
+//   4. PROTECTION PAR DÉFAUT : un poste dont l'identité n'est pas exploitable
+//      (catégorie ou désignation inconnue) ou qui n'existe pas dans le
+//      quantitatif enregistré du projet est refusé — le doute protège.
+//
+// Les libellés ne servent JAMAIS à lever une protection : seuls les
+// identifiants (lot, nature, clé stable de poste) sont utilisés pour protéger.
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Normalisation identique au moteur DQE (`normalizeDesignationKey`) : elle
+ * transforme un libellé en identifiant de comparaison stable. Dupliquée ici
+ * volontairement pour que ce module reste sans dépendance (il est importé par
+ * le client) ; un test vérifie l'égalité avec le moteur.
+ */
+export function normalizePosteKey(label: string): string {
+  return String(label ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/×/g, "x")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/** Clé stable d'un poste : catégorie + identifiant de libellé normalisé. */
+export function quantitatifPosteKey(lotId: string, designation: string): string {
+  return `${lotId}::${normalizePosteKey(designation)}`;
+}
+
+/** Catégories dont aucun poste ne peut être supprimé (identifiants stables). */
+export const PROTECTED_POSTE_LOT_IDS = ["gros_oeuvre", "vrd"] as const;
+
+/** Repli par libellé : « Gros œuvre … » et « Transport(s) et/ou & autres ». */
+const PROTECTED_POSTE_LOT_NAME_RE = /^(gros ?oeuvre|transports? ?(?:&|et) ?autres)/;
+
+function normalizeLotName(name: string): string {
+  return String(name ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/œ/g, "oe")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** La catégorie est-elle protégée (aucun de ses postes n'est supprimable) ? */
+export function isProtectedPosteLot(
+  lotId?: string | null,
+  lotName?: string | null,
+): boolean {
+  const id = String(lotId ?? "").trim();
+  if ((PROTECTED_POSTE_LOT_IDS as readonly string[]).includes(id)) return true;
+  return PROTECTED_POSTE_LOT_NAME_RE.test(normalizeLotName(lotName ?? ""));
+}
+
+/** Natures dont aucun poste ne peut être supprimé (identifiant stable). */
+export const PROTECTED_POSTE_NATURES = ["etudes"] as const;
+
+/**
+ * Préfixes de clés stables de postes porteurs protégés. Le préfixe couvre
+ * toutes les variantes de libellé d'un même poste selon les gabarits (ex. les
+ * différentes formulations de la menuiserie extérieure).
+ */
+export const PROTECTED_POSTE_KEY_PREFIXES = [
+  // Second œuvre — support des finitions et enveloppe du bâtiment.
+  "second_oeuvre::enduitsinterieurs",
+  "second_oeuvre::menuiserieexterieure",
+  // Second œuvre — réseaux, ventilation et sécurité.
+  "second_oeuvre::plomberie",
+  "second_oeuvre::electricite",
+  "second_oeuvre::vmc",
+  "second_oeuvre::gardecorps",
+  // Second œuvre — réseaux de cuisine (gabarit « Rénovation cuisine »).
+  "second_oeuvre::alimentation",
+  "second_oeuvre::evacuation",
+  "second_oeuvre::arriveesetrobinetsd",
+  "second_oeuvre::pointselectriques",
+  "second_oeuvre::cablageetgaines",
+  // Aménagements extérieurs — ouvrages de protection.
+  "amenagements_exterieurs::cloture",
+  "amenagements_exterieurs::drainage",
+] as const;
+
+export interface PosteProtectionInput {
+  lotId?: string | null;
+  lotName?: string | null;
+  /** Désignation du poste de référence (jamais un libellé saisi par l'utilisateur). */
+  designation?: string | null;
+  /** Nature de la ligne (`materiaux`, `main_oeuvre`, `equipements`, …). */
+  nature?: string | null;
+}
+
+/**
+ * Motif de protection d'un poste, ou `null` lorsque sa suppression est
+ * autorisée. Utilisé à la fois par l'interface (option masquée/désactivée) et
+ * par la mutation Convex (refus de toute suppression, y compris forgée).
+ */
+export function posteProtectionReason(input: PosteProtectionInput): string | null {
+  const lotId = String(input?.lotId ?? "").trim();
+  if (!lotId) return "poste non identifié (catégorie inconnue)";
+  if (isProtectedPosteLot(lotId, input?.lotName)) {
+    return `catégorie protégée « ${input?.lotName ?? lotId} »`;
+  }
+  const nature = String(input?.nature ?? "").trim();
+  if ((PROTECTED_POSTE_NATURES as readonly string[]).includes(nature)) {
+    return "poste d'études / permis requis par le DQE";
+  }
+  const designation = String(input?.designation ?? "").trim();
+  if (!designation) return "poste non identifiable (désignation absente)";
+  const key = quantitatifPosteKey(lotId, designation);
+  if (PROTECTED_POSTE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+    return "poste porteur essentiel (structure, enveloppe ou réseaux)";
+  }
+  return null;
+}
+
+/** La suppression du poste est-elle autorisée ? */
+export function isPosteDeletable(input: PosteProtectionInput): boolean {
+  return posteProtectionReason(input) === null;
+}
+
+/** Indication affichée pour un poste protégé (interface). */
+export const PROTECTED_POSTE_MESSAGE = "Poste protégé — suppression interdite";
+
+/** Message exact de confirmation avant la suppression d'un poste. */
+export const DELETE_POSTE_CONFIRMATION =
+  "Voulez-vous vraiment supprimer ce poste ? Cette opération modifiera le quantitatif et le coût total de votre projet.";
+
+export interface QuantitatifPosteRemovalEntry {
+  /** Identité de position du poste supprimé (`lotId::index de ligne`). */
+  lineKey: string;
+  lotId: string;
+  lotName: string;
+  /** Désignation d'origine : repli quand le quantitatif a été régénéré. */
+  designation: string;
+  nature: string;
+  /** Montant au niveau de référence du moteur (avant mise à l'échelle). */
+  amount: number;
+  removedAt: number;
+}
+
+/** Index des postes supprimés : par position et par clé stable de poste. */
+export function indexPosteRemovals(
+  entries?: QuantitatifPosteRemovalEntry[] | null,
+): {
+  byLineKey: Map<string, QuantitatifPosteRemovalEntry>;
+  byPosteKey: Map<string, QuantitatifPosteRemovalEntry>;
+} {
+  const byLineKey = new Map<string, QuantitatifPosteRemovalEntry>();
+  const byPosteKey = new Map<string, QuantitatifPosteRemovalEntry>();
+  for (const e of entries ?? []) {
+    if (!e?.lineKey) continue;
+    byLineKey.set(e.lineKey, e);
+    byPosteKey.set(quantitatifPosteKey(e.lotId, e.designation), e);
+  }
+  return { byLineKey, byPosteKey };
+}
+
+/**
+ * Le poste d'un lot correspond-il à une suppression enregistrée ?
+ *
+ * L'identité stable (catégorie + libellé normalisé) décide toujours : la
+ * position ne compte que lorsqu'elle désigne le MÊME poste. Un quantitatif
+ * régénéré (mise à jour des prix, synchronisation marché) ne peut donc jamais
+ * faire disparaître un poste au hasard, et un poste supprimé reste supprimé
+ * même si sa ligne a bougé.
+ */
+export function isRemovedPoste(
+  index: {
+    byLineKey: Map<string, QuantitatifPosteRemovalEntry>;
+    byPosteKey: Map<string, QuantitatifPosteRemovalEntry>;
+  },
+  lotId: string,
+  line: any,
+  lineIndex: number,
+): boolean {
+  const designation = String(line?.designation ?? "");
+  const byPosition = index.byLineKey.get(quantitatifLineKey(lotId, lineIndex));
+  if (
+    byPosition &&
+    normalizePosteKey(byPosition.designation) === normalizePosteKey(designation)
+  ) {
+    return true;
+  }
+  if (!designation) return false;
+  return index.byPosteKey.has(quantitatifPosteKey(lotId, designation));
+}
+
+export interface PosteRemovalResult {
+  lots: any[];
+  /** Nombre de lignes de travaux effectivement retirées. */
+  removedLines: number;
+}
+
+/**
+ * Retire les postes supprimés d'une copie du quantitatif, recalcule les
+ * sous-totaux des catégories touchées et les pourcentages sur le nouveau total.
+ *
+ * Le quantitatif d'origine n'est jamais modifié (nouveaux objets) : les
+ * scénarios Économique / Standard / Premium, le DQE enregistré, le BIM et les
+ * données globales restent intacts. Les lots sans suppression sont retournés
+ * à l'identique (mêmes références).
+ */
+export function applyPosteRemovals(
+  lots: any[],
+  entries?: QuantitatifPosteRemovalEntry[] | null,
+): PosteRemovalResult {
+  const list = lots ?? [];
+  if (!entries?.length) return { lots: list, removedLines: 0 };
+  const index = indexPosteRemovals(entries);
+  let removedLines = 0;
+  const kept: any[] = [];
+
+  for (const lot of list) {
+    const lines: any[] = lot?.lines ?? [];
+    const remaining = lines.filter(
+      (line: any, lineIndex: number) => !isRemovedPoste(index, lot?.id, line, lineIndex),
+    );
+    if (remaining.length === lines.length) {
+      kept.push(lot);
+      continue;
+    }
+    removedLines += lines.length - remaining.length;
+    kept.push({
+      ...lot,
+      lines: remaining,
+      subtotal: remaining.reduce((s: number, l: any) => s + (Number(l?.total) || 0), 0),
+    });
+  }
+
+  if (!removedLines) return { lots: list, removedLines: 0 };
+
+  // Les pourcentages sont recalculés sur le nouveau total : le montant affiché
+  // par catégorie reste cohérent avec le total du scénario Personnalisé.
+  const grandTotal = kept.reduce((s: number, l: any) => s + (Number(l?.subtotal) || 0), 0);
+  const withPercent = kept.map((l: any) => ({
+    ...l,
+    percent:
+      grandTotal > 0
+        ? Math.round(((Number(l?.subtotal) || 0) / grandTotal) * 1000) / 10
+        : 0,
+  }));
+  return { lots: withPercent, removedLines };
+}
+
 export interface LockedArticleReference {
   /** Quantité de l'article dans le quantitatif du projet (verrouillée). */
   quantity: number;
@@ -74,6 +357,8 @@ export interface LockedArticleReference {
   designation: string;
   /** Unité de l'article dans le quantitatif du projet. */
   unit: string;
+  /** Nature du poste (`materiaux`, `main_oeuvre`, `equipements`, …). */
+  nature: string;
 }
 
 /**
@@ -113,6 +398,7 @@ export function resolveLockedArticle(
     unitPrice,
     designation: String(line.designation ?? ""),
     unit: String(line.unit ?? ""),
+    nature: String(line.nature ?? "materiaux"),
   };
 }
 
