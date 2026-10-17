@@ -44,13 +44,19 @@ async function createAdminUser(t: ReturnType<typeof convexTest>) {
 async function createAndEstimate(
   t: ReturnType<typeof convexTest>,
   userId: string,
-  input: { surface: number; floors: number; levelSurfaces?: number[]; name: string },
+  input: {
+    surface: number;
+    floors: number;
+    levelSurfaces?: number[];
+    name: string;
+    region?: "tunis" | "medenine";
+  },
 ) {
   const userT = t.withIdentity({ subject: userId });
   const projectId = await userT.mutation(api.projects.createProject, {
     name: input.name,
     category: "maison" as any,
-    region: "tunis" as any,
+    region: (input.region ?? "tunis") as any,
     surface: input.surface,
     floors: input.floors,
     levelSurfaces: input.levelSurfaces,
@@ -125,21 +131,24 @@ describe("Estimation enregistrée d'un projet à étages (createProject → simu
       so.lines.find((l: any) => l.designation.startsWith(prefix));
 
     // Peinture : 18 seaux de 20 L en intérieur, 12 en extérieur (100 m²).
+    // Projet à Tunis : barème national × coefficient régional 1,10.
     const paintInt = line("Peinture intérieure");
     expect(paintInt.unit).toBe("seau 20 L");
     expect(paintInt.quantity).toBe(18);
+    expect(paintInt.unitPrice).toBe(178.82);
     expect(paintInt.labor.quantity).toBe(250);
-    expect(paintInt.labor.unitPrice).toBe(4);
+    expect(paintInt.labor.unitPrice).toBe(4.4);
     const paintExt = line("Peinture extérieure");
     expect(paintExt.quantity).toBe(12);
-    expect(paintExt.labor.unitPrice).toBe(5);
-    // Plomberie 85 DT/m² et électricité 65 DT/m² de surface construite.
+    expect(paintExt.labor.unitPrice).toBe(5.5);
+    // Plomberie 93,50 DT/m² et électricité 71,50 DT/m² de surface construite
+    // (barème national 85 / 65 DT/m² × 1,10 pour Tunis).
     const plumbing = line("Plomberie");
-    expect(plumbing.unitPrice).toBe(85);
-    expect(plumbing.labor.unitPrice).toBe(35);
+    expect(plumbing.unitPrice).toBe(93.5);
+    expect(plumbing.labor.unitPrice).toBe(38.5);
     const electricity = line("Électricité");
-    expect(electricity.unitPrice).toBe(65);
-    expect(electricity.labor.unitPrice).toBe(25);
+    expect(electricity.unitPrice).toBe(71.5);
+    expect(electricity.labor.unitPrice).toBe(27.5);
     // Total du lot = somme de ses postes, comptés une seule fois.
     expect(so.subtotal).toBe(
       so.lines.reduce((s: number, l: any) => s + l.total, 0),
@@ -165,6 +174,55 @@ describe("Estimation enregistrée d'un projet à étages (createProject → simu
       expect(storedCat.estimatedCost, cat.category).toBe(
         cat.category === "second_oeuvre" ? cat.estimatedCost + delta : cat.estimatedCost,
       );
+    }
+  });
+
+  it("l'impact régional de la grille s'applique au barème du Quantitatif (Tunis vs Médenine)", async () => {
+    const tunis = await createAndEstimate(t, userId, {
+      surface: 100,
+      floors: 1,
+      name: "Barème Tunis",
+      region: "tunis",
+    });
+    const medenine = await createAndEstimate(t, userId, {
+      surface: 100,
+      floors: 1,
+      name: "Barème Médenine",
+      region: "medenine",
+    });
+    const second = (p: any) =>
+      p.dqe.lots.find((l: any) => l.id === "second_oeuvre");
+    const lineOf = (p: any, prefix: string) =>
+      second(p).lines.find((l: any) => l.designation.startsWith(prefix));
+
+    // Médenine = base 100 % du barème national : 85 / 65 DT/m², seau inchangé.
+    expect(lineOf(medenine.project, "Plomberie").unitPrice).toBe(85);
+    expect(lineOf(medenine.project, "Électricité").unitPrice).toBe(65);
+    expect(lineOf(medenine.project, "Peinture intérieure").unitPrice).toBe(162.56);
+
+    for (const prefix of ["Peinture intérieure", "Peinture extérieure", "Plomberie", "Électricité"]) {
+      const t = lineOf(tunis.project, prefix);
+      const m = lineOf(medenine.project, prefix);
+      // Mêmes quantités, prix × 1,10 (1 980 / 1 800 = grille régionale 2026).
+      expect(t.quantity, prefix).toBe(m.quantity);
+      expect(t.unitPrice, prefix).toBeCloseTo(m.unitPrice * 1.1, 2);
+      expect(t.labor.unitPrice, prefix).toBeCloseTo(m.labor.unitPrice * 1.1, 2);
+    }
+    expect(second(tunis.project).subtotal).toBeGreaterThan(
+      second(medenine.project).subtotal,
+    );
+    // Le coefficient n'est appliqué qu'aux postes du barème : les autres
+    // articles du Second œuvre (catalogue 2026) restent identiques.
+    const scaledNames = ["Peinture intérieure", "Peinture extérieure", "Plomberie", "Électricité"];
+    const others = (p: any) =>
+      second(p).lines.filter(
+        (l: any) => !scaledNames.some((n) => l.designation.startsWith(n)),
+      );
+    expect(others(tunis.project)).toEqual(others(medenine.project));
+    // La cohérence coût global ↔ DQE reste vérifiée dans les deux régions.
+    for (const { project } of [tunis, medenine]) {
+      expect(project.costEstimate.totalCost).toBe(project.dqe.totals.total);
+      expect(project.costEstimate.levelBreakdown.anomalies).toEqual([]);
     }
   });
 

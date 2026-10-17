@@ -802,11 +802,14 @@ export const startAnalysis = mutation({
 // ============================================================================
 
 import {
+  GOVERNORATE_LABELS,
+  REGION_COST_M2,
   runBIMEstimation,
   generateProviderRecommendations,
   buildLivePriceMap,
   withLivePrices,
 } from "./bimEngine";
+import { regionCostFactor } from "../lib/regionImpact";
 import { applyRealisticDoorsWindows } from "./bimQuantitatif";
 import { generateDqe } from "./dqeEngine";
 import { inferFloorsFromCategory, normalizeLegacyCategory } from "./projectTypes";
@@ -900,6 +903,15 @@ export const simulateAnalysis = mutation({
     // travaux, sans imprévus) est réparti par lot ; les prix en direct de la
     // base materialPrices
     // écrasent les prix de référence internes du moteur.
+    // Coefficient régional appliqué aux postes à barème absolu du Quantitatif
+    // détaillé (peinture au seau, plomberie et électricité au m²) : le barème
+    // de base est national (Médenine = 100 %), il doit suivre la région du
+    // projet comme le reste des lots. Une seule application, jamais cumulée.
+    const technicalRegionFactor = regionCostFactor(
+      REGION_COST_M2,
+      region,
+      "standard",
+    );
     const dqe = generateDqe({
       category,
       surface,
@@ -907,6 +919,8 @@ export const simulateAnalysis = mutation({
       totalBudget: result.costEstimate.totalCost,
       livePrices,
       levelSurfaces,
+      regionFactor: technicalRegionFactor,
+      regionLabel: GOVERNORATE_LABELS[region] ?? region,
     });
 
     // ── Coût global TTC : le lot « Second œuvre et finitions » est facturé à la

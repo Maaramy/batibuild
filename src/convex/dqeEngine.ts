@@ -368,13 +368,13 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
     },
     {
       d: "Plomberie sanitaire",
-      desc: `Installation complète (alimentation, évacuation, chauffe-eau, appareils inclus) — ${PLUMBING_BAREME_M2.standard} DT/m² de surface construite, main-d'œuvre incluse.`,
+      desc: "Installation complète (alimentation, évacuation, chauffe-eau, appareils inclus) — prix au m² de surface construite, main-d'œuvre incluse.",
       u: "m²",
       q: REF_SURFACE,
       up: PLUMBING_BAREME_M2.standard,
       fixedPrice: true,
       n: "equipements",
-      obs: `Barème standard ${PLUMBING_BAREME_M2.standard} DT/m² · installation commune (colonne montante, conduite principale) comptée une seule fois`,
+      obs: `Barème national ${PLUMBING_BAREME_M2.standard} DT/m² · installation commune (colonne montante, conduite principale) comptée une seule fois`,
       labor: {
         label: "Main-d'œuvre — Plomberie complète",
         q: REF_SURFACE,
@@ -384,13 +384,13 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
     },
     {
       d: "Électricité",
-      desc: `Installation complète (tableaux, prises, interrupteurs, luminaires basiques) — ${ELECTRICITY_BAREME_M2.standard} DT/m² de surface construite, main-d'œuvre incluse.`,
+      desc: "Installation complète (tableaux, prises, interrupteurs, luminaires basiques) — prix au m² de surface construite, main-d'œuvre incluse.",
       u: "m²",
       q: REF_SURFACE,
       up: ELECTRICITY_BAREME_M2.standard,
       fixedPrice: true,
       n: "equipements",
-      obs: `Barème standard ${ELECTRICITY_BAREME_M2.standard} DT/m² · tableau électrique général commun compté une seule fois`,
+      obs: `Barème national ${ELECTRICITY_BAREME_M2.standard} DT/m² · tableau électrique général commun compté une seule fois`,
       labor: {
         label: "Main-d'œuvre — Électricité complète",
         q: REF_SURFACE,
@@ -1048,6 +1048,15 @@ export interface DqeInput {
    * la surface du RDC est retenue pour tous les niveaux.
    */
   levelSurfaces?: number[];
+  /**
+   * Coefficient régional du projet (prix de la région / région de référence
+   * Médenine). Il s'applique UNE seule fois, aux seuls postes à barème absolu
+   * (peinture au seau, plomberie et électricité au m²) : les autres lots sont
+   * déjà budgétés depuis la grille régionale. Absent → 1 (base nationale).
+   */
+  regionFactor?: number;
+  /** Libellé de la région du projet (traçabilité du coefficient appliqué). */
+  regionLabel?: string;
 }
 
 /**
@@ -1080,6 +1089,21 @@ export function generateDqe(input: DqeInput): DqeResult {
   const lotTpls = buildDqeLots(category, floors);
   const totalPct = lotTpls.reduce((s, l) => s + l.percent, 0);
 
+  // ── Impact régional des postes à barème absolu ──────────────────────────
+  // Le barème peinture / plomberie / électricité est national (base Médenine
+  // = 100 %). Sans ce coefficient, ces postes resteraient au prix de Médenine
+  // dans toutes les régions alors que le reste du DQE suit la grille
+  // régionale. Il n'est appliqué qu'aux lignes `fixedPrice`, une seule fois.
+  const rawRegionFactor = Number(input.regionFactor);
+  const regionFactor =
+    Number.isFinite(rawRegionFactor) && rawRegionFactor > 0 ? rawRegionFactor : 1;
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const regionName = input.regionLabel?.trim();
+  const regionNote =
+    regionFactor !== 1
+      ? ` Coefficient régional ${regionName ? `${regionName} ` : ""}×${round2(regionFactor)} appliqué (base nationale Médenine).`
+      : "";
+
   // Budgets de lots puis absorption de l'écart d'arrondi par le lot le plus
   // important : la somme des sous-totaux du Quantitatif détaillé retombe
   // EXACTEMENT sur le coût global TTC du moteur de coûts (aucun écart affiché).
@@ -1107,25 +1131,28 @@ export function generateDqe(input: DqeInput): DqeResult {
       // électricité au m²) : jamais écrasé par un prix « marché ». Les autres
       // postes continuent de suivre la base materialPrices / le catalogue.
       const resolved = tpl.fixedPrice
-        ? { up: tpl.up, unit: tpl.u }
+        ? { up: round2(tpl.up * regionFactor), unit: tpl.u }
         : resolveUnitPrice(tpl.d, tpl.up, input.livePrices);
-      // Part main-d'œuvre : même mise à l'échelle que le poste, incluse dans
-      // son prix. Elle est affichée sous le poste mais jamais recomptée.
+      // Part main-d'œuvre : même mise à l'échelle que le poste (coefficient
+      // régional compris), incluse dans son prix. Elle est affichée sous le
+      // poste mais jamais recomptée.
       const laborQuantity = tpl.labor
         ? tpl.labor.q * (tpl.qMode === "footprint" ? footprintScale : scale)
         : 0;
+      const laborUnitPrice = tpl.labor ? round2(tpl.labor.up * regionFactor) : 0;
       const labor = tpl.labor
         ? {
             label: tpl.labor.label,
             quantity: roundQty(laborQuantity),
             unit: tpl.labor.u,
-            unitPrice: tpl.labor.up,
-            total: Math.round(roundQty(laborQuantity) * tpl.labor.up),
+            unitPrice: laborUnitPrice,
+            total: Math.round(roundQty(laborQuantity) * laborUnitPrice),
           }
         : undefined;
       return {
         designation: tpl.d,
-        description: tpl.desc,
+        description:
+          tpl.fixedPrice && regionNote ? `${tpl.desc}${regionNote}` : tpl.desc,
         sousLot: tpl.sl,
         unit: resolved.unit ?? tpl.u,
         quantity,

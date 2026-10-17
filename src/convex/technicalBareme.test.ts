@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import { generateDqe } from "./dqeEngine";
-import { MARKET_PRICE_M2 } from "./bimEngine";
+import { MARKET_PRICE_M2, REGION_COST_M2 } from "./bimEngine";
 import {
   ELECTRICITY_BAREME_M2,
   ELECTRICITY_LABOR_M2,
   PAINT_BUCKET_LITERS,
   PLUMBING_BAREME_M2,
   PLUMBING_LABOR_M2,
+  paintAllInPerBucket,
 } from "../lib/technicalBareme";
+import { REFERENCE_REGION, regionCostFactor } from "../lib/regionImpact";
 
 // ============================================================================
 // BARÈME TECHNIQUE 2026 — PEINTURE · PLOMBERIE · ÉLECTRICITÉ
@@ -126,6 +128,97 @@ describe("barème plomberie et électricité — DT/m² de surface construite", 
     });
     expect(PLUMBING_BAREME_M2).toEqual({ economique: 60, standard: 85, premium: 115 });
     expect(ELECTRICITY_BAREME_M2).toEqual({ economique: 35, standard: 65, premium: 100 });
+  });
+});
+
+describe("impact régional du barème dans le Quantitatif détaillé", () => {
+  // Grille régionale 2026 : Médenine 1 800 DT/m² (base 100 %), Tunis 1 980.
+  const tunisFactor = regionCostFactor(REGION_COST_M2, "tunis", "standard");
+  const tunis = generateDqe({
+    category: "maison",
+    surface: 100,
+    floors: 1,
+    totalBudget: BUDGET,
+    regionFactor: tunisFactor,
+    regionLabel: "Tunis",
+  });
+  const soTunis = tunis.lots.find((l) => l.id === "second_oeuvre")!;
+  const tunisLine = (designation: string) => {
+    const found = soTunis.lines.find((l) => l.designation === designation);
+    if (!found) throw new Error(`Poste introuvable : ${designation}`);
+    return found;
+  };
+
+  it("Médenine est la base nationale : coefficient 1 et aucun prix modifié", () => {
+    expect(regionCostFactor(REGION_COST_M2, REFERENCE_REGION, "standard")).toBe(1);
+    const medenine = generateDqe({
+      category: "maison",
+      surface: 100,
+      floors: 1,
+      totalBudget: BUDGET,
+      regionFactor: 1,
+      regionLabel: "Médenine",
+    });
+    const so = medenine.lots.find((l) => l.id === "second_oeuvre")!;
+    expect(so.lines).toEqual(secondOeuvre.lines);
+  });
+
+  it("Tunis ×1,10 : peinture intérieure et extérieure suivent la grille régionale", () => {
+    expect(tunisFactor).toBe(1.1);
+    const paintInt = tunisLine("Peinture intérieure (3 couches, finition standard)");
+    const paintExt = tunisLine("Peinture extérieure (façade, monocouche acrylique)");
+
+    // Quantités inchangées : seul le prix régional du seau change.
+    expect(paintInt.quantity).toBe(18);
+    expect(paintExt.quantity).toBe(12);
+    expect(paintInt.unitPrice).toBe(178.82);
+    expect(paintInt.unitPrice).toBeCloseTo(
+      paintAllInPerBucket("interieure") * tunisFactor,
+      2,
+    );
+    expect(paintExt.unitPrice).toBeCloseTo(
+      paintAllInPerBucket("exterieure") * tunisFactor,
+      2,
+    );
+    // La main-d'œuvre incluse suit le même coefficient (4 → 4,40 · 5 → 5,50).
+    expect(paintInt.labor!.unitPrice).toBe(4.4);
+    expect(paintInt.labor!.total).toBe(1_100);
+    expect(paintExt.labor!.unitPrice).toBe(5.5);
+    expect(paintExt.labor!.total).toBe(440);
+    expect(paintInt.description).toContain("Coefficient régional Tunis ×1.1");
+  });
+
+  it("Tunis ×1,10 : plomberie 85 → 93,50 et électricité 65 → 71,50 DT/m²", () => {
+    const plumbing = tunisLine("Plomberie sanitaire");
+    expect(plumbing.quantity).toBe(100);
+    expect(plumbing.unitPrice).toBe(93.5);
+    expect(plumbing.total).toBe(9_350);
+    expect(plumbing.labor!.unitPrice).toBe(38.5);
+    expect(plumbing.labor!.total).toBe(3_850);
+
+    const electricity = tunisLine("Électricité");
+    expect(electricity.quantity).toBe(100);
+    expect(electricity.unitPrice).toBe(71.5);
+    expect(electricity.total).toBe(7_150);
+    expect(electricity.labor!.unitPrice).toBe(27.5);
+    expect(electricity.labor!.total).toBe(2_750);
+  });
+
+  it("seul le Second œuvre porte l'écart : les autres lots restent au budget alloué", () => {
+    for (const lot of tunis.lots) {
+      const allocated = lot.allocatedSubtotal ?? lot.subtotal;
+      if (lot.id !== "second_oeuvre") {
+        expect(lot.subtotal, lot.name).toBe(allocated);
+      }
+      expect(lot.subtotal, lot.name).toBe(
+        lot.lines.reduce((s, l) => s + l.total, 0),
+      );
+    }
+    const delta = soTunis.subtotal - (soTunis.allocatedSubtotal ?? 0);
+    expect(tunis.totals.total).toBe(BUDGET + delta);
+    // Le total régional est supérieur au total de Médenine : le barème suit
+    // bien la région, sans double application du coefficient.
+    expect(tunis.totals.total).toBeGreaterThan(iso.totals.total);
   });
 });
 

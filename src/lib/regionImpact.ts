@@ -90,6 +90,26 @@ export function gridPriceM2(
 }
 
 /**
+ * Coefficient régional de la grille (prix région / région de référence
+ * Médenine). Vaut exactement 1 pour Médenine.
+ *
+ * Utilisé pour les postes facturés à un barème ABSOLU (peinture au seau de
+ * 20 L, plomberie et électricité au m²) : leurs prix de base sont nationale
+ * (base Médenine), il faut donc leur appliquer le MÊME coefficient régional
+ * que les autres lots, sinon ils resteraient au prix de Médenine partout.
+ */
+export function regionCostFactor(
+  gridPrices: RegionGridPrices | null | undefined,
+  region: string | null | undefined,
+  scenario?: string | null,
+): number {
+  const price = region ? gridPriceM2(gridPrices, region, scenario) : 0;
+  const reference = gridPriceM2(gridPrices, REFERENCE_REGION, scenario);
+  if (price <= 0 || reference <= 0) return 1;
+  return price / reference;
+}
+
+/**
  * Prix moyen au m² d'un niveau de la grille (moyenne nationale des 24
  * gouvernorats). Sert de référence comparative nationale pour le scénario
  * AFFICHÉ : l'écart change donc lui aussi avec le scénario, contrairement à

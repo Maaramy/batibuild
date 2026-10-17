@@ -22,8 +22,9 @@
 import { describe, it, expect } from "vitest";
 
 import { generateDqe, type DqeResult } from "@/convex/dqeEngine";
-import { runBIMEstimation } from "@/convex/bimEngine";
+import { REGION_COST_M2, runBIMEstimation } from "@/convex/bimEngine";
 import { surfaceRuleForCategory } from "@/convex/projectTypes";
+import { regionCostFactor } from "@/lib/regionImpact";
 
 const REGION = "tunis";
 const FLOORS = 1;
@@ -32,7 +33,15 @@ const FLOORS = 1;
 function chain(category: string, surface: number) {
   const bim = runBIMEstimation(category, surface, FLOORS, REGION, "standard");
   const totalBudget = bim.costEstimate.totalCost;
-  const dqe = generateDqe({ category, surface, floors: FLOORS, totalBudget });
+  const dqe = generateDqe({
+    category,
+    surface,
+    floors: FLOORS,
+    totalBudget,
+    // Même coefficient régional que `simulateAnalysis` (barème national × grille).
+    regionFactor: regionCostFactor(REGION_COST_M2, REGION, "standard"),
+    regionLabel: "Tunis",
+  });
   return { totalBudget, dqe };
 }
 
