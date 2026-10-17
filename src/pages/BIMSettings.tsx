@@ -25,42 +25,15 @@ import {
   Sparkles,
   Building2,
   Database,
-  Paintbrush,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import {
   DEFAULT_LEVEL_COST_CONFIG,
   LEVEL_COEFFICIENT_RANGES,
   computeLevelCost,
   type LevelCostConfig,
 } from "@/lib/buildingLevels";
-import {
-  DEFAULT_PAINT_QUANTITIES,
-  PAINT_QUANTITY_RANGES,
-  PAINT_PRICING_NOTE,
-  paintQuantityPlan,
-  type PaintNumericKey,
-  type PaintQuantitiesConfig,
-} from "@/lib/paintQuantities";
-
-/** Champs numériques du barème de peinture (Quantitatif détaillé). */
-const PAINT_FIELDS: {
-  key: PaintNumericKey;
-  label: string;
-  unit: string;
-  step: string;
-}[] = [
-  { key: "interiorBuckets", label: "Quantité intérieure de référence", unit: "seaux", step: "1" },
-  { key: "exteriorBuckets", label: "Quantité extérieure de référence", unit: "seaux", step: "1" },
-  { key: "referenceSurface", label: "Surface de référence", unit: "m²", step: "10" },
-  { key: "bucketLiters", label: "Volume du seau", unit: "litres", step: "1" },
-  { key: "coats", label: "Nombre de couches", unit: "couches", step: "1" },
-  { key: "interiorBucketPrice", label: "Prix du seau — intérieure", unit: "TND/seau", step: "0.5" },
-  { key: "exteriorBucketPrice", label: "Prix du seau — extérieure", unit: "TND/seau", step: "0.5" },
-];
 
 /** Champs éditables des coefficients multi-niveaux (RDC, étages, frais communs, toiture). */
 const LEVEL_FIELDS: {
@@ -141,42 +114,6 @@ export default function BIMSettings() {
     pricePerM2: 1980,
     config: levelCoeffsDraft,
   });
-
-  // ── Barème de peinture — Quantitatif détaillé (« Second œuvre et finitions ») ──
-  // Projet de référence : 10 seaux intérieurs (200 L) et 7 seaux extérieurs
-  // (140 L) pour 100 m² construits, au seau de 20 litres sur 3 couches. Les
-  // quantités et le prix du seau enregistrés ici pilotent réellement le
-  // Quantitatif détaillé, le devis, les scénarios et les rapports PDF.
-  const [paintDraft, setPaintDraft] = useState<PaintQuantitiesConfig | null>(null);
-  const [savingPaint, setSavingPaint] = useState(false);
-
-  const effectivePaint: PaintQuantitiesConfig =
-    bimConfig?.parsedPaintQuantities ?? DEFAULT_PAINT_QUANTITIES;
-  const paintValues = paintDraft ?? effectivePaint;
-  const paintRanges = (bimConfig?.paintQuantityRanges ??
-    PAINT_QUANTITY_RANGES) as Record<PaintNumericKey, { min: number; max: number }>;
-  const outOfRangePaint = PAINT_FIELDS.filter(({ key }) => {
-    const bounds = paintRanges[key] ?? PAINT_QUANTITY_RANGES[key];
-    const value = paintValues[key];
-    return !(value >= bounds.min && value <= bounds.max);
-  });
-
-  // Aperçu du calcul sur la référence 100 m² et sur 150 m² (règle
-  // proportionnelle, arrondi à l'entier supérieur).
-  const paintPreview100 = paintQuantityPlan(100, paintValues);
-  const paintPreview150 = paintQuantityPlan(150, paintValues);
-
-  const handleSavePaint = async () => {
-    setSavingPaint(true);
-    try {
-      await saveBIMConfig({ paintQuantities: JSON.stringify(paintValues) });
-      toast.success("Barème de peinture enregistré");
-      setPaintDraft(null);
-    } catch (err: any) {
-      toast.error(err?.message || "Erreur lors de l'enregistrement du barème de peinture");
-    }
-    setSavingPaint(false);
-  };
 
   const handleSaveLevels = async () => {
     setSavingLevels(true);
@@ -755,170 +692,6 @@ export default function BIMSettings() {
                 ))}
               </ul>
             )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ── Barème de peinture : Quantitatif détaillé (Second œuvre et finitions) ── */}
-      <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
-        <CardHeader className="p-4 sm:p-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <Paintbrush className="h-4 w-4 text-primary" />
-            <CardTitle className="text-sm">
-              Peinture — Quantitatif détaillé (Second œuvre et finitions)
-            </CardTitle>
-            <Badge variant="secondary" className="ml-auto text-[9px]">
-              {paintDraft ? "modifié" : "enregistré"}
-            </Badge>
-          </div>
-          <CardDescription className="text-xs leading-relaxed">
-            Projet de référence : <strong>100 m² de surface construite</strong> →{" "}
-            <strong>{effectivePaint.interiorBuckets} seaux</strong> de peinture intérieure (
-            {effectivePaint.interiorBuckets * effectivePaint.bucketLiters} L) et{" "}
-            <strong>{effectivePaint.exteriorBuckets} seaux</strong> de peinture extérieure (
-            {effectivePaint.exteriorBuckets * effectivePaint.bucketLiters} L), au seau de{" "}
-            {effectivePaint.bucketLiters} litres sur {effectivePaint.coats} couches. Les deux postes du
-            Quantitatif détaillé valent <strong>quantité × prix unitaire du seau</strong> : aucun
-            coefficient régional ni majoration n'est appliqué aux quantités.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {PAINT_FIELDS.map(({ key, label, unit, step }) => {
-              const bounds = paintRanges[key] ?? PAINT_QUANTITY_RANGES[key];
-              const value = paintValues[key];
-              const invalid = value < bounds.min || value > bounds.max;
-              return (
-                <div key={key}>
-                  <label className="text-[10px] font-semibold" htmlFor={`paint-${key}`}>
-                    {label}
-                  </label>
-                  <Input
-                    id={`paint-${key}`}
-                    type="number"
-                    step={step}
-                    min={0}
-                    value={value}
-                    onChange={(e) => {
-                      const next = Number(e.target.value);
-                      setPaintDraft({
-                        ...paintValues,
-                        [key]: Number.isFinite(next) ? next : 0,
-                      });
-                    }}
-                    className={cn("mt-1 h-8 text-xs", invalid && "border-amber-500 text-amber-600")}
-                  />
-                  <p className="mt-1 text-[9px] leading-tight text-muted-foreground">
-                    {unit} · {bounds.min}-{bounds.max}
-                  </p>
-                </div>
-              );
-            })}
-            <div className="flex flex-col justify-end gap-1.5">
-              <Label htmlFor="paint-proportional" className="text-[10px] font-semibold">
-                Calcul proportionnel selon la surface
-              </Label>
-              <Switch
-                id="paint-proportional"
-                checked={paintValues.proportional}
-                onCheckedChange={(checked) =>
-                  setPaintDraft({ ...paintValues, proportional: checked === true })
-                }
-              />
-              <p className="text-[9px] leading-tight text-muted-foreground">
-                Activé : quantité × surface / {paintValues.referenceSurface} m², arrondie à l'entier
-                supérieur. Désactivé : quantités de référence conservées.
-              </p>
-            </div>
-          </div>
-
-          {/* Aperçu : quantités, volumes, montants et sous-total peinture */}
-          <div className="rounded-lg border border-border/50 p-3">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold">
-              <Clock className="h-3 w-3 text-muted-foreground" />
-              Aperçu du Quantitatif détaillé — référence 100 m² et 150 m²
-            </p>
-            <div className="mt-2 space-y-1">
-              {[paintPreview100, paintPreview150].map((plan) => (
-                <div key={plan.surface} className="space-y-0.5 border-b border-border/10 py-1">
-                  <div className="flex items-center justify-between gap-2 text-[10px]">
-                    <span className="font-semibold">{plan.surface} m² construits</span>
-                    <span className="text-muted-foreground">
-                      {plan.proportional ? "proportionnel, arrondi supérieur" : "quantités de référence"}
-                    </span>
-                    <span className="font-semibold tabular-nums">
-                      Sous-total {plan.subtotal.toLocaleString("fr-FR")} TND
-                    </span>
-                  </div>
-                  {[plan.interior, plan.exterior].map((line) => (
-                    <div
-                      key={line.role}
-                      className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground"
-                    >
-                      <span className="truncate">{line.designation}</span>
-                      <span className="shrink-0">
-                        {line.quantity} × {line.unit} ({line.liters} L)
-                      </span>
-                      <span className="shrink-0">
-                        {line.unitPrice.toLocaleString("fr-FR")} TND/{line.unit}
-                      </span>
-                      <span className="w-24 shrink-0 text-right font-medium text-foreground tabular-nums">
-                        {line.amount.toLocaleString("fr-FR")} TND
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 text-[9px] text-muted-foreground">{PAINT_PRICING_NOTE}</p>
-          </div>
-
-          {outOfRangePaint.length > 0 && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-              <div className="text-[11px] text-amber-700">
-                <p className="font-semibold">Paramètres de peinture hors fourchette recommandée</p>
-                <p>
-                  {outOfRangePaint.map((f) => f.label).join(", ")} — fourchettes :{" "}
-                  {PAINT_FIELDS.map((f) => {
-                    const b = paintRanges[f.key] ?? PAINT_QUANTITY_RANGES[f.key];
-                    return `${f.label.toLowerCase()} ${b.min}-${b.max}`;
-                  }).join(" · ")}
-                  . Ces valeurs sont des hypothèses de paramétrage, pas des tarifs officiels.
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              className="h-8 gap-1.5 text-xs"
-              onClick={handleSavePaint}
-              disabled={savingPaint || outOfRangePaint.length > 0}
-            >
-              {savingPaint ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              Enregistrer le barème de peinture
-            </Button>
-            {paintDraft && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs"
-                onClick={() => setPaintDraft(null)}
-              >
-                Réinitialiser
-              </Button>
-            )}
-            <p className="text-[9px] text-muted-foreground">
-              Les projets déjà estimés conservent leurs quantités jusqu'à leur prochaine estimation :
-              le Quantitatif détaillé, le devis, les scénarios et les rapports PDF sont alors recalculés
-              avec ces valeurs.
-            </p>
           </div>
         </CardContent>
       </Card>

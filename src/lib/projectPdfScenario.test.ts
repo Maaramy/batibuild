@@ -14,8 +14,6 @@ import {
   scaleBreakdownToTotal,
   type PersonalizedScenarioData,
 } from "@/lib/projectPdfScenario";
-import { generateDqe } from "@/convex/dqeEngine";
-import { DEFAULT_PAINT_QUANTITIES, paintLineRole } from "@/lib/paintQuantities";
 
 // ── Jeu de données : devis « Standard » de référence (250 m², 500 000 TND) ──
 const BUILT_SURFACE = 250;
@@ -442,76 +440,6 @@ describe("devis PDF — intégrité des données du projet", () => {
       personalized,
     });
     expect(JSON.stringify(rawLots)).toBe(rawBefore);
-  });
-});
-
-// ── Postes de peinture au seau (Quantitatif détaillé, Second œuvre) ──────────
-describe("resolvePdfScenarioValues — postes de peinture au seau", () => {
-  const paintDqe = generateDqe({
-    category: "maison",
-    surface: 100,
-    floors: 1,
-    totalBudget: 1980 * 100,
-  });
-  const paintScenarios = {
-    economique: { totalCost: Math.round(1980 * 100 * 0.8) },
-    standard: { totalCost: 1980 * 100 },
-    premium: { totalCost: Math.round(1980 * 100 * 1.3) },
-  };
-  const paintCe = { totalCost: 1980 * 100, breakdown: [] };
-  const paintOf = (lots: any[]) =>
-    (lots.find((l: any) => l.id === "second_oeuvre")?.lines ?? []).filter(
-      (l: any) => paintLineRole(l.designation) !== null,
-    );
-
-  it("Standard : 10 seaux intérieurs et 7 extérieurs au prix du barème", () => {
-    const values = resolvePdfScenarioValues({
-      scenario: "standard",
-      scenarios: paintScenarios,
-      ce: paintCe,
-      dqe: paintDqe,
-    });
-    const lines = paintOf(values.dqeLots);
-    expect(values.scenarioLabel).toBe("Standard");
-    expect(lines.map((l: any) => l.quantity)).toEqual([10, 7]);
-    expect(lines.map((l: any) => l.unit)).toEqual(["seau de 20 litres", "seau de 20 litres"]);
-    expect(lines[0].total).toBe(10 * DEFAULT_PAINT_QUANTITIES.interiorBucketPrice);
-    expect(lines[1].total).toBe(7 * DEFAULT_PAINT_QUANTITIES.exteriorBucketPrice);
-  });
-
-  it("Premium : quantités (seaux) conservées, montants mis à l'échelle", () => {
-    const values = resolvePdfScenarioValues({
-      scenario: "premium",
-      scenarios: paintScenarios,
-      ce: paintCe,
-      dqe: paintDqe,
-      dqeScaleFactor: 1.3,
-    });
-    const lines = paintOf(values.dqeLots);
-    expect(lines.map((l: any) => l.quantity)).toEqual([10, 7]);
-    expect(lines[0].total).toBe(Math.round(1070 * 1.3));
-    // Le quantitatif d'origine n'est jamais modifié par la résolution PDF.
-    const raw = paintOf(paintDqe.lots);
-    expect(raw[0].total).toBe(1070);
-  });
-
-  it("Personnalisé : quantités de référence conservées dans le devis exporté", () => {
-    const personalized: PersonalizedScenarioData = {
-      lots: scaleDqeLots(paintDqe.lots, 1),
-      totals: computeQuantitatifTotals(paintDqe.lots, 100),
-      modifiedCount: 1,
-    };
-    const values = resolvePdfScenarioValues({
-      scenario: PERSONALIZED_SCENARIO_KEY,
-      scenarios: paintScenarios,
-      ce: paintCe,
-      dqe: paintDqe,
-      personalized,
-    });
-    const lines = paintOf(values.dqeLots);
-    expect(values.isPersonalized).toBe(true);
-    expect(lines.map((l: any) => l.quantity)).toEqual([10, 7]);
-    expect(values.dqeTotals?.total).toBe(personalized.totals.total);
   });
 });
 
