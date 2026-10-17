@@ -421,6 +421,22 @@ export function ArticleEditDialog({
                 hint="verrouillé"
               />
               <Row label="Montant" value={fmt(newAmount)} strong />
+              {/* Part main-d'œuvre affichée sous le poste (peinture, plomberie,
+                  électricité). Elle est DÉJÀ comprise dans le montant : elle
+                  n'est jamais ajoutée une seconde fois. */}
+              {line?.labor && (
+                <div className="flex items-baseline justify-between gap-2 pt-1 border-t border-border/10">
+                  <span className="text-[10px] text-muted-foreground leading-snug">
+                    ↳ {line.labor.label}
+                  </span>
+                  <span className="text-[10px] font-medium tabular-nums text-muted-foreground shrink-0">
+                    {fmt(Math.round(line.labor.total * displayFactor))}
+                    <span className="ml-1 text-[9px] font-normal">
+                      ({line.labor.quantity} {line.labor.unit} · inclus)
+                    </span>
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Scénario de budget */}

@@ -145,20 +145,30 @@ const personalizedModified = personalizedScenario({
   priceMultiplier: 1.2,
 });
 
+// ── Totaux RÉELS affichés (identiques à `simulateAnalysis`) ──────────────────
+// Le lot « Second œuvre et finitions » est facturé à la somme réelle de ses
+// postes : le standard vaut le total du DQE, les deux autres scénarios suivent
+// le même rapport que la grille.
+const scenarioRatio =
+  standard.costEstimate.totalCost > 0
+    ? dqe.totals.total / standard.costEstimate.totalCost
+    : 1;
+const alignTotal = (n: number) => Math.round(n * scenarioRatio);
+
 const SCENARIOS = {
   economique: {
-    total: eco.costEstimate.totalCost,
-    impact: impactOf(eco.costEstimate.totalCost, "economique"),
+    total: alignTotal(eco.costEstimate.totalCost),
+    impact: impactOf(alignTotal(eco.costEstimate.totalCost), "economique"),
     label: "Économique",
   },
   standard: {
-    total: standard.costEstimate.totalCost,
-    impact: impactOf(standard.costEstimate.totalCost, "standard"),
+    total: dqe.totals.total,
+    impact: impactOf(dqe.totals.total, "standard"),
     label: "Standard",
   },
   premium: {
-    total: premium.costEstimate.totalCost,
-    impact: impactOf(premium.costEstimate.totalCost, "premium"),
+    total: alignTotal(premium.costEstimate.totalCost),
+    impact: impactOf(alignTotal(premium.costEstimate.totalCost), "premium"),
     label: "Premium",
   },
   personnalise: {
@@ -326,8 +336,9 @@ describe("4 · cohérence BIM ↔ DQE ↔ estimation globale", () => {
   });
 
   it("le quantitatif du projet tombe sur le total du scénario (source du Personnalisé)", () => {
-    expect(dqe.totals.total).toBe(standard.costEstimate.totalCost);
-    expect(personalizedNoMod.totals.total).toBe(standard.costEstimate.totalCost);
+    // Le standard affiché EST le total réel du quantitatif (Second œuvre au réel).
+    expect(SCENARIOS.standard.total).toBe(dqe.totals.total);
+    expect(personalizedNoMod.totals.total).toBe(dqe.totals.total);
   });
 
   it("l'impact régional calculé par le moteur BIM est celui du scénario du projet", () => {

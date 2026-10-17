@@ -124,9 +124,18 @@ function scaleDqeLotsForPdf(lots: any[] | undefined, factor: number): any[] {
     subtotal: Math.round((Number(lot?.subtotal) || 0) * factor),
     lines: (lot?.lines ?? []).map((line: any) => {
       const total = Math.round((Number(line?.total) || 0) * factor);
+      const labor = line?.labor
+        ? {
+            ...line.labor,
+            total: Math.round((Number(line.labor.total) || 0) * factor),
+            unitPrice:
+              Math.round((Number(line.labor.unitPrice) || 0) * factor * 100) / 100,
+          }
+        : undefined;
       return {
         ...line,
         total,
+        ...(labor ? { labor } : {}),
         // Prix unitaire dérivé du montant mis à l'échelle (identique au devis
         // des scénarios budgétaires d'origine).
         unitPrice:

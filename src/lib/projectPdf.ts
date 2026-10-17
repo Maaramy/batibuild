@@ -582,6 +582,16 @@ export async function generateProjectPdf({
                 { content: fmtPdf(line.unitPrice || 0), styles: { fontSize: 6, halign: "right" as const, textColor: C.textSecondary } },
                 { content: fmtPdf(line.total || 0), styles: { fontSize: 6, halign: "right" as const, fontStyle: "bold" as const } },
               ]);
+              // Part main-d'œuvre du poste (peinture, plomberie, électricité) :
+              // affichée SOUS le poste, déjà comprise dans son montant.
+              if (line.labor) {
+                natTableBody.push([
+                  { content: `   ↳ ${line.labor.label} (inclus)`, styles: { fontSize: 5.5, halign: "left" as const, textColor: C.textSecondary, fontStyle: "italic" as const } },
+                  { content: `${line.labor.quantity || 0} ${line.labor.unit || ""}`, styles: { fontSize: 5.5, halign: "right" as const, textColor: C.textSecondary } },
+                  { content: fmtPdf(line.labor.unitPrice || 0), styles: { fontSize: 5.5, halign: "right" as const, textColor: C.textSecondary } },
+                  { content: fmtPdf(line.labor.total || 0), styles: { fontSize: 5.5, halign: "right" as const, textColor: C.textSecondary } },
+                ]);
+              }
             });
 
             (doc as any).autoTable({

@@ -178,13 +178,44 @@ describe("generateDqe — comportement proportionnel et prix en direct", () => {
         .find((l) => l.designation === "Revêtements de sol (carrelage grès cérame premier choix)")!;
 
     expect(line(dqeLive).unitPrice).toBeGreaterThan(line(dqeRef).unitPrice);
-    // Les deux versions restent calibrées sur le même budget total
-    expect(dqeLive.totals.total).toBe(dqeRef.totals.total);
+    // Le lot « Second œuvre et finitions » est facturé au réel : la mise à jour
+    // du prix se répercute sur son sous-total et donc sur le total général,
+    // sans toucher aux autres lots.
+    expect(dqeLive.totals.total).toBeGreaterThan(dqeRef.totals.total);
+    for (const id of ["frais_preliminaires", "gros_oeuvre", "amenagements_exterieurs", "vrd"]) {
+      const liveLot = dqeLive.lots.find((l) => l.id === id);
+      const refLot = dqeRef.lots.find((l) => l.id === id);
+      if (!liveLot || !refLot) continue;
+      expect(liveLot.subtotal, id).toBe(refLot.subtotal);
+    }
   });
 
-  it("le budget total est respecté (écart ≤ 1 % par lot)", () => {
-    const dqe = run("maison", { totalBudget: 250_000 });
-    expect(Math.abs(dqe.totals.total - 250_000)).toBeLessThanOrEqual(2_500);
+  it("protège les lots hors Second œuvre : seul l'écart du lot au réel modifie le total", () => {
+    const budget = 250_000;
+    const dqe = run("maison", { totalBudget: budget });
+    // Chaque lot conserve le budget alloué ; seul « Second œuvre et
+    // finitions » est facturé à la somme réelle de ses postes.
+    const allocated = dqe.lots.reduce(
+      (s, l) => s + (l.allocatedSubtotal ?? l.subtotal),
+      0,
+    );
+    expect(allocated).toBe(budget);
+    for (const lot of dqe.lots) {
+      const allocatedSubtotal = lot.allocatedSubtotal ?? lot.subtotal;
+      if (lot.id !== "second_oeuvre") {
+        // Aucun autre poste n'est réévalué : sous-total inchangé.
+        expect(lot.subtotal, lot.name).toBe(allocatedSubtotal);
+      }
+      // Sous-total = somme réelle des postes, comptés une seule fois.
+      expect(lot.subtotal, lot.name).toBe(
+        lot.lines.reduce((s, l) => s + l.total, 0),
+      );
+    }
+    const realDelta = dqe.lots.reduce(
+      (s, l) => s + (l.subtotal - (l.allocatedSubtotal ?? l.subtotal)),
+      0,
+    );
+    expect(dqe.totals.total).toBe(budget + realDelta);
   });
 });
 

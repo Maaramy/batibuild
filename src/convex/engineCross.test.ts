@@ -164,9 +164,25 @@ describe("Cohérence croisée BIM → DQE", () => {
 
           const dqe = generateDqe({ category, surface, floors, totalBudget: budget });
 
-          // Le DQE doit retomber sur le budget BIM (arrondi par lot uniquement)
-          const drift = Math.abs(dqe.totals.total - budget);
-          expect(drift).toBeLessThanOrEqual(dqe.lots.length);
+          // Le budget BIM reste la référence de chaque lot. Seul le lot
+          // « Second œuvre et finitions » est facturé à la somme réelle de ses
+          // postes : son écart est explicite et ne touche aucun autre lot.
+          const allocated = dqe.lots.reduce(
+            (s, l) => s + (l.allocatedSubtotal ?? l.subtotal),
+            0,
+          );
+          expect(allocated).toBe(budget);
+          for (const lot of dqe.lots) {
+            if (lot.id === "second_oeuvre") continue;
+            expect(lot.subtotal, `${category} / ${lot.name}`).toBe(
+              lot.allocatedSubtotal ?? lot.subtotal,
+            );
+          }
+          const realDelta = dqe.lots.reduce(
+            (s, l) => s + (l.subtotal - (l.allocatedSubtotal ?? l.subtotal)),
+            0,
+          );
+          expect(dqe.totals.total).toBe(budget + realDelta);
 
           // Somme des sous-totaux de lots = total déclaré
           const sumLots = dqe.lots.reduce((s, l) => s + l.subtotal, 0);

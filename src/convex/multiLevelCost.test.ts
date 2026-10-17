@@ -231,7 +231,7 @@ describe("6 · Projet avec travaux complémentaires personnalisés", () => {
     );
 
     // Le total du DQE reste la somme exacte de ses lots…
-    expect(totalsWithComplementary.total).toBe(ce.totalCost + 25_000);
+    expect(totalsWithComplementary.total).toBe(dqe.totals.total + 25_000);
     // …et le socle multi-niveaux n'a pas bougé d'un dinar.
     expect(ce.totalCost).toBe(sumLevelsAndRoof(ce));
     expect(ce.levelBreakdown.anomalies).toEqual([]);
@@ -284,7 +284,7 @@ describe("7 · Modification d'un prix dans le DQE", () => {
     expect(recomputed.total).toBe(
       overlaid.lots.reduce((s: number, l: any) => s + (Number(l.subtotal) || 0), 0),
     );
-    expect(recomputed.total).toBe(ce.totalCost + (entry.unitPrice - line.unitPrice) * entry.quantity);
+    expect(recomputed.total).toBe(dqe.totals.total + (entry.unitPrice - line.unitPrice) * entry.quantity);
     // Aucune altération du calcul multi-niveaux de référence.
     expect(ce.totalCost).toBe(sumLevelsAndRoof(ce));
   });
@@ -364,10 +364,16 @@ describe("Cohérence moteur ↔ DQE ↔ vérification automatique des anomalies"
         levelSurfaces,
       });
 
-      // Le coût global TTC correspond exactement à la somme du DQE.
+      // Le coût global TTC correspond exactement à la somme du DQE, dont
+      // seul le lot « Second œuvre et finitions » est facturé au réel (les
+      // autres lots gardent le budget alloué).
       const sumLots = dqe.lots.reduce((s, l) => s + l.subtotal, 0);
       expect(sumLots).toBe(dqe.totals.total);
-      expect(Math.abs(dqe.totals.total - ce.totalCost)).toBeLessThanOrEqual(dqe.lots.length);
+      const realDelta = dqe.lots.reduce(
+        (s, l) => s + (l.subtotal - (l.allocatedSubtotal ?? l.subtotal)),
+        0,
+      );
+      expect(dqe.totals.total).toBe(ce.totalCost + realDelta);
       // Le DQE ne compte jamais deux fois les travaux communs : ses quantités de
       // fondations / terrassement suivent l'emprise au sol, pas le nombre de niveaux.
       const go = dqe.lots.find((l) => l.id === "gros_oeuvre")!;

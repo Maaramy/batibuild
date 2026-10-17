@@ -10,6 +10,7 @@ import {
   type RegionImpact,
   type RegionScenarioKey,
 } from "../lib/regionImpact";
+import { ELECTRICITY_BAREME_M2, PLUMBING_BAREME_M2 } from "../lib/technicalBareme";
 
 // ============================================================================
 // PROFESSIONAL BIM COST ESTIMATION ENGINE
@@ -549,9 +550,20 @@ const RELATIVE_PRICE_M2: Record<string, { eco: number, std: number, premium: num
   // Démolition
   demolition:                { eco: 86, std: 125, premium: 211 },
   installations_sanitaires:  { eco: 960, std: 1536, premium: 2880 },
-  plomberie_complete:        { eco: 80, std: 165, premium: 250 },
+  // Barème 2026 des lots techniques (DT/m² de surface construite) — SOURCE
+  // UNIQUE : `lib/technicalBareme`, reprise à l'identique par le « Quantitatif
+  // détaillé » (lot Second œuvre et finitions).
+  plomberie_complete:        {
+    eco: PLUMBING_BAREME_M2.economique,
+    std: PLUMBING_BAREME_M2.standard,
+    premium: PLUMBING_BAREME_M2.premium,
+  },
   installations_electricite: { eco: 300, std: 520, premium: 880 },
-  electricite_complete:      { eco: 60, std: 120, premium: 180 },
+  electricite_complete:      {
+    eco: ELECTRICITY_BAREME_M2.economique,
+    std: ELECTRICITY_BAREME_M2.standard,
+    premium: ELECTRICITY_BAREME_M2.premium,
+  },
 };
 
 /** Base nationale « Standard » — maison neuve conventionnelle (feuille Excel 2026, base Médenine = 1 800 DT/m²). */

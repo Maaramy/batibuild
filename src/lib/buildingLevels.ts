@@ -135,7 +135,13 @@ export interface LevelCostResult {
   roof: RoofCostLine;
   /** Frais communs comptés une seule fois (déjà inclus dans le RDC). */
   common: { share: number; amount: number; countedOnce: boolean };
-  /** Coût total TTC = Σ niveaux + toiture (aucun autre terme ajouté). */
+  /**
+   * Ajustements explicites comptés UNE seule fois en plus des niveaux et de la
+   * toiture (ex. « Second œuvre et finitions » facturé à la somme réelle de ses
+   * postes). Vide tant qu'aucun ajustement n'est appliqué.
+   */
+  costAdjustments?: { label: string; amount: number }[];
+  /** Coût total TTC = Σ niveaux + toiture + ajustements explicites. */
   total: number;
   /** Coût moyen au m² sur la surface réelle construite. */
   costPerM2Real: number;
@@ -280,6 +286,7 @@ export function computeLevelCost(input: {
         (roofCounted ? (topLevel?.area ?? 0) * config.roofWeight : 0)) *
         100,
     ) / 100;
+  const costAdjustments: { label: string; amount: number }[] = [];
   const total = levels.reduce((s, l) => s + l.amount, 0) + roof.amount;
 
   const result: LevelCostResult = {
@@ -295,6 +302,7 @@ export function computeLevelCost(input: {
       amount: levels.length > 0 ? levels[0].commonAmount : 0,
       countedOnce: true,
     },
+    costAdjustments,
     total,
     costPerM2Real: realArea > 0 ? round0(total / realArea) : 0,
     anomalies: [],
@@ -313,9 +321,14 @@ export function checkLevelCosting(result: LevelCostResult): LevelAnomaly[] {
   const anomalies: LevelAnomaly[] = [];
   const { config, levels, roof, pricePerM2: price } = result;
 
-  // 1. Aucun poste compté deux fois : le total EST la somme des niveaux + toiture.
+  // 1. Aucun poste compté deux fois : le total EST la somme des niveaux + toiture
+  //    (+ les ajustements explicites, chacun compté une seule fois).
   const sumLevels = levels.reduce((s, l) => s + l.amount, 0);
-  if (result.total !== sumLevels + roof.amount) {
+  const sumAdjustments = (result.costAdjustments ?? []).reduce(
+    (s, a) => s + (Number(a.amount) || 0),
+    0,
+  );
+  if (result.total !== sumLevels + roof.amount + sumAdjustments) {
     anomalies.push({
       code: "double_comptage",
       severity: "élevée",

@@ -909,14 +909,59 @@ export const simulateAnalysis = mutation({
       levelSurfaces,
     });
 
+    // ── Coût global TTC : le lot « Second œuvre et finitions » est facturé à la
+    // SOMME RÉELLE de ses postes (barème peinture au seau de 20 L, plomberie et
+    // électricité au m²). L'écart avec l'allocation forfaitaire de la grille ne
+    // porte QUE sur ce lot : les autres lots conservent leur sous-total, leurs
+    // quantités et leurs prix unitaires (aucun prix redistribué, aucune mise à
+    // jour générale du marché). Le total TTC et le coût au m² sont donc ajustés
+    // de ce seul écart.
+    const gridTotal = result.costEstimate.totalCost;
+    const dqeTotal = dqe.totals.total;
+    const dqeCostM2 = dqe.totals.costPerM2;
+    const secondOeuvreDelta = dqeTotal - gridTotal;
+    // Les scénarios Économique / Premium suivent le même rapport que le
+    // scénario de référence : l'ordre des budgets reste inchangé.
+    const scenarioRatio = gridTotal > 0 ? dqeTotal / gridTotal : 1;
+    const alignScenario = (s: any) =>
+      s
+        ? {
+            ...s,
+            totalCost: Math.round((Number(s.totalCost) || 0) * scenarioRatio),
+            costPerM2: Math.round((Number(s.costPerM2) || 0) * scenarioRatio),
+          }
+        : s;
+    const budgetScenarios = result.costEstimate.budgetScenarios
+      ? {
+          economique: alignScenario(result.costEstimate.budgetScenarios.economique),
+          standard: {
+            ...result.costEstimate.budgetScenarios.standard,
+            totalCost: dqeTotal,
+            costPerM2: dqeCostM2,
+          },
+          premium: alignScenario(result.costEstimate.budgetScenarios.premium),
+        }
+      : result.costEstimate.budgetScenarios;
+
     // ── Vérification automatique « coût global = somme du DQE » ──
     // Le Quantitatif détaillé doit toujours retomber exactement sur le coût
     // estimatif. Toute incohérence est remontée (jamais masquée) et affichée
     // dans l'interface d'administration avec le détail du calcul.
     const levelBreakdown = result.costEstimate.levelBreakdown;
     if (levelBreakdown) {
+      // L'écart du Second œuvre est un ajustement EXPLICITE : le total reste
+      // exactement la somme des niveaux + toiture + cet ajustement (compté une
+      // seule fois, jamais noyé dans un niveau).
+      levelBreakdown.total = dqeTotal;
+      levelBreakdown.costPerM2Real = dqeCostM2;
+      levelBreakdown.costAdjustments = [
+        ...(levelBreakdown.costAdjustments ?? []),
+        ...(secondOeuvreDelta !== 0
+          ? [{ label: "Second œuvre et finitions — somme réelle des postes", amount: secondOeuvreDelta }]
+          : []),
+      ];
       const dqeAnomalies = checkDqeConsistency(
-        result.costEstimate.totalCost,
+        dqeTotal,
         dqe.totals.total,
         dqe.lots.length,
       );
@@ -927,7 +972,7 @@ export const simulateAnalysis = mutation({
     const recommendations = generateProviderRecommendations(
       category,
       region,
-      result.costEstimate.totalCost,
+      dqeTotal,
       surface,
       floors,
       finishLevel
@@ -1022,8 +1067,20 @@ export const simulateAnalysis = mutation({
     // Cast BIM categories to the valid union type for Convex schema
     const costEstimate = {
       ...result.costEstimate,
+      totalCost: dqeTotal,
+      costPerSquareMeter: dqeCostM2,
+      budgetScenarios,
+      levelBreakdown,
+      // La seule catégorie ajustée est « Second œuvre » : elle porte l'écart
+      // exact du lot facturé à ses postes réels. Les autres catégories, leurs
+      // postes et leurs montants restent strictement inchangés — la somme de la
+      // répartition retombe donc exactement sur le nouveau total TTC.
       breakdown: result.costEstimate.breakdown.map((b: any) => ({
         ...b,
+        estimatedCost:
+          b.category === "second_oeuvre"
+            ? (Number(b.estimatedCost) || 0) + secondOeuvreDelta
+            : b.estimatedCost,
         category: b.category as typeof materialCategoryValidator.type,
       })),
     };

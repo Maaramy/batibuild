@@ -80,14 +80,32 @@ describe("surface → quantitatif détaillé : les quantités suivent la surface
     }
   });
 
-  it("le total du DQE reste calé sur le budget du moteur BIM", () => {
+  it("le budget du moteur BIM reste la référence ; seul le Second œuvre réel s'en écarte", () => {
     for (const category of CASES) {
       const rule = surfaceRuleForCategory(category);
       for (const surface of [rule.min, rule.defaultValue, rule.max]) {
         const { totalBudget, dqe } = chain(category, surface);
-        // Les lots sont arrondis séparément : tolérance de quelques dinars.
-        expect(dqe.totals.total, `${category}@${surface}`).toBeCloseTo(totalBudget, -1);
-        expect(dqe.referenceTotal, `${category}@${surface}`).toBe(Math.round(totalBudget));
+        const label = `${category}@${surface}`;
+        // La somme des budgets alloués retombe sur le budget BIM.
+        const allocated = dqe.lots.reduce(
+          (s, l) => s + (l.allocatedSubtotal ?? l.subtotal),
+          0,
+        );
+        expect(allocated, label).toBe(Math.round(totalBudget));
+        // Le total réel = budget + écart du lot « Second œuvre et finitions ».
+        const realDelta = dqe.lots.reduce(
+          (s, l) => s + (l.subtotal - (l.allocatedSubtotal ?? l.subtotal)),
+          0,
+        );
+        expect(dqe.totals.total, label).toBe(Math.round(totalBudget) + realDelta);
+        // Tous les autres lots gardent exactement leur budget alloué.
+        for (const lot of dqe.lots) {
+          if (lot.id === "second_oeuvre") continue;
+          expect(lot.subtotal, `${label} / ${lot.name}`).toBe(
+            lot.allocatedSubtotal ?? lot.subtotal,
+          );
+        }
+        expect(dqe.referenceTotal, label).toBe(Math.round(totalBudget));
       }
     }
   });

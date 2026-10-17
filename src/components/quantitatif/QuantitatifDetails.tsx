@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -335,9 +335,31 @@ export function QuantitatifDetails({
                                       ? "cursor-pointer hover:bg-primary/[0.06]"
                                       : "hover:bg-muted/10",
                                   );
-                                  return canEditLot ? (
+                                  // Main-d'œuvre correspondante, affichée SOUS le poste
+                                  // (peinture intérieure / extérieure, plomberie,
+                                  // électricité). Elle est déjà comprise dans le montant
+                                  // du poste : elle n'est jamais recomptée dans le lot.
+                                  const laborRow = line.labor ? (
+                                    <div className="flex items-start gap-2 pl-7 pr-3 py-1 border-b border-border/5 bg-muted/[0.04]">
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[10px] text-muted-foreground leading-snug">
+                                          ↳ {line.labor.label}
+                                          <span className="text-muted-foreground/60"> · inclus dans le montant</span>
+                                        </p>
+                                      </div>
+                                      <span className="text-[10px] text-muted-foreground/80 tabular-nums shrink-0">
+                                        {line.labor.quantity} {line.labor.unit}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground/80 tabular-nums shrink-0 hidden sm:block">
+                                        {fmt(line.labor.unitPrice)}
+                                      </span>
+                                      <span className="text-[11px] font-medium tabular-nums text-muted-foreground shrink-0">
+                                        {fmt(line.labor.total)}
+                                      </span>
+                                    </div>
+                                  ) : null;
+                                  const row = canEditLot ? (
                                     <button
-                                      key={lineIndex}
                                       type="button"
                                       title="Modifier cet article"
                                       aria-label={`Modifier l'article ${line.designation}`}
@@ -354,9 +376,13 @@ export function QuantitatifDetails({
                                       {rowContent}
                                     </button>
                                   ) : (
-                                    <div key={lineIndex} className={rowClass}>
-                                      {rowContent}
-                                    </div>
+                                    <div className={rowClass}>{rowContent}</div>
+                                  );
+                                  return (
+                                    <Fragment key={lineIndex}>
+                                      {row}
+                                      {laborRow}
+                                    </Fragment>
                                   );
                                 })}
                               </div>

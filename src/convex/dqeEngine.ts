@@ -24,6 +24,16 @@
 import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 import { resolveProjectType } from "./projectTypes";
 import { realBuiltArea } from "../lib/buildingLevels";
+import {
+  ELECTRICITY_BAREME_M2,
+  ELECTRICITY_LABOR_M2,
+  PAINT_BAREME,
+  PAINT_BUCKET_LITERS,
+  PLUMBING_BAREME_M2,
+  PLUMBING_LABOR_M2,
+  paintAllInPerBucket,
+  type PaintKind,
+} from "../lib/technicalBareme";
 
 export type DqeNature =
   | "materiaux"
@@ -31,6 +41,14 @@ export type DqeNature =
   | "equipements"
   | "transport"
   | "etudes";
+
+export interface DqeLaborDetail {
+  label: string; // « Main-d'œuvre — Peinture intérieure »
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  total: number;
+}
 
 export interface DqeLine {
   designation: string; // Désignation des travaux
@@ -42,14 +60,25 @@ export interface DqeLine {
   total: number; // Montant = Quantité × P.U.
   nature: DqeNature;
   observations?: string;
+  /**
+   * Part « main-d'œuvre » du poste, AFFICHÉE sous le poste mais déjà comprise
+   * dans son montant : elle n'est jamais ajoutée une seconde fois au lot.
+   */
+  labor?: DqeLaborDetail;
 }
 
 export interface DqeLot {
   id: string;
   name: string; // Lot / catégorie de travaux
   nature: DqeNature;
-  subtotal: number; // Sous-total du lot
-  percent: number; // % du coût total
+  subtotal: number; // Sous-total du lot (somme réelle de ses postes)
+  /**
+   * Budget alloué au lot avant facturation au réel (pourcentage du total).
+   * Égal à `subtotal` pour tous les lots calibrés ; pour un lot au réel, la
+   * différence `subtotal − allocatedSubtotal` est le SEUL écart au total.
+   */
+  allocatedSubtotal?: number;
+  percent: number; // % du coût total réel
   lines: DqeLine[];
 }
 
@@ -86,6 +115,17 @@ interface LineTpl {
   up: number; // prix unitaire de référence (TND)
   n: DqeNature;
   obs?: string; // observations
+  /**
+   * Prix imposé par le barème technique (peinture au seau, plomberie /
+   * électricité au m²) : il n'est jamais remplacé par un prix « marché ».
+   */
+  fixedPrice?: boolean;
+  /**
+   * Part « main-d'œuvre » correspondante (même quantité de référence que le
+   * poste, mise à l'échelle avec lui). Incluse dans `up` : information
+   * affichée, jamais recomptée.
+   */
+  labor?: { label: string; q: number; u: string; up: number };
 }
 
 interface LotTpl {
@@ -94,6 +134,13 @@ interface LotTpl {
   nature: DqeNature;
   percent: number;
   lines: LineTpl[];
+  /**
+   * Lot dont les prix sont RÉELS : le sous-total est la somme des lignes, sans
+   * calage sur un pourcentage du budget total (aucun prix d'un autre poste
+   * n'est réajusté). Utilisé pour « Second œuvre et finitions » : peinture,
+   * plomberie et électricité sont facturées à leur barème réel.
+   */
+  realPrices?: boolean;
 }
 
 const REF_SURFACE = 120;
@@ -254,7 +301,6 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
   // surfaces des niveaux). Aucune d'elles n'est donc multipliée une seconde
   // fois par le nombre d'étages.
   const doorCount = 6; // ~6 portes par niveau (chambres + SDB + cuisine)
-  const paintSurf = 300; // surface murale peinte par niveau
   const enduitSurf = 300; // surface d'enduit par niveau
   const gardeCorps = 10; // garde-corps escalier + balcons par niveau
   const gardeCorpsDesc = f === 1
@@ -265,20 +311,93 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
   const escalierFinitionDesc = f === 1
     ? "Revêtement sol escalier (pierre ou carrelage)."
     : `Revêtement sol escalier ${f} volées (pierre ou carrelage).`;
-  // Peinture extérieure (façade) : proportionnelle à la surface construite
-  const paintExtSurf = 80;
+  // ── Peinture : barème 2026 en SEAUX de 20 L (100 m² de surface bâtie) ──
+  // 18 seaux de 20 L pour la peinture intérieure, 12 seaux pour la façade.
+  // Le prix du seau comprend la fourniture ET la main-d'œuvre (la part
+  // main-d'œuvre est affichée sous le poste, sans être recomptée).
+  const paintTemplate = (kind: PaintKind, q100: number, paintedPerBuilt: number) => ({
+    // Quantité de référence pour REF_SURFACE (120 m²) : 18 seaux / 100 m² → 21,6.
+    q: Math.round(((q100 * REF_SURFACE) / 100) * 100) / 100,
+    up: paintAllInPerBucket(kind),
+    laborQ: Math.round(paintedPerBuilt * REF_SURFACE * 10) / 10,
+    laborUp: PAINT_BAREME[kind].laborPerM2,
+    bucketsPer100: q100,
+  });
+  const paintInt = paintTemplate("interieure", PAINT_BAREME.interieure.bucketsPer100m2, PAINT_BAREME.interieure.paintedM2PerBuiltM2);
+  const paintExt = paintTemplate("exterieure", PAINT_BAREME.exterieure.bucketsPer100m2, PAINT_BAREME.exterieure.paintedM2PerBuiltM2);
 
-  return lot("second_oeuvre", "Second œuvre et finitions", "materiaux", percent, [
+  return {
+    ...lot("second_oeuvre", "Second œuvre et finitions", "materiaux", percent, [
     { d: "Enduits intérieurs (ciment, plâtre)", desc: "Enduit au mortier puis enduit de lissage.", u: "m²", q: enduitSurf, up: 16, n: "materiaux", obs: f > 1 ? `${f} niveaux — un jeu d'enduits par niveau` : undefined },
     { d: "Revêtements de sol (carrelage grès cérame premier choix)", desc: "Pose collée, joints, plinthes.", u: "m²", q: 120, up: 45, n: "materiaux" },
     { d: "Revêtements muraux SDB/Cuisine (faïence)", desc: "Faïence 20×30 sur zones humides.", u: "m²", q: 40, up: 40, n: "materiaux" },
     { d: "Menuiserie extérieure (fenêtres et portes-fenêtres PVC double vitrage)", desc: "Fourniture et pose, seuils, habillages.", u: "m²", q: 15, up: 620, n: "materiaux" },
     { d: "Menuiserie extérieure (porte d'entrée en bois massif)", desc: "Porte blindée + serrure multipoints.", u: "unité", q: 1, qMode: "fixed", up: 1200, n: "materiaux" },
     { d: "Menuiserie intérieure (portes en bois semi-massif/stratifié)", desc: "Blocs-portes avec paumelles et poignées.", u: "unité", q: doorCount, up: 450, n: "materiaux", obs: f > 1 ? `Répartition : 6 portes par niveau (${f} niveaux)` : undefined },
-    { d: "Peinture intérieure (3 couches, finition standard)", desc: "Sous-couche + 2 couches de finition.", u: "m²", q: paintSurf, up: 8, n: "materiaux", obs: f > 1 ? `${f} niveaux — peinture par niveau` : undefined },
-    { d: "Peinture extérieure (façade, monocouche acrylique)", desc: "Impression puis monocouche acrylique.", u: "m²", q: paintExtSurf, up: 12, n: "materiaux", obs: f > 1 ? `Façade ${f} niveaux` : undefined },
-    { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau, appareils inclus.", u: "lot", q: 1, qMode: "fixed", up: 14000, n: "equipements", obs: "Installation commune (colonne montante, conduite principale) comptée une seule fois" },
-    { d: "Électricité", desc: "Installation complète : tableaux, prises, interrupteurs, luminaires basiques.", u: "lot", q: 1, qMode: "fixed", up: 16000, n: "equipements", obs: "Tableau électrique général commun compté une seule fois" },
+    {
+      d: "Peinture intérieure (3 couches, finition standard)",
+      desc: `${paintInt.bucketsPer100} seaux de ${PAINT_BUCKET_LITERS} L pour 100 m² construits (sous-couche + 2 couches), main-d'œuvre incluse.`,
+      u: `seau ${PAINT_BUCKET_LITERS} L`,
+      q: paintInt.q,
+      up: paintInt.up,
+      fixedPrice: true,
+      n: "materiaux",
+      obs: f > 1 ? `${f} niveaux — peinture par niveau` : undefined,
+      labor: {
+        label: "Main-d'œuvre — Peinture intérieure",
+        q: paintInt.laborQ,
+        u: "m²",
+        up: paintInt.laborUp,
+      },
+    },
+    {
+      d: "Peinture extérieure (façade, monocouche acrylique)",
+      desc: `${paintExt.bucketsPer100} seaux de ${PAINT_BUCKET_LITERS} L pour 100 m² construits (impression + monocouche), main-d'œuvre incluse.`,
+      u: `seau ${PAINT_BUCKET_LITERS} L`,
+      q: paintExt.q,
+      up: paintExt.up,
+      fixedPrice: true,
+      n: "materiaux",
+      obs: f > 1 ? `Façade ${f} niveaux` : undefined,
+      labor: {
+        label: "Main-d'œuvre — Peinture extérieure",
+        q: paintExt.laborQ,
+        u: "m²",
+        up: paintExt.laborUp,
+      },
+    },
+    {
+      d: "Plomberie sanitaire",
+      desc: `Installation complète (alimentation, évacuation, chauffe-eau, appareils inclus) — ${PLUMBING_BAREME_M2.standard} DT/m² de surface construite, main-d'œuvre incluse.`,
+      u: "m²",
+      q: REF_SURFACE,
+      up: PLUMBING_BAREME_M2.standard,
+      fixedPrice: true,
+      n: "equipements",
+      obs: `Barème standard ${PLUMBING_BAREME_M2.standard} DT/m² · installation commune (colonne montante, conduite principale) comptée une seule fois`,
+      labor: {
+        label: "Main-d'œuvre — Plomberie complète",
+        q: REF_SURFACE,
+        u: "m²",
+        up: PLUMBING_LABOR_M2.standard,
+      },
+    },
+    {
+      d: "Électricité",
+      desc: `Installation complète (tableaux, prises, interrupteurs, luminaires basiques) — ${ELECTRICITY_BAREME_M2.standard} DT/m² de surface construite, main-d'œuvre incluse.`,
+      u: "m²",
+      q: REF_SURFACE,
+      up: ELECTRICITY_BAREME_M2.standard,
+      fixedPrice: true,
+      n: "equipements",
+      obs: `Barème standard ${ELECTRICITY_BAREME_M2.standard} DT/m² · tableau électrique général commun compté une seule fois`,
+      labor: {
+        label: "Main-d'œuvre — Électricité complète",
+        q: REF_SURFACE,
+        u: "m²",
+        up: ELECTRICITY_LABOR_M2.standard,
+      },
+    },
     { d: "Climatisation (pré-installation)", desc: "Gaines, réservations et support de groupe.", u: "lot", q: 1, qMode: "fixed", up: 2500, n: "equipements" },
     { d: "Cuisine équipée", desc: "Meubles hauts et bas, plan de travail, évier.", u: "lot", q: 1, qMode: "fixed", up: 9000, n: "equipements" },
     { d: "Garde-corps (balcons/escalier, fer forgé/inox)", desc: gardeCorpsDesc, u: "ml", q: gardeCorps, up: 150, n: "materiaux" },
@@ -291,7 +410,12 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
     { d: "Joints silicone sanitaire", desc: "Joints d'étanchéité SDB, cuisine, fenêtres.", u: "lot", q: 1, qMode: "fixed", up: 120, n: "materiaux" },
     { d: "VMC (ventilation mécanique contrôlée)", desc: "Extracteur hygroréglable + gaine + grille.", u: "lot", q: 1, qMode: "fixed", up: 650, n: "equipements" },
     { d: "Couloirs et circulations (peinture + plinthes)", desc: "Peinture + plinthes PVC sur circulations.", u: "ml", q: 12, up: 35, n: "materiaux", obs: f > 1 ? `${f} niveaux` : undefined },
-  ]);
+    ]),
+    // Prix réels : le sous-total du lot est la somme de ses postes, sans
+    // redistribution sur d'autres prix (peinture, plomberie et électricité
+    // sont facturées à leur barème, les autres postes restent inchangés).
+    realPrices: true,
+  };
 }
 
 /** Lot « Aménagements extérieurs ». */
@@ -979,7 +1103,26 @@ export function generateDqe(input: DqeInput): DqeResult {
         tpl.qMode === "fixed"
           ? tpl.q
           : roundQty(tpl.q * (tpl.qMode === "footprint" ? footprintScale : scale));
-      const resolved = resolveUnitPrice(tpl.d, tpl.up, input.livePrices);
+      // Prix imposé par le barème (peinture au seau de 20 L, plomberie /
+      // électricité au m²) : jamais écrasé par un prix « marché ». Les autres
+      // postes continuent de suivre la base materialPrices / le catalogue.
+      const resolved = tpl.fixedPrice
+        ? { up: tpl.up, unit: tpl.u }
+        : resolveUnitPrice(tpl.d, tpl.up, input.livePrices);
+      // Part main-d'œuvre : même mise à l'échelle que le poste, incluse dans
+      // son prix. Elle est affichée sous le poste mais jamais recomptée.
+      const laborQuantity = tpl.labor
+        ? tpl.labor.q * (tpl.qMode === "footprint" ? footprintScale : scale)
+        : 0;
+      const labor = tpl.labor
+        ? {
+            label: tpl.labor.label,
+            quantity: roundQty(laborQuantity),
+            unit: tpl.labor.u,
+            unitPrice: tpl.labor.up,
+            total: Math.round(roundQty(laborQuantity) * tpl.labor.up),
+          }
+        : undefined;
       return {
         designation: tpl.d,
         description: tpl.desc,
@@ -990,9 +1133,24 @@ export function generateDqe(input: DqeInput): DqeResult {
         total: Math.round(quantity * resolved.up),
         nature: tpl.n,
         observations: tpl.obs,
+        ...(labor ? { labor } : {}),
       };
     });
-    // 2. Calage des prix pour tomber exactement sur le sous-total du lot
+    // 2. Lot à prix réels : sous-total = somme de ses postes réels, comptés
+    //    une seule fois. Aucun calage, donc aucun autre prix redistribué.
+    if (lt.realPrices) {
+      return {
+        id: lt.id,
+        name: lt.name,
+        nature: lt.nature,
+        percent: 0,
+        allocatedSubtotal: lotBudget,
+        subtotal: lines.reduce((s, l) => s + l.total, 0),
+        lines,
+      };
+    }
+    // 2 bis. Autres lots : calage des prix pour tomber exactement sur le
+    //    sous-total alloué (comportement historique inchangé).
     const rawTotal = lines.reduce((s, l) => s + l.total, 0);
     const factor = rawTotal > 0 ? lotBudget / rawTotal : 1;
     const scaledLines = lines.map((l) => {
@@ -1020,17 +1178,45 @@ export function generateDqe(input: DqeInput): DqeResult {
       name: lt.name,
       nature: lt.nature,
       percent: Math.round((lt.percent / totalPct) * 1000) / 10,
+      allocatedSubtotal: lotBudget,
       subtotal,
       lines: scaledLines,
     };
   });
 
   const grandTotal = lots.reduce((s, l) => s + l.subtotal, 0);
-  const rollup = (n: DqeNature) =>
-    lots.reduce((s, l) => s + l.lines.filter((x) => x.nature === n).reduce((a, b) => a + b.total, 0), 0);
+  // Pourcentages recalculés sur le total RÉEL : la somme des parts reste 100 %
+  // même lorsque le lot « Second œuvre et finitions » ne suit plus l'allocation
+  // budgétaire forfaitaire.
+  const lotsWithPercent: DqeLot[] = lots.map((l) => ({
+    ...l,
+    percent:
+      grandTotal > 0 ? Math.round((l.subtotal / grandTotal) * 1000) / 10 : 0,
+  }));
+  // Répartition par nature : la part « main-d'œuvre » d'un poste (peinture,
+  // plomberie, électricité) est comptée dans la main-d'œuvre et retirée de la
+  // nature du poste — jamais ajoutée deux fois. La somme des natures reste
+  // donc EXACTEMENT le total du quantitatif.
+  const laborOf = (line: DqeLine) => Number(line.labor?.total) || 0;
+  const rollup = (n: DqeNature) => {
+    const own = lots.reduce(
+      (s, lot) =>
+        s +
+        lot.lines
+          .filter((x) => x.nature === n)
+          .reduce((a, b) => a + (Number(b.total) || 0) - laborOf(b), 0),
+      0,
+    );
+    if (n !== "main_oeuvre") return own;
+    const laborIncluded = lots.reduce(
+      (s, lot) => s + lot.lines.reduce((a, b) => a + laborOf(b), 0),
+      0,
+    );
+    return own + laborIncluded;
+  };
 
   return {
-    lots,
+    lots: lotsWithPercent,
     totals: {
       materiaux: rollup("materiaux"),
       mainOeuvre: rollup("main_oeuvre"),

@@ -18,6 +18,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "./schema.js";
 import { api } from "./_generated/api.js";
+import { runBIMEstimation } from "./bimEngine";
 
 const modules = import.meta.glob("./**/*.*s");
 
@@ -61,7 +62,13 @@ async function createAndEstimate(
 
 const sumLevelsAndRoof = (ce: any) =>
   ce.levelBreakdown.levels.reduce((s: number, l: any) => s + l.amount, 0) +
-  ce.levelBreakdown.roof.amount;
+  ce.levelBreakdown.roof.amount +
+  // Ajustements explicites (ex. Second œuvre facturé à la somme réelle de ses
+  // postes) : comptés une seule fois, jamais noyés dans un niveau.
+  (ce.levelBreakdown.costAdjustments ?? []).reduce(
+    (s: number, a: any) => s + (Number(a.amount) || 0),
+    0,
+  );
 
 describe("Estimation enregistrée d'un projet à étages (createProject → simulateAnalysis)", () => {
   let t: ReturnType<typeof convexTest>;
@@ -84,7 +91,13 @@ describe("Estimation enregistrée d'un projet à étages (createProject → simu
     const ceRdc = rdc.project.costEstimate;
     const ce = r1.project.costEstimate;
 
-    expect(ceRdc.totalCost).toBe(1980 * 100);
+    // Le coût TTC est la somme réelle du quantitatif : le lot « Second œuvre
+    // et finitions » est facturé à ses postes réels (peinture au seau de 20 L,
+    // plomberie / électricité au m²), les autres lots restant sur la grille.
+    const dqeRdc = rdc.project.dqe;
+    expect(ceRdc.totalCost).toBe(dqeRdc.totals.total);
+    expect(ceRdc.costPerSquareMeter).toBe(Math.round(ceRdc.totalCost / 100));
+    expect(ceRdc.totalCost).toBeLessThan(1980 * 100);
     expect(ce.totalCost).toBeGreaterThan(ceRdc.totalCost);
     expect(ce.totalCost).toBeLessThan(ceRdc.totalCost * 2);
 
@@ -98,6 +111,61 @@ describe("Estimation enregistrée d'un projet à étages (createProject → simu
     expect(lb.levels[1].amount).toBe(Math.round(1980 * 100 * 0.75));
     expect(ce.totalCost).toBe(sumLevelsAndRoof(ce));
     expect(lb.anomalies).toEqual([]);
+  });
+
+  it("Second œuvre et finitions : barème réel peinture / plomberie / électricité, main-d'œuvre affichée", async () => {
+    const { project } = await createAndEstimate(t, userId, {
+      surface: 100,
+      floors: 1,
+      name: "Barème 100 m²",
+    });
+    const ce = project.costEstimate;
+    const so = project.dqe.lots.find((l: any) => l.id === "second_oeuvre");
+    const line = (prefix: string) =>
+      so.lines.find((l: any) => l.designation.startsWith(prefix));
+
+    // Peinture : 18 seaux de 20 L en intérieur, 12 en extérieur (100 m²).
+    const paintInt = line("Peinture intérieure");
+    expect(paintInt.unit).toBe("seau 20 L");
+    expect(paintInt.quantity).toBe(18);
+    expect(paintInt.labor.quantity).toBe(250);
+    expect(paintInt.labor.unitPrice).toBe(4);
+    const paintExt = line("Peinture extérieure");
+    expect(paintExt.quantity).toBe(12);
+    expect(paintExt.labor.unitPrice).toBe(5);
+    // Plomberie 85 DT/m² et électricité 65 DT/m² de surface construite.
+    const plumbing = line("Plomberie");
+    expect(plumbing.unitPrice).toBe(85);
+    expect(plumbing.labor.unitPrice).toBe(35);
+    const electricity = line("Électricité");
+    expect(electricity.unitPrice).toBe(65);
+    expect(electricity.labor.unitPrice).toBe(25);
+    // Total du lot = somme de ses postes, comptés une seule fois.
+    expect(so.subtotal).toBe(
+      so.lines.reduce((s: number, l: any) => s + l.total, 0),
+    );
+    // Coût TTC et coût/m² enregistrés = quantitatif réel.
+    expect(ce.totalCost).toBe(project.dqe.totals.total);
+    expect(ce.costPerSquareMeter).toBe(project.dqe.totals.costPerM2);
+    expect(ce.budgetScenarios.standard.totalCost).toBe(ce.totalCost);
+    // La répartition du moteur retombe sur le nouveau total : seule la
+    // catégorie « Second œuvre » porte l'écart, les autres sont intactes.
+    const sumBreakdown = ce.breakdown.reduce(
+      (s: number, c: any) => s + c.estimatedCost,
+      0,
+    );
+    expect(sumBreakdown).toBe(ce.totalCost);
+    // Seule la catégorie « Second œuvre » est décalée du même écart : aucune
+    // autre catégorie de la répartition n'est retouchée.
+    const pure = runBIMEstimation("maison", 100, 1, "tunis", "standard").costEstimate;
+    const delta =
+      so.subtotal - (so.allocatedSubtotal ?? so.subtotal);
+    for (const cat of pure.breakdown) {
+      const storedCat = ce.breakdown.find((c: any) => c.category === cat.category);
+      expect(storedCat.estimatedCost, cat.category).toBe(
+        cat.category === "second_oeuvre" ? cat.estimatedCost + delta : cat.estimatedCost,
+      );
+    }
   });
 
   it("le Quantitatif détaillé enregistré retombe exactement sur le coût estimatif", async () => {

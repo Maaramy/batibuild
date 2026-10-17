@@ -530,11 +530,22 @@ export function scaleDqeLots(lots: any[], factor: number): any[] {
     subtotal: Math.round((Number(lot?.subtotal) || 0) * factor),
     lines: (lot?.lines ?? []).map((line: any) => {
       const total = Math.round((Number(line?.total) || 0) * factor);
+      // La part main-d'œuvre affichée sous le poste suit le même facteur de
+      // scénario : elle reste strictement incluse dans le montant du poste.
+      const labor = line?.labor
+        ? {
+            ...line.labor,
+            total: Math.round((Number(line.labor.total) || 0) * factor),
+            unitPrice:
+              Math.round((Number(line.labor.unitPrice) || 0) * factor * 100) / 100,
+          }
+        : undefined;
       return {
         ...line,
         total,
         unitPrice:
           Math.round((total / Math.max(1, Number(line?.quantity) || 1)) * 100) / 100,
+        ...(labor ? { labor } : {}),
       };
     }),
   }));
@@ -596,6 +607,9 @@ export function overlayCustomizations(
         quantity: mod.quantity,
         unitPrice,
         total,
+        // Article personnalisé : la part main-d'œuvre du barème d'origine ne
+        // s'applique plus (l'utilisateur a fixé sa propre quantité / son prix).
+        labor: undefined,
         customized: true,
       };
     });
@@ -637,6 +651,7 @@ export function overlayRawCustomizations(
         quantity: mod.quantity,
         unitPrice: Math.round(mod.unitPrice * 100) / 100,
         total: Math.round(mod.quantity * mod.unitPrice),
+        labor: undefined,
       };
     });
     return {
