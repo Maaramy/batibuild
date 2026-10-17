@@ -11,7 +11,9 @@ import {
   EDITABLE_LOT_IDS,
   PROTECTED_POSTE_LOT_IDS,
   PROTECTED_POSTE_MESSAGE,
+  BUDGET_SCENARIO_KEYS,
   applyPosteRemovals,
+  articlePopupUnitPrice,
   budgetScenarioFactor,
   computeQuantitatifTotals,
   indexCustomizations,
@@ -198,6 +200,29 @@ describe("quantitatifCustomLogic — scénarios budgétaires", () => {
     expect(standardLevelFromPrice(premium, SCENARIOS, "premium")).toBeCloseTo(1_000, 6);
     const eco = unitPriceForScenario(1_000, SCENARIOS, "economique");
     expect(standardLevelFromPrice(eco, SCENARIOS, "economique")).toBeCloseTo(1_000, 6);
+  });
+
+  it("affiche dans le popup les mêmes données que le scénario Standard", () => {
+    const standard = unitPriceForScenario(65, SCENARIOS, "standard");
+    // Le tableau du quantitatif, lui, continue de varier par scénario.
+    expect(unitPriceForScenario(65, SCENARIOS, "economique")).not.toBe(standard);
+    expect(unitPriceForScenario(65, SCENARIOS, "premium")).not.toBe(standard);
+
+    // Popup : un seul prix, celui du Standard, quel que soit le scénario.
+    expect(articlePopupUnitPrice(standard)).toBe(standard);
+    expect(articlePopupUnitPrice(standard)).toBe(articlePopupUnitPrice(65));
+
+    // Un article déjà enregistré à un autre niveau est ramené au Standard
+    // (aucune dérive cumulative, aucun autre prix affiché).
+    for (const key of BUDGET_SCENARIO_KEYS) {
+      const stored = unitPriceForScenario(65, SCENARIOS, key);
+      const back = standardLevelFromPrice(stored, SCENARIOS, key);
+      expect(articlePopupUnitPrice(back)).toBe(standard);
+    }
+
+    // Correction des anciennes marges d'imprévus : conservée (ce n'est pas un
+    // facteur de scénario).
+    expect(articlePopupUnitPrice(65, 1 / 1.1)).toBeCloseTo(59.09, 2);
   });
 
   it("ne modifie jamais les scénarios d'origine", () => {

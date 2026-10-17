@@ -31,8 +31,8 @@ import {
   PERSONALIZED_SCENARIO_LABEL,
   PROTECTED_POSTE_MESSAGE,
   posteProtectionReason,
+  articlePopupUnitPrice,
   standardLevelFromPrice,
-  unitPriceForScenario,
   type BudgetScenarioKey,
   type QuantitatifCustomizationEntry,
 } from "@/convex/quantitatifCustomLogic";
@@ -72,9 +72,16 @@ export interface ArticleEditDialogProps {
   scenarios: any;
   /** Scénario de référence du scénario Personnalisé. */
   baseScenario: BudgetScenarioKey;
-  /** Scénario affiché actuellement dans le quantitatif. */
+  /**
+   * Scénario affiché actuellement dans le quantitatif. Informatif : le popup
+   * conserve les données du scénario Standard (voir `articlePopupUnitPrice`).
+   */
   displayedScenario: BudgetScenarioKey;
-  /** Facteur du scénario affiché (scénario / Standard). */
+  /**
+   * Facteur du scénario affiché (scénario / Standard). Volontairement NON
+   * appliqué au popup : celui-ci conserve les données du scénario Standard
+   * (voir `articlePopupUnitPrice`).
+   */
   scaleFactor: number;
   /** Facteur de correction des anciennes marges d'imprévus. */
   realCostFactor: number;
@@ -98,8 +105,6 @@ export function ArticleEditDialog({
   line,
   scenarios,
   baseScenario,
-  displayedScenario,
-  scaleFactor,
   realCostFactor,
   existing,
   quantitatifTotal,
@@ -112,11 +117,20 @@ export function ArticleEditDialog({
 
   // Le popup est monté à chaque ouverture sur un article : l'état initial est
   // donc dérivé directement des props (aucune synchronisation nécessaire).
-  const displayFactor = (scaleFactor || 1) * (realCostFactor || 1);
+  //
+  // ── Portée : POPUP UNIQUEMENT ──────────────────────────────────────────
+  // « Modifier l'article » conserve les données du scénario STANDARD : le
+  // facteur du scénario affiché n'est pas appliqué. Le Quantitatif détaillé
+  // continue d'afficher ses montants par scénario ; le popup, lui, montre
+  // toujours la quantité, le prix unitaire et le montant de référence, donc
+  // Économique et Premium n'affichent plus d'autres prix que Standard.
+  // Seule la correction des anciennes marges d'imprévus (`realCostFactor`),
+  // qui n'est pas un facteur de scénario, reste appliquée.
+  const displayFactor = realCostFactor || 1;
 
-  const [scenario, setScenario] = useState<ArticleScenarioChoice>(
-    existing?.priceScenario ?? displayedScenario,
-  );
+  // Le niveau de référence du popup est toujours Standard (les données de
+  // l'article ne changent pas d'un scénario à l'autre).
+  const [scenario, setScenario] = useState<ArticleScenarioChoice>("standard");
   const [article, setArticle] = useState<SelectedArticle | null>(() =>
     existing?.replacedArticle
       ? { name: existing.designation, unit: existing.unit, replaced: true }
@@ -149,18 +163,13 @@ export function ArticleEditDialog({
     ? standardLevelFromPrice(existing.unitPrice, scenarios, existing.priceScenario)
     : Number(line?.unitPrice) || 0;
 
-  // Montant affiché exprimé au niveau du scénario affiché (comme le tableau du
-  // quantitatif) ; seule la valeur enregistrée est ramenée au niveau de
-  // référence du moteur.
-  const scenarioDisplayedPrice = useMemo(() => {
-    const stdPrice =
-      scenario === PERSONALIZED_SCENARIO_KEY
-        ? existing
-          ? existing.unitPrice
-          : baseStandardPrice
-        : unitPriceForScenario(baseStandardPrice, scenarios, scenario);
-    return Math.round(stdPrice * displayFactor * 100) / 100;
-  }, [scenario, existing, baseStandardPrice, scenarios, displayFactor]);
+  // Prix unitaire du popup : données du scénario Standard, identiques pour
+  // Économique, Standard et Premium (aucun facteur de scénario appliqué,
+  // contrairement au tableau du Quantitatif détaillé).
+  const scenarioDisplayedPrice = useMemo(
+    () => articlePopupUnitPrice(baseStandardPrice, displayFactor),
+    [baseStandardPrice, displayFactor],
+  );
 
   const effectiveStdUnitPrice = scenarioDisplayedPrice / (displayFactor || 1);
 
@@ -220,7 +229,7 @@ export function ArticleEditDialog({
 
   const revertArticle = () => {
     setArticle(null);
-    setScenario(displayedScenario);
+    setScenario("standard");
   };
 
   const handleSave = async () => {
@@ -237,10 +246,9 @@ export function ArticleEditDialog({
     }
     setSaving(true);
     try {
-      const storedScenario: BudgetScenarioKey =
-        scenario === PERSONALIZED_SCENARIO_KEY
-          ? (existing?.priceScenario ?? baseScenario)
-          : scenario;
+      // Les données du scénario Standard sont conservées : le prix enregistré
+      // est celui de référence, quel que soit le niveau coché dans le popup.
+      const storedScenario: BudgetScenarioKey = "standard";
       const result = await saveItem({
         projectId: projectId as any,
         lotId,
@@ -430,24 +438,18 @@ export function ArticleEditDialog({
               </p>
               <div className="grid grid-cols-2 gap-1.5">
                 {[
-                  // Valeurs déjà utilisées par le moteur de calcul : le choix
-                  // d'un scénario recalcule le prix unitaire de l'article.
-                  ...BUDGET_SCENARIO_KEYS.map((k) => {
-                    const std = unitPriceForScenario(baseStandardPrice, scenarios, k);
-                    return {
-                      key: k as ArticleScenarioChoice,
-                      label: BUDGET_SCENARIO_LABELS[k],
-                      raw: std,
-                      hint: `${fmt(std * displayFactor)} / ${unit}`,
-                    };
-                  }),
+                  // Données du scénario Standard : les trois scénarios de budget
+                  // affichent exactement le même prix. Aucun autre prix (47 ou
+                  // 91 TND par seau) n'est proposé pour un article verrouillé.
+                  ...BUDGET_SCENARIO_KEYS.map((k) => ({
+                    key: k as ArticleScenarioChoice,
+                    label: BUDGET_SCENARIO_LABELS[k],
+                    hint: `${fmt(scenarioDisplayedPrice)} / ${unit}`,
+                  })),
                   {
                     key: PERSONALIZED_SCENARIO_KEY as ArticleScenarioChoice,
                     label: PERSONALIZED_SCENARIO_LABEL,
-                    // Valeur personnalisée déjà enregistrée pour cet article,
-                    // sinon niveau de référence (catalogue).
-                    raw: existing ? existing.unitPrice : baseStandardPrice,
-                    hint: existing ? "valeur personnalisée" : "niveau de référence",
+                    hint: `${fmt(scenarioDisplayedPrice)} / ${unit}`,
                   },
                 ].map((opt) => {
                   const active = scenario === opt.key;
@@ -481,6 +483,9 @@ export function ArticleEditDialog({
                   );
                 })}
               </div>
+              <p className="text-[9px] text-muted-foreground">
+                Données du scénario Standard — identiques pour Économique et Premium.
+              </p>
             </div>
 
             {/* Modifier l'article */}
