@@ -505,27 +505,6 @@ export function unitPriceForScenario(
 }
 
 /**
- * Prix unitaire affiché par le popup « Modifier l'article ».
- *
- * Portée volontairement limitée au popup : celui-ci conserve les données du
- * scénario **Standard**. Le facteur du scénario affiché (Économique / Premium)
- * n'est donc PAS appliqué ici : les trois scénarios affichent exactement le
- * même prix que Standard, au lieu de prix « inventés » par la mise à l'échelle
- * globale (47 / 65 / 91 TND par seau). Le Quantitatif détaillé, lui, continue
- * d'afficher ses montants par scénario.
- *
- * `realCostFactor` (correction des anciennes marges d'imprévus) n'est pas un
- * facteur de scénario : il reste appliqué.
- */
-export function articlePopupUnitPrice(
-  standardLevelPrice: number,
-  realCostFactor = 1,
-): number {
-  const factor = realCostFactor > 0 ? realCostFactor : 1;
-  return Math.round(standardLevelPrice * factor * 100) / 100;
-}
-
-/**
  * Niveau « Standard » implicite d'un prix enregistré pour un autre scénario :
  * permet de basculer un article d'un niveau de finition à un autre sans
  * dérive cumulative.
