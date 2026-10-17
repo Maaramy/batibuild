@@ -336,7 +336,7 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
     { d: "Menuiserie intérieure (portes en bois semi-massif/stratifié)", desc: "Blocs-portes avec paumelles et poignées.", u: "unité", q: doorCount, up: 450, n: "materiaux", obs: f > 1 ? `Répartition : 6 portes par niveau (${f} niveaux)` : undefined },
     {
       d: "Peinture intérieure (3 couches, finition standard)",
-      desc: `${paintInt.bucketsPer100} seaux de ${PAINT_BUCKET_LITERS} L pour 100 m² construits (sous-couche + 2 couches), main-d'œuvre incluse.`,
+      desc: `${paintInt.bucketsPer100} seaux de ${PAINT_BUCKET_LITERS} L pour 100 m² construits (sous-couche + 2 couches).`,
       u: `seau ${PAINT_BUCKET_LITERS} L`,
       q: paintInt.q,
       up: paintInt.up,
@@ -352,7 +352,7 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
     },
     {
       d: "Peinture extérieure (façade, monocouche acrylique)",
-      desc: `${paintExt.bucketsPer100} seaux de ${PAINT_BUCKET_LITERS} L pour 100 m² construits (impression + monocouche), main-d'œuvre incluse.`,
+      desc: `${paintExt.bucketsPer100} seaux de ${PAINT_BUCKET_LITERS} L pour 100 m² construits (impression + monocouche).`,
       u: `seau ${PAINT_BUCKET_LITERS} L`,
       q: paintExt.q,
       up: paintExt.up,
@@ -368,7 +368,7 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
     },
     {
       d: "Plomberie sanitaire",
-      desc: "Installation complète (alimentation, évacuation, chauffe-eau, appareils inclus) — prix au m² de surface construite, main-d'œuvre incluse.",
+      desc: "Installation complète (alimentation, évacuation, chauffe-eau, appareils inclus).",
       u: "m²",
       q: REF_SURFACE,
       up: PLUMBING_BAREME_M2.standard,
@@ -384,7 +384,7 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
     },
     {
       d: "Électricité",
-      desc: "Installation complète (tableaux, prises, interrupteurs, luminaires basiques) — prix au m² de surface construite, main-d'œuvre incluse.",
+      desc: "Installation complète (tableaux, prises, interrupteurs, luminaires basiques).",
       u: "m²",
       q: REF_SURFACE,
       up: ELECTRICITY_BAREME_M2.standard,
@@ -1055,8 +1055,6 @@ export interface DqeInput {
    * déjà budgétés depuis la grille régionale. Absent → 1 (base nationale).
    */
   regionFactor?: number;
-  /** Libellé de la région du projet (traçabilité du coefficient appliqué). */
-  regionLabel?: string;
 }
 
 /**
@@ -1098,11 +1096,6 @@ export function generateDqe(input: DqeInput): DqeResult {
   const regionFactor =
     Number.isFinite(rawRegionFactor) && rawRegionFactor > 0 ? rawRegionFactor : 1;
   const round2 = (n: number) => Math.round(n * 100) / 100;
-  const regionName = input.regionLabel?.trim();
-  const regionNote =
-    regionFactor !== 1
-      ? ` Coefficient régional ${regionName ? `${regionName} ` : ""}×${round2(regionFactor)} appliqué (base nationale Médenine).`
-      : "";
 
   // Budgets de lots puis absorption de l'écart d'arrondi par le lot le plus
   // important : la somme des sous-totaux du Quantitatif détaillé retombe
@@ -1151,8 +1144,7 @@ export function generateDqe(input: DqeInput): DqeResult {
         : undefined;
       return {
         designation: tpl.d,
-        description:
-          tpl.fixedPrice && regionNote ? `${tpl.desc}${regionNote}` : tpl.desc,
+        description: tpl.desc,
         sousLot: tpl.sl,
         unit: resolved.unit ?? tpl.u,
         quantity,

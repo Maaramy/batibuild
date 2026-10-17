@@ -802,7 +802,6 @@ export const startAnalysis = mutation({
 // ============================================================================
 
 import {
-  GOVERNORATE_LABELS,
   REGION_COST_M2,
   runBIMEstimation,
   generateProviderRecommendations,
@@ -920,7 +919,6 @@ export const simulateAnalysis = mutation({
       livePrices,
       levelSurfaces,
       regionFactor: technicalRegionFactor,
-      regionLabel: GOVERNORATE_LABELS[region] ?? region,
     });
 
     // ── Coût global TTC : le lot « Second œuvre et finitions » est facturé à la

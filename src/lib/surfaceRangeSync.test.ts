@@ -40,7 +40,6 @@ function chain(category: string, surface: number) {
     totalBudget,
     // Même coefficient régional que `simulateAnalysis` (barème national × grille).
     regionFactor: regionCostFactor(REGION_COST_M2, REGION, "standard"),
-    regionLabel: "Tunis",
   });
   return { totalBudget, dqe };
 }

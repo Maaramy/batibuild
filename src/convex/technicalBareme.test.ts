@@ -140,7 +140,6 @@ describe("impact régional du barème dans le Quantitatif détaillé", () => {
     floors: 1,
     totalBudget: BUDGET,
     regionFactor: tunisFactor,
-    regionLabel: "Tunis",
   });
   const soTunis = tunis.lots.find((l) => l.id === "second_oeuvre")!;
   const tunisLine = (designation: string) => {
@@ -157,7 +156,6 @@ describe("impact régional du barème dans le Quantitatif détaillé", () => {
       floors: 1,
       totalBudget: BUDGET,
       regionFactor: 1,
-      regionLabel: "Médenine",
     });
     const so = medenine.lots.find((l) => l.id === "second_oeuvre")!;
     expect(so.lines).toEqual(secondOeuvre.lines);
@@ -185,7 +183,13 @@ describe("impact régional du barème dans le Quantitatif détaillé", () => {
     expect(paintInt.labor!.total).toBe(1_100);
     expect(paintExt.labor!.unitPrice).toBe(5.5);
     expect(paintExt.labor!.total).toBe(440);
-    expect(paintInt.description).toContain("Coefficient régional Tunis ×1.1");
+    // La description du poste reste factuelle : ni mention de la main-d'œuvre
+    // incluse, ni note de coefficient régional (le prix régional parle seul).
+    expect(paintInt.description).toBe(
+      "18 seaux de 20 L pour 100 m² construits (sous-couche + 2 couches).",
+    );
+    expect(paintInt.description).not.toContain("main-d'œuvre");
+    expect(paintInt.description).not.toContain("Coefficient régional");
   });
 
   it("Tunis ×1,10 : plomberie 85 → 93,50 et électricité 65 → 71,50 DT/m²", () => {
@@ -202,6 +206,20 @@ describe("impact régional du barème dans le Quantitatif détaillé", () => {
     expect(electricity.total).toBe(7_150);
     expect(electricity.labor!.unitPrice).toBe(27.5);
     expect(electricity.labor!.total).toBe(2_750);
+
+    // Descriptions factuelles : plus de mention « main-d'œuvre incluse » ni de
+    // note de coefficient régional sur ces deux postes au m².
+    expect(plumbing.description).toBe(
+      "Installation complète (alimentation, évacuation, chauffe-eau, appareils inclus).",
+    );
+    expect(electricity.description).toBe(
+      "Installation complète (tableaux, prises, interrupteurs, luminaires basiques).",
+    );
+    for (const line of [plumbing, electricity]) {
+      expect(line.description).not.toContain("main-d'œuvre");
+      expect(line.description).not.toContain("Coefficient régional");
+      expect(line.description).not.toContain("prix au m²");
+    }
   });
 
   it("seul le Second œuvre porte l'écart : les autres lots restent au budget alloué", () => {
