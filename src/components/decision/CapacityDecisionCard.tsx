@@ -63,8 +63,13 @@ import {
   planBudgetSteps,
   type ScenarioTotal,
   type WorkItem,
+  type WorkPart,
   type WorkPartSource,
 } from "@/lib/constructionPlanEngine";
+import {
+  resolveWorkLevels,
+  type PlanArticleLike,
+} from "@/lib/planWorkLevels";
 
 // ── Helpers visuels (reprises du module budget) ────────────────────────────
 
@@ -119,6 +124,116 @@ function RealizationBar({ pct }: { pct: number }) {
 function shortLabel(label: string): string {
   const cleaned = label.replace(/\s*\([^()]*\)\s*$/, "").trim();
   return cleaned.length > 0 ? cleaned : label;
+}
+
+/**
+ * Tableau des articles d'un poste : quantité, montant, réalisation.
+ * Partagé par les deux présentations (sous-catégorie détaillée, ou poste aplati
+ * dont l'unique sous-catégorie portait le nom du poste).
+ */
+function ArticleTable({
+  articles,
+  divided = true,
+}: {
+  /** Article affichable (sous-ensemble structurel de `WorkPartArticle`). */
+  articles: PlanArticleLike[];
+  /** Séparateur supérieur (inutile quand le tableau suit déjà un bloc encadré). */
+  divided?: boolean;
+}) {
+  return (
+    <div className={cn("p-2", divided && "border-t border-border/20")}>
+      <div className="flex items-baseline gap-2 pb-1 text-[9.5px] uppercase tracking-wide text-muted-foreground">
+        <span className="min-w-0 flex-1">Article</span>
+        <span className="w-20 shrink-0 text-right sm:w-24">Montant</span>
+        <span className="w-20 shrink-0 text-right sm:w-32">Réalisation</span>
+      </div>
+      <ul className="space-y-1">
+        {articles.map((a) => (
+          <li key={a.id} className="flex items-start gap-2 text-[11px]">
+            <span className="min-w-0 flex-1 break-words">
+              {a.quantity !== undefined ? (
+                <span className="text-muted-foreground">
+                  {a.quantity} {a.unit} —{" "}
+                </span>
+              ) : null}
+              {a.label}
+            </span>
+            <span className="w-20 shrink-0 whitespace-nowrap text-right tabular-nums sm:w-24">
+              {formatTndAmount(a.cost)}
+            </span>
+            <RealizationBar pct={a.pct} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Sous-catégories d'un poste du plan (niveau intermédiaire). Chaque
+ * sous-catégorie reste dépliable pour révéler ses articles.
+ *
+ * Ce niveau n'est affiché que lorsqu'il apporte une information : un poste dont
+ * l'unique sous-catégorie porte déjà son nom passe par `ArticleTable`
+ * directement (voir `resolveWorkLevels`) — aucun libellé en double.
+ */
+function SubCategoryList({
+  workLabel,
+  parts,
+  openArticles,
+  onToggleArticles,
+}: {
+  workLabel: string;
+  parts: WorkPart[];
+  openArticles: Record<string, boolean>;
+  onToggleArticles: (partId: string) => void;
+}) {
+  return (
+    <>
+      <p className="text-[9.5px] uppercase tracking-wide text-muted-foreground">
+        Sous-catégories du poste « {shortLabel(workLabel)} »
+      </p>
+      {parts.map((p) => {
+        const articleList = p.articles ?? [];
+        const hasArticles = articleList.length > 0;
+        const articleOpen = openArticles[p.id] ?? false;
+        return (
+          <div key={p.id} className="overflow-hidden rounded-lg border border-border/30">
+            <button
+              type="button"
+              disabled={!hasArticles}
+              onClick={() => onToggleArticles(p.id)}
+              className={cn(
+                "flex w-full items-center gap-2 bg-background px-2.5 py-2 text-left",
+                hasArticles && "transition-colors hover:bg-muted/20",
+              )}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11.5px] font-medium">{shortLabel(p.label)}</span>
+                <span className="block text-[10px] text-muted-foreground">
+                  {formatTndAmount(p.cost)} · {formatPercent(p.pct)} financé
+                  {hasArticles
+                    ? ` · ${articleList.length} article${articleList.length > 1 ? "s" : ""}`
+                    : ""}
+                </span>
+              </span>
+              <RealizationBar pct={p.pct} />
+              <StatusBadge status={p.status} />
+              {hasArticles ? (
+                articleOpen ? (
+                  <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                )
+              ) : null}
+            </button>
+
+            {hasArticles && articleOpen && <ArticleTable articles={articleList} />}
+          </div>
+        );
+      })}
+    </>
+  );
 }
 
 function SectionTitle({ children, hint }: { children: ReactNode; hint?: string }) {
@@ -312,6 +427,10 @@ export function CapacityDecisionCard({
       return next;
     });
   };
+
+  /** Ouvre/ferme le détail des articles d'une sous-catégorie du plan. */
+  const togglePlanArticles = (partId: string) =>
+    setOpenPlanArticles((s) => ({ ...s, [partId]: !(s[partId] ?? false) }));
 
   // Ajoute les travaux sélectionnés à ceux déjà enregistrés (dédoublonnage
   // serveur : un travail déjà ajouté ne peut pas l'être deux fois).
@@ -786,19 +905,24 @@ export function CapacityDecisionCard({
                   <>
                     {plan.works.map((w) => {
                       const parts = w.parts ?? [];
-                      const hasParts = parts.length > 0;
+                      // Doublons d'affichage : un poste dont l'unique
+                      // sous-catégorie porte son nom n'affiche pas deux fois le
+                      // même intitulé (les articles passent sous le poste).
+                      const { showSubLevel, directLabel, directArticles } = resolveWorkLevels(w);
+                      const expandable =
+                        showSubLevel || directArticles.length > 0 || directLabel !== null;
                       const rowOpen = openPlanRows[w.id] ?? false;
                       return (
                         <div key={w.id} className="overflow-hidden rounded-xl border border-border/40">
                           <button
                             type="button"
-                            disabled={!hasParts}
+                            disabled={!expandable}
                             onClick={() =>
                               setOpenPlanRows((s) => ({ ...s, [w.id]: !rowOpen }))
                             }
                             className={cn(
                               "flex w-full items-center gap-2.5 px-3 py-2.5 text-left bg-muted/20",
-                              hasParts && "transition-colors hover:bg-muted/40",
+                              expandable && "transition-colors hover:bg-muted/40",
                             )}
                           >
                             <span className="min-w-0 flex-1">
@@ -814,9 +938,13 @@ export function CapacityDecisionCard({
                                 {w.cost > 0
                                   ? `${formatTndAmount(w.cost)} · ${formatPercent(w.pct)} financé`
                                   : "à chiffrer · hors coût estimé"}
-                                {hasParts
-                                  ? ` · ${parts.length} sous-catégorie${parts.length > 1 ? "s" : ""}`
-                                  : ""}
+                                {showSubLevel
+                                  ? ` · ${parts.length} sous-catégories`
+                                  : directArticles.length > 0
+                                    ? ` · ${directArticles.length} article${
+                                        directArticles.length > 1 ? "s" : ""
+                                      }`
+                                    : ""}
                               </span>
                             </span>
                             <RealizationBar pct={w.pct} />
@@ -827,7 +955,7 @@ export function CapacityDecisionCard({
                                 À chiffrer
                               </span>
                             )}
-                            {hasParts ?
+                            {expandable ?
                               rowOpen ? (
                                 <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
                               ) : (
@@ -836,92 +964,30 @@ export function CapacityDecisionCard({
                             : null}
                           </button>
 
-                          {hasParts && rowOpen && (
+                          {expandable && rowOpen && (
                             <div className="space-y-1.5 border-t border-border/30 p-2.5">
-                              <p className="text-[9.5px] uppercase tracking-wide text-muted-foreground">
-                                Sous-catégories du poste « {shortLabel(w.label)} »
-                              </p>
-                              {parts.map((p) => {
-                                const articleList = p.articles ?? [];
-                                const hasArticles = articleList.length > 0;
-                                const articleOpen = openPlanArticles[p.id] ?? false;
-                                return (
-                                  <div
-                                    key={p.id}
-                                    className="overflow-hidden rounded-lg border border-border/30"
-                                  >
-                                    <button
-                                      type="button"
-                                      disabled={!hasArticles}
-                                      onClick={() =>
-                                        setOpenPlanArticles((s) => ({ ...s, [p.id]: !articleOpen }))
-                                      }
-                                      className={cn(
-                                        "flex w-full items-center gap-2 bg-background px-2.5 py-2 text-left",
-                                        hasArticles && "transition-colors hover:bg-muted/20",
-                                      )}
-                                    >
-                                      <span className="min-w-0 flex-1">
-                                        <span className="block text-[11.5px] font-medium">
-                                          {shortLabel(p.label)}
-                                        </span>
-                                        <span className="block text-[10px] text-muted-foreground">
-                                          {formatTndAmount(p.cost)} · {formatPercent(p.pct)} financé
-                                          {hasArticles
-                                            ? ` · ${articleList.length} article${
-                                                articleList.length > 1 ? "s" : ""
-                                              }`
-                                            : ""}
-                                        </span>
-                                      </span>
-                                      <RealizationBar pct={p.pct} />
-                                      <StatusBadge status={p.status} />
-                                      {hasArticles ?
-                                        articleOpen ? (
-                                          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                        ) : (
-                                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                        )
-                                      : null}
-                                    </button>
-
-                                    {hasArticles && articleOpen && (
-                                      <div className="border-t border-border/20 p-2">
-                                        <div className="flex items-baseline gap-2 pb-1 text-[9.5px] uppercase tracking-wide text-muted-foreground">
-                                          <span className="min-w-0 flex-1">Article</span>
-                                          <span className="w-20 shrink-0 text-right sm:w-24">
-                                            Montant
-                                          </span>
-                                          <span className="w-20 shrink-0 text-right sm:w-32">
-                                            Réalisation
-                                          </span>
-                                        </div>
-                                        <ul className="space-y-1">
-                                          {articleList.map((a) => (
-                                            <li
-                                              key={a.id}
-                                              className="flex items-start gap-2 text-[11px]"
-                                            >
-                                              <span className="min-w-0 flex-1 break-words">
-                                                {a.quantity !== undefined ? (
-                                                  <span className="text-muted-foreground">
-                                                    {a.quantity} {a.unit} —{" "}
-                                                  </span>
-                                                ) : null}
-                                                {a.label}
-                                              </span>
-                                              <span className="w-20 shrink-0 whitespace-nowrap text-right tabular-nums sm:w-24">
-                                                {formatTndAmount(a.cost)}
-                                              </span>
-                                              <RealizationBar pct={a.pct} />
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
+                              {showSubLevel ? (
+                                <SubCategoryList
+                                  workLabel={w.label}
+                                  parts={parts}
+                                  openArticles={openPlanArticles}
+                                  onToggleArticles={togglePlanArticles}
+                                />
+                              ) : (
+                                /* Poste aplati : sous-catégorie unique. Aucun nom
+                                   répété — le libellé n'est repris que s'il
+                                   apporte une information différente. */
+                                <>
+                                  {directLabel ? (
+                                    <p className="text-[9.5px] uppercase tracking-wide text-muted-foreground">
+                                      Sous-catégorie « {directLabel} »
+                                    </p>
+                                  ) : null}
+                                  {directArticles.length > 0 ? (
+                                    <ArticleTable articles={directArticles} divided={false} />
+                                  ) : null}
+                                </>
+                              )}
                             </div>
                           )}
                         </div>
