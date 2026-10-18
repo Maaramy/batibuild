@@ -37,7 +37,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CustomWorkIcon } from "@/components/CustomWorkIcon";
-import { CircularProgress } from "@/components/decision/CircularProgress";
 import {
   CUSTOM_WORK_CATALOG,
   SOLAR_PANEL_COUNT_OPTIONS,
@@ -100,16 +99,19 @@ function StatusBadge({ status }: { status: BudgetStatus }) {
   );
 }
 
-/** Réalisation d'un poste (montant financé / montant estimé) — anneau %. */
+/** Barre de réalisation d'un poste (montant financé / montant estimé). */
 function RealizationBar({ pct }: { pct: number }) {
   const v = clampPct(pct);
+  const tone = v >= 100 ? "bg-emerald-500" : v > 0 ? "bg-amber-500" : "bg-border";
   return (
-    <CircularProgress
-      value={v}
-      displayValue={formatPercent(v)}
-      label="Réalisation du poste"
-      size="sm"
-    />
+    <div className="flex w-24 shrink-0 items-center justify-end gap-1.5 sm:w-36">
+      <div className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-muted sm:w-20">
+        <div className={cn("h-full rounded-full transition-[width] duration-300", tone)} style={{ width: `${v}%` }} />
+      </div>
+      <span className="w-10 shrink-0 text-right tabular-nums text-[9.5px] text-muted-foreground">
+        {formatPercent(v)}
+      </span>
+    </div>
   );
 }
 
@@ -134,42 +136,20 @@ function SummaryTile({
   value,
   hint,
   tone,
-  ring,
 }: {
   icon: ReactNode;
   label: string;
-  value?: string;
+  value: string;
   hint?: string;
   tone?: string;
-  /** Pourcentage en anneau, aligné à droite de la tuile (design maquette). */
-  ring?: { value: number; display: string; label?: string };
 }) {
   return (
     <div className="rounded-lg border border-border/60 bg-card p-2.5">
-      {/* `flex-wrap` + largeur minimale du texte : sur un écran très étroit,
-          l'anneau passe à la ligne au lieu de comprimer le libellé. Au-dessus de
-          cette largeur, la tuile reste identique à la maquette. */}
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-[8.5rem] flex-1">
-          <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-            {icon} {label}
-          </p>
-          {value ? (
-            <p className={cn("mt-0.5 text-sm font-semibold tabular-nums break-words", tone)}>{value}</p>
-          ) : null}
-        </div>
-        {ring ? (
-          <CircularProgress
-            value={ring.value}
-            displayValue={ring.display}
-            label={ring.label ?? label}
-            size="sm"
-          />
-        ) : null}
-      </div>
-      {hint ? (
-        <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground break-words">{hint}</p>
-      ) : null}
+      <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+        {icon} {label}
+      </p>
+      <p className={cn("mt-0.5 text-sm font-semibold tabular-nums", tone)}>{value}</p>
+      {hint ? <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }
@@ -324,16 +304,6 @@ export function CapacityDecisionCard({
   const worksPartiel = pricedWorks.filter((w) => w.status === "partiel");
   const worksReport = pricedWorks.filter((w) => w.status === "report");
 
-  // ── Compteurs : UNE seule liste, un seul dénominateur ────────────────────
-  // La tuile « Travaux réalisables », les trois groupes
-  // (Réalisables / Partiellement / Non réalisables) et la phrase
-  // récapitulative lisent tous la MÊME liste (`pricedWorks` : postes réellement
-  // chiffrés). Aucun compteur affiché ne peut donc contredire l'autre. Les
-  // postes sans montant (« à chiffrer ») sont comptés séparément : ils ne
-  // faussent ni le dénominateur ni les pourcentages.
-  const unpricedWorks = plan.works.filter((w) => w.cost <= 0);
-  const excludedPricedWorks = plan.excludedWorks.filter((w) => w.cost > 0);
-
   const toggleWork = (id: string) => {
     setDeselected((prev) => {
       const next = new Set(prev);
@@ -410,26 +380,26 @@ export function CapacityDecisionCard({
             value={formatTndAmount(plan.budget)}
             hint="budget disponible à allouer"
           />
-          {/* Anneau « part du programme sélectionné financée » : EXACTEMENT la
-              même valeur (`globalPct`) que la phrase récapitulative, la barre de
-              progression et le total du plan — jamais un second calcul. */}
           <SummaryTile
             icon={<Building2 className="h-3.5 w-3.5" />}
             label="Capacité de construction"
+            value={formatPercent(globalPct)}
+            tone={
+              globalPct >= 80
+                ? "text-emerald-600 dark:text-emerald-400"
+                : globalPct >= 50
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-red-600 dark:text-red-400"
+            }
             hint={`sur un programme de ${formatTndAmount(plan.selectedCost)}`}
-            ring={{
-              value: globalPct,
-              display: formatPercent(globalPct),
-              label: "Part du programme sélectionné financée",
-            }}
           />
           <SummaryTile
             icon={<CheckCircle2 className="h-3.5 w-3.5" />}
             label="Travaux réalisables"
             value={`${worksRealisable.length} / ${pricedWorks.length}`}
             hint={
-              worksPartiel.length > 0
-                ? `${worksPartiel.length} partiel · ${worksReport.length} à reporter`
+              plan.partialWorks.length > 0
+                ? `${plan.partialWorks.length} partiel · ${worksReport.length} à reporter`
                 : worksReport.length > 0
                   ? `${worksReport.length} à reporter`
                   : "programme intégralement finançable"
@@ -449,7 +419,7 @@ export function CapacityDecisionCard({
             {/* ── % global de construction ── */}
             <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3">
               <p className="text-[13px] font-bold">
-                Votre budget permet de réaliser environ {formatPercent(globalPct)} du programme sélectionné
+                Votre budget permet de réaliser environ {formatPercent(globalPct)} du projet
               </p>
               <div className="mt-1.5 overflow-x-auto pb-1">
                 <span className="font-mono text-[13px] tracking-widest text-primary" aria-hidden>
@@ -457,9 +427,8 @@ export function CapacityDecisionCard({
                 </span>
               </div>
               <p className="mt-1 text-[10.5px] leading-snug text-muted-foreground">
-                {formatTndAmount(plan.funded)} financés sur {formatTndAmount(plan.selectedCost)} — postes chiffrés
-                ci-dessous ({pricedWorks.length} retenus, {excludedPricedWorks.length} exclus
-                {unpricedWorks.length > 0 ? `, ${unpricedWorks.length} à chiffrer` : ""}).
+                {formatTndAmount(plan.funded)} financés sur {formatTndAmount(plan.selectedCost)} — postes sélectionnés
+                ci-dessous ({plan.works.length} retenus, {plan.excludedWorks.length} exclus).
               </p>
             </div>
 
@@ -828,14 +797,11 @@ export function CapacityDecisionCard({
                               setOpenPlanRows((s) => ({ ...s, [w.id]: !rowOpen }))
                             }
                             className={cn(
-                              // `flex-wrap` : sur un écran étroit, l'anneau et le
-                              // badge passent à la ligne au lieu de comprimer ou
-                              // chevaucher le libellé du poste.
-                              "flex w-full flex-wrap items-center gap-2.5 px-3 py-2.5 text-left bg-muted/20",
+                              "flex w-full items-center gap-2.5 px-3 py-2.5 text-left bg-muted/20",
                               hasParts && "transition-colors hover:bg-muted/40",
                             )}
                           >
-                            <span className="min-w-[9rem] flex-1">
+                            <span className="min-w-0 flex-1">
                               <span className="block text-[12px] font-semibold">
                                 {shortLabel(w.label)}
                                 {w.custom ? (
@@ -891,11 +857,11 @@ export function CapacityDecisionCard({
                                         setOpenPlanArticles((s) => ({ ...s, [p.id]: !articleOpen }))
                                       }
                                       className={cn(
-                                        "flex w-full flex-wrap items-center gap-2 bg-background px-2.5 py-2 text-left",
+                                        "flex w-full items-center gap-2 bg-background px-2.5 py-2 text-left",
                                         hasArticles && "transition-colors hover:bg-muted/20",
                                       )}
                                     >
-                                      <span className="min-w-[8rem] flex-1">
+                                      <span className="min-w-0 flex-1">
                                         <span className="block text-[11.5px] font-medium">
                                           {shortLabel(p.label)}
                                         </span>
@@ -926,9 +892,7 @@ export function CapacityDecisionCard({
                                           <span className="w-20 shrink-0 text-right sm:w-24">
                                             Montant
                                           </span>
-                                          {/* Même largeur que l'anneau de réalisation
-                                              (3,25 rem) : les colonnes restent alignées. */}
-                                          <span className="w-[3.25rem] shrink-0 text-right">
+                                          <span className="w-20 shrink-0 text-right sm:w-32">
                                             Réalisation
                                           </span>
                                         </div>
@@ -936,9 +900,9 @@ export function CapacityDecisionCard({
                                           {articleList.map((a) => (
                                             <li
                                               key={a.id}
-                                              className="flex flex-wrap items-start gap-2 text-[11px]"
+                                              className="flex items-start gap-2 text-[11px]"
                                             >
-                                              <span className="min-w-[6rem] flex-1 break-words">
+                                              <span className="min-w-0 flex-1 break-words">
                                                 {a.quantity !== undefined ? (
                                                   <span className="text-muted-foreground">
                                                     {a.quantity} {a.unit} —{" "}
@@ -973,6 +937,9 @@ export function CapacityDecisionCard({
                           </span>
                         </span>
                         <RealizationBar pct={globalPct} />
+                        <span className="text-[11px] font-bold tabular-nums text-primary">
+                          {formatPercent(globalPct)}
+                        </span>
                       </div>
                     </div>
                   </>
@@ -1097,6 +1064,9 @@ export function CapacityDecisionCard({
                       </span>
                       <div className="ml-auto flex items-center gap-2">
                         <RealizationBar pct={row.capacityPct} />
+                        <span className="w-14 text-right text-[11px] font-bold tabular-nums text-primary">
+                          {formatPercent(row.capacityPct)}
+                        </span>
                       </div>
                       <span className="w-full text-[10.5px] text-muted-foreground">
                         {row.missing > 0
