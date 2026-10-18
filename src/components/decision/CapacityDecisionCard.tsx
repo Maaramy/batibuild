@@ -154,99 +154,6 @@ function SummaryTile({
   );
 }
 
-// ── Quantitatif détaillé (repliable) ───────────────────────────────────────
-
-function QuantitatifTable({ analysis }: { analysis: BudgetAnalysis }) {
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
-  const [openSubs, setOpenSubs] = useState<Record<string, boolean>>({});
-
-  return (
-    <div className="space-y-2">
-      {analysis.breakdown.map((cat) => {
-        const catOpen = openCategories[cat.categoryId] ?? false;
-        return (
-          <div key={cat.categoryId} className="overflow-hidden rounded-xl border border-border/40">
-            <button
-              type="button"
-              onClick={() => setOpenCategories((s) => ({ ...s, [cat.categoryId]: !catOpen }))}
-              className="flex w-full items-center gap-2.5 bg-muted/20 px-3 py-2.5 text-left transition-colors hover:bg-muted/40"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-[12px] font-semibold">{shortLabel(cat.categoryLabel)}</span>
-                <span className="block text-[10px] text-muted-foreground">
-                  {formatTndAmount(cat.estimatedCost)} · {formatPercent(cat.pctOfTotal)} du projet
-                </span>
-              </span>
-              <RealizationBar pct={cat.realizationPct} />
-              <StatusBadge status={cat.status} />
-              {catOpen ? (
-                <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-              )}
-            </button>
-
-            {catOpen && (
-              <div className="space-y-1.5 border-t border-border/30 p-2.5">
-                {cat.subcategories.map((sub) => {
-                  const subKey = `${cat.categoryId}:${sub.subcategoryId}`;
-                  const subOpen = openSubs[subKey] ?? false;
-                  return (
-                    <div key={subKey} className="overflow-hidden rounded-lg border border-border/30">
-                      <button
-                        type="button"
-                        onClick={() => setOpenSubs((s) => ({ ...s, [subKey]: !subOpen }))}
-                        className="flex w-full items-center gap-2 bg-background px-2.5 py-2 text-left transition-colors hover:bg-muted/20"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[11.5px] font-medium">{shortLabel(sub.subcategoryLabel)}</span>
-                          <span className="block text-[10px] text-muted-foreground">
-                            {formatTndAmount(sub.estimatedCost)} · {formatPercent(sub.pctOfCategory)} de la catégorie
-                          </span>
-                        </span>
-                        <RealizationBar pct={sub.realizationPct} />
-                        <StatusBadge status={sub.status} />
-                        {subOpen ? (
-                          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        ) : (
-                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        )}
-                      </button>
-
-                      {subOpen && (
-                        <div className="border-t border-border/20 p-2">
-                          <ul className="space-y-1">
-                            {sub.articles.map((art, idx) => (
-                              <li key={`${subKey}:${idx}`} className="flex items-start gap-2 text-[11px]">
-                                <span className="min-w-0 flex-1 break-words">
-                                  {art.quantity !== undefined ? (
-                                    <span className="text-muted-foreground">
-                                      {art.quantity} {art.unit} —{" "}
-                                    </span>
-                                  ) : null}
-                                  {art.designation}
-                                </span>
-                                <span className="w-20 shrink-0 whitespace-nowrap text-right tabular-nums sm:w-24">
-                                  {formatTndAmount(art.estimatedCost)}
-                                </span>
-                                <RealizationBar pct={art.realizationPct} />
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── Module principal ───────────────────────────────────────────────────────
 
 export interface CapacityDecisionCardProps {
@@ -326,7 +233,6 @@ export function CapacityDecisionCard({
   const [solarPanels, setSolarPanels] = useState<number | null>(null);
   const [openPlanRows, setOpenPlanRows] = useState<Record<string, boolean>>({});
   const [openPlanArticles, setOpenPlanArticles] = useState<Record<string, boolean>>({});
-  const [showQuantitatif, setShowQuantitatif] = useState(false);
 
   // ── Travaux personnalisés (liste prédéfinie, chiffrés automatiquement) ──
   const customWorksData = useQuery(
@@ -1221,25 +1127,6 @@ export function CapacityDecisionCard({
               </div>
             </div>
 
-            <div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1 text-[11px]"
-                onClick={() => setShowQuantitatif((v) => !v)}
-              >
-                {showQuantitatif ? "Masquer" : "Voir"} le Quantitatif détaillé
-                {showQuantitatif ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-              </Button>
-              {showQuantitatif && (
-                <div className="mt-2">
-                  <p className="mb-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Quantitatif détaillé — réalisation par poste
-                  </p>
-                  <QuantitatifTable analysis={analysis} />
-                </div>
-              )}
-            </div>
           </div>
         )}
       </CardContent>
