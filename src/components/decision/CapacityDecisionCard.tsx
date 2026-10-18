@@ -37,6 +37,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CustomWorkIcon } from "@/components/CustomWorkIcon";
+import { CircularProgress } from "@/components/decision/CircularProgress";
 import {
   CUSTOM_WORK_CATALOG,
   SOLAR_PANEL_COUNT_OPTIONS,
@@ -99,19 +100,16 @@ function StatusBadge({ status }: { status: BudgetStatus }) {
   );
 }
 
-/** Barre de réalisation d'un poste (montant financé / montant estimé). */
+/** Réalisation d'un poste (montant financé / montant estimé) — anneau %. */
 function RealizationBar({ pct }: { pct: number }) {
   const v = clampPct(pct);
-  const tone = v >= 100 ? "bg-emerald-500" : v > 0 ? "bg-amber-500" : "bg-border";
   return (
-    <div className="flex w-24 shrink-0 items-center justify-end gap-1.5 sm:w-36">
-      <div className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-muted sm:w-20">
-        <div className={cn("h-full rounded-full transition-[width] duration-300", tone)} style={{ width: `${v}%` }} />
-      </div>
-      <span className="w-10 shrink-0 text-right tabular-nums text-[9.5px] text-muted-foreground">
-        {formatPercent(v)}
-      </span>
-    </div>
+    <CircularProgress
+      value={v}
+      displayValue={formatPercent(v)}
+      label="Réalisation du poste"
+      size="sm"
+    />
   );
 }
 
@@ -136,19 +134,36 @@ function SummaryTile({
   value,
   hint,
   tone,
+  ring,
 }: {
   icon: ReactNode;
   label: string;
-  value: string;
+  value?: string;
   hint?: string;
   tone?: string;
+  /** Pourcentage en anneau, aligné à droite de la tuile (design maquette). */
+  ring?: { value: number; display: string };
 }) {
   return (
     <div className="rounded-lg border border-border/60 bg-card p-2.5">
-      <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-        {icon} {label}
-      </p>
-      <p className={cn("mt-0.5 text-sm font-semibold tabular-nums", tone)}>{value}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+            {icon} {label}
+          </p>
+          {value ? (
+            <p className={cn("mt-0.5 text-sm font-semibold tabular-nums", tone)}>{value}</p>
+          ) : null}
+        </div>
+        {ring ? (
+          <CircularProgress
+            value={ring.value}
+            displayValue={ring.display}
+            label={label}
+            size="sm"
+          />
+        ) : null}
+      </div>
       {hint ? <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{hint}</p> : null}
     </div>
   );
@@ -383,15 +398,8 @@ export function CapacityDecisionCard({
           <SummaryTile
             icon={<Building2 className="h-3.5 w-3.5" />}
             label="Capacité de construction"
-            value={formatPercent(globalPct)}
-            tone={
-              globalPct >= 80
-                ? "text-emerald-600 dark:text-emerald-400"
-                : globalPct >= 50
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-red-600 dark:text-red-400"
-            }
             hint={`sur un programme de ${formatTndAmount(plan.selectedCost)}`}
+            ring={{ value: globalPct, display: formatPercent(globalPct) }}
           />
           <SummaryTile
             icon={<CheckCircle2 className="h-3.5 w-3.5" />}
@@ -892,7 +900,7 @@ export function CapacityDecisionCard({
                                           <span className="w-20 shrink-0 text-right sm:w-24">
                                             Montant
                                           </span>
-                                          <span className="w-20 shrink-0 text-right sm:w-32">
+                                          <span className="w-12 shrink-0 text-right">
                                             Réalisation
                                           </span>
                                         </div>
@@ -937,9 +945,6 @@ export function CapacityDecisionCard({
                           </span>
                         </span>
                         <RealizationBar pct={globalPct} />
-                        <span className="text-[11px] font-bold tabular-nums text-primary">
-                          {formatPercent(globalPct)}
-                        </span>
                       </div>
                     </div>
                   </>
@@ -1064,9 +1069,6 @@ export function CapacityDecisionCard({
                       </span>
                       <div className="ml-auto flex items-center gap-2">
                         <RealizationBar pct={row.capacityPct} />
-                        <span className="w-14 text-right text-[11px] font-bold tabular-nums text-primary">
-                          {formatPercent(row.capacityPct)}
-                        </span>
                       </div>
                       <span className="w-full text-[10.5px] text-muted-foreground">
                         {row.missing > 0
