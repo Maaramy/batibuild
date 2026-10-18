@@ -716,7 +716,7 @@ export default function NewProject() {
         surface: normalizeSurface(surfaceRuleForCategory(selectedCategory), surface),
         floors,
         // Surfaces réelles par niveau (RDC inclus) : transmises telles quelles au
-        // moteur de coûts, au DQE et à l'aide à la décision.
+        // moteur de coûts et au DQE.
         levelSurfaces,
       });
 

@@ -520,7 +520,7 @@ function renovationCompleteLots(): LotTpl[] {
  * Les quatre identifiants de section sont ceux de `EDITABLE_LOT_IDS`
  * (`quantitatifCustomLogic`) : le quantitatif de ce type est donc
  * personnalisable exactement comme celui d'un projet neuf — superposition du
- * scénario « Personnalisé », aide à la décision, DQE et rapport PDF inclus.
+ * scénario « Personnalisé », DQE et rapport PDF inclus.
  *
  * Spécificités d'une rénovation (aucun poste de construction neuve) :
  *   • la section « Gros œuvre » ne contient QUE des travaux de rénovation

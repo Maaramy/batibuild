@@ -46,7 +46,6 @@ const MyProjects = lazy(() => import("./pages/MyProjects.tsx"));
 const ReportCenter = lazy(() => import("./pages/ReportCenter.tsx"));
 const NewProject = lazy(() => import("./pages/NewProject.tsx"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail.tsx"));
-const DecisionSupport = lazy(() => import("./pages/DecisionSupport.tsx"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel.tsx"));
 const SubscriptionAdminPage = lazy(() => import("./pages/SubscriptionAdminPage.tsx"));
 const PricingPage = lazy(() => import("./pages/PricingPage.tsx"));
@@ -300,20 +299,6 @@ createRoot(document.getElementById("root")!).render(
                     <RequireAuth>
                       <FeatureGate flag="construction_cost_estimation">
                         <ProjectDetail />
-                      </FeatureGate>
-                    </RequireAuth>
-                  }
-                />
-                {/* « Aide à la décision » — page dédiée de l'Intelligence
-                    prédictive IA (étape n°2 du parcours groupe A). Le module
-                    n'est plus affiché en extension du résultat « Coût
-                    estimatif » : il vit sur cette page. */}
-                <Route
-                  path="/dashboard/decision/:id"
-                  element={
-                    <RequireAuth>
-                      <FeatureGate flag="construction_cost_estimation">
-                        <DecisionSupport />
                       </FeatureGate>
                     </RequireAuth>
                   }

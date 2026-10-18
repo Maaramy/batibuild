@@ -389,8 +389,8 @@ export const getPriceTrends = query({
 // ═══════════════════════════════════════════════════════════════════════════
 // Tendances de prix PAR MATÉRIAU (et non par catégorie)
 // ═══════════════════════════════════════════════════════════════════════════
-// L'Intelligence prédictive analyse chaque matériau individuellement : elle a
-// donc besoin de l'évolution RÉELLE de CHAQUE matériau de la Liste des prix.
+// Chaque matériau de la Liste des prix est suivi individuellement : la page
+// « Matériaux de construction » a besoin de l'évolution RÉELLE de chacun.
 //
 // Deux historiques réels sont fusionnés, par `materialPriceId` :
 //   • `priceHistory`        → changements de la référence (source « publication ») ;
