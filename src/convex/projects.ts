@@ -671,7 +671,10 @@ export const setProjectScenario = mutation({
     if (project.userId !== user._id && user.role !== "admin") {
       throw new Error("Unauthorized");
     }
-    if (!["economique", "standard", "premium"].includes(args.scenario)) {
+    // « personnalise » est un scénario AFFICHÉ valide : il désigne le quantitatif
+    // du scénario de référence auquel s'ajoutent les modifications enregistrées.
+    // Il est conservé pour que toutes les pages reprennent le même montant.
+    if (!["economique", "standard", "premium", "personnalise"].includes(args.scenario)) {
       throw new Error("Scénario invalide");
     }
 

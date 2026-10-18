@@ -71,6 +71,7 @@ import {
   runBIMEstimation,
 } from "@/convex/bimEngine";
 import { realBuiltArea } from "@/lib/buildingLevels";
+import { resolveEstimationBudget } from "@/lib/estimationBudget";
 // Impact régional & comparatif régional : UNE seule source de calcul
 // (`lib/regionImpact`), la même que celle du moteur BIM. Elle ne fait varier
 // que le prix régional du SCÉNARIO ACTIF (coefficient régional appliqué une
@@ -270,7 +271,10 @@ export default function ProjectDetail() {
     if (scenarioInitRef.current || !project) return;
     scenarioInitRef.current = true;
     const stored = (project as any).selectedScenario;
-    if (typeof stored === "string" && ["economique", "standard", "premium"].includes(stored)) {
+    if (
+      typeof stored === "string" &&
+      ["economique", "standard", "premium", PERSONALIZED_SCENARIO_KEY].includes(stored)
+    ) {
       setSelectedScenario(stored);
     }
   }, [project]);
@@ -506,9 +510,10 @@ export default function ProjectDetail() {
   // pilote ensuite « Choix matériaux AI » et « Analyse IA & historique ».
   const chooseScenario = (key: string) => {
     setSelectedScenario(key);
-    const persisted = key === PERSONALIZED_SCENARIO_KEY ? baseScenarioKey : key;
-    if (project?._id && ["economique", "standard", "premium"].includes(persisted)) {
-      void setProjectScenario({ projectId: project._id, scenario: persisted });
+    // Le scénario AFFICHÉ est enregistré tel quel — « Personnalisé » compris —
+    // pour que « Aide à la décision » reprenne exactement le même montant.
+    if (project?._id && ["economique", "standard", "premium", PERSONALIZED_SCENARIO_KEY].includes(key)) {
+      void setProjectScenario({ projectId: project._id, scenario: key });
     }
   };
 
@@ -536,47 +541,35 @@ export default function ProjectDetail() {
     ? realBuiltArea(project.surface, project.floors || 1, project.levelSurfaces)
     : 0;
 
-  // Totaux du scénario « Personnalisé » = scénario de référence + modifications
-  // d'articles + travaux complémentaires (une catégorie par travail, insérée
-  // juste avant « Aménagement extérieur »).
-  const personalized = useMemo(() => {
-    if (!hasPersonalizedScenario || !rawDqeLots.length) return null;
-    const baseFactor = budgetScenarioFactor(scenarios, baseScenarioKey);
-    const scaled = scaleDqeLots(rawDqeLots, baseFactor * realCostFactor);
-    const overlay = hasCustomization
-      ? overlayCustomizations(scaled, customizationEntries, {
-          scaleFactor: baseFactor,
-          realCostFactor,
-        })
-      : { lots: scaled, modifiedCount: 0 };
-    // Postes supprimés depuis « Modifier l'article » : retirés de la copie
-    // affichée, sous-totaux des catégories et pourcentages recalculés. Le
-    // quantitatif du projet, le DQE et les données globales ne sont jamais
-    // modifiés (nouveaux objets uniquement).
-    const removal = applyPosteRemovals(overlay.lots, removedPosteEntries);
-    // Les travaux complémentaires n'intègrent QUE le scénario Personnalisé :
-    // les scénarios Économique / Standard / Premium ne sont jamais modifiés.
-    const lots = withComplementaryWorksLots(removal.lots, complementaryWorks);
-    return {
-      lots,
-      totals: computeQuantitatifTotals(lots, builtSurface),
-      modifiedCount: overlay.modifiedCount,
-      removedCount: removedPosteEntries.length,
-      removedLines: removal.removedLines,
-    };
-  }, [
-    hasPersonalizedScenario,
-    hasCustomization,
-    hasRemovals,
-    rawDqeLots,
-    scenarios,
-    baseScenarioKey,
-    realCostFactor,
-    customizationEntries,
-    removedPosteEntries,
-    complementaryWorks,
-    builtSurface,
-  ]);
+  // ── Budget de l'estimation : SOURCE UNIQUE des montants ──────────────────
+  // Le même résolveur alimente cette page et « Aide à la décision » : montant
+  // TTC du scénario affiché, scénarios corrigés des imprévus et scénario
+  // « Personnalisé » (modifications d'articles, postes supprimés, travaux
+  // complémentaires) sont calculés une seule fois, sans divergence possible.
+  const estimationBudget = useMemo(
+    () =>
+      resolveEstimationBudget({
+        costEstimate: storedCe ?? null,
+        dqeLots: rawDqeLots,
+        builtSurface,
+        selectedScenario: storedScenarioKey ?? null,
+        baseScenario: baseScenarioKey,
+        modifications: customizationEntries,
+        removedPostes: removedPosteEntries,
+        complementaryWorks,
+      }),
+    [
+      storedCe,
+      rawDqeLots,
+      builtSurface,
+      storedScenarioKey,
+      baseScenarioKey,
+      customizationEntries,
+      removedPosteEntries,
+      complementaryWorks,
+    ],
+  );
+  const personalized = estimationBudget.personalized;
 
   // ── Ajout / retrait d'un travail complémentaire ───────────────────────────
   // La sélection est enregistrée côté serveur (source unique) : la requête
@@ -726,9 +719,14 @@ export default function ProjectDetail() {
 
   // Total et coût/m² réellement affichés : le scénario « Personnalisé » n'est
   // pris en compte que lorsqu'il est effectivement affiché.
-  const displayTotal: number = personalized && isPersonalizedScenario ? Number(personalized.totals.total) : Number(currentTotal);
+  const displayTotal: number =
+    personalized && isPersonalizedScenario
+      ? Number(personalized.totals.total)
+      : Number(estimationBudget.scenarios?.[effectiveScenario as BudgetScenarioKey]?.totalCost ?? currentTotal);
   const displayCostM2 =
-    personalized && isPersonalizedScenario ? personalized.totals.costPerM2 : currentCostM2;
+    personalized && isPersonalizedScenario
+      ? personalized.totals.costPerM2
+      : Number(estimationBudget.scenarios?.[effectiveScenario as BudgetScenarioKey]?.costPerM2 ?? currentCostM2);
 
   // ── Catégories réellement affichées par le « Quantitatif détaillé » ────
   // SOURCE UNIQUE du quantitatif affiché : mise à l'échelle du scénario

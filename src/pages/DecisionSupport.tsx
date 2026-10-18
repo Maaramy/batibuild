@@ -39,10 +39,7 @@ import {
   type BudgetScenarioKey,
 } from "@/convex/quantitatifCustomLogic";
 import type { Id } from "@/convex/_generated/dataModel";
-import {
-  legacyContingencyFactor,
-  withRealConstructionCost,
-} from "@/lib/constructionCost";
+import { resolveEstimationBudget } from "@/lib/estimationBudget";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
 
 const SCENARIO_KEYS: BudgetScenarioKey[] = ["economique", "standard", "premium"];
@@ -62,84 +59,82 @@ export default function DecisionSupport() {
     id ? { projectId: id as Id<"projects"> } : "skip",
   );
 
-  // ── Coût des scénarios — MÊME source ET MÊME correction que le résultat
-  // « Coût de construction » (étape du parcours) : la page résultat retire la
-  // majoration d'imprévus des anciennes estimations (`contingencyPercentage`,
-  // ≈ 8 %) avant d'afficher totaux et scénarios. On passe par le même helper
-  // partagé (`withRealConstructionCost`), donc les montants affichés ici sont
-  // IDENTIQUES à ceux du résultat (Standard = même montant affiché, aucune
-  // double application du facteur).
-  const ce = withRealConstructionCost(project?.costEstimate);
-
-  const scenarios = ce?.budgetScenarios;
-  const persistedScenario = project?.selectedScenario;
-  const scenarioKey: BudgetScenarioKey =
-    typeof persistedScenario === "string" &&
-    (SCENARIO_KEYS as string[]).includes(persistedScenario)
-      ? (persistedScenario as BudgetScenarioKey)
-      : "standard";
-  const scenarioSel = scenarios?.[scenarioKey];
-  const projectTotal = scenarioSel?.totalCost ?? ce?.totalCost ?? 0;
-  const scenarioLabel = scenarioSel?.label ?? BUDGET_SCENARIO_LABELS[scenarioKey];
-  // Coût au m² du scénario — les anciennes estimations portent la majoration
-  // d'imprévus dans leur coût au m² enregistré : on la retire ici (aucun imprévus
-  // dans les résultats de l'aide à la décision). Sans majoration, inchangé.
-  const costFactor = legacyContingencyFactor(project?.costEstimate);
-  const registeredCostPerM2 = scenarioSel?.costPerM2 ?? ce?.costPerSquareMeter;
-  const costPerM2 =
-    registeredCostPerM2 && costFactor !== 1
-      ? Math.round(registeredCostPerM2 * costFactor)
-      : registeredCostPerM2;
-
-  // Scénario « Personnalisé » : montant du scénario de référence (logique
-  // identique à la page résultat), affiché seulement s'il porte des
-  // modifications.
+  // ── Montant TTC officiel — MÊME résolveur que le résultat d'estimation ──
+  // `resolveEstimationBudget` est la source unique : scénarios corrigés des
+  // imprévus, montant du scénario enregistré (Économique / Standard / Premium /
+  // Personnalisé) et coût au m². Aucun recalcul indépendant ici : le montant
+  // transmis est identique, au dinar près, à celui de « Coût de construction ».
   const customization = useQuery(
     api.quantitatifCustom.getCustomization,
     id ? { projectId: id as Id<"projects"> } : "skip",
   );
-
-  // Totaux des 4 solutions (Économique / Standard / Premium / Personnalisé)
-  // → comparaison dans le module « Capacité de construction ».
-  const scenarioTotals = useMemo<ScenarioTotal[]>(() => {
-    if (!scenarios) return [];
-    const rows: ScenarioTotal[] = SCENARIO_KEYS.map((key) => ({
-      key,
-      label: scenarios[key]?.label ?? BUDGET_SCENARIO_LABELS[key],
-      totalCost: Number(scenarios[key]?.totalCost) || 0,
-      selected: key === scenarioKey,
-    })).filter((row) => row.totalCost > 0);
-
-    const baseKey = (customization?.baseScenario ?? "standard") as BudgetScenarioKey;
-    const modifiedCount = Number(customization?.modifiedCount) || 0;
-    const baseTotal = Number(scenarios?.[baseKey]?.totalCost) || 0;
-    if (modifiedCount > 0 && baseTotal > 0) {
-      rows.push({
-        key: PERSONALIZED_SCENARIO_KEY,
-        label: PERSONALIZED_SCENARIO_LABEL,
-        totalCost: baseTotal,
-        selected: false,
-      });
-    }
-    return rows;
-  }, [scenarios, scenarioKey, customization]);
+  const customWorksData = useQuery(
+    api.customWorks.getProjectCustomWorks,
+    id ? { projectId: id as Id<"projects"> } : "skip",
+  );
 
   // Surface réellement construite : somme des surfaces de chaque niveau
   // (un étage plus petit que le RDC n'emprunte jamais la surface du RDC).
   const builtSurface = project?.surface
     ? realBuiltArea(project.surface, project.floors || 1, project.levelSurfaces)
     : 0;
-  const regionLabel = project?.region
-    ? REGION_LABELS[project.region] ?? project.region
-    : undefined;
-  // Travaux complémentaires : mêmes conditions d'accès que sur le résultat
-  // d'estimation (les sept types de projet autorisés : maison, villa,
-  // appartement, duplex, immeuble, résidence touristique, projet immobilier
-  // neuf — ET surface couverte ≥ 120 m²). Masqués sinon.
+
   const complementaryWorksEligible = isComplementaryWorkEligible(
     normalizeLegacyCategory(project?.category as string),
     project?.surface,
   );
+
+  const budget = useMemo(
+    () =>
+      resolveEstimationBudget({
+        costEstimate: project?.costEstimate ?? null,
+        dqeLots: ((project as any)?.dqe?.lots ?? []) as any[],
+        builtSurface,
+        selectedScenario: project?.selectedScenario ?? null,
+        baseScenario: (customization?.baseScenario ?? "standard") as BudgetScenarioKey,
+        modifications: (customization?.modifications ?? []) as any,
+        removedPostes: (customization?.removedPostes ?? []) as any,
+        complementaryWorks: complementaryWorksEligible ? customWorksData?.works ?? [] : [],
+      }),
+    [project, builtSurface, customization, customWorksData, complementaryWorksEligible],
+  );
+
+  const projectTotal = budget.selectedTotal;
+  const costPerM2 = budget.selectedCostPerM2;
+  const scenarioLabel =
+    budget.selectedKey === PERSONALIZED_SCENARIO_KEY
+      ? PERSONALIZED_SCENARIO_LABEL
+      : BUDGET_SCENARIO_LABELS[budget.selectedKey as BudgetScenarioKey];
+
+  // Totaux des 4 solutions (Économique / Standard / Premium / Personnalisé)
+  // → comparaison dans le module « Capacité de construction ». Le scénario
+  // Personnalisé utilise son montant RÉEL, jamais celui de son scénario de base.
+  const scenarioTotals = useMemo<ScenarioTotal[]>(() => {
+    const rows: ScenarioTotal[] = [];
+    for (const key of SCENARIO_KEYS) {
+      const totalCost = budget.scenarios?.[key]?.totalCost ?? 0;
+      if (totalCost > 0) {
+        rows.push({
+          key,
+          label: BUDGET_SCENARIO_LABELS[key],
+          totalCost,
+          selected: budget.selectedKey === key,
+        });
+      }
+    }
+    if (budget.personalized) {
+      rows.push({
+        key: PERSONALIZED_SCENARIO_KEY,
+        label: PERSONALIZED_SCENARIO_LABEL,
+        totalCost: budget.personalized.totals.total,
+        selected: budget.selectedKey === PERSONALIZED_SCENARIO_KEY,
+      });
+    }
+    return rows;
+  }, [budget]);
+  const regionLabel = project?.region
+    ? REGION_LABELS[project.region] ?? project.region
+    : undefined;
 
   return (
     <main className="min-h-screen bg-background pb-12">
@@ -165,6 +160,21 @@ export default function DecisionSupport() {
             action={
               <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>
                 Retour au tableau de bord
+              </Button>
+            }
+          />
+        ) : !budget.scenarios && !budget.personalized ? (
+          /* ── Estimation non disponible : jamais de montant par défaut ── */
+          <EmptyState
+            title="Estimation indisponible"
+            description="Le coût de construction de ce projet n'a pas encore été calculé. Lancez l'estimation depuis la page du projet : le montant officiel sera repris ici automatiquement."
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(`/dashboard/project/${id}`)}
+              >
+                Aller à l'estimation du coût
               </Button>
             }
           />
