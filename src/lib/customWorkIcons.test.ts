@@ -50,6 +50,7 @@ const CUSTOM_WORK_FILES = [
  */
 const CUSTOM_WORK_UI = [
   "components/complementary/ComplementaryWorksSection.tsx",
+  "components/decision/CapacityDecisionCard.tsx",
 ];
 
 /** Bloc « Quantitatif détaillé » : catégories professionnelles, sans icône. */

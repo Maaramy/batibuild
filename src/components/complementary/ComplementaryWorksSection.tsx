@@ -7,7 +7,7 @@
 // des données réelles du projet et du scénario budgétaire actif.
 //
 // • La sélection est enregistrée côté serveur (une seule source de vérité,
-//   partagée avec le module Plan architecture AI) ;
+//   partagée avec l'aide à la décision et le module Plan architecture AI) ;
 // • les travaux n'intègrent QUE le scénario « Personnalisé » : les scénarios
 //   Économique / Standard / Premium d'origine ne sont jamais modifiés ;
 // • aucun montant n'est saisi à la main, aucune donnée projet n'est modifiée.

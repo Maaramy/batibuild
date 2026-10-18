@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useQuery } from "convex/react";
 import {
+  BrainCircuit,
   Calculator,
   Check,
   HardHat,
@@ -19,10 +20,11 @@ import { ResultPlaceholder, StepResultPanel } from "@/components/LifecycleStepRe
 /**
  * CYCLE DE VIE COMPLET D'UN PROJET — parcours animé de la page d'accueil.
  *
- * Représente les 4 étapes du projet, dans l'ordre officiel de « Projet Journey »
+ * Représente les 5 étapes du projet, dans l'ordre officiel de « Projet Journey »
  * (`src/lib/projectJourney.ts`) :
  *
- *   01 Coût estimatif → 02 Plan IA → 03 Consultations → 04 Exécution & suivi
+ *   01 Coût estimatif → 02 Aide à la décision → 03 Plan IA →
+ *   04 Consultations → 05 Exécution & suivi
  *
  * Les intitulés, l'ordre et les feature flags sont identiques à ceux du
  * parcours projet : une fonctionnalité désactivée par l'administrateur est
@@ -67,6 +69,22 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
       ring: "ring-emerald-500/20",
       shadow: "shadow-emerald-500/30",
       chip: "bg-emerald-500/10",
+    },
+  },
+  {
+    key: "decision",
+    label: "Aide à la décision",
+    description:
+      "Anticipez vos achats, maîtrisez votre budget et réduisez les pertes grâce à l'analyse prédictive.",
+    icon: BrainCircuit,
+    // Extension directe du résultat « Coût estimatif » : suit son activation.
+    flag: JOURNEY_FLAG_KEYS.decision,
+    accents: {
+      gradient: "from-violet-500 to-purple-500",
+      text: "text-violet-600 dark:text-violet-400",
+      ring: "ring-violet-500/20",
+      shadow: "shadow-violet-500/30",
+      chip: "bg-violet-500/10",
     },
   },
   {

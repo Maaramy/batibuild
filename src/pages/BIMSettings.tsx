@@ -78,8 +78,8 @@ export default function BIMSettings() {
 
   // ── Coefficients multi-niveaux : édition par l'administrateur ──
   // Les valeurs enregistrées pilotent réellement le moteur de coûts (coût
-  // estimatif, Quantitatif détaillé, rapports) : aucun changement du code
-  // source n'est nécessaire.
+  // estimatif, Quantitatif détaillé, aide à la décision, rapports) : aucun
+  // changement du code source n'est nécessaire.
   const saveBIMConfig = useMutation(api.bimConfig.saveBIMConfig);
   const [levelCoeffs, setLevelCoeffs] = useState<LevelCostConfig | null>(null);
   const [validFromDraft, setValidFromDraft] = useState<string | null>(null);
@@ -523,7 +523,8 @@ export default function BIMSettings() {
             études, VRD, aménagements extérieurs), comptés <strong>une seule fois</strong>. Chaque
             étage supérieur est chiffré sur sa <strong>surface réelle</strong> × son coefficient, et
             la toiture-terrasse une seule fois. Ces valeurs pilotent le coût estimatif, le
-            Quantitatif détaillé et les rapports — sans modifier le code source.
+            Quantitatif détaillé, l'aide à la décision et les rapports — sans modifier le code
+            source.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
