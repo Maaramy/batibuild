@@ -612,11 +612,7 @@ export default function ProjectDetail() {
     }
     if (count === complementaryCountRef.current) return;
     complementaryCountRef.current = count;
-    // La bascule est PERSISTÉE (et pas seulement locale) via `chooseScenario` :
-    // « Aide à la décision » lit le scénario enregistré et doit afficher le même
-    // montant que cette page. Un basculement local non enregistré laissait les
-    // deux pages divergentes (personnalisé affiché ici, scénario de base là-bas).
-    if (count > 0) chooseScenario(PERSONALIZED_SCENARIO_KEY);
+    if (count > 0) setSelectedScenario(PERSONALIZED_SCENARIO_KEY);
     else if (!hasCustomization && !hasRemovals)
       setSelectedScenario((s) => (s === PERSONALIZED_SCENARIO_KEY ? baseScenarioKey : s));
   }, [complementaryKeys.length, hasCustomization, hasRemovals, baseScenarioKey]);

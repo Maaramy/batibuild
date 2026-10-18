@@ -17,6 +17,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import {
+  Building2,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -36,7 +37,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CustomWorkIcon } from "@/components/CustomWorkIcon";
-import { CircularProgress } from "@/components/decision/CircularProgress";
 import {
   CUSTOM_WORK_CATALOG,
   SOLAR_PANEL_COUNT_OPTIONS,
@@ -47,6 +47,7 @@ import {
 } from "@/lib/customWorksCatalog";
 import type { CustomWorkEstimate, CustomWorkNature } from "@/convex/customWorksEngine";
 import {
+  budgetProgressionBlocks,
   formatPercent,
   formatTndAmount,
   type BudgetAnalysis,
@@ -365,20 +366,32 @@ export function CapacityDecisionCard({
           <span className="rounded-full border border-primary/30 bg-primary/[0.06] px-2 py-0.5 text-[10px] font-semibold text-primary">
             budget disponible {formatTndAmount(plan.budget)}
           </span>
-          <Button variant="ghost" size="sm" className="h-8 min-h-8 gap-1" onClick={() => setOpen((v) => !v)}>
+          <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={() => setOpen((v) => !v)}>
             {open ? "Masquer le détail" : "Voir le détail"}
             {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </Button>
         </div>
 
-        {/* ── Bandeau supérieur (montants & compteurs — le % de capacité est
-            désormais rendu en anneau circulaire juste en dessous) ── */}
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {/* ── Bandeau supérieur ── */}
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <SummaryTile
             icon={<Wallet className="h-3.5 w-3.5" />}
             label="Budget"
             value={formatTndAmount(plan.budget)}
             hint="budget disponible à allouer"
+          />
+          <SummaryTile
+            icon={<Building2 className="h-3.5 w-3.5" />}
+            label="Capacité de construction"
+            value={formatPercent(globalPct)}
+            tone={
+              globalPct >= 80
+                ? "text-emerald-600 dark:text-emerald-400"
+                : globalPct >= 50
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-red-600 dark:text-red-400"
+            }
+            hint={`sur un programme de ${formatTndAmount(plan.selectedCost)}`}
           />
           <SummaryTile
             icon={<CheckCircle2 className="h-3.5 w-3.5" />}
@@ -403,27 +416,20 @@ export function CapacityDecisionCard({
 
         {!open ? null : (
           <div className="mt-3 space-y-3">
-            {/* ── % global de construction — anneau circulaire + phrase ── */}
-            <div className="flex flex-col items-center gap-4 rounded-xl border border-primary/20 bg-primary/[0.04] p-4 sm:flex-row">
-              <CircularProgress
-                value={globalPct}
-                displayValue={formatPercent(globalPct)}
-                label="Capacité de construction"
-                description="part du programme sélectionnée finançable avec votre budget"
-                tone={
-                  globalPct >= 80 ? "success" : globalPct >= 50 ? "warning" : "danger"
-                }
-                className="shrink-0 border-primary/20 bg-background/70"
-              />
-              <div className="min-w-0 flex-1 text-center sm:text-left">
-                <p className="text-[13px] font-bold">
-                  Votre budget permet de réaliser environ {formatPercent(globalPct)} du projet
-                </p>
-                <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                  {formatTndAmount(plan.funded)} financés sur {formatTndAmount(plan.selectedCost)} — postes sélectionnés
-                  ci-dessous ({plan.works.length} retenus, {plan.excludedWorks.length} exclus).
-                </p>
+            {/* ── % global de construction ── */}
+            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3">
+              <p className="text-[13px] font-bold">
+                Votre budget permet de réaliser environ {formatPercent(globalPct)} du projet
+              </p>
+              <div className="mt-1.5 overflow-x-auto pb-1">
+                <span className="font-mono text-[13px] tracking-widest text-primary" aria-hidden>
+                  {budgetProgressionBlocks(globalPct)}
+                </span>
               </div>
+              <p className="mt-1 text-[10.5px] leading-snug text-muted-foreground">
+                {formatTndAmount(plan.funded)} financés sur {formatTndAmount(plan.selectedCost)} — postes sélectionnés
+                ci-dessous ({plan.works.length} retenus, {plan.excludedWorks.length} exclus).
+              </p>
             </div>
 
             {/* ── Niveau de construction atteint ── */}
@@ -480,7 +486,7 @@ export function CapacityDecisionCard({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 min-h-8 px-3 text-[11px]"
+                    className="h-7 text-[10px]"
                     onClick={() => setDeselected(new Set())}
                   >
                     Tout
@@ -488,7 +494,7 @@ export function CapacityDecisionCard({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 min-h-8 px-3 text-[11px]"
+                    className="h-7 text-[10px]"
                     onClick={() => setDeselected(new Set(works.map((w) => w.id)))}
                   >
                     Aucun
