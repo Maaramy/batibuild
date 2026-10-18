@@ -15,7 +15,7 @@
 // « Confiance » de la page « Coût de construction ».
 // ============================================================================
 
-import { Coins, Info, Sparkles } from "lucide-react";
+import { Coins, Info, Sparkles, TrendingDown } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   MIN_BUDGET_TND,
+  formatPercent,
   formatTndAmount,
   type BudgetAnalysis,
   type QuantitatifLot,
@@ -31,8 +32,10 @@ import type { OptimizationPlan } from "@/lib/optimizationEngine";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
 
 import { CapacityDecisionCard } from "@/components/decision/CapacityDecisionCard";
+import { CircularProgress } from "@/components/decision/CircularProgress";
 
 export function OptimizationSection({
+  plan,
   budgetAnalysis,
   onBudgetAnalyze,
   budgetAvailable,
@@ -43,7 +46,7 @@ export function OptimizationSection({
   projectContextLabel,
   complementaryWorksEnabled,
 }: {
-  /** Plan d'optimisation calculé en amont — plus affiché sur cette page. */
+  /** Plan d'optimisation — indicateurs et pistes d'économies existantes. */
   plan: OptimizationPlan;
   budgetAnalysis: BudgetAnalysis | null;
   /** Identifiant du projet — travaux personnalisés enregistrés pour ce projet. */
@@ -63,6 +66,11 @@ export function OptimizationSection({
   const budgetNumber = Number(budgetInputValue);
   const budgetTooLow = budgetInputValue !== "" && budgetNumber > 0 && budgetNumber < MIN_BUDGET_TND;
   const budgetValid = Number.isFinite(budgetNumber) && budgetNumber >= MIN_BUDGET_TND;
+
+  // Pistes d'économies existantes (déjà calculées par le moteur d'optimisation).
+  const savingLevers = plan.levers.filter((l) => l.saving > 0).slice(0, 3);
+  const showSavings = plan.available && plan.economieRealisable > 0;
+  const showIndicators = budgetAnalysis?.available === true || plan.available;
 
   return (
     <div className="space-y-3">
@@ -122,6 +130,118 @@ export function OptimizationSection({
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Indicateurs circulaires — pourcentages essentiels issus des
+          données existantes (aucun pourcentage inventé) ── */}
+      {showIndicators ? (
+        <section aria-labelledby="decision-indicators-title">
+          <div className="mb-2 flex flex-wrap items-baseline gap-x-2">
+            <h2
+              id="decision-indicators-title"
+              className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+            >
+              Indicateurs essentiels
+            </h2>
+            <p className="text-[10px] text-muted-foreground/70">
+              calculés à partir de vos données réelles
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {budgetAnalysis?.available ? (
+              <CircularProgress
+                value={budgetAnalysis.projectReachablePct}
+                displayValue={formatPercent(budgetAnalysis.projectReachablePct)}
+                label="Projet finançable"
+                description="part du coût total couverte par votre budget"
+              />
+            ) : null}
+            {budgetAnalysis?.available ? (
+              <CircularProgress
+                value={budgetAnalysis.budgetUsedPct}
+                displayValue={formatPercent(budgetAnalysis.budgetUsedPct)}
+                label="Budget engagé"
+                description="part du budget disponible consommée par le programme finançable"
+              />
+            ) : null}
+            {plan.available ? (
+              <CircularProgress
+                value={plan.scoreOptimisation}
+                displayValue={formatPercent(plan.scoreOptimisation)}
+                label="Potentiel d'optimisation"
+                description="capacité d'optimisation des coûts de votre projet"
+              />
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {/* ── Optimisation des coûts — pistes d'économies existantes
+          (montants déjà calculés ; économies POTENTIELLES, jamais garanties) ── */}
+      {showSavings ? (
+        <Card className="border-emerald-500/25 bg-emerald-500/[0.04] shadow-elev-1">
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-start gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <TrendingDown className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold tracking-tight">Optimisation des coûts</p>
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Pistes d'économies détectées sur vos matériaux — estimations potentielles,
+                  sous réserve de vos choix.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="rounded-lg border border-emerald-500/25 bg-background p-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Économie potentielle
+                </p>
+                <p className="mt-0.5 text-base font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                  {formatTndAmount(plan.economieRealisable)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/60 bg-background p-2.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Coût optimisé estimé
+                </p>
+                <p className="mt-0.5 text-base font-bold tabular-nums">
+                  {formatTndAmount(plan.coutOptimise)}
+                </p>
+              </div>
+            </div>
+
+            {savingLevers.length > 0 ? (
+              <ul className="space-y-1.5">
+                {savingLevers.map((lever) => (
+                  <li
+                    key={lever.key}
+                    className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-border/40 bg-background px-2.5 py-2"
+                  >
+                    <span className="min-w-0 text-[11.5px] font-semibold">{lever.title}</span>
+                    <span className="ml-auto flex shrink-0 items-center gap-2">
+                      <span className="text-[11.5px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                        −{formatTndAmount(lever.saving)}
+                      </span>
+                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                        {formatPercent(lever.savingPct)}
+                      </span>
+                    </span>
+                    {lever.note ? (
+                      <span className="w-full text-[10px] leading-snug text-muted-foreground">
+                        {lever.note}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            <p className="text-[10px] leading-snug text-muted-foreground">{plan.explainer}</p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* ── Capacité de construction (module d'aide à la décision) ── */}
       {budgetAnalysis?.available ? (
