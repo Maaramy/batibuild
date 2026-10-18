@@ -28,7 +28,6 @@ import { useLocation } from "react-router";
 import { useQuery } from "convex/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Clock3,
   CreditCard,
   Info,
   Loader2,
@@ -432,19 +431,6 @@ export function DecisionSupportModule({
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ── Bandeau de date de génération ── */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border/40 bg-muted/20 px-3 py-2 text-[10px] text-muted-foreground">
-        <span className="ml-auto inline-flex items-center gap-1">
-          <Clock3 className="h-3 w-3" />
-          Généré le{" "}
-          {new Date(a.generatedAt).toLocaleDateString("fr-FR", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-          })}
-        </span>
-      </div>
 
       {!a.available && (
         <div className="flex items-start gap-2 rounded-xl border border-dashed border-amber-500/40 bg-amber-500/[0.05] p-3">
