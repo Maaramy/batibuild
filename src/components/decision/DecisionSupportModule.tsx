@@ -138,6 +138,12 @@ export interface DecisionSupportModuleProps {
    * immobilier neuf ET surface couverte ≥ 120 m²). Masqués sinon.
    */
   complementaryWorksEnabled?: boolean;
+  /**
+   * Remonte la dernière analyse de budget à la page (affichage seul :
+   * synthèse budgétaire — budget disponible et écart). Aucune logique de
+   * calcul n'est déplacée ici.
+   */
+  onBudgetAnalysisChange?: (analysis: BudgetAnalysis | null) => void;
 }
 
 export function DecisionSupportModule({
@@ -151,6 +157,7 @@ export function DecisionSupportModule({
   scenarioLabel,
   scenarioTotals,
   complementaryWorksEnabled,
+  onBudgetAnalysisChange,
 }: DecisionSupportModuleProps) {
   const { hash } = useLocation();
   const access = useQuery(api.access.checkClientProAccess);
@@ -287,6 +294,11 @@ export function DecisionSupportModule({
       surface,
     });
   }, [budgetContext, analyzedBudget, projectId, projectName, scenarioLabel, projectTotal, costPerM2, surface]);
+
+  // Remontée vers la page pour la synthèse budgétaire (affichage uniquement).
+  useEffect(() => {
+    onBudgetAnalysisChange?.(budgetAnalysis);
+  }, [budgetAnalysis, onBudgetAnalysisChange]);
 
   const runBudgetAnalysis = useCallback(
     (budget: number) => {
