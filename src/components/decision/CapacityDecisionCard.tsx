@@ -142,29 +142,34 @@ function SummaryTile({
   hint?: string;
   tone?: string;
   /** Pourcentage en anneau, aligné à droite de la tuile (design maquette). */
-  ring?: { value: number; display: string };
+  ring?: { value: number; display: string; label?: string };
 }) {
   return (
     <div className="rounded-lg border border-border/60 bg-card p-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
+      {/* `flex-wrap` + largeur minimale du texte : sur un écran très étroit,
+          l'anneau passe à la ligne au lieu de comprimer le libellé. Au-dessus de
+          cette largeur, la tuile reste identique à la maquette. */}
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-[8.5rem] flex-1">
           <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
             {icon} {label}
           </p>
           {value ? (
-            <p className={cn("mt-0.5 text-sm font-semibold tabular-nums", tone)}>{value}</p>
+            <p className={cn("mt-0.5 text-sm font-semibold tabular-nums break-words", tone)}>{value}</p>
           ) : null}
         </div>
         {ring ? (
           <CircularProgress
             value={ring.value}
             displayValue={ring.display}
-            label={label}
+            label={ring.label ?? label}
             size="sm"
           />
         ) : null}
       </div>
-      {hint ? <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{hint}</p> : null}
+      {hint ? (
+        <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground break-words">{hint}</p>
+      ) : null}
     </div>
   );
 }
@@ -319,6 +324,16 @@ export function CapacityDecisionCard({
   const worksPartiel = pricedWorks.filter((w) => w.status === "partiel");
   const worksReport = pricedWorks.filter((w) => w.status === "report");
 
+  // ── Compteurs : UNE seule liste, un seul dénominateur ────────────────────
+  // La tuile « Travaux réalisables », les trois groupes
+  // (Réalisables / Partiellement / Non réalisables) et la phrase
+  // récapitulative lisent tous la MÊME liste (`pricedWorks` : postes réellement
+  // chiffrés). Aucun compteur affiché ne peut donc contredire l'autre. Les
+  // postes sans montant (« à chiffrer ») sont comptés séparément : ils ne
+  // faussent ni le dénominateur ni les pourcentages.
+  const unpricedWorks = plan.works.filter((w) => w.cost <= 0);
+  const excludedPricedWorks = plan.excludedWorks.filter((w) => w.cost > 0);
+
   const toggleWork = (id: string) => {
     setDeselected((prev) => {
       const next = new Set(prev);
@@ -395,19 +410,26 @@ export function CapacityDecisionCard({
             value={formatTndAmount(plan.budget)}
             hint="budget disponible à allouer"
           />
+          {/* Anneau « part du programme sélectionné financée » : EXACTEMENT la
+              même valeur (`globalPct`) que la phrase récapitulative, la barre de
+              progression et le total du plan — jamais un second calcul. */}
           <SummaryTile
             icon={<Building2 className="h-3.5 w-3.5" />}
             label="Capacité de construction"
             hint={`sur un programme de ${formatTndAmount(plan.selectedCost)}`}
-            ring={{ value: globalPct, display: formatPercent(globalPct) }}
+            ring={{
+              value: globalPct,
+              display: formatPercent(globalPct),
+              label: "Part du programme sélectionné financée",
+            }}
           />
           <SummaryTile
             icon={<CheckCircle2 className="h-3.5 w-3.5" />}
             label="Travaux réalisables"
             value={`${worksRealisable.length} / ${pricedWorks.length}`}
             hint={
-              plan.partialWorks.length > 0
-                ? `${plan.partialWorks.length} partiel · ${worksReport.length} à reporter`
+              worksPartiel.length > 0
+                ? `${worksPartiel.length} partiel · ${worksReport.length} à reporter`
                 : worksReport.length > 0
                   ? `${worksReport.length} à reporter`
                   : "programme intégralement finançable"
@@ -427,7 +449,7 @@ export function CapacityDecisionCard({
             {/* ── % global de construction ── */}
             <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3">
               <p className="text-[13px] font-bold">
-                Votre budget permet de réaliser environ {formatPercent(globalPct)} du projet
+                Votre budget permet de réaliser environ {formatPercent(globalPct)} du programme sélectionné
               </p>
               <div className="mt-1.5 overflow-x-auto pb-1">
                 <span className="font-mono text-[13px] tracking-widest text-primary" aria-hidden>
@@ -435,8 +457,9 @@ export function CapacityDecisionCard({
                 </span>
               </div>
               <p className="mt-1 text-[10.5px] leading-snug text-muted-foreground">
-                {formatTndAmount(plan.funded)} financés sur {formatTndAmount(plan.selectedCost)} — postes sélectionnés
-                ci-dessous ({plan.works.length} retenus, {plan.excludedWorks.length} exclus).
+                {formatTndAmount(plan.funded)} financés sur {formatTndAmount(plan.selectedCost)} — postes chiffrés
+                ci-dessous ({pricedWorks.length} retenus, {excludedPricedWorks.length} exclus
+                {unpricedWorks.length > 0 ? `, ${unpricedWorks.length} à chiffrer` : ""}).
               </p>
             </div>
 
@@ -805,11 +828,14 @@ export function CapacityDecisionCard({
                               setOpenPlanRows((s) => ({ ...s, [w.id]: !rowOpen }))
                             }
                             className={cn(
-                              "flex w-full items-center gap-2.5 px-3 py-2.5 text-left bg-muted/20",
+                              // `flex-wrap` : sur un écran étroit, l'anneau et le
+                              // badge passent à la ligne au lieu de comprimer ou
+                              // chevaucher le libellé du poste.
+                              "flex w-full flex-wrap items-center gap-2.5 px-3 py-2.5 text-left bg-muted/20",
                               hasParts && "transition-colors hover:bg-muted/40",
                             )}
                           >
-                            <span className="min-w-0 flex-1">
+                            <span className="min-w-[9rem] flex-1">
                               <span className="block text-[12px] font-semibold">
                                 {shortLabel(w.label)}
                                 {w.custom ? (
@@ -865,11 +891,11 @@ export function CapacityDecisionCard({
                                         setOpenPlanArticles((s) => ({ ...s, [p.id]: !articleOpen }))
                                       }
                                       className={cn(
-                                        "flex w-full items-center gap-2 bg-background px-2.5 py-2 text-left",
+                                        "flex w-full flex-wrap items-center gap-2 bg-background px-2.5 py-2 text-left",
                                         hasArticles && "transition-colors hover:bg-muted/20",
                                       )}
                                     >
-                                      <span className="min-w-0 flex-1">
+                                      <span className="min-w-[8rem] flex-1">
                                         <span className="block text-[11.5px] font-medium">
                                           {shortLabel(p.label)}
                                         </span>
@@ -900,7 +926,9 @@ export function CapacityDecisionCard({
                                           <span className="w-20 shrink-0 text-right sm:w-24">
                                             Montant
                                           </span>
-                                          <span className="w-12 shrink-0 text-right">
+                                          {/* Même largeur que l'anneau de réalisation
+                                              (3,25 rem) : les colonnes restent alignées. */}
+                                          <span className="w-[3.25rem] shrink-0 text-right">
                                             Réalisation
                                           </span>
                                         </div>
@@ -908,9 +936,9 @@ export function CapacityDecisionCard({
                                           {articleList.map((a) => (
                                             <li
                                               key={a.id}
-                                              className="flex items-start gap-2 text-[11px]"
+                                              className="flex flex-wrap items-start gap-2 text-[11px]"
                                             >
-                                              <span className="min-w-0 flex-1 break-words">
+                                              <span className="min-w-[6rem] flex-1 break-words">
                                                 {a.quantity !== undefined ? (
                                                   <span className="text-muted-foreground">
                                                     {a.quantity} {a.unit} —{" "}
