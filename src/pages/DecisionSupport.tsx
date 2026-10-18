@@ -84,6 +84,15 @@ export default function DecisionSupport() {
     project?.surface,
   );
 
+  // Scénario de référence du scénario « Personnalisé » : identique à
+  // `baseScenarioKey` de la page « Coût estimatif » — les modifications
+  // d'articles priment, sinon le scénario budgétaire courant du projet.
+  const storedScenarioKey = (project as any)?.selectedScenario as string | undefined;
+  const baseScenarioKey = (customization?.baseScenario ??
+    (["economique", "standard", "premium"].includes(storedScenarioKey ?? "")
+      ? storedScenarioKey
+      : "standard")) as BudgetScenarioKey;
+
   const budget = useMemo(
     () =>
       resolveEstimationBudget({
@@ -91,12 +100,12 @@ export default function DecisionSupport() {
         dqeLots: ((project as any)?.dqe?.lots ?? []) as any[],
         builtSurface,
         selectedScenario: project?.selectedScenario ?? null,
-        baseScenario: (customization?.baseScenario ?? "standard") as BudgetScenarioKey,
+        baseScenario: baseScenarioKey,
         modifications: (customization?.modifications ?? []) as any,
         removedPostes: (customization?.removedPostes ?? []) as any,
         complementaryWorks: complementaryWorksEligible ? customWorksData?.works ?? [] : [],
       }),
-    [project, builtSurface, customization, customWorksData, complementaryWorksEligible],
+    [project, builtSurface, customization, customWorksData, complementaryWorksEligible, baseScenarioKey],
   );
 
   const projectTotal = budget.selectedTotal;

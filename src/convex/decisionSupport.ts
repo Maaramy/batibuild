@@ -3,7 +3,24 @@ import { mutation, query } from './_generated/server'
 import type { MutationCtx, QueryCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
 import { getCurrentUser } from './users'
-import { scaleDqeLots } from './quantitatifCustomLogic'
+import {
+  PERSONALIZED_SCENARIO_KEY,
+  applyPosteRemovals,
+  budgetScenarioFactor,
+  computeQuantitatifTotals,
+  overlayCustomizations,
+  scaleDqeLots,
+  type BudgetScenarioKey,
+  type QuantitatifCustomizationEntry,
+  type QuantitatifPosteRemovalEntry,
+} from './quantitatifCustomLogic'
+import { buildLivePriceMap, withLivePrices } from './bimEngine'
+import { estimateSelectedCustomWorks } from './customWorksEngine'
+import {
+  buildChartBreakdownFromLots,
+  withComplementaryWorksLots,
+} from '../lib/complementaryWorks'
+import { legacyContingencyFactor, type CostEstimateLike } from '../lib/constructionCost'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AIDE À LA DÉCISION — Budget & capacité de construction.
@@ -50,26 +67,29 @@ export const getProjectBudgetContext = query({
     if (!owned) return null
     const { project, user } = owned
 
-    const stored = project.costEstimate ?? null
-    const legacyPct = stored?.contingencyPercentage ?? 0
-    const realCostFactor = legacyPct > 0 ? 1 / (1 + legacyPct / 100) : 1
+    // `stored` garde la forme complète du `costEstimate` enregistré (breakdown,
+    // dqe) : seul le facteur d'imprévus est lu via `legacyContingencyFactor`.
+    const stored = (project.costEstimate ?? null) as
+      | (CostEstimateLike & { breakdown?: any[]; dqe?: any })
+      | null
+    const realCostFactor = legacyContingencyFactor(stored)
     const real = (n: number) => Math.round((Number(n) || 0) * realCostFactor)
 
     // ── Scénario enregistré du projet — même clé et même replis que la page
-    // résultat (scénario connu sinon Standard).
+    // résultat (scénario connu sinon Standard). Le scénario « Personnalisé »
+    // est pris en charge ci-dessous via le pipeline dédié.
     const scenarios = stored?.budgetScenarios ?? null
     const persisted =
       typeof project.selectedScenario === 'string' ? project.selectedScenario : ''
-    const scenarioKey: 'economique' | 'standard' | 'premium' =
-      persisted === 'economique' || persisted === 'standard' || persisted === 'premium'
-        ? persisted
-        : 'standard'
+    const isScenarioKey = (k: string): k is BudgetScenarioKey =>
+      k === 'economique' || k === 'standard' || k === 'premium'
+    const scenarioKey: BudgetScenarioKey = isScenarioKey(persisted) ? persisted : 'standard'
     // Facteur du scénario affiché (scénario / Standard) — identique au
     // `scaleFactor` de `ProjectDetail`, calculé sur les montants corrigés.
     const selTotal = scenarios?.[scenarioKey]
-      ? real(scenarios[scenarioKey].totalCost)
+      ? real(scenarios[scenarioKey].totalCost ?? 0)
       : 0
-    const stdTotal = scenarios?.standard ? real(scenarios.standard.totalCost) : 0
+    const stdTotal = scenarios?.standard ? real(scenarios.standard.totalCost ?? 0) : 0
     const scaleFactor =
       scenarioKey !== 'standard' && selTotal > 0 && stdTotal > 0
         ? selTotal / stdTotal
@@ -81,8 +101,8 @@ export const getProjectBudgetContext = query({
     // sur le coût réel, au même niveau que le scénario corrigé et le Quantitatif
     // (un seul produit, arrondi identique à `scaleDqeLots`).
     const breakdownFactor = scaleFactor * realCostFactor
-    const breakdown = (stored?.breakdown ?? [])
-      .map((c) => ({
+    let breakdown = (stored?.breakdown ?? [])
+      .map((c: any) => ({
         category: String(c.category),
         label: c.label,
         estimatedCost:
@@ -91,7 +111,7 @@ export const getProjectBudgetContext = query({
             : Math.round((Number(c.estimatedCost) || 0) * breakdownFactor),
         percentage: Number(c.percentage) || 0,
       }))
-      .filter((c) => c.estimatedCost > 0)
+      .filter((c: any) => c.estimatedCost > 0)
 
     // ── Quantitatif détaillé — MÊME transforme que la page résultat :
     // `scaleDqeLots(lots, scaleFactor × realCostFactor)` (arrondis identiques,
@@ -142,7 +162,85 @@ export const getProjectBudgetContext = query({
       }))
       .filter((lot) => lot.id !== '')
 
-    const lots = scaleDqeLots(rawLots, scaleFactor * realCostFactor) as CtxLot[]
+    let lots: CtxLot[] = scaleDqeLots(rawLots, scaleFactor * realCostFactor) as CtxLot[]
+
+    // ── Scénario « Personnalisé » — MÊME pipeline que `resolveEstimationBudget`
+    // (quantitatif de référence × facteur du scénario de base, modifications
+    // d'articles, postes supprimés, travaux complémentaires, totalisation).
+    // Le contexte renvoyé doit correspondre AU scénario affiché : sans cela,
+    // les postes du module (dérivés du contexte) retomberaient sur le scénario
+    // de base et divergeraient du total affiché.
+    const customizationDoc = await ctx.db
+      .query('quantitatifCustomizations')
+      .withIndex('by_project_user', (q: any) =>
+        q.eq('projectId', projectId).eq('userId', user._id),
+      )
+      .first()
+    const modifications = ((customizationDoc?.modifications ?? []) as QuantitatifCustomizationEntry[])
+    const removedPostes = ((customizationDoc?.removedPostes ?? []) as QuantitatifPosteRemovalEntry[])
+    // Travaux complémentaires chiffrés avec les MÊMES prix en direct que
+    // l'estimation (base `materialPrices`) — jamais recalculés localement.
+    const customWorksRec = await ctx.db
+      .query('projectCustomWorks')
+      .withIndex('by_project_user', (q: any) =>
+        q.eq('projectId', projectId).eq('userId', user._id),
+      )
+      .first()
+    const liveRows = await ctx.db.query('materialPrices').collect()
+    const livePrices = buildLivePriceMap(
+      liveRows.map((m) => ({ name: m.name, unit: m.unit, unitPrice: m.unitPrice })),
+    )
+    const customWorks = withLivePrices(livePrices, () =>
+      estimateSelectedCustomWorks(
+        (customWorksRec?.keys ?? []) as any,
+        {
+          surface: project.surface ?? 150,
+          floors: project.floors ?? 1,
+          surfaceTotale: (project as any).surfaceTotale,
+          pools: (project as any).pools,
+          garages: (project as any).garages,
+        },
+        project.region ?? undefined,
+        project.selectedScenario ?? undefined,
+        customWorksRec?.solarPanels,
+      ),
+    ).works
+    // Scénario de référence du « Personnalisé » : modifications d'articles en
+    // priorité, sinon scénario courant du projet — même replis que la page
+    // résultat (`baseScenarioKey`).
+    const baseScenario: BudgetScenarioKey =
+      customizationDoc && isScenarioKey(customizationDoc.baseScenario)
+        ? (customizationDoc.baseScenario as BudgetScenarioKey)
+        : isScenarioKey(persisted)
+          ? persisted
+          : 'standard'
+    const isPersonalized =
+      persisted === PERSONALIZED_SCENARIO_KEY &&
+      rawLots.length > 0 &&
+      (modifications.length > 0 || removedPostes.length > 0 || customWorks.length > 0)
+
+    let personalizedTotal = 0
+    if (isPersonalized && scenarios) {
+      const baseFactor = budgetScenarioFactor(scenarios, baseScenario)
+      const scaled = scaleDqeLots(rawLots, baseFactor * realCostFactor)
+      const overlay = modifications.length
+        ? overlayCustomizations(scaled, modifications, {
+            scaleFactor: baseFactor,
+            realCostFactor,
+          })
+        : { lots: scaled, modifiedCount: 0 }
+      const removal = applyPosteRemovals(overlay.lots, removedPostes)
+      const personalizedLots = withComplementaryWorksLots(removal.lots, customWorks)
+      const totals = computeQuantitatifTotals(personalizedLots, 0)
+      personalizedTotal = Number(totals.total) || 0
+      lots = personalizedLots as unknown as CtxLot[]
+      breakdown = buildChartBreakdownFromLots(personalizedLots).map((e) => ({
+        category: String(e.category),
+        label: String(e.label),
+        estimatedCost: Number(e.estimatedCost) || 0,
+        percentage: Number(e.percentage) || 0,
+      }))
+    }
 
     return {
       userId: user._id,
@@ -152,8 +250,14 @@ export const getProjectBudgetContext = query({
       breakdown,
       lots,
       surface: project.surface ? project.surface * (project.floors || 1) : undefined,
-      // Total du scénario enregistré — identique à `currentTotal` du résultat.
-      totalCost: selTotal > 0 ? selTotal : stored ? real(stored.totalCost) : 0,
+      // Total du scénario AFFICHÉ — identique au montant de la page résultat.
+      totalCost: isPersonalized
+        ? personalizedTotal
+        : selTotal > 0
+          ? selTotal
+          : stored
+            ? real(stored.totalCost ?? 0)
+            : 0,
     }
   },
 })
