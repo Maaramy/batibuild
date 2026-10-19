@@ -653,6 +653,65 @@ export const updateProjectDimensions = mutation({
 });
 
 /**
+ * Retient une variante de plan architectural comme référence du projet.
+ *
+ * Les surfaces par niveau du plan retenu sont enregistrées dans
+ * `levelSurfaces` : les étapes suivantes (coût, matériaux, métrés) travaillent
+ * donc sur les dimensions RÉELLES du plan, sans réécrire la surface demandée
+ * par l'utilisateur. Aucune autre donnée du projet n'est supprimée.
+ */
+export const selectProjectPlan = mutation({
+  args: {
+    projectId: v.id("projects"),
+    variantId: v.string(),
+    styleId: v.string(),
+    name: v.string(),
+    builtArea: v.number(),
+    levelSurfaces: v.array(v.number()),
+    footprint: v.object({ length: v.number(), width: v.number() }),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Unauthorized");
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+    if (project.userId !== user._id && user.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    const floors = Math.max(
+      1,
+      Math.min(6, Math.round(project.floors ?? (args.levelSurfaces.length || 1))),
+    );
+    const normalized = normalizeLevelSurfaces(
+      project.surface ?? args.builtArea,
+      floors,
+      args.levelSurfaces,
+    );
+
+    await ctx.db.patch(args.projectId, {
+      planSelection: {
+        variantId: args.variantId,
+        styleId: args.styleId,
+        name: args.name,
+        builtArea: Math.max(0, args.builtArea),
+        levelSurfaces: normalized,
+        footprint: {
+          length: Math.max(0, args.footprint.length),
+          width: Math.max(0, args.footprint.width),
+        },
+        selectedAt: Date.now(),
+      },
+      levelSurfaces: normalized,
+      updatedAt: Date.now(),
+    });
+
+    return { ok: true };
+  },
+});
+
+/**
  * Définit le scénario budgétaire actif du projet (choisi dans « Coût estimatif »).
  *
  * Ce champ est la SOURCE PARTAGÉE du scénario : « Choix matériaux AI » et

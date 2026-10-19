@@ -5,7 +5,8 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import {
   Box, EyeOff, Eye, Maximize, Minimize, MousePointerClick, RotateCcw, Tag,
 } from "lucide-react";
-import type { FloorPlan, RoomKind } from "@/lib/floorPlanEngine";
+import type { FloorPlan, RoomKind, SitePlan } from "@/lib/floorPlanEngine";
+import { buildSiteScene } from "./site3D";
 import { roomFurniture, type MatTag } from "@/lib/furniture";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +66,8 @@ const ROOM_COLORS_3D: Record<RoomKind, number> = {
   terrasse: 0xc8e8b8,
   attente: 0xe0d0f0,
   polyvalent: 0xdfe3e8,
+  patio: 0xc8e8b8,
+  buanderie: 0xdde3ea,
 };
 
 /** Détection simple d'un appareil modeste (tactile / peu de cœurs / mémoire). */
@@ -82,6 +85,8 @@ export type ViewPreset = "orbit" | "top" | "front" | "left" | "right" | "interio
 
 export interface FloorPlan3DProps {
   plan: FloorPlan;
+  /** Plan de masse : jardin, piscine, terrasse, cuisine d'été à leur place réelle. */
+  site?: SitePlan;
   /** Pièce sélectionnée côté 2D (synchronisation 2D → 3D). */
   selectedRoomId?: string | null;
   onSelectRoom?: (roomId: string | null) => void;
@@ -118,6 +123,7 @@ function mergeIntervals(list: Interval[]): Interval[] {
 
 export function FloorPlan3DLegacy({
   plan,
+  site,
   selectedRoomId,
   onSelectRoom,
   lite: liteProp,
@@ -194,13 +200,16 @@ export function FloorPlan3DLegacy({
           }
           break;
         }
-        default:
-          camera.position.set(-L * 0.62, dist * 0.92, dist * 1.18);
-          controls.target.set(L / 2, 0.9, W / 2);
+        default: {
+          const cx = site ? site.plot.length / 2 - site.building.x : L / 2;
+          const cz = site ? site.plot.width / 2 - site.building.y : W / 2;
+          camera.position.set(cx - dist * 0.62, dist * 0.92, cz + dist * 1.18);
+          controls.target.set(cx, 0.9, cz);
+        }
       }
       controls.update();
     },
-    [plan],
+    [plan, site],
   );
 
   // ── Plein écran natif sur le conteneur ────────────────────────────────────
@@ -234,9 +243,11 @@ export function FloorPlan3DLegacy({
     const height = container.clientHeight || 380;
 
     const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 800);
-    const dist = Math.max(L, W);
+    const dist = site ? Math.max(site.plot.length, site.plot.width) : Math.max(L, W);
+    const cx0 = site ? site.plot.length / 2 - site.building.x : L / 2;
+    const cz0 = site ? site.plot.width / 2 - site.building.y : W / 2;
     distRef.current = dist;
-    camera.position.set(-L * 0.62, dist * 0.92, dist * 1.18);
+    camera.position.set(cx0 - dist * 0.62, dist * 0.92, cz0 + dist * 1.18);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({
@@ -275,14 +286,18 @@ export function FloorPlan3DLegacy({
     fillLight.position.set(dist * 0.8, dist * 0.5, -dist);
     scene.add(fillLight);
 
-    // ── Terrain : pelouse + dalle ───────────────────────────────────────────
-    const grassGeo = track(new THREE.PlaneGeometry(L + 14, W + 14));
-    const grassMat = track(new THREE.MeshStandardMaterial({ color: 0x9db87a, roughness: 1 }));
-    const grass = new THREE.Mesh(grassGeo, grassMat);
-    grass.rotation.x = -Math.PI / 2;
-    grass.position.set(L / 2, -0.12, W / 2);
-    grass.receiveShadow = !lite;
-    scene.add(grass);
+    // ── Terrain : pelouse générique ou plan de masse réel ─────────────────
+    if (site) {
+      scene.add(buildSiteScene(site, { shadows: !lite, track }));
+    } else {
+      const grassGeo = track(new THREE.PlaneGeometry(L + 14, W + 14));
+      const grassMat = track(new THREE.MeshStandardMaterial({ color: 0x9db87a, roughness: 1 }));
+      const grass = new THREE.Mesh(grassGeo, grassMat);
+      grass.rotation.x = -Math.PI / 2;
+      grass.position.set(L / 2, -0.12, W / 2);
+      grass.receiveShadow = !lite;
+      scene.add(grass);
+    }
 
     const slabGeo = track(new THREE.BoxGeometry(L + 1.2, 0.12, W + 1.2));
     const slabMat = track(new THREE.MeshStandardMaterial({ color: 0xcbc4b4, roughness: 0.95 }));

@@ -39,7 +39,10 @@ export type RoomKind =
   | "plonge"
   | "chambre_froide"
   | "terrasse"
-  | "attente";
+  | "attente"
+  // — Extérieur / annexes résidentielles —
+  | "patio"
+  | "buanderie";
 
 export type WallSide = "N" | "S" | "E" | "W";
 
@@ -72,6 +75,11 @@ export interface PlanRoom {
   area: number;
   doors: DoorSpec[];
   windows: WindowSpec[];
+  /**
+   * Espace extérieur non couvert (patio, cour) : il fait partie de l'emprise
+   * dessinée mais JAMAIS de la surface habitable ni de la surface bâtie.
+   */
+  exterior?: boolean;
 }
 
 export interface FloorPlan {
@@ -91,19 +99,109 @@ export interface PlanValidation {
   areasOk: boolean;
   circulationOk: boolean;
   structureOk: boolean;
+  /** Aucun aménagement extérieur dans le bâti, aucun débordement de parcelle. */
+  exteriorOk: boolean;
+  /** Les trois catégories de surfaces sont cohérentes et non additionnées. */
+  surfacesOk: boolean;
   /** Note de conformité sur 100 */
   score: number;
   issues: string[];
+}
+
+/** Espaces extérieurs aménagés, TOUJOURS hors du bâtiment. */
+export type SiteElementKind =
+  | "terrasse"
+  | "piscine"
+  | "cuisine_exterieure"
+  | "jardin"
+  | "allee"
+  | "stationnement"
+  | "acces";
+
+export interface SiteElement {
+  id: string;
+  kind: SiteElementKind;
+  label: string;
+  /** Coordonnées dans le repère de la parcelle (origine = coin NO). */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  area: number;
+  /** Espace praticable / dur (terrasse, allée, piscine…). */
+  hardscape?: boolean;
+}
+
+export interface SitePlan {
+  /** Parcelle : dimensions réelles du projet ou parcelle de référence estimée. */
+  plot: {
+    length: number;
+    width: number;
+    area: number;
+    source: "projet" | "estimee";
+  };
+  /** Emprise du bâtiment dans le repère de la parcelle. */
+  building: { x: number; y: number; w: number; h: number; area: number };
+  /** Aménagements extérieurs (terrasse, piscine, cuisine d'été, accès…). */
+  elements: SiteElement[];
+  /** Patios extérieurs intégrés au volume bâti (coordonnées parcelle). */
+  patios: { x: number; y: number; w: number; h: number; area: number }[];
+  /** Jardin = parcelle − bâti − aménagements durs (jamais additionné au bâti). */
+  gardenArea: number;
+  /** Surface extérieure aménagée totale = parcelle − emprise du bâti. */
+  exteriorArea: number;
+  /** Orientation de la façade principale (S = meilleur ensoleillement hivernal). */
+  orientation: WallSide;
+  orientationLabel: string;
+  /** Contraintes réelles : parcelle limitée, piscine non représentable, etc. */
+  constraints: string[];
+}
+
+/** Les trois catégories de surfaces, affichées séparément (jamais cumulées). */
+export interface SurfaceBreakdown {
+  /** Surface habitable intérieure (pièces fermées, hors garage/annexes). */
+  interior: number;
+  /** Surface bâtie complémentaire (garage, local technique, stockage couvert). */
+  complementary: number;
+  /** Surface bâtie totale = intérieure + complémentaire. */
+  built: number;
+  /** Surface bâtie au sol (rez-de-chaussée hors patio extérieur). */
+  groundBuilt: number;
+  /** Emprise au sol du bâti (patio compris). */
+  footprint: number;
+  /** Surface extérieure aménagée (jardin, piscine, terrasse, cuisine d'été, accès). */
+  exterior: number;
+  /** Jardin seul (sans les aménagements durs). */
+  garden: number;
+  /** Parcelle totale. */
+  plot: number;
+  /** Détail des espaces extérieurs (piscine, terrasse, cuisine d'été…). */
+  exteriorDetails: { kind: SiteElementKind; label: string; area: number }[];
 }
 
 export interface FloorPlanVariant {
   id: string;
   name: string;
   style: string;
+  /** Identifiant stable du parti architectural (10 partis distincts). */
+  styleId: string;
+  /** Accroche courte affichée sur la carte de variante. */
+  tagline: string;
+  /** Description du parti architectural (distribution, orientation, climat). */
+  description: string;
+  /** Avantages concrets de cette variante. */
+  advantages: string[];
+  /** Caractéristiques principales (matériaux, dispositifs, espaces). */
+  characteristics: string[];
   /** Emprise au sol commune à tous les niveaux */
   footprint: { length: number; width: number };
   floors: FloorPlan[];
+  /** Surface bâtie totale (habitable + complémentaire), hors extérieurs. */
   totalArea: number;
+  /** Les trois catégories de surfaces, strictement séparées. */
+  surfaces: SurfaceBreakdown;
+  /** Plan de masse : parcelle, bâti et aménagements extérieurs. */
+  site: SitePlan;
   /** Note conceptuelle générée (description architecturale) */
   conceptNote: string;
   validation: PlanValidation;
@@ -129,6 +227,12 @@ export interface FloorPlanInput {
    * créée : ces clés viennent de la sélection enregistrée du projet.
    */
   works?: string[];
+  /** Surface totale de la parcelle (m²) si elle est connue. */
+  plotArea?: number;
+  /** Nombre de piscines déclarées sur le projet. */
+  pools?: number;
+  /** Nombre de garages déclarés sur le projet. */
+  garages?: number;
 }
 
 // ── PRNG déterministe (mulberry32) ──────────────────────────────────────────
@@ -177,6 +281,8 @@ export const PLAN_ROOM_COLORS: Record<RoomKind, string> = {
   chambre_froide: "#e0f2fe",
   terrasse: "#dcfce7",
   attente: "#f3e8ff",
+  patio: "#ecfccb",
+  buanderie: "#e2e8f0",
 };
 
 export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
@@ -206,6 +312,8 @@ export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
   chambre_froide: "Chambre froide",
   terrasse: "Terrasse",
   attente: "Zone d'attente",
+  patio: "Patio",
+  buanderie: "Buanderie",
 };
 
 // ── Familles de projets ─────────────────────────────────────────────────────
@@ -250,8 +358,10 @@ function residentialProgram(
   input: FloorPlanInput,
   floorAreaPerLevel: number,
   levels: number,
+  style?: StyleProfile,
 ): { level: number; items: ProgramItem[] }[] {
   const area = floorAreaPerLevel;
+  const tune = style?.tuning ?? {};
   const bedrooms =
     input.bedrooms && input.bedrooms > 0
       ? input.bedrooms
@@ -266,10 +376,12 @@ function residentialProgram(
   const wcs = input.wcs && input.wcs > 0 ? input.wcs : Math.max(1, bathrooms);
   const works = input.works ?? [];
 
+  const bedroomScale = tune.bedroomScale ?? 1;
+  const masterBoost = tune.masterBoost ?? 0;
   const mkChambre = (i: number): ProgramItem => ({
     kind: "chambre",
     label: i === 0 ? "Chambre principale" : `Chambre ${i + 1}`,
-    target: i === 0 ? 16 : 13,
+    target: Math.max(9, (i === 0 ? 16 + masterBoost : 13) * bedroomScale),
     min: 8.5,
     priority: 10 - i,
     habitable: true,
@@ -295,7 +407,7 @@ function residentialProgram(
       items.push({
         kind: "sejour",
         label: livingRooms > 1 ? "Séjour double" : "Séjour",
-        target: Math.max(24, area * 0.26),
+        target: Math.max(24, area * 0.26) * (tune.livingScale ?? 1),
         min: 16,
         priority: 20,
         habitable: true,
@@ -305,7 +417,7 @@ function residentialProgram(
         items.push({
           kind: "cuisine",
           label: k === 0 ? "Cuisine" : `Cuisine ${k + 1}`,
-          target: 14,
+          target: 14 * (tune.kitchenScale ?? 1),
           min: 7,
           priority: 15,
           habitable: true,
@@ -318,20 +430,33 @@ function residentialProgram(
         min: 1.5,
         priority: 5,
       });
-
-      // Travaux complémentaires sélectionnés : ils deviennent des besoins du
-      // programme et sont intégrés à la conception (espace et accès prévus).
-      if (works.includes("garage")) {
-        items.push({ kind: "garage", label: "Garage", target: 18, min: 12, priority: 8 });
-      }
-      if (works.includes("cuisine_exterieure")) {
+      // Hall / sas d'entrée : filtre les flux et évite de traverser le séjour.
+      if (tune.addHall) {
         items.push({
-          kind: "polyvalent",
-          label: "Cuisine extérieure / barbecue",
-          target: 12,
-          min: 8,
-          priority: 6,
+          kind: "hall",
+          label: "Hall d'entrée",
+          target: Math.max(4.5, Math.min(9, area * 0.055)),
+          min: 3,
+          priority: 14,
         });
+      }
+      // Buanderie / local linge : pièce de service fréquente en Tunisie.
+      if (tune.addLaundry) {
+        items.push({
+          kind: "buanderie",
+          label: "Buanderie",
+          target: 4.5,
+          min: 3,
+          priority: 7,
+        });
+      }
+
+      // Travaux complémentaires sélectionnés : le garage est le SEUL espace
+      // couvert intégré au bâti (surface bâtie complémentaire). La cuisine
+      // extérieure, le jardin et la piscine sont traités EXCLUSIVEMENT dans le
+      // plan de masse (`site`), jamais comme pièces de la maison.
+      if (works.includes("garage") || (input.garages ?? 0) > 0) {
+        items.push({ kind: "garage", label: "Garage", target: 18, min: 12, priority: 8 });
       }
 
       // Sur un R+1 avec peu de chambres, quelques chambres peuvent monter au RDC
@@ -357,14 +482,23 @@ function residentialProgram(
       if ((bedroomLevels[lvl]?.length ?? 0) > 2) {
         items.push({ kind: "wc", label: "WC étage", target: 2.5, min: 1.5, priority: 4 });
       }
+      // Couloir de distribution : dessert les chambres sans traverser le séjour.
+      if ((bedroomLevels[lvl]?.length ?? 0) >= 2) {
+        items.push({
+          kind: "couloir",
+          label: "Couloir de nuit",
+          target: Math.max(4, Math.min(9, area * 0.07)),
+          min: 2.5,
+          priority: 6,
+        });
+      }
       if (lvl === levels - 1 && levels > 2) {
         items.push({
-          kind: "polyvalent",
-          label: "Terrasse / buanderie",
-          target: 8,
-          min: 5,
+          kind: "buanderie",
+          label: "Buanderie / linge",
+          target: 5,
+          min: 3,
           priority: 6,
-          habitable: true,
         });
       }
     }
@@ -607,98 +741,459 @@ function fitProgram(items: ProgramItem[], available: number): ProgramItem[] {
 /** Tolérance géométrique (les coordonnées sont arrondies au mm). */
 const TOL = 0.002;
 
-function addOpenings(level: FloorPlan, isGroundFloor: boolean, _rng: () => number): void {
-  const rooms = level.rooms;
+const CIRCULATION_KINDS = new Set<RoomKind>([
+  "couloir",
+  "hall",
+  "escalier",
+  "sejour",
+  "reception",
+  "openspace",
+  "attente",
+  "salle_client",
+]);
+const PRIVATE_KINDS = new Set<RoomKind>([
+  "chambre",
+  "sdb",
+  "wc",
+  "sanitaire",
+  "vestiaire",
+  "buanderie",
+]);
+const HABITABLE_KINDS = new Set<RoomKind>([
+  "chambre",
+  "sejour",
+  "cuisine",
+  "bureau",
+  "openspace",
+  "reunion",
+  "reception",
+  "polyvalent",
+  "salle_client",
+  "comptoir",
+  "attente",
+]);
 
-  // Portes : chaque pièce reçoit une porte sur son partage le plus long
-  for (const room of rooms) {
-    let best: { side: WallSide; position: number; len: number } | null = null;
-    for (const other of rooms) {
-      if (other === room) continue;
-      // Frontière verticale partagée (mur E de room contre mur W de other, ou inverse)
-      const touchesVertically =
-        Math.abs(room.x + room.w - other.x) < TOL ||
-        Math.abs(other.x + other.w - room.x) < TOL;
-      // Frontière horizontale partagée (mur S de room contre mur N de other, ou inverse)
-      const touchesHorizontally =
-        Math.abs(room.y + room.h - other.y) < TOL ||
-        Math.abs(other.y + other.h - room.y) < TOL;
-      if (touchesVertically) {
-        // Chevauchement des portées en Y
-        const start = Math.max(room.y, other.y);
-        const end = Math.min(room.y + room.h, other.y + other.h);
-        const len = end - start;
-        if (len >= 0.9 && (!best || len > best.len)) {
-          const wall: WallSide = Math.abs(other.x + other.w - room.x) < TOL ? "W" : "E";
-          best = { side: wall, position: (start + end) / 2 - room.y, len };
-        }
-      }
-      if (touchesHorizontally) {
-        // Chevauchement des portées en X
-        const start = Math.max(room.x, other.x);
-        const end = Math.min(room.x + room.w, other.x + other.w);
-        const len = end - start;
-        if (len >= 0.9 && (!best || len > best.len)) {
-          const wall: WallSide = Math.abs(other.y + other.h - room.y) < TOL ? "N" : "S";
-          best = { side: wall, position: (start + end) / 2 - room.x, len };
-        }
-      }
+interface SharedBoundary {
+  len: number;
+  /** Mur correspondant dans `a`. */
+  wallA: WallSide;
+  /** Mur correspondant dans `b`. */
+  wallB: WallSide;
+  /** Début du chevauchement dans le repère de `a` (distance depuis l'origine du mur). */
+  startA: number;
+  /** Début du chevauchement dans le repère de `b`. */
+  startB: number;
+}
+
+/** Frontière commune entre deux pièces (null si elles ne se touchent pas). */
+function sharedBoundary(a: PlanRoom, b: PlanRoom): SharedBoundary | null {
+  const touchesVertically =
+    Math.abs(a.x + a.w - b.x) < TOL || Math.abs(b.x + b.w - a.x) < TOL;
+  const touchesHorizontally =
+    Math.abs(a.y + a.h - b.y) < TOL || Math.abs(b.y + b.h - a.y) < TOL;
+  if (touchesVertically) {
+    const start = Math.max(a.y, b.y);
+    const end = Math.min(a.y + a.h, b.y + b.h);
+    const len = end - start;
+    if (len >= 0.9) {
+      const aIsLeft = Math.abs(b.x + b.w - a.x) < TOL;
+      return {
+        len,
+        wallA: aIsLeft ? "W" : "E",
+        wallB: aIsLeft ? "E" : "W",
+        startA: start - a.y,
+        startB: start - b.y,
+      };
     }
-    const doorWidth = 0.9;
-    if (best) {
-      room.doors.push({
-        wall: best.side,
-        position: Math.max(doorWidth / 2 + 0.1, Math.min(best.len - doorWidth / 2 - 0.1, best.position)),
-        width: doorWidth,
-      });
+  }
+  if (touchesHorizontally) {
+    const start = Math.max(a.x, b.x);
+    const end = Math.min(a.x + a.w, b.x + b.w);
+    const len = end - start;
+    if (len >= 0.9) {
+      const aIsTop = Math.abs(b.y + b.h - a.y) < TOL;
+      return {
+        len,
+        wallA: aIsTop ? "N" : "S",
+        wallB: aIsTop ? "S" : "N",
+        startA: start - a.x,
+        startB: start - b.x,
+      };
+    }
+  }
+  return null;
+}
+
+/** Ajoute une porte IDENTIQUE sur les deux pièces qui partagent le mur. */
+function addPairedDoor(
+  a: PlanRoom,
+  b: PlanRoom,
+  shared: SharedBoundary,
+  width: number,
+): void {
+  const w = Math.min(width, shared.len - 0.16);
+  if (w < 0.6) return;
+  const center = shared.len / 2;
+  a.doors.push({
+    wall: shared.wallA,
+    position: round3(Math.max(0.08, shared.startA + center - w / 2)),
+    width: round3(w),
+  });
+  b.doors.push({
+    wall: shared.wallB,
+    position: round3(Math.max(0.08, shared.startB + center - w / 2)),
+    width: round3(w),
+  });
+}
+
+/**
+ * Portes et fenêtres d'un niveau.
+ *
+ * Circulation : un arbre couvrant de poids maximal relie toutes les pièces à
+ * l'entrée. Chaque porte est posée SUR LES DEUX pièces (même position), ce qui
+ * évite les portes orphelines et les arcs de débattement dans le vide. Les
+ * liaisons vers un couloir, un hall ou le séjour sont privilégiées ; deux
+ * chambres ne sont jamais reliées directement si un autre chemin existe.
+ */
+function addOpenings(
+  level: FloorPlan,
+  isGroundFloor: boolean,
+  _rng: () => number,
+  profile: StyleProfile,
+): void {
+  const rooms = level.rooms.filter((r) => !r.exterior);
+  const allRooms = level.rooms;
+
+  // ── 1. Graphe d'adjacence + arbre couvrant (circulation garantie) ────────
+  interface Edge {
+    a: PlanRoom;
+    b: PlanRoom;
+    shared: SharedBoundary;
+    weight: number;
+  }
+  const edges: Edge[] = [];
+  for (let i = 0; i < allRooms.length; i++) {
+    for (let j = i + 1; j < allRooms.length; j++) {
+      const a = allRooms[i];
+      const b = allRooms[j];
+      const shared = sharedBoundary(a, b);
+      if (!shared) continue;
+      let weight = shared.len;
+      if (CIRCULATION_KINDS.has(a.kind) || CIRCULATION_KINDS.has(b.kind)) weight += 4;
+      if (PRIVATE_KINDS.has(a.kind) && PRIVATE_KINDS.has(b.kind)) weight -= 4;
+      if (a.exterior || b.exterior) weight -= 5;
+      edges.push({ a, b, shared, weight });
     }
   }
 
-  // Porte d'entrée : RDC, pièce d'accueil (réception/séjour)
+  // Pièce d'entrée : hall/séjour sur la façade principale, sinon la plus
+  // grande pièce publique touchant une façade.
+  const onFacade = (r: PlanRoom, side: WallSide): boolean => {
+    if (side === "N") return Math.abs(r.y) < TOL;
+    if (side === "S") return Math.abs(r.y + r.h - level.width) < TOL;
+    if (side === "W") return Math.abs(r.x) < TOL;
+    return Math.abs(r.x + r.w - level.length) < TOL;
+  };
+  const publicKinds: RoomKind[] = ["hall", "sejour", "reception", "openspace"];
+  let entry: PlanRoom | undefined;
   if (isGroundFloor) {
-    const prio: RoomKind[] = ["reception", "sejour", "hall", "openspace"];
-    let entry: PlanRoom | undefined;
-    for (const k of prio) {
-      entry = rooms.find((r) => r.kind === k);
+    const facades: WallSide[] = [profile.mainFacade, "S", "E", "W", "N"];
+    for (const side of facades) {
+      entry = rooms.find((r) => publicKinds.includes(r.kind) && onFacade(r, side));
       if (entry) break;
     }
+    if (!entry) {
+      entry = rooms
+        .filter((r) => onFacade(r, profile.mainFacade))
+        .sort((a, b) => b.area - a.area)[0];
+    }
     if (!entry) entry = [...rooms].sort((a, b) => b.area - a.area)[0];
-    const pos = Math.max(0.8, Math.min(entry!.w - 0.8, entry!.w * 0.5));
-    entry!.doors.push({ wall: "S", position: pos, width: 1.1, isEntry: true });
+  }
+  const root = entry ?? rooms[0];
+
+  // Maximum spanning tree (Prim) : n−1 portes suffisent pour tout desservir.
+  const inTree = new Set<PlanRoom>();
+  if (root) inTree.add(root);
+  const candidates = [...edges].sort((x, y) => y.weight - x.weight);
+  while (inTree.size < allRooms.length && candidates.length > 0) {
+    let picked = -1;
+    for (let i = 0; i < candidates.length; i++) {
+      const e = candidates[i];
+      if (inTree.has(e.a) !== inTree.has(e.b)) {
+        picked = i;
+        break;
+      }
+    }
+    if (picked === -1) break;
+    const e = candidates.splice(picked, 1)[0];
+    addPairedDoor(e.a, e.b, e.shared, 0.9);
+    inTree.add(e.a);
+    inTree.add(e.b);
   }
 
-  // Fenêtres : pièces habitables + véranda donnant sur l'extérieur
+  // ── 2. Porte d'entrée sur la façade rue ─────────────────────────────────
+  if (isGroundFloor && entry) {
+    const side: WallSide =
+      onFacade(entry, profile.mainFacade)
+        ? profile.mainFacade
+        : (["S", "E", "W", "N"] as WallSide[]).find((s) => onFacade(entry!, s)) ?? "S";
+    const wallLen = side === "N" || side === "S" ? entry.w : entry.h;
+    const width = Math.min(1.1, wallLen - 0.4);
+    entry.doors.push({
+      wall: side,
+      position: round3(Math.max(0.2, wallLen / 2 - width / 2)),
+      width: round3(width),
+      isEntry: true,
+    });
+  }
+
+  // Filet de sécurité : une pièce intérieure sans porte (cas limite d'une
+  // parcelle minuscule) reçoit une porte sur son mur le plus long.
+  for (const r of rooms) {
+    if (r.doors.length > 0) continue;
+    const vertical = r.h > r.w;
+    const width = Math.min(0.8, (vertical ? r.h : r.w) - 0.3);
+    if (width < 0.5) continue;
+    r.doors.push({
+      wall: vertical ? "E" : "S",
+      position: round3(((vertical ? r.h : r.w) - width) / 2),
+      width: round3(width),
+    });
+  }
+
+  // ── 3. Fenêtres : façade jardin prioritaire, double exposition ──────────
+  const opposite: Record<WallSide, WallSide> = { N: "S", S: "N", E: "W", W: "E" };
   for (const room of rooms) {
-    const habitable =
-      room.kind === "chambre" ||
-      room.kind === "sejour" ||
-      room.kind === "cuisine" ||
-      room.kind === "bureau" ||
-      room.kind === "openspace" ||
-      room.kind === "reunion" ||
-      room.kind === "reception" ||
-      room.kind === "polyvalent";
-    if (!habitable) continue;
-    const sides: { side: WallSide; exterior: boolean; span: number; origin: number }[] = [
-      { side: "N", exterior: Math.abs(room.y) < TOL, span: room.w, origin: room.x },
-      { side: "S", exterior: Math.abs(room.y + room.h - level.width) < TOL, span: room.w, origin: room.x },
-      { side: "W", exterior: Math.abs(room.x) < TOL, span: room.h, origin: room.y },
-      { side: "E", exterior: Math.abs(room.x + room.w - level.length) < TOL, span: room.h, origin: room.y },
+    if (!HABITABLE_KINDS.has(room.kind)) continue;
+    const sides: { side: WallSide; span: number; origin: number }[] = [
+      { side: "N", span: room.w, origin: room.x },
+      { side: "S", span: room.w, origin: room.x },
+      { side: "W", span: room.h, origin: room.y },
+      { side: "E", span: room.h, origin: room.y },
     ];
+    const order: WallSide[] = [
+      profile.mainFacade,
+      opposite[profile.mainFacade],
+      "E",
+      "W",
+      "N",
+      "S",
+    ].filter((s, i, arr) => arr.indexOf(s) === i) as WallSide[];
+
     let added = 0;
-    for (const s of sides) {
-      if (!s.exterior || added >= 2 || s.span < 1.6) continue;
-      const winW = Math.min(1.4, s.span - 0.4);
+    for (const side of order) {
+      if (added >= 2) break;
+      const s = sides.find((x) => x.side === side)!;
+      if (!onFacade(room, side) || s.span < 0.9) continue;
+      const isMain = side === profile.mainFacade;
+      const desired = isMain && profile.bayWindows ? 2.4 : isMain ? 1.6 : 1.2;
+      const winW = Math.min(desired, s.span - 0.3);
+      // Éviter le chevauchement avec une porte du même mur.
+      // `WindowSpec.position` est RELATIF à l'origine du mur de la pièce
+      // (le rendu 2D ajoute r.x / r.y) — jamais une coordonnée globale.
+      const doors = room.doors.filter((d) => d.wall === side);
+      let pos = s.span / 2 - winW / 2;
+      for (const d of doors) {
+        if (pos < d.position + d.width + 0.15 && pos + winW > d.position - 0.15) {
+          pos = d.position + d.width + 0.2;
+        }
+      }
+      const maxPos = s.span - winW - 0.15;
+      if (pos > maxPos) pos = maxPos;
+      if (pos < 0.15) pos = 0.15;
       room.windows.push({
-        wall: s.side,
-        position: Math.max(0.3, s.origin + s.span / 2 - winW / 2),
-        width: winW,
+        wall: side,
+        position: round3(pos),
+        width: round3(winW),
       });
       added++;
+    }
+
+    // Lumière de second jour : une pièce encloisonnée peut s'éclairer sur le
+    // patio (espace extérieur) — jamais sur une autre pièce fermée.
+    if (added === 0) {
+      for (const ext of allRooms.filter((r) => r.exterior)) {
+        const shared = sharedBoundary(room, ext);
+        if (!shared || shared.len < 1.2) continue;
+        const winW = Math.min(1.4, shared.len - 0.3);
+        room.windows.push({
+          wall: shared.wallA,
+          position: round3(shared.startA + shared.len / 2 - winW / 2),
+          width: round3(winW),
+        });
+        break;
+      }
     }
   }
 }
 
+
+// ── Stratégies de distribution ──────────────────────────────────────────────
+//
+// Toutes les zones produites couvrent EXACTEMENT le rectangle du niveau (hors
+// gaine d'escalier) et ne se chevauchent pas : la somme des surfaces reste
+// égale à la surface du niveau, quel que soit le parti architectural.
+
+/**
+ * Découpe une bande en pièces « en enfilade » : chaque pièce occupe toute la
+ * profondeur de la bande, seule sa largeur varie. Aucune pièce ne peut donc
+ * devenir un couloir déguisé de 1,3 m de profondeur.
+ */
+function linearFill(zone: Rect, items: ProgramItem[]): Placed<ProgramItem>[] {
+  if (items.length === 0) return [];
+  const horizontal = zone.w >= zone.h;
+  const total = items.reduce((s, i) => s + i.target, 0) || 1;
+  const run = horizontal ? zone.w : zone.h;
+  const out: Placed<ProgramItem>[] = [];
+  let cursor = horizontal ? zone.x : zone.y;
+  items.forEach((item, idx) => {
+    const isLast = idx === items.length - 1;
+    const raw = (item.target / total) * run;
+    const size = isLast
+      ? (horizontal ? zone.x + zone.w : zone.y + zone.h) - cursor
+      : round3(raw);
+    if (size <= 0.2) return;
+    const rect = horizontal
+      ? { x: round3(cursor), y: zone.y, w: round3(size), h: zone.h }
+      : { x: zone.x, y: round3(cursor), w: zone.w, h: round3(size) };
+    out.push({ item, rect });
+    cursor = round3(cursor + size);
+  });
+  return out;
+}
+
+/** Répartit les pièces entre des zones puis découpe chaque zone en BSP. */
+function fillZones(
+  zones: Rect[],
+  items: ProgramItem[],
+  mode: "bsp" | "linear" = "bsp",
+): Placed<ProgramItem>[] {
+  const usable = zones.filter((z) => z.w > 0.2 && z.h > 0.2);
+  if (usable.length === 0 || items.length === 0) return [];
+  if (usable.length === 1) {
+    return mode === "linear"
+      ? linearFill(usable[0], fitProgram(items, usable[0].w * usable[0].h))
+      : bspLayout(usable[0], fitProgram(items, usable[0].w * usable[0].h));
+  }
+
+  // Chaque zone reçoit au moins une pièce (la plus prioritaire disponible).
+  const sortedItems = [...items].sort((a, b) => b.priority - a.priority);
+  const buckets: ProgramItem[][] = usable.map(() => []);
+  const zoneAreas = usable.map((z) => z.w * z.h);
+  const assigned = usable.map(() => 0);
+  const zoneOrder = usable
+    .map((z, i) => ({ i, area: z.w * z.h }))
+    .sort((a, b) => b.area - a.area);
+
+  const remaining = [...sortedItems];
+  for (const { i } of zoneOrder) {
+    const assignedZones = buckets.filter((b) => b.length > 0).length;
+    if (remaining.length < usable.length - assignedZones) break;
+    const item = remaining.shift();
+    if (!item) break;
+    buckets[i].push(item);
+    assigned[i] += item.target;
+  }
+  // Puis la pièce dont la zone a le plus de capacité restante.
+  for (const item of remaining) {
+    let best = 0;
+    for (let i = 1; i < usable.length; i++) {
+      const cap = zoneAreas[i] - assigned[i];
+      const bestCap = zoneAreas[best] - assigned[best];
+      if (cap > bestCap) best = i;
+    }
+    buckets[best].push(item);
+    assigned[best] += item.target;
+  }
+
+  const placed: Placed<ProgramItem>[] = [];
+  usable.forEach((zone, i) => {
+    if (buckets[i].length === 0) return;
+    const fitted = fitProgram(buckets[i], zone.w * zone.h);
+    placed.push(
+      ...(mode === "linear" ? linearFill(zone, fitted) : bspLayout(zone, fitted)),
+    );
+  });
+  return placed;
+}
+
+/** Cour intérieure : patio central + quatre bandes de pièces autour. */
+function carvePatio(zone: Rect, items: ProgramItem[]): { zones: Rect[]; patio: Rect } {
+  const pw = round3(Math.min(4.6, Math.max(2.4, zone.w * 0.26)));
+  const ph = round3(Math.min(4.6, Math.max(2.4, zone.h * 0.26)));
+  const px = round3(zone.x + (zone.w - pw) / 2);
+  const py = round3(zone.y + (zone.h - ph) / 2);
+  const patio = { x: px, y: py, w: pw, h: ph };
+  const zones: Rect[] = [
+    { x: zone.x, y: zone.y, w: zone.w, h: round3(py - zone.y) },
+    { x: zone.x, y: round3(py + ph), w: zone.w, h: round3(zone.y + zone.h - (py + ph)) },
+    { x: zone.x, y: py, w: round3(px - zone.x), h: ph },
+    { x: round3(px + pw), y: py, w: round3(zone.x + zone.w - (px + pw)), h: ph },
+  ].filter((z) => z.w > 0.8 && z.h > 0.8);
+  void items;
+  return { zones, patio };
+}
+
+/** Couloir central : deux bandes de pièces desservies de part et d'autre. */
+function carveLinear(zone: Rect): { zones: Rect[]; corridor: Rect | null } {
+  // Un couloir central exige deux bandes de 1,5 m minimum de part et d'autre :
+  // sinon on obtient des pièces-couloirs de 1,3 m de profondeur, inutilisables.
+  const MIN_BAND = 1.5;
+  const CORRIDOR = 1.1;
+  if (zone.w >= zone.h && zone.h >= 2 * MIN_BAND + CORRIDOR) {
+    const ch = CORRIDOR;
+    const cy = round3(zone.y + (zone.h - ch) / 2);
+    return {
+      zones: [
+        { x: zone.x, y: zone.y, w: zone.w, h: round3(cy - zone.y) },
+        { x: zone.x, y: round3(cy + ch), w: zone.w, h: round3(zone.y + zone.h - (cy + ch)) },
+      ].filter((z) => z.h > 0.8),
+      corridor: { x: zone.x, y: cy, w: zone.w, h: ch },
+    };
+  }
+  if (zone.w < 2 * MIN_BAND + CORRIDOR) return { zones: [zone], corridor: null };
+  const cw = CORRIDOR;
+  const cx = round3(zone.x + (zone.w - cw) / 2);
+  return {
+    zones: [
+      { x: zone.x, y: zone.y, w: round3(cx - zone.x), h: zone.h },
+      { x: round3(cx + cw), y: zone.y, w: round3(zone.x + zone.w - (cx + cw)), h: zone.h },
+    ].filter((z) => z.w > 0.8),
+    corridor: { x: cx, y: zone.y, w: cw, h: zone.h },
+  };
+}
+
+/** Hall central au sud + zone jour / zone nuit. */
+function carveCentralHall(zone: Rect): { zones: Rect[]; hall: Rect } {
+  const hw = round3(Math.min(3.6, Math.max(2.4, zone.w * 0.3)));
+  const hd = round3(Math.min(3.2, Math.max(2.2, zone.h * 0.28)));
+  const hx = round3(zone.x + (zone.w - hw) / 2);
+  const hy = round3(zone.y + zone.h - hd);
+  return {
+    zones: [
+      { x: zone.x, y: zone.y, w: zone.w, h: round3(hy - zone.y) },
+      { x: zone.x, y: hy, w: round3(hx - zone.x), h: hd },
+      { x: round3(hx + hw), y: hy, w: round3(zone.x + zone.w - (hx + hw)), h: hd },
+    ].filter((z) => z.w > 0.8 && z.h > 0.8),
+    hall: { x: hx, y: hy, w: hw, h: hd },
+  };
+}
+
+/** Zone jour au sud (façade jardin) et zone nuit au nord. */
+function carveDayNight(zone: Rect, dayRatio: number): Rect[] {
+  if (zone.w >= zone.h) {
+    const dayH = round3(zone.h * dayRatio);
+    return [
+      { x: zone.x, y: round3(zone.y + zone.h - dayH), w: zone.w, h: dayH },
+      { x: zone.x, y: zone.y, w: zone.w, h: round3(zone.h - dayH) },
+    ].filter((z) => z.w > 0.8 && z.h > 0.8);
+  }
+  const dayW = round3(zone.w * dayRatio);
+  return [
+    { x: round3(zone.x + zone.w - dayW), y: zone.y, w: dayW, h: zone.h },
+    { x: zone.x, y: zone.y, w: round3(zone.w - dayW), h: zone.h },
+  ].filter((z) => z.w > 0.8 && z.h > 0.8);
+}
 
 // ── Construction d'un niveau ────────────────────────────────────────────────
 
@@ -709,6 +1204,7 @@ function buildLevel(
   width: number,
   items: ProgramItem[],
   variantSeed: number,
+  profile: StyleProfile,
 ): FloorPlan {
   const plan: FloorPlan = {
     level: levelIdx,
@@ -727,38 +1223,85 @@ function buildLevel(
   // Identifiants déterministes par niveau
   const rid = () => `L${levelIdx}-R${plan.rooms.length}`;
 
-  const zones: Rect[] = [];
+  // Zones de base couvrant tout le niveau, hors gaine d'escalier.
+  const baseZones: Rect[] = [];
   if (carveShaft) {
-    // Gaine d'escalier au même endroit sur TOUS les niveaux (continuité verticale)
     plan.rooms.push(makeRoom(rid(), "escalier", "Escalier", 0, 0, shaftW, shaftD));
-    zones.push({ x: shaftW, y: 0, w: length - shaftW, h: shaftD });
-    zones.push({ x: 0, y: shaftD, w: length, h: width - shaftD });
-    // Répartition proportionnelle des pièces entre les deux zones
-    const areaRight = zones[0].w * zones[0].h;
-    const areaBottom = zones[1].w * zones[1].h;
-    const totalZ = areaRight + areaBottom;
-    const sorted = [...items].sort((a, b) => b.target - a.target);
-    const rightItems: ProgramItem[] = [];
-    const bottomItems: ProgramItem[] = [];
-    let accR = 0;
-    for (const it of sorted) {
-      const wantRight = accR < (areaRight / totalZ) * sorted.reduce((s, i) => s + i.target, 0);
-      if (wantRight) {
-        rightItems.push(it);
-        accR += it.target;
-      } else {
-        bottomItems.push(it);
-      }
-    }
-    const placedR = bspLayout(zones[0], fitProgram(rightItems, areaRight));
-    const placedB = bspLayout(zones[1], fitProgram(bottomItems, areaBottom));
-    for (const p of [...placedR, ...placedB]) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable));
+    baseZones.push({ x: shaftW, y: 0, w: round3(length - shaftW), h: shaftD });
+    baseZones.push({ x: 0, y: shaftD, w: length, h: round3(width - shaftD) });
   } else {
-    const placed = bspLayout({ x: 0, y: 0, w: length, h: width }, fitProgram(items, length * width));
-    for (const p of placed) plan.rooms.push(makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable));
+    baseZones.push({ x: 0, y: 0, w: length, h: width });
   }
 
-  addOpenings(plan, levelIdx === 0, mulberry32(variantSeed ^ (levelIdx * 7919)));
+  // La plus grande zone porte le parti architectural ; les autres sont
+  // remplies en BSP (elles correspondent au débord de la gaine d'escalier).
+  const mainIdx = baseZones.reduce(
+    (best, z, i) => (z.w * z.h > baseZones[best].w * baseZones[best].h ? i : best),
+    0,
+  );
+  const mainZone = baseZones[mainIdx];
+  const strategy: LayoutStrategy =
+    levelIdx === 0 ? profile.layout : "bsp";
+  const enoughItems = items.length >= 4;
+
+  let roomZones: Rect[] = [];
+  let specialRooms: { rect: Rect; kind: RoomKind; label: string; exterior?: boolean }[] = [];
+
+  if (strategy === "patio" && enoughItems && mainZone.w >= 6 && mainZone.h >= 6) {
+    const carved = carvePatio(mainZone, items);
+    roomZones = carved.zones;
+    specialRooms.push({ rect: carved.patio, kind: "patio", label: "Patio", exterior: true });
+  } else if (strategy === "linear" && items.length >= 3 && Math.max(mainZone.w, mainZone.h) >= 7) {
+    const carved = carveLinear(mainZone);
+    if (carved.zones.length === 2 && carved.corridor) {
+      roomZones = carved.zones;
+      specialRooms.push({ rect: carved.corridor, kind: "couloir", label: "Couloir central" });
+    } else {
+      roomZones = [mainZone];
+    }
+  } else if (strategy === "central-hall" && enoughItems && mainZone.w >= 6 && mainZone.h >= 6) {
+    const carved = carveCentralHall(mainZone);
+    if (carved.zones.length >= 2) {
+      roomZones = carved.zones;
+      specialRooms.push({ rect: carved.hall, kind: "hall", label: "Hall d'entrée" });
+    } else {
+      roomZones = [mainZone];
+    }
+  } else if ((strategy === "day-night" || strategy === "garden") && enoughItems) {
+    const split = carveDayNight(mainZone, strategy === "garden" ? 0.62 : 0.54);
+    roomZones = split.length === 2 ? split : [mainZone];
+  } else {
+    roomZones = [mainZone];
+  }
+
+  // Les zones secondaires (hors grande zone) complètent la couverture.
+  for (let i = 0; i < baseZones.length; i++) {
+    if (i !== mainIdx && baseZones[i].w > 0.8 && baseZones[i].h > 0.8) roomZones.push(baseZones[i]);
+  }
+
+  // Découpage des zones en pièces.
+  const placed = fillZones(
+    roomZones,
+    items,
+    strategy === "linear" && roomZones.length >= 2 ? "linear" : "bsp",
+  );
+  for (const p of placed) {
+    plan.rooms.push(
+      makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable),
+    );
+  }
+  for (const s of specialRooms) {
+    plan.rooms.push(
+      makeRoom(rid(), s.kind, s.label, s.rect.x, s.rect.y, s.rect.w, s.rect.h, false, s.exterior),
+    );
+  }
+
+  addOpenings(
+    plan,
+    levelIdx === 0,
+    mulberry32(variantSeed ^ (levelIdx * 7919)),
+    profile,
+  );
 
   // Filet de sécurité géométrique : aucune pièce ne doit dépasser l'emprise
   // (les arrondis au mm peuvent pousser un bord de ≤ 1 mm au-delà du mur).
@@ -781,6 +1324,7 @@ function makeRoom(
   w: number,
   h: number,
   _habitable?: boolean,
+  exterior?: boolean,
 ): PlanRoom {
   return {
     id,
@@ -793,6 +1337,7 @@ function makeRoom(
     area: round3(w * h),
     doors: [],
     windows: [],
+    ...(exterior ? { exterior: true } : {}),
   };
 }
 
@@ -822,12 +1367,17 @@ export function validatePlan(
     );
   }
 
-  // 1. Dimensions : emprise cohérente avec surface / niveaux
+  // 1. Dimensions : la surface BÂTIE (hors patio extérieur) doit correspondre
+  //    à la surface construite demandée, répartie sur les niveaux.
   const levels = variant.floors.length;
   const expectedArea = input.surface / levels;
-  const dimsErr = Math.abs(variant.footprint.length * variant.footprint.width - expectedArea) / expectedArea;
-  const dimensionsOk = dimsErr <= 0.06;
-  if (!dimensionsOk) issues.push(`Emprise au sol écartée de ${(dimsErr * 100).toFixed(1)} % de la cible`);
+  const builtPerLevel = variant.surfaces.built / levels;
+  const dimsErr = Math.abs(builtPerLevel - expectedArea) / expectedArea;
+  // 10 % de tolérance : un patio non couvert retiré de la surface bâtie peut
+  // représenter jusqu'à ~9 % sur une maison de plain-pied.
+  const dimensionsOk = dimsErr <= 0.1;
+  if (!dimensionsOk)
+    issues.push(`Surface bâtie écartée de ${(dimsErr * 100).toFixed(1)} % de la cible`);
 
   // 2. Chevauchements
   let noOverlap = true;
@@ -861,11 +1411,11 @@ export function validatePlan(
   if (!areasOk) score -= 10;
 
   // 4. Circulation : chaque pièce (hors couloirs/escaliers) dispose d'une porte
-  const NO_DOOR_KINDS = new Set<RoomKind>(["couloir", "escalier"]);
+  const NO_DOOR_KINDS = new Set<RoomKind>(["couloir", "escalier", "patio"]);
   let circulationOk = true;
   for (const fp of variant.floors) {
     for (const r of fp.rooms) {
-      if (NO_DOOR_KINDS.has(r.kind)) continue;
+      if (r.exterior || NO_DOOR_KINDS.has(r.kind)) continue;
       if (r.doors.length === 0) {
         circulationOk = false;
         issues.push(`Pièce sans accès : ${r.label} (niveau ${fp.level + 1})`);
@@ -909,9 +1459,17 @@ export function validatePlan(
   if (!structureOk) score -= 15;
 
   // 6. Fenêtres des pièces habitables
-  const habitableKinds: RoomKind[] = ["chambre", "sejour", "cuisine", "bureau", "openspace", "reception"];
+  const habitableKinds: RoomKind[] = [
+    "chambre",
+    "sejour",
+    "cuisine",
+    "bureau",
+    "openspace",
+    "reception",
+  ];
   for (const fp of variant.floors) {
     for (const r of fp.rooms) {
+      if (r.exterior) continue;
       if (habitableKinds.includes(r.kind) && r.windows.length === 0) {
         score -= 5;
         issues.push(`Pièce habitable sans fenêtre : ${r.label} (niveau ${fp.level + 1})`);
@@ -919,6 +1477,64 @@ export function validatePlan(
     }
   }
 
+  // 7. Extérieurs : aucun aménagement dans le bâti, aucun débordement.
+  let exteriorOk = true;
+  const site = variant.site;
+  const plotL = site.plot.length;
+  const plotW = site.plot.width;
+  for (const el of site.elements) {
+    if (
+      el.x < -G ||
+      el.y < -G ||
+      el.x + el.w > plotL + G ||
+      el.y + el.h > plotW + G
+    ) {
+      exteriorOk = false;
+      issues.push(`Aménagement extérieur hors parcelle : ${el.label}`);
+    }
+    if (
+      el.x + el.w > site.building.x + G &&
+      site.building.x + site.building.w > el.x + G &&
+      el.y + el.h > site.building.y + G &&
+      site.building.y + site.building.h > el.y + G
+    ) {
+      exteriorOk = false;
+      issues.push(`Aménagement extérieur dans le bâti : ${el.label} (doit rester dehors)`);
+    }
+  }
+  for (let i = 0; i < site.elements.length; i++) {
+    for (let j = i + 1; j < site.elements.length; j++) {
+      const a = site.elements[i];
+      const b = site.elements[j];
+      if (
+        a.x + a.w > b.x + G &&
+        b.x + b.w > a.x + G &&
+        a.y + a.h > b.y + G &&
+        b.y + b.h > a.y + G
+      ) {
+        exteriorOk = false;
+        issues.push(`Chevauchement d'aménagements extérieurs : ${a.label} / ${b.label}`);
+      }
+    }
+  }
+  if (!exteriorOk) score -= 15;
+
+  // 8. Surfaces : les trois catégories restent cohérentes et séparées.
+  let surfacesOk = true;
+  const s = variant.surfaces;
+  if (Math.abs(s.interior + s.complementary - s.built) > 0.5) {
+    surfacesOk = false;
+    issues.push("Surface habitable + complémentaire ≠ surface bâtie");
+  }
+  if (Math.abs(s.exterior - (s.plot - s.groundBuilt)) > 0.5) {
+    surfacesOk = false;
+    issues.push("La surface extérieure ne correspond pas à la parcelle hors bâti au sol");
+  }
+  if (s.garden < -0.01) {
+    surfacesOk = false;
+    issues.push("Surface de jardin négative");
+  }
+  if (!surfacesOk) score -= 10;
 
   return {
     dimensionsOk,
@@ -926,6 +1542,8 @@ export function validatePlan(
     areasOk,
     circulationOk,
     structureOk,
+    exteriorOk,
+    surfacesOk,
     score: Math.max(40, Math.min(100, Math.round(score))),
     issues: [...new Set(issues)].slice(0, 8),
   };
@@ -934,13 +1552,12 @@ export function validatePlan(
 // ── Note conceptuelle générée ───────────────────────────────────────────────
 
 function conceptNote(
-  style: string,
+  profile: StyleProfile,
   input: FloorPlanInput,
-  variant: { footprint: { length: number; width: number }; floors: FloorPlan[] },
+  variant: FloorPlanVariant,
   rng: () => number,
 ): string {
   const fam = familyForCategory(input.category);
-  void fam;
   const ratios = variant.footprint.length / variant.footprint.width;
   const form =
     ratios > 1.5
@@ -951,25 +1568,23 @@ function conceptNote(
   const isResto = input.category === "cafe" || input.category === "restaurant";
   const org =
     fam === "residential"
-      ? "Le rez-de-chaussée regroupe les espaces de vie ouverts sur l'entrée, tandis que les chambres occupent les niveaux supérieurs autour de la cage d'escalier."
+      ? "Le rez-de-chaussée regroupe les espaces de vie, la cuisine et un hall qui filtre l'entrée ; les chambres sont regroupées à l'étage ou dans une zone nuit clairement séparée. Les circulations desservent chaque pièce sans traversée d'une chambre."
       : fam === "commercial"
         ? "L'accueil filtre naturellement les flux vers l'espace de travail ouvert et les bureaux fermés, avec les salles de réunion en profondeur."
         : isResto
-          ? "La zone client " + (input.category === "cafe" ? "salle café + comptoir" : "salle de restauration + bar") + " occupe la façade principale, séparée de la cuisine professionnelle par un couloir de service respectant la marche en avant. Les sanitaires H/F/PMR sont accessibles depuis la salle client sans croiser la zone de production."
+          ? "La zone client " +
+            (input.category === "cafe" ? "salle café + comptoir" : "salle de restauration + bar") +
+            " occupe la façade principale, séparée de la cuisine professionnelle par un couloir de service respectant la marche en avant. Les sanitaires H/F/PMR sont accessibles depuis la salle client sans croiser la zone de production."
           : "Le hall de stockage occupe le cœur du bâtiment, desservi directement par la zone logistique et les locaux d'exploitation.";
   const strengths = [
-    "absence totale de chevauchement entre pièces",
+    "aucun chevauchement entre pièces et aucune pièce hors emprise",
     "surfaces ventilées conformes aux minima d'habitabilité",
     "continuité structurelle assurée par une gaine d'escalier alignée sur tous les niveaux",
-    "éclairement naturel maximalisé par un double exposition des pièces principales",
-    // Restauration
-    "respect strict de la marche en avant entre zones de production et de service",
-    "circulation client séparée des flux de service et livraison",
-    "conformité ERP avec sorties de secours et largeurs minimales de 1,20 m",
-    "sanitaires accessibles PMR sans croisement avec la zone de cuisine",
+    "éclairement naturel maximalisé par une double exposition des pièces principales",
   ];
   const chosen = new Set<string>();
-  while (chosen.size < 2 && chosen.size < strengths.length) chosen.add(strengths[Math.floor(rng() * strengths.length)]);
+  while (chosen.size < 2 && chosen.size < strengths.length)
+    chosen.add(strengths[Math.floor(rng() * strengths.length)]);
   const s = [...chosen].join(", ");
   const levelsTxt =
     variant.floors.length > 1
@@ -977,15 +1592,20 @@ function conceptNote(
       : `une emprise unique de ${variant.footprint.length.toFixed(1)} × ${variant.footprint.width.toFixed(1)} m`;
 
   // Travaux complémentaires sélectionnés : rappelés comme contraintes / besoins
-  // du projet pris en compte lors de la génération du plan architectural.
+  // du projet pris en compte. La piscine, le jardin et la cuisine extérieure
+  // sont traités dans le plan de masse, jamais dans les pièces intérieures.
   const works = input.works ?? [];
   const constraints: string[] = [];
   if (works.includes("garage"))
-    constraints.push("un garage intégré avec accès véhicule direct depuis la voirie");
+    constraints.push("un garage couvert intégré au bâti, avec accès depuis la voirie");
   if (works.includes("cuisine_exterieure"))
-    constraints.push("une cuisine extérieure / barbecue protégée, implantée en façade arrière");
+    constraints.push(
+      "une cuisine extérieure / barbecue implantée dans le jardin, distincte de la cuisine intérieure",
+    );
   if (works.includes("piscine"))
-    constraints.push("une zone d'implantation réservée à la piscine, à l'écart du bâti");
+    constraints.push(
+      "une piscine implantée exclusivement dans le jardin, à l'écart du bâti, avec dégagements de sécurité",
+    );
   if (works.includes("jardin"))
     constraints.push("des espaces extérieurs aménagés en jardin autour du bâti");
   if (works.includes("solaire"))
@@ -994,26 +1614,738 @@ function conceptNote(
     constraints.length > 0
       ? ` Contraintes du projet prises en compte : ${constraints.join(", ")}.`
       : "";
+  const siteTxt =
+    variant.site.constraints.length > 0
+      ? ` Plan de masse : ${variant.site.constraints.join(" ")}`
+      : "";
 
-  return `Variante « ${style} » : ${levelsTxt}. ${form.charAt(0).toUpperCase() + form.slice(1)}. ${org} Points forts : ${s}.${constraintsTxt}`;
+  return `Variante « ${profile.style} » : ${profile.tagline}. ${levelsTxt}. ${form.charAt(0).toUpperCase() + form.slice(1)}. ${org} ${orientationTxt(profile.mainFacade)}. Protection solaire par débords de toit, brise-soleil et végétation ; ventilation naturelle favorisée par les ouvertures traversantes. ${profile.description} Points forts : ${s}.${constraintsTxt}${siteTxt}`;
 }
 
-// ── Styles des 10 variantes ─────────────────────────────────────────────────
+function orientationTxt(side: WallSide): string {
+  switch (side) {
+    case "S":
+      return "Orientation plein sud : apports solaires d'hiver recherchés, protégés en été par les débords et la pergola";
+    case "E":
+      return "Orientation est : lumière du matin et jardin frais l'après-midi";
+    case "W":
+      return "Orientation ouest : terrasse ombragée le matin, protection solaire renforcée l'après-midi";
+    default:
+      return "Orientation nord : protection solaire maximale, façades secondaires éclairées" ;
+  }
+}
 
-const STYLES: { style: string; ratio: number }[] = [
-  { style: "Optimisée", ratio: 1.0 },
-  { style: "Traversante", ratio: 1.22 },
-  { style: "Compacte", ratio: 0.86 },
-  { style: "Parallélépipédique", ratio: 1.38 },
-  { style: "Horizontale", ratio: 1.62 },
-  { style: "Carrée pure", ratio: 1.04 },
-  { style: "Allongée", ratio: 1.82 },
-  { style: "Équilibrée", ratio: 1.14 },
-  { style: "Modulaire", ratio: 1.3 },
-  { style: "Rationnelle", ratio: 1.48 },
+// ── Les 10 partis architecturaux ────────────────────────────────────────────
+//
+// Chaque variante est un VRAI parti architectural : le profil pilote non
+// seulement le ratio d'emprise, mais aussi la stratégie de distribution
+// (jour/nuit, patio, couloir linéaire, hall central, compact), les surfaces
+// cibles des pièces, l'orientation de la façade principale et le traitement
+// des espaces extérieurs. Deux variantes ne diffèrent donc jamais par la seule
+// esthétique : leur plan, leur circulation et leur programme changent.
+
+export type LayoutStrategy =
+  | "bsp"
+  | "day-night"
+  | "garden"
+  | "patio"
+  | "linear"
+  | "central-hall"
+  | "compact";
+
+interface StyleProfile {
+  id: string;
+  style: string;
+  tagline: string;
+  /** Longueur / largeur de l'emprise. */
+  ratio: number;
+  /** Surface de parcelle estimée = emprise × plotFactor (si non fournie). */
+  plotFactor: number;
+  layout: LayoutStrategy;
+  /** Façade principale : S = ensoleillement hivernal, E = matin, O = soir. */
+  mainFacade: WallSide;
+  description: string;
+  advantages: string[];
+  characteristics: string[];
+  /** Grandes baies vitrées sur la façade jardin. */
+  bayWindows?: boolean;
+  tuning: {
+    livingScale?: number;
+    kitchenScale?: number;
+    bedroomScale?: number;
+    masterBoost?: number;
+    addHall?: boolean;
+    addLaundry?: boolean;
+  };
+}
+
+const STYLE_PROFILES: StyleProfile[] = [
+  {
+    id: "contemporain",
+    style: "Contemporain",
+    tagline: "Volumes purs, séjour traversant et grandes baies",
+    ratio: 1.32,
+    plotFactor: 2.1,
+    layout: "day-night",
+    mainFacade: "S",
+    description:
+      "Un volume simple et lisible, orienté plein sud. Le séjour traverse la maison de la façade jardin à la façade rue, la cuisine reste adjacente mais séparée, et les chambres sont regroupées à l'arrière ou à l'étage. Les grandes baies vitrées protégées par un débord de toit recherchent la lumière d'hiver sans surchauffe d'été.",
+    advantages: [
+      "Séjour traversant très lumineux, ventilation naturelle par double exposition",
+      "Séparation nette entre zone jour et zone nuit",
+      "Grande terrasse couverte prolongeant le séjour",
+      "Lecture structurelle simple, donc coût de gros œuvre maîtrisé",
+    ],
+    characteristics: [
+      "Façade sud largement vitrée avec brise-soleil horizontal",
+      "Toit plat avec débord de 80 cm",
+      "Enduit monocouche clair et menuiseries aluminium",
+      "Cuisine fermée adjacente au séjour",
+    ],
+    bayWindows: true,
+    tuning: { livingScale: 1.15, addHall: true, addLaundry: true },
+  },
+  {
+    id: "minimaliste",
+    style: "Moderne minimaliste",
+    tagline: "Cuisine ouverte, circulations réduites, zéro surface perdue",
+    ratio: 1.06,
+    plotFactor: 1.55,
+    layout: "compact",
+    mainFacade: "S",
+    description:
+      "Une maison compacte et très efficace : le séjour et la cuisine forment un seul espace de vie ouvert sur la terrasse, desservi directement par l'entrée. Les chambres sont dimensionnées au strict nécessaire confortable, sans couloir superflu. Le plan privilégie les murs porteurs alignés et les gaines regroupées.",
+    advantages: [
+      "Circulations minimales : plus de m² utiles dans le même budget",
+      "Espace de vie ouvert, adapté aux repas de famille",
+      "Enveloppe compacte : moins de déperditions et d'entretien",
+      "Excellente base pour une parcelle urbaine étroite",
+    ],
+    characteristics: [
+      "Cuisine ouverte avec îlot sur le séjour",
+      "Menuiseries fines et garde-corps minimalistes",
+      "Murs blancs, béton brut et bois clair",
+      "Pas de couloir de distribution",
+    ],
+    bayWindows: true,
+    tuning: { livingScale: 1.1, kitchenScale: 0.85, bedroomScale: 0.95 },
+  },
+  {
+    id: "mediterraneen",
+    style: "Méditerranéen tunisien",
+    tagline: "Patio frais, terrasse et cuisine d'été dans le jardin",
+    ratio: 1.22,
+    plotFactor: 2.4,
+    layout: "patio",
+    mainFacade: "S",
+    description:
+      "Une lecture contemporaine de la maison tunisienne : un patio planté apporte fraîcheur et lumière au cœur du plan, les pièces s'organisent autour de lui, et la terrasse ombragée prolonge le séjour vers le jardin. La cuisine d'été et le barbecue sont implantés dehors, à l'écart de la cuisine intérieure.",
+    advantages: [
+      "Patio central : ventilation naturelle et ombre sans climatisation",
+      "Pièces de vie protégées du soleil direct de l'après-midi",
+      "Cuisine d'été séparée : pas de chaleur ni d'odeurs dans la maison",
+      "Plan adapté aux parcelles de lotissement avec jardin arrière",
+    ],
+    characteristics: [
+      "Patio de 14 à 18 m² planté d'un olivier ou d'un jasmin",
+      "Terrasse couverte de 3 m de profondeur",
+      "Moucharabieh / claustra sur les ouvertures ouest",
+      "Enduit à la chaux et pierre locale en soubassement",
+    ],
+    tuning: { livingScale: 1.05, addHall: true, addLaundry: true, masterBoost: 1 },
+  },
+  {
+    id: "traditionnel",
+    style: "Traditionnel revisité",
+    tagline: "Hall central, séparation jour/nuit et ventilation traversante",
+    ratio: 1.16,
+    plotFactor: 2.0,
+    layout: "central-hall",
+    mainFacade: "S",
+    description:
+      "Le plan reprend la logique de la maison traditionnelle : un hall central distribue clairement la réception, le séjour et la cuisine d'un côté, les chambres de l'autre. Les ouvertures placées en vis-à-vis assurent une ventilation traversante, et la terrasse arrière reste abritée du vent dominant.",
+    advantages: [
+      "Distribution très lisible : chaque pièce est accessible sans traverser une autre",
+      "Intimité des chambres préservée par rapport à la zone de réception",
+      "Ventilation traversante naturelle, adaptée au climat tunisien",
+      "Plan facile à faire évoluer (bureau ou chambre supplémentaire)",
+    ],
+    characteristics: [
+      "Hall d'entrée central de 5 à 7 m²",
+      "Deux façades percées en vis-à-vis",
+      "Tuiles terre cuite et boiseries sur la terrasse",
+      "Cuisine fermée avec office / buanderie",
+    ],
+    tuning: { addLaundry: true, livingScale: 1.0 },
+  },
+  {
+    id: "patio",
+    style: "Villa patio",
+    tagline: "Cour intérieure, chambres autour du patio, intimité maximale",
+    ratio: 1.0,
+    plotFactor: 2.7,
+    layout: "patio",
+    mainFacade: "S",
+    description:
+      "Une villa organisée autour d'une cour intérieure : les pièces de vie s'ouvrent sur le patio, les chambres bénéficient d'une double orientation et les voisins ne voient pas l'intérieur. Le patio apporte lumière et fraîcheur au centre du plan, là où un plan classique perdrait des couloirs.",
+    advantages: [
+      "Intimité totale depuis la rue, sans vis-à-vis",
+      "Patio central lumineux qui remplace les couloirs sombres",
+      "Toutes les pièces bénéficient d'au moins deux orientations",
+      "Grande valeur d'usage pour les familles nombreuses",
+    ],
+    characteristics: [
+      "Patio central de 16 à 22 m² avec bassin ou fontaine",
+      "Emprise quasi carrée, toiture à faible pente",
+      "Pergola en bois sur la terrasse sud",
+      "Suite parentale avec salle d'eau privative",
+    ],
+    tuning: { livingScale: 1.2, masterBoost: 2, addHall: true, addLaundry: true },
+  },
+  {
+    id: "compacte",
+    style: "Maison compacte optimisée",
+    tagline: "Petite parcelle, plan millimétré, aucun m² perdu",
+    ratio: 0.95,
+    plotFactor: 1.4,
+    layout: "compact",
+    mainFacade: "S",
+    description:
+      "Conçue pour une parcelle étroite ou un budget serré : l'emprise est presque carrée, les circulations sont supprimées au profit de pièces traversantes, et chaque rangement est intégré aux cloisons. Les chambres restent conformes aux minima d'habitabilité, sans rechercher l'espace superflu.",
+    advantages: [
+      "Coût de construction et de foncier optimisé",
+      "Aucun couloir : 100 % de la surface est affectée à un usage",
+      "Chauffage et rafraîchissement faciles grâce à une enveloppe compacte",
+      "Plan simple à entretenir et à meubler",
+    ],
+    characteristics: [
+      "Emprise quasi carrée de 9 à 11 m de côté",
+      "Rangements intégrés dans l'épaisseur des cloisons",
+      "Fenêtres hautes pour la lumière sans vis-à-vis",
+      "Toiture-terrasse accessible si la parcelle le permet",
+    ],
+    tuning: { livingScale: 1.0, kitchenScale: 0.9, bedroomScale: 0.92 },
+  },
+  {
+    id: "jardin",
+    style: "Ouverte sur le jardin",
+    tagline: "Séjour en large baie, terrasse et jardin prolongent la maison",
+    ratio: 1.55,
+    plotFactor: 2.6,
+    layout: "garden",
+    mainFacade: "S",
+    description:
+      "La maison s'efface derrière son jardin : le séjour occupe toute la largeur de la façade sud, prolongé par une terrasse de plain-pied et une large baie coulissante. La cuisine et le service sont rejetés au nord, les chambres à l'est pour profiter du soleil du matin.",
+    advantages: [
+      "Relation intérieur/jardin exceptionnelle, très recherchée en villa",
+      "Grande baie coulissante : le séjour gagne visuellement la terrasse",
+      "Cuisine et service au nord : moins de surchauffe en été",
+      "Jardin et piscine restent strictement extérieurs, sans empiéter sur le bâti",
+    ],
+    characteristics: [
+      "Baie coulissante de 3 à 4 m sur la terrasse",
+      "Terrasse en pierre locale de 3,5 m de profondeur",
+      "Pergola bioclimatique à lames orientables",
+      "Cuisine d'été et point d'eau dans le jardin",
+    ],
+    bayWindows: true,
+    tuning: { livingScale: 1.3, addLaundry: true, masterBoost: 1 },
+  },
+  {
+    id: "traversante",
+    style: "Traversante",
+    tagline: "Double exposition est-ouest, jour en bas, nuit en haut",
+    ratio: 1.28,
+    plotFactor: 2.0,
+    layout: "day-night",
+    mainFacade: "S",
+    description:
+      "Un plan traversant à double exposition : le séjour et la cuisine occupent le rez-de-chaussée de part et d'autre d'un hall compact, tandis que les chambres se regroupent à l'étage autour de la cage d'escalier. Les ouvertures opposées assurent un rafraîchissement naturel en fin de journée.",
+    advantages: [
+      "Ventilation traversante est-ouest très efficace en été",
+      "Zone jour et zone nuit clairement séparées par niveau",
+      "Gaine d'escalier unique, structure répétitive donc économique",
+      "Chambres à l'abri du bruit de la rue",
+    ],
+    characteristics: [
+      "Deux façades principales percées en vis-à-vis",
+      "Escalier central éclairé par un puits de lumière",
+      "Balcon ou loggia à l'étage",
+      "Toiture à deux pans ou terrasse selon la variante",
+    ],
+    tuning: { livingScale: 1.1, addHall: true, addLaundry: true },
+  },
+  {
+    id: "lineaire",
+    style: "Linéaire parcelle étroite",
+    tagline: "Volume allongé, couloir central, pièces en enfilade",
+    ratio: 1.85,
+    plotFactor: 1.5,
+    layout: "linear",
+    mainFacade: "S",
+    description:
+      "Adaptée aux parcelles étroites et profondes : la maison s'étire en longueur, desservie par un couloir central qui limite les surfaces perdues. Les pièces de vie s'ouvrent sur le jardin en bout de parcelle, les chambres s'alignent le long du couloir avec des fenêtres sur les pignons ou une cour anglaise.",
+    advantages: [
+      "Exploite une parcelle étroite là où un plan carré ne rentre pas",
+      "Couloir unique : distribution claire et compacte",
+      "Chaque chambre peut recevoir une fenêtre sur pignon ou sur cour",
+      "Jardin en bout de parcelle, protégé du vis-à-vis",
+    ],
+    characteristics: [
+      "Emprise allongée de 16 à 20 m sur 8 à 10 m",
+      "Couloir central de 1,1 à 1,2 m de large",
+      "Toiture à un pan ou toit-terrasse",
+      "Menuiseries verticales pour limiter les vis-à-vis",
+    ],
+    tuning: { livingScale: 1.05, kitchenScale: 0.95, bedroomScale: 0.95 },
+  },
+  {
+    id: "modulaire",
+    style: "Modulaire évolutive",
+    tagline: "Trame structurelle régulière, pièces transformables, extension future",
+    ratio: 1.12,
+    plotFactor: 1.9,
+    layout: "bsp",
+    mainFacade: "S",
+    description:
+      "Une trame structurelle régulière permet de transformer une chambre en bureau, de réunir deux pièces ou d'ajouter un module sans reprendre la structure. Les gaines et l'escalier sont regroupés, et la façade reste libre pour une extension future côté jardin.",
+    advantages: [
+      "Plan évolutif : pièces transformables sans gros œuvre",
+      "Trame répétitive : coût de structure et de second œuvre maîtrisé",
+      "Extension future possible côté jardin, sans casser la toiture",
+      "Excellente revente : plan neutre et facile à réaménager",
+    ],
+    characteristics: [
+      "Trame porteuse de 3,3 m environ",
+      "Gaines regroupées près de l'escalier",
+      "Cloisons légères démontables",
+      "Façade sud préparée pour une véranda ou une extension",
+    ],
+    tuning: { livingScale: 1.05, addLaundry: true },
+  },
 ];
 
-export const VARIANTS_PER_PROJECT = STYLES.length;
+export const VARIANTS_PER_PROJECT = STYLE_PROFILES.length;
+
+// ── Plan de masse : parcelle, bâti et aménagements extérieurs ───────────────
+//
+// Règle absolue : le jardin, la piscine et la cuisine extérieure sont des
+// ESPACES EXTÉRIEURS. Ils sont implantés dans la parcelle, autour du bâti, avec
+// des dégagements réalistes, et ne sont JAMAIS ajoutés au programme des pièces.
+// Si la parcelle ne permet pas de les accueillir, ils ne sont pas inventés :
+// la contrainte est signalée explicitement.
+
+const SITE_TOL = 0.01;
+
+function rectsOverlap(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+  gap = 0,
+): boolean {
+  return (
+    a.x + a.w + gap > b.x + SITE_TOL &&
+    b.x + b.w + gap > a.x + SITE_TOL &&
+    a.y + a.h + gap > b.y + SITE_TOL &&
+    b.y + b.h + gap > a.y + SITE_TOL
+  );
+}
+
+function insidePlot(
+  r: { x: number; y: number; w: number; h: number },
+  plotL: number,
+  plotW: number,
+  margin = 0.2,
+): boolean {
+  return (
+    r.x >= margin - SITE_TOL &&
+    r.y >= margin - SITE_TOL &&
+    r.x + r.w <= plotL - margin + SITE_TOL &&
+    r.y + r.h <= plotW - margin + SITE_TOL
+  );
+}
+
+/** Essaie plusieurs positions et retient la première qui ne chevauche rien. */
+function placeSiteElement(
+  id: string,
+  kind: SiteElementKind,
+  label: string,
+  w: number,
+  h: number,
+  candidates: { x: number; y: number }[],
+  occupied: { x: number; y: number; w: number; h: number }[],
+  plotL: number,
+  plotW: number,
+  gap = 0.8,
+): SiteElement | null {
+  for (const c of candidates) {
+    const rect = {
+      x: round3(Math.max(0.2, Math.min(c.x, plotL - w - 0.2))),
+      y: round3(Math.max(0.2, Math.min(c.y, plotW - h - 0.2))),
+      w: round3(w),
+      h: round3(h),
+    };
+    if (!insidePlot(rect, plotL, plotW, 0.2)) continue;
+    if (occupied.some((o) => rectsOverlap(rect, o, gap))) continue;
+    return { id, kind, label, ...rect, area: round3(w * h), hardscape: true };
+  }
+  return null;
+}
+
+const ORIENTATION_LABELS: Record<WallSide, string> = {
+  S: "Façade principale plein sud — jardin et terrasse au soleil d'hiver",
+  E: "Façade principale à l'est — lumière du matin, jardin à l'est",
+  W: "Façade principale à l'ouest — terrasse à l'ombre du matin",
+  N: "Façade principale au nord — protection solaire maximale",
+};
+
+function buildSitePlan(params: {
+  length: number;
+  width: number;
+  floors: number;
+  profile: StyleProfile;
+  family: ProjectFamily;
+  input: FloorPlanInput;
+  groundFloor: FloorPlan;
+  patioArea: number;
+}): SitePlan {
+  const { length: L, width: W, profile, input, groundFloor, family } = params;
+  const footprint = round3(L * W);
+  const works = input.works ?? [];
+  const wantsPool = works.includes("piscine") || (input.pools ?? 0) > 0;
+  const wantsKitchen = works.includes("cuisine_exterieure");
+  const wantsGarden = works.includes("jardin") || family === "residential";
+  const wantsGarage = works.includes("garage") || (input.garages ?? 0) > 0;
+  const constraints: string[] = [];
+
+  // ── 1. Dimensions de la parcelle ────────────────────────────────────────
+  const minL = round3(L + 2.2);
+  const minW = round3(W + 3.8);
+  const minArea = round3(minL * minW);
+  const provided = Number(input.plotArea) > 0 ? Number(input.plotArea) : 0;
+  let source: "projet" | "estimee" = provided > 0 ? "projet" : "estimee";
+  let plotArea = provided;
+
+  if (provided > 0) {
+    if (provided < minArea) {
+      plotArea = minArea;
+      constraints.push(
+        `Parcelle fournie (${Math.round(provided)} m²) inférieure au minimum constructible avec reculs (${Math.round(minArea)} m²) : emprise minimale retenue, à confirmer avec le service d'urbanisme.`,
+      );
+    }
+  } else {
+    // Parcelle de référence : elle doit rester crédible pour le programme
+    // extérieur demandé (bassin + dégagements, cuisine d'été), sans jamais
+    // transformer une piscine en surface habitable.
+    const extra = (wantsPool ? 60 : 0) + (wantsKitchen ? 10 : 0);
+    plotArea = Math.max(minArea, footprint * profile.plotFactor + extra);
+    constraints.push(
+      "Parcelle non renseignée : plan de masse établi sur une parcelle de référence estimée — surface à confirmer avant dépôt du permis.",
+    );
+  }
+
+  // Dimensions : on conserve l'aspect du bâti, avec des reculs suffisants.
+  let plotL = Math.sqrt(plotArea * ((L + 2.2) / (W + 3.8)));
+  let plotW = plotArea / plotL;
+  if (plotL < minL) {
+    plotL = minL;
+    plotW = plotArea / plotL;
+  }
+  if (plotW < minW) {
+    plotW = minW;
+    plotL = plotArea / plotW;
+  }
+  if (plotL < minL) plotL = minL;
+  if (plotW < minW) plotW = minW;
+  plotL = round3(plotL);
+  plotW = round3(plotW);
+  const actualPlotArea = round3(plotL * plotW);
+  if (provided > 0 && actualPlotArea > provided * 1.15) {
+    constraints.push(
+      `La parcelle de ${Math.round(provided)} m² ne permet pas les reculs retenus : le plan de masse utilise ${Math.round(actualPlotArea)} m² pour rester constructible, sans modifier la surface habitable.`,
+    );
+    source = "estimee";
+  }
+
+  // ── 2. Implantation du bâti : recul arrière au nord, jardin au sud ──────
+  const sideSetback = round3(Math.min(2.4, Math.max(0.8, (plotL - L) * 0.28)));
+  const backSetback = round3(Math.min(3.0, Math.max(0.8, (plotW - W) * 0.18)));
+  const bx = round3(sideSetback);
+  const by = round3(backSetback);
+  const building = {
+    x: bx,
+    y: by,
+    w: round3(L),
+    h: round3(W),
+    area: footprint,
+  };
+  const frontDepth = round3(plotW - (by + W));
+  const eastDepth = round3(plotL - (bx + L));
+  const westDepth = bx;
+
+  const occupied: { x: number; y: number; w: number; h: number }[] = [
+    { x: bx - 0.6, y: by - 0.6, w: L + 1.2, h: W + 1.2 },
+  ];
+  const elements: SiteElement[] = [];
+
+  // ── 3. Terrasse : prolongement extérieur du séjour, côté jardin ─────────
+  // Quand une piscine est demandée, la terrasse n'occupe qu'une partie de la
+  // façade : le bassin s'implante à côté, jamais dans le prolongement du bâti.
+  const terraceDepth = Math.min(3.6, Math.max(2.2, frontDepth - 1.5));
+  if (frontDepth >= 2.2) {
+    const tw = wantsPool
+      ? Math.min(5.0, Math.max(3.2, L * 0.45))
+      : Math.min(L * 0.85, plotL - 1.0);
+    const tx = wantsPool
+      ? bx
+      : round3(bx + Math.min((L - tw) / 2, Math.max(0, eastDepth - 0.4)));
+    const terrace = placeSiteElement(
+      "site-terrasse",
+      "terrasse",
+      "Terrasse",
+      tw,
+      terraceDepth,
+      [{ x: tx, y: by + W + 1.2 }],
+      occupied,
+      plotL,
+      plotW,
+      0.35,
+    );
+    if (terrace) {
+      elements.push(terrace);
+      occupied.push(terrace);
+    }
+  }
+  if (!elements.some((e) => e.kind === "terrasse")) {
+    constraints.push(
+      "Terrasse non représentée : profondeur de jardin insuffisante pour un usage extérieur confortable.",
+    );
+  }
+
+  // ── 4. Piscine : uniquement dans le jardin, jamais dans le bâti ─────────
+  if (wantsPool) {
+    // Trois tailles réalistes, de la piscine familiale au petit bassin de
+    // parcelle étroite. On ne dessine jamais un bassin hors parcelle.
+    const poolSizes = [
+      { w: 8, h: 4 },
+      { w: 7, h: 3.5 },
+      { w: 6, h: 3 },
+    ];
+    const terrace = elements.find((e) => e.kind === "terrasse");
+    let placedPool: SiteElement | null = null;
+    for (const size of poolSizes) {
+      const candidates: { x: number; y: number }[] = [];
+      if (terrace) {
+        candidates.push({ x: terrace.x + terrace.w + 1.2, y: terrace.y });
+        candidates.push({ x: terrace.x - size.w - 1.2, y: terrace.y });
+        candidates.push({ x: terrace.x, y: terrace.y + terrace.h + 1.2 });
+      }
+      candidates.push({ x: plotL - size.w - 1.0, y: by + W + 1.9 });
+      candidates.push({ x: 1.0, y: by + W + 1.9 });
+      candidates.push({ x: plotL - size.w - 1.0, y: 1.0 });
+      candidates.push({ x: 1.0, y: 1.0 });
+      candidates.push({ x: plotL - size.w - 1.0, y: plotW - size.h - 1.0 });
+      candidates.push({ x: 1.0, y: plotW - size.h - 1.0 });
+      const pool = placeSiteElement(
+        "site-piscine",
+        "piscine",
+        "Piscine",
+        size.w,
+        size.h,
+        candidates,
+        occupied,
+        plotL,
+        plotW,
+        1.1,
+      );
+      if (pool) {
+        placedPool = pool;
+        break;
+      }
+    }
+    if (placedPool) {
+      elements.push(placedPool);
+      occupied.push(placedPool);
+      if (placedPool.w < 8) {
+        constraints.push(
+          `Piscine dimensionnée à ${placedPool.w} × ${placedPool.h} m (${Math.round(placedPool.area)} m²) pour respecter les dégagements de sécurité dans la parcelle.`,
+        );
+      }
+    } else {
+      constraints.push(
+        "Piscine non représentée : la parcelle ne permet pas d'implanter un bassin de 6 × 3 m avec les dégagements de sécurité (1,2 m minimum autour du bassin).",
+      );
+    }
+  }
+
+  // ── 5. Cuisine extérieure : dans le jardin, sur la terrasse ─────────────
+  if (wantsKitchen) {
+    const kw = 3.4;
+    const kh = 2.6;
+    const candidates: { x: number; y: number }[] = [];
+    const terrace = elements.find((e) => e.kind === "terrasse");
+    if (terrace) {
+      candidates.push({ x: terrace.x + terrace.w - kw, y: terrace.y + terrace.h + 0.7 });
+      candidates.push({ x: terrace.x + terrace.w + 0.8, y: terrace.y });
+      candidates.push({ x: terrace.x - kw - 0.8, y: terrace.y });
+      candidates.push({ x: terrace.x, y: terrace.y + terrace.h + 0.7 });
+    }
+    // Bandes latérales : la cuisine d'été reste dans le jardin, à distance
+    // du bâti (1,4 m de dégagement) et jamais dans une pièce fermée.
+    candidates.push({ x: bx + L + 1.4, y: by + W * 0.2 });
+    candidates.push({ x: bx - kw - 1.4, y: by + W * 0.2 });
+    candidates.push({ x: bx + 0.8, y: by - kh - 1.4 });
+    candidates.push({ x: 0.8, y: by + W + 1.4 });
+    candidates.push({ x: plotL - kw - 0.8, y: 0.8 });
+    const kitchen = placeSiteElement(
+      "site-cuisine-exterieure",
+      "cuisine_exterieure",
+      "Cuisine extérieure",
+      kw,
+      kh,
+      candidates,
+      occupied,
+      plotL,
+      plotW,
+      0.7,
+    );
+    if (kitchen) {
+      elements.push(kitchen);
+      occupied.push(kitchen);
+    } else {
+      constraints.push(
+        "Cuisine extérieure non représentée : espace extérieur insuffisant pour l'implanter hors du bâti. Elle pourra être ajoutée après abattage d'un mur de clôture ou selon l'aménagement du jardin.",
+      );
+    }
+  }
+
+  // ── 6. Accès et stationnement depuis la voirie (côté sud) ──────────────
+  const gateX = round3(Math.min(Math.max(bx + L * 0.35, 1.0), plotL - 3.0));
+  const alley = placeSiteElement(
+    "site-allee",
+    "allee",
+    "Allée d'accès",
+    1.4,
+    Math.max(1.2, frontDepth),
+    [{ x: gateX, y: by + W + 0.1 }],
+    occupied,
+    plotL,
+    plotW,
+    0.15,
+  );
+  if (alley) {
+    elements.push({ ...alley, label: "Allée d'accès" });
+    occupied.push(alley);
+  }
+
+  if (family === "residential" || family === "commercial" || family === "restoration") {
+    const parkW = 5;
+    const parkH = 2.5;
+    const candidates = [
+      { x: plotL - parkW - 0.8, y: plotW - parkH - 0.6 },
+      { x: 0.8, y: plotW - parkH - 0.6 },
+      { x: plotL - parkW - 0.8, y: by + W + 0.8 },
+    ];
+    const parking = placeSiteElement(
+      "site-stationnement",
+      "stationnement",
+      wantsGarage ? "Accès garage / stationnement" : "Stationnement",
+      parkW,
+      parkH,
+      candidates,
+      occupied,
+      plotL,
+      plotW,
+      0.4,
+    );
+    if (parking) {
+      elements.push(parking);
+      occupied.push(parking);
+    } else if (frontDepth < 2.5) {
+      constraints.push("Stationnement non représenté : accès véhicule trop court depuis la voirie.");
+    }
+  }
+
+  // Garage : rappel de son emplacement réel (pièce couverte du bâti).
+  const garageRoom = groundFloor.rooms.find((r) => r.kind === "garage");
+  if (wantsGarage && !garageRoom) {
+    constraints.push(
+      "Garage non intégrable dans l'emprise après optimisation des surfaces : stationnement extérieur proposé, à confirmer.",
+    );
+  }
+  if (!wantsGarden && frontDepth < 1.5) {
+    constraints.push("Jardin réduit : la parcelle laisse peu de surface libre autour du bâti.");
+  }
+
+  // ── 7. Surfaces extérieures ─────────────────────────────────────────────
+  const hardscape = elements.reduce((s, e) => s + e.area, 0);
+  const gardenArea = round3(Math.max(0, actualPlotArea - footprint - hardscape));
+  const exteriorArea = round3(Math.max(0, actualPlotArea - (footprint - params.patioArea)));
+
+  const patios = groundFloor.rooms
+    .filter((r) => r.exterior)
+    .map((r) => ({
+      x: round3(bx + r.x),
+      y: round3(by + r.y),
+      w: r.w,
+      h: r.h,
+      area: r.area,
+    }));
+
+  return {
+    plot: { length: plotL, width: plotW, area: actualPlotArea, source },
+    building,
+    elements,
+    patios,
+    gardenArea,
+    exteriorArea,
+    orientation: profile.mainFacade,
+    orientationLabel: ORIENTATION_LABELS[profile.mainFacade],
+    constraints,
+  };
+}
+
+/** Les trois catégories de surfaces, calculées depuis la géométrie réelle. */
+function computeSurfaces(
+  floors: FloorPlan[],
+  site: SitePlan,
+  totalBuilt: number,
+): SurfaceBreakdown {
+  const COMPLEMENTARY = new Set<RoomKind>(["garage", "stockage", "logistique"]);
+  let interior = 0;
+  let complementary = 0;
+  for (const floor of floors) {
+    for (const room of floor.rooms) {
+      if (room.exterior) continue;
+      if (COMPLEMENTARY.has(room.kind)) complementary += room.area;
+      else interior += room.area;
+    }
+  }
+  interior = round3(interior);
+  complementary = round3(complementary);
+  const built = round3(interior + complementary);
+  const groundBuilt = round3(
+    (floors[0]?.rooms ?? [])
+      .filter((r) => !r.exterior)
+      .reduce((s, r) => s + r.area, 0),
+  );
+  const exterior = round3(site.plot.area - groundBuilt);
+  const details = site.elements
+    .filter((e) => e.kind !== "allee")
+    .map((e) => ({ kind: e.kind, label: e.label, area: e.area }));
+  details.push({ kind: "jardin", label: "Jardin", area: site.gardenArea });
+  void totalBuilt;
+  return {
+    interior,
+    complementary,
+    built,
+    groundBuilt,
+    footprint: round3(site.building.area),
+    exterior,
+    garden: site.gardenArea,
+    plot: site.plot.area,
+    exteriorDetails: details,
+  };
+}
 
 // ── API principale ──────────────────────────────────────────────────────────
 
@@ -1032,12 +2364,12 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
     levels * 101;
 
   const variants: FloorPlanVariant[] = [];
-  for (let v = 0; v < STYLES.length; v++) {
-    const { style, ratio } = STYLES[v];
+  for (let v = 0; v < STYLE_PROFILES.length; v++) {
+    const profile = STYLE_PROFILES[v];
     const rng = mulberry32(baseSeed + v * 977);
-    // Emprise : longueur × largeur selon le ratio de la variante
-    let L = Math.sqrt(areaPerLevel * ratio);
-    let W = Math.sqrt(areaPerLevel / ratio);
+    // Emprise : longueur × largeur selon le ratio du parti architectural.
+    let L = Math.sqrt(areaPerLevel * profile.ratio);
+    let W = Math.sqrt(areaPerLevel / profile.ratio);
     // Garde-fous constructifs
     L = Math.min(Math.max(L, 5), 60);
     W = Math.min(Math.max(W, 4), 40);
@@ -1046,31 +2378,82 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
 
     const floors: FloorPlan[] = [];
     if (family === "residential") {
-      const programs = residentialProgram(input, areaPerLevel, levels);
+      const programs = residentialProgram(input, areaPerLevel, levels, profile);
       for (const prog of programs) {
-        floors.push(buildLevel(prog.level, levels, L, W, prog.items, baseSeed + v * 977));
+        floors.push(
+          buildLevel(prog.level, levels, L, W, prog.items, baseSeed + v * 977, profile),
+        );
       }
     } else if (family === "restoration") {
       const isRestaurant = input.category === "restaurant";
       const items = restorationProgram(areaPerLevel, isRestaurant ? "restaurant" : "cafe");
       // Les restaurant/café sont généralement mono-niveau, mais on supporte R+1
       for (let lvl = 0; lvl < levels; lvl++) {
-        floors.push(buildLevel(lvl, levels, L, W, items.map((i) => ({ ...i })), baseSeed + v * 977));
+        floors.push(
+          buildLevel(
+            lvl,
+            levels,
+            L,
+            W,
+            items.map((i) => ({ ...i })),
+            baseSeed + v * 977,
+            profile,
+          ),
+        );
       }
     } else {
-      const items = family === "commercial" ? commercialProgram(areaPerLevel) : logisticsProgram(areaPerLevel);
+      const items =
+        family === "commercial" ? commercialProgram(areaPerLevel) : logisticsProgram(areaPerLevel);
       for (let lvl = 0; lvl < levels; lvl++) {
-        floors.push(buildLevel(lvl, levels, L, W, items.map((i) => ({ ...i })), baseSeed + v * 977));
+        floors.push(
+          buildLevel(
+            lvl,
+            levels,
+            L,
+            W,
+            items.map((i) => ({ ...i })),
+            baseSeed + v * 977,
+            profile,
+          ),
+        );
       }
     }
 
+    const totalBuilt = round3(
+      floors.reduce((s, f) => s + f.rooms.reduce((a, r) => a + r.area, 0), 0),
+    );
+    const patioArea = round3(
+      floors.reduce(
+        (s, f) => s + f.rooms.filter((r) => r.exterior).reduce((a, r) => a + r.area, 0),
+        0,
+      ),
+    );
+    const site = buildSitePlan({
+      length: L,
+      width: W,
+      floors: levels,
+      profile,
+      family,
+      input: { ...input, surface },
+      groundFloor: floors[0],
+      patioArea,
+    });
+    const surfaces = computeSurfaces(floors, site, totalBuilt);
+
     const variant: FloorPlanVariant = {
       id: `plan-v${v + 1}`,
-      name: `Variante ${v + 1} · ${style}`,
-      style,
+      name: `Variante ${v + 1} · ${profile.style}`,
+      style: profile.style,
+      styleId: profile.id,
+      tagline: profile.tagline,
+      description: profile.description,
+      advantages: profile.advantages,
+      characteristics: profile.characteristics,
       footprint: { length: L, width: W },
       floors,
-      totalArea: round3(floors.reduce((s, f) => s + f.rooms.reduce((a, r) => a + r.area, 0), 0)),
+      totalArea: surfaces.built,
+      surfaces,
+      site,
       conceptNote: "",
       validation: {
         dimensionsOk: true,
@@ -1078,11 +2461,13 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
         areasOk: true,
         circulationOk: true,
         structureOk: true,
+        exteriorOk: true,
+        surfacesOk: true,
         score: 100,
         issues: [],
       },
     };
-    variant.conceptNote = conceptNote(style, input, variant, rng);
+    variant.conceptNote = conceptNote(profile, input, variant, rng);
     variant.validation = validatePlan(variant, { ...input, surface, floors: levels });
     variants.push(variant);
   }

@@ -974,6 +974,8 @@ const SOCKET_COUNTS: Record<RoomKind, number> = {
   chambre_froide: 1,
   terrasse: 1,
   attente: 2,
+  patio: 1,
+  buanderie: 2,
 };
 
 const POINT_LOAD_VA: Record<ElectricalPointKind, number> = {

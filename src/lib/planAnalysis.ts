@@ -116,7 +116,9 @@ function zoneKindFor(room: PlanRoom): ZoneGroup["kind"] {
 // ── Analyse principale ──────────────────────────────────────────────────────
 
 export function analyzeFloorPlan(plan: FloorPlan): FloorPlanAnalysis {
-  const rooms = plan.rooms;
+  // Les patios / cours extérieures ne sont pas des pièces : ils ne faussent
+  // ni le zonage, ni le taux de circulation, ni la surface utile.
+  const rooms = plan.rooms.filter((r) => !r.exterior);
   const total = rooms.reduce((s, r) => s + r.area, 0) || 1;
 
   // 1. Zonage

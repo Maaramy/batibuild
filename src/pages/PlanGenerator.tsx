@@ -13,9 +13,12 @@ import {
   Layers3,
   Lightbulb,
   Loader2,
+  Map as MapIcon,
   Maximize2,
   Ruler,
   ScanLine,
+  Trees,
+  Waves,
   Zap,
 } from "lucide-react";
 
@@ -53,6 +56,7 @@ import {
 import type { FloorPlan, FloorPlanVariant } from "@/lib/floorPlanEngine";
 import { FloorPlan2D } from "@/components/floorplan/FloorPlan2D";
 import { FloorPlan3D } from "@/components/floorplan/FloorPlan3D";
+import { SiteLegend, SitePlan2D } from "@/components/floorplan/SitePlan2D";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { cn } from "@/lib/utils";
@@ -202,6 +206,12 @@ export default function PlanGenerator() {
       livingRooms: project.livingRooms ?? undefined,
       wcs: project.wcs ?? undefined,
       works: worksEligible ? planWorks : [],
+      // Parcelle réelle du projet (surfaceTotale) : le plan de masse s'y
+      // conforme. Sans valeur, une parcelle de référence est estimée ET
+      // signalée comme telle dans la carte de variante.
+      plotArea: project.surfaceTotale ?? undefined,
+      pools: project.pools ?? undefined,
+      garages: project.garages ?? undefined,
     }).map((variant) => ({
       ...variant,
       floors: variant.floors.map((f) =>
@@ -214,6 +224,40 @@ export default function PlanGenerator() {
   }, [project, planWorks, worksEligible]);
 
   const variants = allVariants;
+  const selectProjectPlan = useMutation(api.projects.selectProjectPlan);
+  const [savingPlanId, setSavingPlanId] = useState<string | null>(null);
+  const selectedPlanId = project?.planSelection?.variantId ?? null;
+
+  const handleSelectPlan = useCallback(
+    async (variant: FloorPlanVariant) => {
+      if (!projectId || savingPlanId) return;
+      setSavingPlanId(variant.id);
+      try {
+        await selectProjectPlan({
+          projectId: projectId as Id<"projects">,
+          variantId: variant.id,
+          styleId: variant.styleId,
+          name: variant.name,
+          builtArea: variant.surfaces.built,
+          levelSurfaces: variant.floors.map((f) =>
+            Number(
+              f.rooms
+                .filter((r) => !r.exterior)
+                .reduce((s, r) => s + r.area, 0)
+                .toFixed(2),
+            ),
+          ),
+          footprint: variant.footprint,
+        });
+      } catch (err) {
+        console.error("Enregistrement du plan de référence impossible :", err);
+      } finally {
+        setSavingPlanId(null);
+      }
+    },
+    [projectId, savingPlanId, selectProjectPlan],
+  );
+
   const bestScore = useMemo(
     () => Math.max(0, ...variants.map((v) => v.validation.score)),
     [variants],
@@ -320,6 +364,9 @@ export default function PlanGenerator() {
                   variant={variant}
                   index={i}
                   projectName={project.name}
+                  isReference={selectedPlanId === variant.id}
+                  selecting={savingPlanId === variant.id}
+                  onSelectPlan={() => handleSelectPlan(variant)}
                   onOpenTechnical={(variantId, kind) => {
                     setTechVariantId(variantId);
                     setPlanTab(kind);
@@ -329,9 +376,16 @@ export default function PlanGenerator() {
               ))}
             </div>
 
-            <p className="text-center text-[10px] text-muted-foreground/60 pt-2">
+            <p className="text-center text-[10px] text-muted-foreground/70 pt-1 leading-relaxed">
+              « Retenir ce plan » enregistre ses surfaces réelles par niveau : elles servent de
+              référence au coût estimatif, aux quantitatifs et aux métrés des étapes suivantes.
+              La surface demandée du projet n'est pas réécrite.
+            </p>
+            <p className="text-center text-[10px] text-muted-foreground/60 pt-1">
               Plans générés algorithmiquement à titre indicatif — validation par un architecte
-              inscrit à l'ordre requise avant dépôt du permis de bâtir.
+              inscrit à l'ordre requise avant dépôt du permis de bâtir. Les règles d'urbanisme
+              (reculs, coefficient d'occupation, hauteur) restent à vérifier auprès du service
+              compétent.
             </p>
               </TabsContent>
 
@@ -411,15 +465,21 @@ function VariantCard({
   variant,
   index,
   projectName,
+  isReference = false,
+  selecting = false,
+  onSelectPlan,
   onOpenTechnical,
 }: {
   variant: FloorPlanVariant;
   index: number;
   projectName: string;
+  isReference?: boolean;
+  selecting?: boolean;
+  onSelectPlan?: () => void;
   onOpenTechnical?: (variantId: string, kind: "plomberie" | "electricite") => void;
 }) {
   const [floorIdx, setFloorIdx] = useState(0);
-  const [view, setView] = useState<"2d" | "3d">("2d");
+  const [view, setView] = useState<"2d" | "mass" | "3d">("2d");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -447,6 +507,8 @@ function VariantCard({
           projectName,
           variantName: variant.name,
           floorLabel,
+          surfaces: variant.surfaces,
+          site: variant.site,
         });
       } catch (err) {
         console.error("Erreur export PDF du plan :", err);
@@ -473,12 +535,25 @@ function VariantCard({
       <Card className="overflow-hidden">
         <CardHeader className="pb-3 pt-4 px-4">
           <div className="flex items-start justify-between gap-3">
-            <CardTitle className="text-sm font-bold tracking-tight">{variant.name}</CardTitle>
-            <Badge variant="outline" className={cn("text-[10px] shrink-0", scoreColor)}>
-              Note {v.score}/100
-            </Badge>
+            <div className="min-w-0">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-primary/80 mb-0.5">
+                {variant.style}
+              </p>
+              <CardTitle className="text-sm font-bold tracking-tight">{variant.name}</CardTitle>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{variant.tagline}</p>
+            </div>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <Badge variant="outline" className={cn("text-[10px]", scoreColor)}>
+                Note {v.score}/100
+              </Badge>
+              {isReference && (
+                <Badge className="text-[9px] gap-1 bg-emerald-600 text-white hover:bg-emerald-600">
+                  <BadgeCheck className="h-3 w-3" /> Plan retenu
+                </Badge>
+              )}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-2 text-[11px] text-muted-foreground">
             <span>
               Emprise{" "}
               <span className="font-medium text-foreground tabular-nums">
@@ -486,9 +561,9 @@ function VariantCard({
               </span>
             </span>
             <span>
-              Surface totale{" "}
+              Surface bâtie{" "}
               <span className="font-medium text-foreground tabular-nums">
-                {variant.totalArea.toFixed(1)} m²
+                {variant.surfaces.built.toFixed(1)} m²
               </span>
             </span>
             <span>
@@ -501,9 +576,12 @@ function VariantCard({
         <CardContent className="px-4 space-y-3">
           {/* Sélecteur de vue + niveau */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <Tabs value={view} onValueChange={(val) => setView(val as "2d" | "3d")}>
+            <Tabs value={view} onValueChange={(val) => setView(val as "2d" | "mass" | "3d")}>
               <TabsList className="h-7">
                 <TabsTrigger value="2d" className="text-[11px] h-6 px-2.5">Plan 2D</TabsTrigger>
+                <TabsTrigger value="mass" className="text-[11px] h-6 px-2.5 gap-1">
+                  <MapIcon className="h-3 w-3" /> Plan de masse
+                </TabsTrigger>
                 <TabsTrigger value="3d" className="text-[11px] h-6 px-2.5">Vue 3D</TabsTrigger>
               </TabsList>
             </Tabs>
@@ -527,8 +605,45 @@ function VariantCard({
             )}
           </div>
 
-          {/* Plan 2D ou 3D — sélection de pièce synchronisée entre les vues */}
-          {view === "2d" ? (
+          {/* Plan 2D, plan de masse ou 3D — sélection de pièce synchronisée */}
+          {view === "mass" ? (
+            <div className="space-y-2">
+              <div className="rounded-md border bg-white p-1 shadow-sm">
+                <SitePlan2D site={variant.site} />
+              </div>
+              <SiteLegend site={variant.site} />
+              <div className="grid grid-cols-3 gap-1.5 text-center">
+                <div className="rounded-md border bg-background/70 px-2 py-1.5">
+                  <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Parcelle</p>
+                  <p className="text-xs font-semibold tabular-nums">{variant.site.plot.area.toFixed(0)} m²</p>
+                </div>
+                <div className="rounded-md border bg-background/70 px-2 py-1.5">
+                  <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Bâti au sol</p>
+                  <p className="text-xs font-semibold tabular-nums">{variant.surfaces.groundBuilt.toFixed(0)} m²</p>
+                </div>
+                <div className="rounded-md border bg-background/70 px-2 py-1.5">
+                  <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Jardin</p>
+                  <p className="text-xs font-semibold tabular-nums">{variant.surfaces.garden.toFixed(0)} m²</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                <Compass className="h-3 w-3 mt-0.5 shrink-0" />
+                <span>{variant.site.orientationLabel}.</span>
+              </p>
+              {variant.site.constraints.length > 0 && (
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-2.5 py-2 space-y-1">
+                  <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                    Contraintes de parcelle
+                  </p>
+                  <ul className="list-disc pl-4 space-y-0.5 text-[10px] leading-relaxed text-amber-800/90 dark:text-amber-200/80">
+                    {variant.site.constraints.map((c) => (
+                      <li key={c}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : view === "2d" ? (
             <div
               className="relative group cursor-zoom-in"
               role="button"
@@ -554,13 +669,14 @@ function VariantCard({
           ) : (
             <FloorPlan3D
               plan={floor}
+              site={variant.site}
               selectedRoomId={selectedRoomId}
               onSelectRoom={setSelectedRoomId}
             />
           )}
 
-          {/* Info pièce sélectionnée (synchro 2D ↔ 3D) */}
-          {selectedRoom && (
+          {/* Info pièce sélectionnée (synchro 2D ↔ 3D) — masquée en plan de masse */}
+          {view !== "mass" && selectedRoom && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-violet-500/30 bg-violet-500/[0.05] px-3 py-2">
               <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
                 {selectedRoom.label}
@@ -581,8 +697,24 @@ function VariantCard({
             </div>
           )}
 
-          {/* Actions : export PDF + analyse */}
+          {/* Actions : sélection du plan de référence, export PDF, analyse */}
           <div className="flex flex-wrap items-center gap-2">
+            {onSelectPlan && (
+              <Button
+                size="sm"
+                variant={isReference ? "secondary" : "default"}
+                onClick={onSelectPlan}
+                disabled={isReference || selecting}
+                className="gap-1.5"
+              >
+                {selecting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <BadgeCheck className="h-3.5 w-3.5" />
+                )}
+                {isReference ? "Plan de référence" : selecting ? "Enregistrement…" : "Retenir ce plan"}
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -632,6 +764,87 @@ function VariantCard({
             )}
           </div>
 
+          {/* Les trois catégories de surfaces — jamais additionnées */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+            <div className="rounded-lg border bg-background/70 px-2.5 py-2">
+              <div className="flex items-center gap-1.5">
+                <Building2 className="h-3 w-3 text-emerald-600" />
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Habitable intérieure
+                </p>
+              </div>
+              <p className="text-sm font-bold tabular-nums mt-0.5">
+                {variant.surfaces.interior.toFixed(1)} <span className="text-[10px] font-medium">m²</span>
+              </p>
+              <p className="text-[9px] text-muted-foreground">Pièces fermées, tous niveaux</p>
+            </div>
+            <div className="rounded-lg border bg-background/70 px-2.5 py-2">
+              <div className="flex items-center gap-1.5">
+                <Layers3 className="h-3 w-3 text-sky-600" />
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Bâtie complémentaire
+                </p>
+              </div>
+              <p className="text-sm font-bold tabular-nums mt-0.5">
+                {variant.surfaces.complementary.toFixed(1)} <span className="text-[10px] font-medium">m²</span>
+              </p>
+              <p className="text-[9px] text-muted-foreground">Garage, locaux couverts</p>
+            </div>
+            <div className="rounded-lg border border-lime-600/25 bg-lime-500/[0.05] px-2.5 py-2">
+              <div className="flex items-center gap-1.5">
+                <Trees className="h-3 w-3 text-lime-700" />
+                <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Extérieure aménagée
+                </p>
+              </div>
+              <p className="text-sm font-bold tabular-nums mt-0.5">
+                {variant.surfaces.exterior.toFixed(1)} <span className="text-[10px] font-medium">m²</span>
+              </p>
+              <p className="text-[9px] text-muted-foreground">
+                Jardin {variant.surfaces.garden.toFixed(0)} m²
+                {variant.site.elements.some((e) => e.kind === "piscine") ? " · piscine incluse" : ""}
+              </p>
+            </div>
+          </div>
+          <p className="text-[9px] text-muted-foreground/80 -mt-1">
+            Les surfaces extérieures ne sont jamais additionnées à la surface habitable ni à la
+            surface bâtie.
+          </p>
+
+          {/* Parti architectural : avantages et caractéristiques */}
+          <div className="rounded-lg border bg-muted/20 px-3 py-2.5 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <Lightbulb className="h-3 w-3 text-amber-600" />
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Parti architectural
+              </span>
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">{variant.description}</p>
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-emerald-700 mb-1">
+                Avantages
+              </p>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-0.5">
+                {variant.advantages.map((a) => (
+                  <li key={a} className="text-[10px] leading-snug text-muted-foreground flex gap-1.5">
+                    <span className="text-emerald-600 mt-0.5">✓</span>
+                    <span>{a}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {variant.characteristics.map((c) => (
+                <span
+                  key={c}
+                  className="rounded-full border border-border bg-background px-2 py-0.5 text-[9px] text-muted-foreground"
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
+          </div>
+
           {/* Fiche technique : tableau des surfaces */}
           <div className="rounded-lg border overflow-hidden">
             <div className="px-3 py-1.5 bg-muted/50 flex items-center gap-1.5">
@@ -664,6 +877,16 @@ function VariantCard({
             </table>
           </div>
 
+          {/* Source de la parcelle */}
+          <div className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
+            <Waves className="h-3 w-3 text-sky-600" />
+            <span>
+              {variant.site.plot.source === "projet"
+                ? `Plan de masse établi sur la parcelle du projet (${variant.site.plot.area.toFixed(0)} m²).`
+                : `Parcelle de référence estimée (${variant.site.plot.area.toFixed(0)} m²) : à confirmer avant permis de bâtir.`}
+            </span>
+          </div>
+
           {/* Note conceptuelle */}
           <div className="rounded-lg border border-violet-500/20 bg-violet-500/[0.04] px-3 py-2.5">
             <div className="flex items-center gap-1.5 mb-1">
@@ -683,6 +906,8 @@ function VariantCard({
               { ok: v.areasOk, label: "Surfaces cohérentes" },
               { ok: v.circulationOk, label: "Circulation" },
               { ok: v.structureOk, label: "Structure continue" },
+              { ok: v.exteriorOk, label: "Extérieurs séparés" },
+              { ok: v.surfacesOk, label: "Surfaces cohérentes" },
             ].map((c) => (
               <span
                 key={c.label}

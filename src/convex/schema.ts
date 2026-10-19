@@ -412,6 +412,20 @@ const schema = defineSchema(
       pools: v.optional(v.number()),
       // Surface totale du terrain (m2)
       surfaceTotale: v.optional(v.number()),
+      // Variante de plan architectural retenue par l'utilisateur. Les surfaces
+      // du plan deviennent la référence des étapes suivantes (coût, matériaux,
+      // métrés) via `levelSurfaces`, sans modifier la surface demandée.
+      planSelection: v.optional(
+        v.object({
+          variantId: v.string(),
+          styleId: v.string(),
+          name: v.string(),
+          builtArea: v.number(),
+          levelSurfaces: v.array(v.number()),
+          footprint: v.object({ length: v.number(), width: v.number() }),
+          selectedAt: v.number(),
+        }),
+      ),
       
       // AI Analysis results
       aiAnalysis: v.optional(

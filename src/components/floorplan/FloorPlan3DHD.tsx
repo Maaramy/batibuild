@@ -28,7 +28,8 @@ import {
   Box, Contrast, Eye, EyeOff, Focus, Maximize, Minimize,
   MousePointerClick, RotateCcw, Tag,
 } from "lucide-react";
-import type { FloorPlan, RoomKind } from "@/lib/floorPlanEngine";
+import type { FloorPlan, RoomKind, SitePlan } from "@/lib/floorPlanEngine";
+import { buildSiteScene } from "./site3D";
 import { roomFurniture, type MatTag } from "@/lib/furniture";
 import { cn } from "@/lib/utils";
 
@@ -65,8 +66,10 @@ const ROOM_COLORS_3D: Record<RoomKind, number> = {
   sanitaire: 0xaee6f0, hall: 0xe4e4e0, stockage: 0xf6d6b8,
   logistique: 0xf6dcc2, vestiaire: 0xd8cdf5,
   salle_client: 0xf6e6a0, comptoir: 0xf5c890, cuisine_pro: 0xf3b8b8,
-  plonge: 0xaee6f0, chambre_froide: 0xbde6f0, terrasse: 0xc8e8b8,
-  attente: 0xe0d0f0, polyvalent: 0xdfe3e8,
+  plonge: 0xaee6f0, chambre_froide: 0xbde6f0, terrasse: 0xc8e8b8,  attente: 0xe0d0f0,
+  polyvalent: 0xdfe3e8,
+  patio: 0xc8e8b8,
+  buanderie: 0xdde3ea,
 };
 
 // ── Détection de capacités (netteté vs performance) ─────────────────────────
@@ -101,6 +104,8 @@ function qualitySettings(q: QualityLevel) {
 
 interface FloorPlan3DProps {
   plan: FloorPlan;
+  /** Plan de masse : jardin, piscine, terrasse, cuisine d'été à leur place réelle. */
+  site?: SitePlan;
   selectedRoomId?: string | null;
   onSelectRoom?: (roomId: string | null) => void;
   /** Repli de compatibilité : `lite` équivaut à la qualité "low". */
@@ -137,6 +142,7 @@ function mergeIntervals(list: Interval[]): Interval[] {
  */
 export function FloorPlan3DHD({
   plan,
+  site,
   selectedRoomId,
   onSelectRoom,
   lite,
@@ -186,12 +192,14 @@ export function FloorPlan3DHD({
     const controls = controlsRef.current;
     if (!camera || !controls) return;
     const L = plan.length, W = plan.width;
-    const dist = Math.max(L, W);
+    const dist = site ? Math.max(site.plot.length, site.plot.width) : Math.max(L, W);
+    const cx = site ? site.plot.length / 2 - site.building.x : L / 2;
+    const cz = site ? site.plot.width / 2 - site.building.y : W / 2;
     const fov = (camera.fov * Math.PI) / 180;
     // Distance pour encadrer la diagonale avec une marge de 12 %
     const fitDist = ((dist * 1.15) / 2) / Math.tan(fov / 2);
-    camera.position.set(L * 0.05 - fitDist * 0.52, fitDist * 0.62, fitDist * 0.86);
-    controls.target.set(L / 2, WALL_H * 0.33, W / 2);
+    camera.position.set(cx - fitDist * 0.52, fitDist * 0.62, cz + fitDist * 0.86);
+    controls.target.set(cx, WALL_H * 0.33, cz);
     controls.minDistance = dist * 0.22;
     controls.maxDistance = dist * 2.6;
     camera.near = Math.max(0.05, fitDist * 0.01);
@@ -199,7 +207,7 @@ export function FloorPlan3DHD({
     controls.autoRotate = false;
     camera.updateProjectionMatrix();
     controls.update();
-  }, [plan]);
+  }, [plan, site]);
 
   const applyPreset = useCallback(
     (p: ViewPreset) => {
@@ -278,11 +286,13 @@ export function FloorPlan3DHD({
     const height = container.clientHeight || 380;
     const camera = new THREE.PerspectiveCamera(42, width / height, 0.05, 1000);
     cameraRef.current = camera;
-    const dist0 = Math.max(L, W);
+    const dist0 = site ? Math.max(site.plot.length, site.plot.width) : Math.max(L, W);
+    const cx0 = site ? site.plot.length / 2 - site.building.x : L / 2;
+    const cz0 = site ? site.plot.width / 2 - site.building.y : W / 2;
     const fitDist0 = ((dist0 * 1.15) / 2) / Math.tan(((42 * Math.PI) / 180) / 2);
     camera.near = Math.max(0.05, fitDist0 * 0.01);
     camera.far = fitDist0 * 12;
-    camera.position.set(L * 0.05 - fitDist0 * 0.52, fitDist0 * 0.62, fitDist0 * 0.86);
+    camera.position.set(cx0 - fitDist0 * 0.52, fitDist0 * 0.62, cz0 + fitDist0 * 0.86);
 
     // ── Renderer : résolution physique réelle (anti-flou) ──────────────────
     // `pm` est lu localement pendant toute la construction de la scène (l'état
@@ -359,13 +369,19 @@ export function FloorPlan3DHD({
     scene.add(fill);
 
     // ── Terrain + dalle ────────────────────────────────────────────────────
-    const grassGeo = track(new THREE.PlaneGeometry(L + 14, W + 14));
-    const grassMat = track(new THREE.MeshStandardMaterial({ color: 0x9db87a, roughness: 1 }));
-    const grass = new THREE.Mesh(grassGeo, grassMat);
-    grass.rotation.x = -Math.PI / 2;
-    grass.position.set(L / 2, -0.12, W / 2);
-    grass.receiveShadow = shadowsOn;
-    scene.add(grass);
+    // Avec un plan de masse, le sol réel (parcelle, jardin, bassin, terrasse)
+    // remplace la pelouse générique : les extérieurs sont à leur place exacte.
+    if (site) {
+      scene.add(buildSiteScene(site, { shadows: shadowsOn, track }));
+    } else {
+      const grassGeo = track(new THREE.PlaneGeometry(L + 14, W + 14));
+      const grassMat = track(new THREE.MeshStandardMaterial({ color: 0x9db87a, roughness: 1 }));
+      const grass = new THREE.Mesh(grassGeo, grassMat);
+      grass.rotation.x = -Math.PI / 2;
+      grass.position.set(L / 2, -0.12, W / 2);
+      grass.receiveShadow = shadowsOn;
+      scene.add(grass);
+    }
 
     const slabGeo = track(new THREE.BoxGeometry(L + 1.2, 0.12, W + 1.2));
     const slabMat = track(new THREE.MeshStandardMaterial({ color: 0xcbc4b4, roughness: 0.95 }));
@@ -734,7 +750,7 @@ export function FloorPlan3DHD({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan, quality]);
+  }, [plan, quality, site]);
 
   // ── Bascule Architectural ↔ Réaliste (mêmes données, matériaux/contours) ─
   useEffect(() => {
