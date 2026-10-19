@@ -2,11 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
+import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
 import { useMutation, useQuery } from "convex/react";
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
@@ -565,7 +565,15 @@ export default function NewProject() {
     })];
   }, [floors, surface, upperSurfaces]);
   const [analyzing, setAnalyzing] = useState(false);
-  const [analysisProgress, setAnalysisProgress] = useState(0);
+  // `calculationDone` : la création du projet ET le calcul réel de
+  // l'estimation sont terminés. L'écran de chargement de 4 s s'en sert pour ne
+  // jamais naviguer avant la disponibilité réelle des résultats.
+  const [calculationDone, setCalculationDone] = useState(false);
+  const [analysisProjectName, setAnalysisProjectName] = useState("");
+  // Identifiant réel du projet créé — jamais régénéré côté page.
+  const createdProjectIdRef = useRef<string | null>(null);
+  // Verrou anti double-clic : un seul projet créé et un seul calcul lancé.
+  const analysisStartedRef = useRef(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [validated, setValidated] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -692,18 +700,16 @@ export default function NewProject() {
   };
 
   const handleStartAnalysis = async (formName: string = projectName) => {
+    if (analysisStartedRef.current) return;
     if (!validateForm(formName)) return;
+    analysisStartedRef.current = true;
 
     setAnalyzing(true);
+    setCalculationDone(false);
+    createdProjectIdRef.current = null;
+    setAnalysisProjectName(formName.trim());
     markStepCompleted("form");
     goToStep("analyzing");
-
-    const interval = setInterval(() => {
-      setAnalysisProgress((prev) => {
-        if (prev >= 95) { clearInterval(interval); return 95; }
-        return prev + Math.random() * 15;
-      });
-    }, 400);
 
     try {
       const projectId = await createProject({
@@ -722,19 +728,28 @@ export default function NewProject() {
 
       await simulateAnalysis({ projectId });
 
-      clearInterval(interval);
-      setAnalysisProgress(100);
-      setTimeout(() => {
-        markStepCompleted("analyzing");
-        setTimeout(() => navigate(`/dashboard/project/${projectId}`), 800);
-      }, 500);
+      // Les résultats sont réellement disponibles : l'écran de chargement
+      // termine son animation de 4 s (sans la prolonger) avant la navigation.
+      setCalculationDone(true);
     } catch (error: any) {
-      clearInterval(interval);
       console.error("Error:", error);
+      analysisStartedRef.current = false;
+      createdProjectIdRef.current = null;
       setErrors({ name: "Une erreur est survenue. Veuillez réessayer." });
       setAnalyzing(false);
+      goToStep("form");
     }
   };
+
+  // Fin de l'écran de chargement : appelée uniquement lorsque l'animation de
+  // 4 s ET le calcul réel sont terminés. Le projet affiché est celui qui vient
+  // d'être créé (même identifiant que celui enregistré côté Convex).
+  const handleAnalysisComplete = useCallback(() => {
+    const projectId = createdProjectIdRef.current;
+    if (!projectId) return;
+    setCompletedSteps((prev) => new Set(prev).add("analyzing"));
+    navigate(`/dashboard/project/${projectId}`);
+  }, [navigate]);
 
   // Bornes / pas / valeur recommandée de la barre de surface : recalculés à
   // chaque changement de type de projet.
@@ -1185,56 +1200,16 @@ export default function NewProject() {
         {step === "analyzing" && (
           <motion.div
             key="analyzing"
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-col items-center justify-center py-8 sm:py-12"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
           >
-            <div className="relative mb-6">
-              <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              </div>
-              {/* Animated rings */}
-              <motion.div
-                className="absolute inset-0 rounded-full border-2 border-primary/20"
-                animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0, 0.4] }}
-                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-              />
-            </div>
-
-            <h2 className="text-lg sm:text-xl font-bold mb-2">Analyse en cours</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground mb-6 max-w-sm text-center leading-relaxed">
-              Notre moteur BIM calcule l'estimation selon les prix du marché tunisien 2026
-            </p>
-
-            <div className="w-full max-w-xs mx-auto space-y-2">
-              <Progress value={analysisProgress} className="h-2.5" />
-              <div className="flex justify-between items-center">
-                <span className="text-[10px] text-muted-foreground">
-                  {analysisProgress < 30 && "📐 Préparation des données..."}
-                  {analysisProgress >= 30 && analysisProgress < 60 && "🧱 Calcul des matériaux..."}
-                  {analysisProgress >= 60 && analysisProgress < 85 && "💰 Estimation des coûts..."}
-                  {analysisProgress >= 85 && "✅ Finalisation du rapport..."}
-                </span>
-                <span className="text-xs font-semibold text-primary">
-                  {Math.round(analysisProgress)}%
-                </span>
-              </div>
-            </div>
-
-            {analysisProgress === 100 && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-6"
-              >
-                <div className="flex items-center gap-2 text-emerald-600">
-                  <CircleCheck className="h-5 w-5" />
-                  <span className="text-sm font-medium">Rapport prêt !</span>
-                </div>
-              </motion.div>
-            )}
+            <EstimateLoadingScreen
+              projectName={analysisProjectName}
+              pending={!calculationDone}
+              onComplete={handleAnalysisComplete}
+            />
           </motion.div>
         )}
       </AnimatePresence>
