@@ -1444,6 +1444,48 @@ const schema = defineSchema(
       .index("by_user_project", ["userId", "projectId"])
       .index("by_user_project_version", ["userId", "projectId", "version"]),
 
+    // ── Plans techniques (plomberie / électricité) ──────────────────────────
+    // Un document courant par projet + utilisateur + type + variante + niveau.
+    // Les positions modifiées manuellement et les quantités sont conservées
+    // telles quelles ; les versions successives sont archivées à part.
+    projectTechnicalPlans: defineTable({
+      projectId: v.id("projects"),
+      userId: v.id("users"),
+      kind: v.union(v.literal("plomberie"), v.literal("electricite")),
+      variantId: v.string(),
+      level: v.number(),
+      version: v.number(),
+      /** Positions modifiées (id du point → { x, y } en mètres). */
+      overrides: v.any(),
+      /** Quantités calculées au moment de l'enregistrement. */
+      quantities: v.any(),
+      /** Synthèse (surface, emprise, nombre de points, calories calculées). */
+      summary: v.any(),
+      note: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_project_user", ["projectId", "userId"])
+      .index("by_project_user_kind", ["projectId", "userId", "kind"])
+      .index("by_project_user_key", ["projectId", "userId", "kind", "variantId", "level"]),
+
+    // Historique des versions enregistrées (une ligne par sauvegarde).
+    projectTechnicalPlanVersions: defineTable({
+      projectId: v.id("projects"),
+      userId: v.id("users"),
+      kind: v.union(v.literal("plomberie"), v.literal("electricite")),
+      variantId: v.string(),
+      level: v.number(),
+      version: v.number(),
+      overrides: v.any(),
+      quantities: v.any(),
+      summary: v.any(),
+      note: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_project_user_kind", ["projectId", "userId", "kind"])
+      .index("by_project_user_key", ["projectId", "userId", "kind", "variantId", "level"]),
+
     budgetAnalyses: defineTable({
       projectId: v.id("projects"),
       userId: v.id("users"),

@@ -189,6 +189,7 @@ export { default as Moon } from "../../node_modules/lucide-react/dist/esm/icons/
 export { default as MoonStar } from "../../node_modules/lucide-react/dist/esm/icons/moon-star.js";
 export { default as MoreHorizontal } from "../../node_modules/lucide-react/dist/esm/icons/more-horizontal.js";
 export { default as MousePointer } from "../../node_modules/lucide-react/dist/esm/icons/mouse-pointer.js";
+export { default as MousePointer2 } from "../../node_modules/lucide-react/dist/esm/icons/mouse-pointer-2.js";
 export { default as MousePointerClick } from "../../node_modules/lucide-react/dist/esm/icons/mouse-pointer-click.js";
 export { default as Newspaper } from "../../node_modules/lucide-react/dist/esm/icons/newspaper.js";
 export { default as NotebookPen } from "../../node_modules/lucide-react/dist/esm/icons/notebook-pen.js";
@@ -263,6 +264,7 @@ export { default as TriangleAlertIcon } from "../../node_modules/lucide-react/di
 export { default as TreePine } from "../../node_modules/lucide-react/dist/esm/icons/tree-pine.js";
 export { default as Trophy } from "../../node_modules/lucide-react/dist/esm/icons/trophy.js";
 export { default as Truck } from "../../node_modules/lucide-react/dist/esm/icons/truck.js";
+export { default as Undo2 } from "../../node_modules/lucide-react/dist/esm/icons/undo-2.js";
 export { default as Upload } from "../../node_modules/lucide-react/dist/esm/icons/upload.js";
 export { default as User } from "../../node_modules/lucide-react/dist/esm/icons/user.js";
 export { default as UserCheck } from "../../node_modules/lucide-react/dist/esm/icons/user-check.js";
@@ -282,3 +284,5 @@ export { default as X } from "../../node_modules/lucide-react/dist/esm/icons/x.j
 export { default as XCircle } from "../../node_modules/lucide-react/dist/esm/icons/x-circle.js";
 export { default as XIcon } from "../../node_modules/lucide-react/dist/esm/icons/x.js";
 export { default as Zap } from "../../node_modules/lucide-react/dist/esm/icons/zap.js";
+export { default as ZoomIn } from "../../node_modules/lucide-react/dist/esm/icons/zoom-in.js";
+export { default as ZoomOut } from "../../node_modules/lucide-react/dist/esm/icons/zoom-out.js";

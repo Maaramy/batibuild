@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Compass,
   Download,
+  Droplets,
   Info,
   Layers3,
   Lightbulb,
@@ -15,6 +16,7 @@ import {
   Maximize2,
   Ruler,
   ScanLine,
+  Zap,
 } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
@@ -40,7 +42,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TechnicalPlansPanel } from "@/components/floorplan/TechnicalPlansPanel";
 import {
   generateFloorPlans,
   summarizeSurfaces,
@@ -124,6 +127,28 @@ export default function PlanGenerator() {
     api.projects.getProject,
     projectId ? { projectId: projectId as Id<"projects"> } : "skip",
   );
+
+  // ── Plans techniques enregistrés (plomberie / électricité) ──
+  // Même contrôle d'accès côté serveur que le projet : aucune donnée d'un
+  // autre projet ne peut être chargée ici.
+  const savedTechnicalPlans = useQuery(
+    api.technicalPlans.getProjectTechnicalPlans,
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
+  );
+
+  // Onglets de la page : plan architectural + les deux plans techniques.
+  const [planTab, setPlanTab] = useState<"architecture" | "plomberie" | "electricite">(
+    "architecture",
+  );
+  const [techVariantId, setTechVariantId] = useState<string | null>(null);
+
+  // Changement de projet sans démontage de la page : on repart de l'onglet
+  // architectural et d'aucune variante technique mémorisée, pour ne jamais
+  // réutiliser un état (ou des positions) appartenant au projet précédent.
+  useEffect(() => {
+    setTechVariantId(null);
+    setPlanTab("architecture");
+  }, [projectId]);
 
   // ── Travaux complémentaires sélectionnés par l'utilisateur ──
   // Source unique (enregistrée côté serveur, partagée avec le résultat
@@ -242,6 +267,27 @@ export default function PlanGenerator() {
           </div>
         ) : project ? (
           <>
+            {/* ── Trois plans : architectural, plomberie, électricité ── */}
+            <Tabs
+              value={planTab}
+              onValueChange={(value) =>
+                setPlanTab(value as "architecture" | "plomberie" | "electricite")
+              }
+              className="gap-4"
+            >
+              <TabsList className="h-auto w-full justify-start overflow-x-auto p-1 sm:w-fit">
+                <TabsTrigger value="architecture" className="h-8 gap-1.5 px-3 text-[11px] sm:text-xs">
+                  <Layers3 className="h-3.5 w-3.5" /> Plan architectural
+                </TabsTrigger>
+                <TabsTrigger value="plomberie" className="h-8 gap-1.5 px-3 text-[11px] sm:text-xs">
+                  <Droplets className="h-3.5 w-3.5" /> Plan de plomberie
+                </TabsTrigger>
+                <TabsTrigger value="electricite" className="h-8 gap-1.5 px-3 text-[11px] sm:text-xs">
+                  <Zap className="h-3.5 w-3.5" /> Plan électrique
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="architecture" className="space-y-5">
             {/* ── Bandeau synthèse projet ── */}
             <Card className="border-primary/15 bg-gradient-to-r from-violet-500/[0.05] to-transparent">
               <CardContent className="py-4 px-4 sm:px-5 flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -274,6 +320,11 @@ export default function PlanGenerator() {
                   variant={variant}
                   index={i}
                   projectName={project.name}
+                  onOpenTechnical={(variantId, kind) => {
+                    setTechVariantId(variantId);
+                    setPlanTab(kind);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
                 />
               ))}
             </div>
@@ -282,6 +333,46 @@ export default function PlanGenerator() {
               Plans générés algorithmiquement à titre indicatif — validation par un architecte
               inscrit à l'ordre requise avant dépôt du permis de bâtir.
             </p>
+              </TabsContent>
+
+              <TabsContent value="plomberie">
+                <TechnicalPlansPanel
+                  projectId={projectId}
+                  projectName={project.name}
+                  project={{
+                    description: project.description,
+                    bathrooms: project.bathrooms,
+                    kitchens: project.kitchens,
+                    wcs: project.wcs,
+                    dqe: project.dqe as { lots?: any[] } | undefined,
+                  }}
+                  variants={variants}
+                  kind="plomberie"
+                  key={`plomberie-${projectId}`}
+                  savedPlans={savedTechnicalPlans}
+                  initialVariantId={techVariantId}
+                />
+              </TabsContent>
+
+              <TabsContent value="electricite">
+                <TechnicalPlansPanel
+                  projectId={projectId}
+                  projectName={project.name}
+                  project={{
+                    description: project.description,
+                    bathrooms: project.bathrooms,
+                    kitchens: project.kitchens,
+                    wcs: project.wcs,
+                    dqe: project.dqe as { lots?: any[] } | undefined,
+                  }}
+                  variants={variants}
+                  kind="electricite"
+                  key={`electricite-${projectId}`}
+                  savedPlans={savedTechnicalPlans}
+                  initialVariantId={techVariantId}
+                />
+              </TabsContent>
+            </Tabs>
           </>
         ) : null}
       </div>
@@ -320,10 +411,12 @@ function VariantCard({
   variant,
   index,
   projectName,
+  onOpenTechnical,
 }: {
   variant: FloorPlanVariant;
   index: number;
   projectName: string;
+  onOpenTechnical?: (variantId: string, kind: "plomberie" | "electricite") => void;
 }) {
   const [floorIdx, setFloorIdx] = useState(0);
   const [view, setView] = useState<"2d" | "3d">("2d");
@@ -517,6 +610,26 @@ function VariantCard({
                 )}
               />
             </Button>
+            {onOpenTechnical && (
+              <div className="ml-auto flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 gap-1 px-2 text-[10px] text-sky-700 hover:bg-sky-500/10 hover:text-sky-800 dark:text-sky-300"
+                  onClick={() => onOpenTechnical(variant.id, "plomberie")}
+                >
+                  <Droplets className="h-3.5 w-3.5" /> Plomberie
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 gap-1 px-2 text-[10px] text-amber-700 hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-300"
+                  onClick={() => onOpenTechnical(variant.id, "electricite")}
+                >
+                  <Zap className="h-3.5 w-3.5" /> Électricité
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Fiche technique : tableau des surfaces */}
