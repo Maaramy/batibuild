@@ -129,21 +129,31 @@ export interface EstimateIntroState {
  * - 4 000 ms → 100 %, 6 étapes terminées, aucune étape active ;
  * - au-delà, l'état est figé (aucune prolongation de l'animation).
  */
-export function estimateIntroState(elapsedMs: number): EstimateIntroState {
-  const total = ESTIMATE_JOURNEY_STEPS.length;
+export function estimateIntroState(
+  elapsedMs: number,
+  durationMs: number = ESTIMATE_INTRO_MS,
+  stepCount: number = ESTIMATE_JOURNEY_STEPS.length,
+): EstimateIntroState {
+  const total = Math.max(1, Math.floor(stepCount) || 1);
+  // Durée configurable (4 000 ms pour l'estimation, 3 000 ms pour le budget),
+  // avec repli sur la durée officielle si la valeur est invalide.
+  const duration =
+    Number.isFinite(durationMs) && durationMs > 0
+      ? durationMs
+      : ESTIMATE_INTRO_MS;
   const elapsed = Number.isFinite(elapsedMs)
-    ? Math.min(Math.max(elapsedMs, 0), ESTIMATE_INTRO_MS)
+    ? Math.min(Math.max(elapsedMs, 0), duration)
     : 0;
 
-  if (elapsed >= ESTIMATE_INTRO_MS) {
+  if (elapsed >= duration) {
     return { progress: 100, completed: total, activeIndex: -1, done: true };
   }
 
-  const segment = ESTIMATE_INTRO_MS / total;
+  const segment = duration / total;
   const activeIndex = Math.min(total - 1, Math.floor(elapsed / segment));
   return {
-    // `floor` : 100 % est atteint exactement à 4 000 ms, jamais avant.
-    progress: Math.floor((elapsed / ESTIMATE_INTRO_MS) * 100),
+    // `floor` : 100 % est atteint exactement à la fin, jamais avant.
+    progress: Math.floor((elapsed / duration) * 100),
     completed: activeIndex,
     activeIndex,
     done: false,

@@ -149,6 +149,26 @@ describe("estimateIntroState — animation de l'estimation", () => {
     expect(describeEstimateError(undefined)).toMatch(/réessayez/i);
   });
 
+  it("supporte une durée de 3 000 ms et un nombre d'étapes configurable", () => {
+    // 6 étapes × 500 ms pour l'analyse budgétaire.
+    expect(estimateIntroState(0, 3000, 6)).toMatchObject({
+      progress: 0,
+      activeIndex: 0,
+      done: false,
+    });
+    expect(estimateIntroState(500, 3000, 6).activeIndex).toBe(1);
+    expect(estimateIntroState(1500, 3000, 6).progress).toBe(50);
+    expect(estimateIntroState(2999, 3000, 6).progress).toBe(99);
+    expect(estimateIntroState(3000, 3000, 6)).toEqual({
+      progress: 100,
+      completed: 6,
+      activeIndex: -1,
+      done: true,
+    });
+    // Au-delà : figé, jamais prolongé.
+    expect(estimateIntroState(9000, 3000, 6)).toEqual(estimateIntroState(3000, 3000, 6));
+  });
+
   it("progresse de façon monotone (aucun retour en arrière)", () => {
     let previous = -1;
     for (let elapsed = 0; elapsed <= ESTIMATE_INTRO_MS; elapsed += 50) {

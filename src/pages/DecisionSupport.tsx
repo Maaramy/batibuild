@@ -229,6 +229,10 @@ export default function DecisionSupport() {
 
             {/* ── Module budget / capacité de construction ── */}
             <DecisionSupportModule
+              // Le module est remonté à chaque changement de projet : aucun
+              // résultat, budget, erreur ni animation du projet précédent ne
+              // peut subsister.
+              key={project._id}
               projectId={project._id}
               projectName={project.name}
               projectTypeLabel={projectTypeLabel(project.category)}

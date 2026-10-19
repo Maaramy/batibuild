@@ -68,6 +68,11 @@ export function EstimateLoadingScreen({
   error = null,
   onComplete,
   onRetry,
+  durationMs = ESTIMATE_INTRO_MS,
+  title = "BatiBuild prépare votre estimation",
+  description,
+  steps,
+  progressLabel = "Progression de l'estimation",
   className,
 }: {
   /** Nom du projet envoyé au calcul (affichage uniquement). */
@@ -80,11 +85,28 @@ export function EstimateLoadingScreen({
   onComplete: () => void;
   /** Nouvelle tentative sans recréer le projet (action utilisateur). */
   onRetry?: () => void;
+  /** Durée de l'animation initiale (4 000 ms par défaut). */
+  durationMs?: number;
+  /** Titre contextuel de l'écran (même design dans tous les cas). */
+  title?: string;
+  /** Texte contextuel sous le titre. */
+  description?: string;
+  /** Étapes affichées (6 étapes du Journey par défaut). */
+  steps?: readonly string[];
+  /** Libellé accessible de la barre de progression. */
+  progressLabel?: string;
   className?: string;
 }) {
   const reduceMotion = useReducedMotion();
+  const stepLabels =
+    steps && steps.length > 0 ? steps : ESTIMATE_JOURNEY_STEPS;
+  const stepCount = stepLabels.length;
+  const duration =
+    Number.isFinite(durationMs) && durationMs > 0
+      ? durationMs
+      : ESTIMATE_INTRO_MS;
   const [intro, setIntro] = useState<EstimateIntroState>(() =>
-    estimateIntroState(0),
+    estimateIntroState(0, duration, stepCount),
   );
   const notifiedRef = useRef(false);
 
@@ -99,12 +121,12 @@ export function EstimateLoadingScreen({
     const finish = () => {
       if (finished) return;
       finished = true;
-      setIntro(estimateIntroState(ESTIMATE_INTRO_MS));
+      setIntro(estimateIntroState(duration, duration, stepCount));
     };
 
     const tick = (now: number) => {
       if (finished) return;
-      const next = estimateIntroState(now - start);
+      const next = estimateIntroState(now - start, duration, stepCount);
       if (next.done) {
         finish();
         return;
@@ -119,12 +141,12 @@ export function EstimateLoadingScreen({
     };
 
     frame = requestAnimationFrame(tick);
-    const backstop = window.setTimeout(finish, ESTIMATE_INTRO_MS);
+    const backstop = window.setTimeout(finish, duration);
     return () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(backstop);
     };
-  }, []);
+  }, [duration, stepCount]);
 
   // Machine à états : les données réelles priment, puis l'erreur, puis
   // l'attente / l'animation.
@@ -212,7 +234,7 @@ export function EstimateLoadingScreen({
         </div>
 
         <h2 className="text-base font-bold tracking-tight sm:text-lg">
-          BatiBuild prépare votre estimation
+          {title}
         </h2>
         <p className="mt-1 max-w-md text-[11px] leading-relaxed text-muted-foreground sm:text-xs">
           {projectName ? (
@@ -221,8 +243,8 @@ export function EstimateLoadingScreen({
               {" · "}
             </>
           ) : null}
-          Calcul selon les prix du marché tunisien 2026 — les 6 étapes de votre
-          parcours se préparent.
+          {description ??
+            `Calcul selon les prix du marché tunisien 2026 — les ${stepCount} étapes de votre parcours se préparent.`}
         </p>
 
         {/* ── Barre de progression + étape en cours ── */}
@@ -232,7 +254,7 @@ export function EstimateLoadingScreen({
               {phase === "error"
                 ? "Chargement interrompu"
                 : phase === "loading"
-                  ? `Étape ${intro.activeIndex + 1} sur ${ESTIMATE_JOURNEY_STEPS.length}`
+                  ? `Étape ${intro.activeIndex + 1} sur ${stepCount}`
                   : "Parcours prêt"}
             </span>
             <span className="shrink-0 tabular-nums text-emerald-700 dark:text-emerald-400">
@@ -241,7 +263,7 @@ export function EstimateLoadingScreen({
           </div>
           <Progress
             value={intro.progress}
-            aria-label="Progression de l'estimation"
+            aria-label={progressLabel}
             className="h-2 [&_[data-slot=progress-indicator]]:transition-none"
           />
           {phase === "error" ? (
@@ -283,7 +305,7 @@ export function EstimateLoadingScreen({
                   ? "Estimation prête, affichage des résultats…"
                   : phase === "waiting"
                     ? "Calculs en cours — attente des données réelles…"
-                    : ESTIMATE_JOURNEY_STEPS[intro.activeIndex]}
+                    : stepLabels[intro.activeIndex]}
               </p>
               {phase === "waiting" && (
                 <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
@@ -311,7 +333,7 @@ export function EstimateLoadingScreen({
               }
             />
             <ol className="relative grid grid-cols-3 gap-2 xl:grid-cols-6">
-              {ESTIMATE_JOURNEY_STEPS.map((label, index) => {
+              {stepLabels.map((label, index) => {
                 const state = stateOf(index);
                 return (
                   <li
@@ -327,7 +349,7 @@ export function EstimateLoadingScreen({
                   >
                     <StepNode
                       state={state}
-                      icon={STEP_ICONS[index]}
+                      icon={STEP_ICONS[index % STEP_ICONS.length]}
                       reduceMotion={Boolean(reduceMotion)}
                     />
                     <span className="line-clamp-2 min-w-0 text-center text-[10.5px] font-medium leading-tight">
@@ -347,7 +369,7 @@ export function EstimateLoadingScreen({
             aria-hidden
             className="absolute bottom-4 left-7 top-4 w-px bg-border/70"
           />
-          {ESTIMATE_JOURNEY_STEPS.map((label, index) => {
+          {stepLabels.map((label, index) => {
             const state = stateOf(index);
             return (
               <li
@@ -363,7 +385,7 @@ export function EstimateLoadingScreen({
               >
                 <StepNode
                   state={state}
-                  icon={STEP_ICONS[index]}
+                  icon={STEP_ICONS[index % STEP_ICONS.length]}
                   reduceMotion={Boolean(reduceMotion)}
                 />
                 <span className="min-w-0 flex-1 text-left text-[11px] font-medium leading-tight">

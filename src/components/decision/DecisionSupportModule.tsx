@@ -23,7 +23,7 @@
 //   dans « Coût de construction » (sous la carte « Confiance »).
 // ============================================================================
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router";
 import { useQuery } from "convex/react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -287,12 +287,37 @@ export function DecisionSupportModule({
     });
   }, [budgetContext, analyzedBudget, projectId, projectName, scenarioLabel, projectTotal, costPerM2, surface]);
 
-  const runBudgetAnalysis = useCallback(
-    (budget: number) => {
-      const value = Math.max(0, Math.round(budget));
-      setAnalyzedBudget(value);
-      const ctx = budgetContext;
-      if (!ctx) return;
+  // ── Analyse budgétaire : animation de 3 s + résultat réel ────────────────
+  // Le calcul reste EXACTEMENT `buildBudgetAnalysis` (mêmes données, mêmes
+  // montants) ; l'animation est purement visuelle. Le résultat n'est affiché
+  // qu'après la fin de l'animation ET la persistance réussie.
+  const [budgetPhase, setBudgetPhase] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [budgetSettled, setBudgetSettled] = useState(false);
+  const [budgetError, setBudgetError] = useState<string | null>(null);
+  const [budgetAttempt, setBudgetAttempt] = useState(0);
+  const lastBudgetRef = useRef<number | null>(null);
+  const budgetRunRef = useRef(0);
+
+  const startBudgetAnalysis = async (budget: number) => {
+    if (budgetPhase === "loading") return;
+    const value = Math.max(0, Math.round(budget));
+    const ctx = budgetContext;
+    lastBudgetRef.current = value;
+
+    setBudgetError(null);
+    setBudgetSettled(false);
+    setBudgetPhase("loading");
+    setBudgetAttempt((n) => n + 1);
+
+    const runId = ++budgetRunRef.current;
+    try {
+      if (!ctx) {
+        throw new Error(
+          "Le Quantitatif détaillé du projet n'est pas encore disponible.",
+        );
+      }
       const analysis = buildBudgetAnalysis({
         projectId,
         userId: ctx.userId,
@@ -305,7 +330,10 @@ export function DecisionSupportModule({
         lots: ctx.lots,
         surface,
       });
-      void saveBudget({
+      // Le résultat est disponible immédiatement, mais l'affichage attend la
+      // fin de l'animation de 3 s (gérée par l'écran de chargement).
+      setAnalyzedBudget(value);
+      await saveBudget({
         projectId: projectId as Id<"projects">,
         budgetAvailable: value,
         result: {
@@ -328,9 +356,29 @@ export function DecisionSupportModule({
           summarySentence: analysis.summarySentence,
         },
       });
-    },
-    [saveBudget, budgetContext, projectId, projectName, scenarioLabel, projectTotal, costPerM2, surface],
-  );
+      // Tentative obsolète (nouvelle analyse ou démontage) : on n'écrase rien.
+      if (runId !== budgetRunRef.current) return;
+      setBudgetSettled(true);
+    } catch (error) {
+      if (runId !== budgetRunRef.current) return;
+      const message = error instanceof Error ? error.message : "";
+      setBudgetError(
+        message && /abonnement|acc[eè]s|client\s*pro/i.test(message)
+          ? message
+          : "L'analyse budgétaire n'a pas pu aboutir. Vos données de projet sont conservées — vérifiez votre connexion puis réessayez.",
+      );
+      setBudgetPhase("error");
+    }
+  };
+
+  const handleBudgetAnimationComplete = useCallback(() => {
+    setBudgetPhase("ready");
+  }, []);
+
+  const handleBudgetRetry = () => {
+    if (lastBudgetRef.current == null) return;
+    void startBudgetAnalysis(lastBudgetRef.current);
+  };
 
   // ── Signature des données (quantitatif / prix / scénario / marché) ───────
   const signature = useMemo(
@@ -453,7 +501,16 @@ export function DecisionSupportModule({
           budgetAnalysis={budgetAnalysis}
           budgetAvailable={budgetAvailable ?? undefined}
           onBudgetChange={(value) => setBudgetAvailable(value === "" ? null : Number(value))}
-          onBudgetAnalyze={runBudgetAnalysis}
+          onBudgetAnalyze={(value) => {
+            void startBudgetAnalysis(value);
+          }}
+          budgetAnalyzing={budgetPhase === "loading"}
+          budgetAnalysisError={budgetError}
+          budgetAnalysisSettled={budgetSettled}
+          budgetAnalysisAttempt={budgetAttempt}
+          onBudgetAnimationComplete={handleBudgetAnimationComplete}
+          onBudgetRetry={handleBudgetRetry}
+          projectName={projectName}
           projectId={projectId}
           lots={budgetContext?.lots ?? undefined}
           scenarioTotals={scenarioTotals}

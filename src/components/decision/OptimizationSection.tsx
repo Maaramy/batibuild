@@ -15,11 +15,12 @@
 // « Confiance » de la page « Coût de construction ».
 // ============================================================================
 
-import { Coins, Info, Sparkles } from "lucide-react";
+import { Coins, Info, Loader2, Sparkles } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
 import { cn } from "@/lib/utils";
 import {
   MIN_BUDGET_TND,
@@ -32,11 +33,20 @@ import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
 
 import { CapacityDecisionCard } from "@/components/decision/CapacityDecisionCard";
 
+const NOOP = () => undefined;
+
 export function OptimizationSection({
   budgetAnalysis,
   onBudgetAnalyze,
   budgetAvailable,
   onBudgetChange,
+  budgetAnalyzing,
+  budgetAnalysisError,
+  budgetAnalysisSettled,
+  budgetAnalysisAttempt,
+  onBudgetAnimationComplete,
+  onBudgetRetry,
+  projectName,
   projectId,
   lots,
   scenarioTotals,
@@ -51,6 +61,17 @@ export function OptimizationSection({
   onBudgetAnalyze?: (budget: number) => void;
   budgetAvailable?: number;
   onBudgetChange?: (value: string) => void;
+  /** Analyse IA en cours : bouton désactivé, animation affichée. */
+  budgetAnalyzing?: boolean;
+  /** Message d'erreur réel (anim + « Réessayer »). */
+  budgetAnalysisError?: string | null;
+  /** Le résultat réel est calculé et enregistré : l'animation peut se terminer. */
+  budgetAnalysisSettled?: boolean;
+  /** Incrémenté à chaque tentative : remonte l'animation (3 s). */
+  budgetAnalysisAttempt?: number;
+  onBudgetAnimationComplete?: () => void;
+  onBudgetRetry?: () => void;
+  projectName?: string;
   /** Lots du Quantitatif détaillé (source des postes manquant au coût). */
   lots?: QuantitatifLot[];
   /** Totaux des scénarios d'estimation (Économique / Standard / Premium). */
@@ -124,18 +145,41 @@ export function OptimizationSection({
             </div>
             <Button
               className="h-12 w-full gap-1.5 whitespace-nowrap rounded-xl sm:w-auto"
-              disabled={!budgetValid}
+              disabled={!budgetValid || budgetAnalyzing}
+              aria-busy={budgetAnalyzing || undefined}
               onClick={() => onBudgetAnalyze?.(budgetNumber)}
             >
-              <Sparkles className="h-4 w-4" />
-              Analyser mon budget avec l'IA
+              {budgetAnalyzing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {budgetAnalyzing
+                ? "Analyse en cours…"
+                : "Analyser mon budget avec l'IA"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* ── Chargement animé (même design que l'estimation) ── */}
+      {budgetAnalyzing || budgetAnalysisError ? (
+        <EstimateLoadingScreen
+          key={budgetAnalysisAttempt ?? 0}
+          projectName={projectName}
+          durationMs={3000}
+          title="BatiBuild analyse votre budget"
+          description="Comparaison de votre budget disponible avec les montants réels du projet — surface, région, scénario et matériaux."
+          progressLabel="Progression de l'analyse budgétaire"
+          pending={!budgetAnalysisSettled}
+          error={budgetAnalysisError ?? null}
+          onRetry={onBudgetRetry}
+          onComplete={onBudgetAnimationComplete ?? NOOP}
+        />
+      ) : null}
+
       {/* ── Capacité de construction (module d'aide à la décision) ── */}
-      {budgetAnalysis?.available ? (
+      {!budgetAnalyzing && !budgetAnalysisError && budgetAnalysis?.available ? (
         <CapacityDecisionCard
           analysis={budgetAnalysis}
           projectId={projectId}
@@ -143,7 +187,7 @@ export function OptimizationSection({
           scenarioTotals={scenarioTotals}
           complementaryWorksEnabled={complementaryWorksEnabled}
         />
-      ) : budgetAnalysis?.reason ? (
+      ) : !budgetAnalyzing && !budgetAnalysisError && budgetAnalysis?.reason ? (
         <Card className="rounded-2xl border-border/60 bg-card">
           <CardContent className="flex items-start gap-2.5 p-4 sm:p-5">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
