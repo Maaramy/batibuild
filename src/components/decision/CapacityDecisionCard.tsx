@@ -583,9 +583,6 @@ export function CapacityDecisionCard({
             <h3 className="text-base font-semibold leading-tight tracking-tight sm:text-lg">
               Capacité de construction
             </h3>
-            <p className="mt-1 text-xs leading-snug text-muted-foreground sm:text-[13px]">
-              Ce que votre budget permet réellement de construire, calculé sur le Quantitatif de votre projet.
-            </p>
           </div>
           <Button
             variant="outline"
