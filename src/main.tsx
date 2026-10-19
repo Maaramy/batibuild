@@ -47,6 +47,7 @@ const ReportCenter = lazy(() => import("./pages/ReportCenter.tsx"));
 const NewProject = lazy(() => import("./pages/NewProject.tsx"));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail.tsx"));
 const DecisionSupport = lazy(() => import("./pages/DecisionSupport.tsx"));
+const MaterialsUsed = lazy(() => import("./pages/MaterialsUsed.tsx"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel.tsx"));
 const SubscriptionAdminPage = lazy(() => import("./pages/SubscriptionAdminPage.tsx"));
 const PricingPage = lazy(() => import("./pages/PricingPage.tsx"));
@@ -314,6 +315,19 @@ createRoot(document.getElementById("root")!).render(
                     <RequireAuth>
                       <FeatureGate flag="construction_cost_estimation">
                         <DecisionSupport />
+                      </FeatureGate>
+                    </RequireAuth>
+                  }
+                />
+                {/* « Matériaux utilisés » — étape n°2 du parcours : tableau des
+                    articles du quantitatif pour le scénario actif. Les données
+                    proviennent de l'estimation déjà enregistrée. */}
+                <Route
+                  path="/dashboard/materials-used/:id"
+                  element={
+                    <RequireAuth>
+                      <FeatureGate flag="construction_cost_estimation">
+                        <MaterialsUsed />
                       </FeatureGate>
                     </RequireAuth>
                   }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useQuery } from "convex/react";
 import {
+  Boxes,
   BrainCircuit,
   Calculator,
   Check,
@@ -20,11 +21,11 @@ import { ResultPlaceholder, StepResultPanel } from "@/components/LifecycleStepRe
 /**
  * CYCLE DE VIE COMPLET D'UN PROJET — parcours animé de la page d'accueil.
  *
- * Représente les 5 étapes du projet, dans l'ordre officiel de « Projet Journey »
+ * Représente les 6 étapes du projet, dans l'ordre officiel de « Projet Journey »
  * (`src/lib/projectJourney.ts`) :
  *
- *   01 Coût estimatif → 02 Aide à la décision → 03 Plan IA →
- *   04 Consultations → 05 Exécution & suivi
+ *   01 Coût estimatif → 02 Matériaux utilisés → 03 Aide à la décision →
+ *   04 Plan IA → 05 Consultations → 06 Exécution & suivi
  *
  * Les intitulés, l'ordre et les feature flags sont identiques à ceux du
  * parcours projet : une fonctionnalité désactivée par l'administrateur est
@@ -69,6 +70,22 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
       ring: "ring-emerald-500/20",
       shadow: "shadow-emerald-500/30",
       chip: "bg-emerald-500/10",
+    },
+  },
+  {
+    key: "materials",
+    label: "Matériaux utilisés",
+    description:
+      "Consultez les articles, quantités et prix réels nécessaires à votre projet.",
+    icon: Boxes,
+    // Dérivée du quantitatif et de l'estimation : suit le module de coût.
+    flag: JOURNEY_FLAG_KEYS.materialsUsed,
+    accents: {
+      gradient: "from-lime-500 to-emerald-500",
+      text: "text-lime-600 dark:text-lime-400",
+      ring: "ring-lime-500/20",
+      shadow: "shadow-lime-500/30",
+      chip: "bg-lime-500/10",
     },
   },
   {
@@ -135,13 +152,13 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
 
 /**
  * Durée EXACTE d'une étape (ms) : 4 secondes fixes par étape, soit une
- * séquence complète de 20 secondes pour les 5 étapes. Aucune durée aléatoire,
+ * séquence complète de 24 secondes pour les 6 étapes. Aucune durée aléatoire,
  * aucune accélération liée au chargement des données.
  */
 const STEP_DURATION_MS = 4000;
 /**
- * Courte pause, une fois les 5 étapes terminées, avant la reprise de la boucle
- * (durée fixe elle aussi). À la fin, les 5 résultats restent affichés, puis la
+ * Courte pause, une fois les 6 étapes terminées, avant la reprise de la boucle
+ * (durée fixe elle aussi). À la fin, les 6 résultats restent affichés, puis la
  * séquence repart en douceur de l'étape 1.
  */
 const LOOP_HOLD_MS = 1500;
@@ -154,9 +171,9 @@ function pad(n: number): string {
 
 /**
  * Séquence animée du cycle de vie, EN BOUCLE : une étape se termine exactement
- * toutes les 4 secondes (0–4 s étape 1 … 16–20 s étape 5). Dès qu'une étape
+ * toutes les 4 secondes (0–4 s étape 1 … 20–24 s étape 6). Dès qu'une étape
  * passe à « Terminé », son résultat réel s'affiche sous elle et reste visible.
- * À la fin des 20 secondes, les 5 étapes et leurs résultats sont affichés, puis
+ * À la fin des 24 secondes, les 6 étapes et leurs résultats sont affichés, puis
  * la boucle repart de l'étape 1 — sans rechargement, de façon fluide. Seul
  * « réduire les animations » court-circuite le parcours (tout affiché d'emblée).
  */
@@ -209,8 +226,8 @@ export function ProjectLifecycle({ className }: { className?: string }) {
   }, [inView, reduceMotion, total]);
 
   // Séquençage à durée fixe, EN BOUCLE : une étape passe à « Terminé » toutes
-  // les 4 s exactement (0–4 s étape 1, 4–8 s étape 2, … 16–20 s étape 5). Les
-  // 5 étapes tiennent alors toutes « Terminé » avec leurs résultats, puis la
+  // les 4 s exactement (0–4 s étape 1, 4–8 s étape 2, … 20–24 s étape 6). Les
+  // 6 étapes tiennent alors toutes « Terminé » avec leurs résultats, puis la
   // boucle repart de l'étape 1. Aucun chevauchement entre deux étapes.
   useEffect(() => {
     if (!started || total === 0) return;

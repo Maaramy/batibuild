@@ -11,16 +11,18 @@
  *
  *   - **Groupe A** — projets neufs / immobiliers (maison, villa, appartement,
  *     studio, duplex, immeuble, local commercial, bureau, entrepôt,
- *     résidence touristique, projet immobilier neuf) : parcours complet en 5
+ *     résidence touristique, projet immobilier neuf) : parcours complet en 6
  *     étapes :
  *       1. Coût estimatif
- *       2. Aide à la décision
- *       3. Plans architecturaux AI
- *       4. Mise en relation
- *       5. Exécution & suivi
+ *       2. Matériaux utilisés
+ *       3. Aide à la décision
+ *       4. Plans architecturaux AI
+ *       5. Mise en relation
+ *       6. Exécution & suivi
  *   - **Groupe B** — tous les autres types (rénovation, extension, piscine,
- *     restaurant, café, travaux techniques…) : parcours simplifié en 3 étapes
- *     (coût estimatif → aide à la décision → mise en relation).
+ *     restaurant, café, travaux techniques…) : parcours simplifié en 4 étapes
+ *     (coût estimatif → matériaux utilisés → aide à la décision → mise en
+ *     relation).
  *
  * Une étape absente du groupe n'est jamais rendue : ni libellé, ni lien, ni
  * indicateur de progression — il n'y a donc aucun espace vide ni entrée
@@ -64,6 +66,9 @@ export type ProjectJourneyFlags = Record<string, boolean> | null | undefined;
 /** Clés de feature flags qui pilotent les étapes du parcours. */
 export const JOURNEY_FLAG_KEYS = {
   cost: "construction_cost_estimation",
+  // « Matériaux utilisés » est dérivée du Quantitatif détaillé (DQE) et du
+  // résultat d'estimation : elle suit donc l'activation du module de coût.
+  materialsUsed: "construction_cost_estimation",
   // « Aide à la décision » est une page dédiée qui exploite le résultat déjà
   // calculé du « Coût estimatif » (Intelligence prédictive IA) : elle suit donc
   // l'activation du module de coût.
@@ -96,6 +101,7 @@ function filterDisabledSteps(
 
 export type ProjectJourneyStepKey =
   | "cost"
+  | "materialsUsed"
   | "decision"
   | "plans"
   | "materials"
@@ -125,7 +131,7 @@ export interface ProjectJourneyStep {
 }
 
 /**
- * Groupe A : types de projet au parcours complet (5 étapes).
+ * Groupe A : types de projet au parcours complet (6 étapes).
  *
  * Liste fermée, distincte des autres éligibilités de la plateforme : elle
  * appartient EXCLUSIVEMENT au Project Journey. Toute catégorie absente de cette
@@ -178,6 +184,19 @@ export function buildProjectJourney(
     reportKey: "cost",
   };
 
+  // « Matériaux utilisés » — articles, quantités et prix réels du projet
+  // (DQE / BIM + scénario actif). Le lien conserve le contexte du projet ; le
+  // bouton « Trouver le bon fournisseur » transmet ensuite ce contexte à
+  // l'annuaire des fournisseurs.
+  const materialsUsed: ProjectJourneyStep = {
+    key: "materialsUsed",
+    label: "Matériaux utilisés",
+    path: `${MATERIALS_USED_PAGE_PATH}/${pid}`,
+    href: `${MATERIALS_USED_PAGE_PATH}/${pid}`,
+    // Aucun rapport PDF propre : le tableau est dérivé de l'estimation.
+    reportKey: null,
+  };
+
   const consult: ProjectJourneyStep = {
     key: "consult",
     label: "Mise en relation",
@@ -218,16 +237,22 @@ export function buildProjectJourney(
     reportKey: "execution",
   };
 
-  // Groupe B — parcours simplifié : coût estimatif → aide à la décision →
-  // mise en relation. Ni « Plans architecturaux AI », ni « Exécution & suivi » :
-  // les étapes absentes ne sont PAS rendues (aucun bouton, lien ou indicateur
-  // résiduel).
-  if (group === "B") return filterDisabledSteps([cost, decision, consult], flags);
+  // Groupe B — parcours simplifié : coût estimatif → matériaux utilisés →
+  // aide à la décision → mise en relation. Ni « Plans architecturaux AI », ni
+  // « Exécution & suivi » : les étapes absentes ne sont PAS rendues (aucun
+  // bouton, lien ou indicateur résiduel).
+  if (group === "B") {
+    return filterDisabledSteps([cost, materialsUsed, decision, consult], flags);
+  }
 
-  // Groupe A — parcours complet (5 étapes) :
-  //   1. Coût estimatif → 2. Aide à la décision → 3. Plans architecturaux AI →
-  //   4. Mise en relation → 5. Exécution & suivi.
-  return filterDisabledSteps([cost, decision, plans, consult, execution], flags);
+  // Groupe A — parcours complet (6 étapes) :
+  //   1. Coût estimatif → 2. Matériaux utilisés → 3. Aide à la décision →
+  //   4. Plans architecturaux AI → 5. Mise en relation →
+  //   6. Exécution & suivi.
+  return filterDisabledSteps(
+    [cost, materialsUsed, decision, plans, consult, execution],
+    flags,
+  );
 }
 
 /** Route de l'annuaire des fournisseurs (page des fournisseurs trouvés). */
@@ -235,6 +260,13 @@ export const SUPPLIERS_DIRECTORY_PATH = "/dashboard/suppliers-directory";
 
 /** Route de la page dédiée « Aide à la décision » (Intelligence prédictive IA). */
 export const DECISION_PAGE_PATH = "/dashboard/decision";
+
+/**
+ * Route de la page « Matériaux utilisés » — tableau des articles réellement
+ * nécessaires au projet (DQE / BIM + scénario actif). Le contexte projet est
+ * ajouté en suffixe (`/:id`).
+ */
+export const MATERIALS_USED_PAGE_PATH = "/dashboard/materials-used";
 
 /** Route de la liste des prix — page « Matériaux de construction ». */
 export const MATERIALS_PAGE_PATH = "/dashboard/materials";

@@ -16,7 +16,8 @@ import { QUOTE_MOTIF_OTHER } from "@/lib/quoteMotifs";
 import { StarRating } from "@/components/StarRating";
 import {
   Store, MapPin, Phone, Mail, Briefcase, Star,
-  FileText, Loader2, Send, Layers,
+  FileText, Loader2, Send, Layers, CheckCircle2, AlertTriangle, Info, ArrowRight,
+  Banknote,
 } from "lucide-react";
 import {
   DirectorySearchBar,
@@ -27,6 +28,8 @@ import { toast } from "sonner";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
 import { profileCardClass, VerifiedBadge } from "@/components/ProfileCardBits";
 import { directorySwitchHref } from "@/lib/directorySearchParams";
+import { useProjectMaterialUsage } from "@/hooks/use-project-material-usage";
+import { matchSuppliersToMaterials } from "@/lib/supplierMatch";
 
 // ── Region labels ────────────────────────────────────────────────────────────
 
@@ -76,6 +79,41 @@ export default function SuppliersDirectory() {
   // Parcours du projet — contexte conservé dans l'URL lorsque l'annuaire est
   // ouvert depuis un projet (?project=…), comme sur les autres étapes.
   const projectIdParam = searchParams.get("project") ?? null;
+  // « Mise en relation » depuis l'étape « Matériaux utilisés » : les articles,
+  // quantités, unités, région et scénario sont reconstruits depuis le projet
+  // (même calcul que le tableau) — aucun contexte n'est saisi à la main.
+  const fromMaterials = searchParams.get("from") === "materials";
+  const materialContext = useProjectMaterialUsage(
+    fromMaterials ? projectIdParam : null,
+    searchParams.get("scenario"),
+  );
+  const materialMatches = useMemo(
+    () =>
+      fromMaterials
+        ? matchSuppliersToMaterials(
+            materialContext.materials,
+            suppliers ?? [],
+            materialContext.project?.region ?? null,
+          )
+        : [],
+    [fromMaterials, materialContext.materials, materialContext.project?.region, suppliers],
+  );
+  const materialMatchById = useMemo(
+    () => new Map(materialMatches.map((m) => [m.supplier._id, m])),
+    [materialMatches],
+  );
+  const materialTotal = materialContext.materials.length;
+  // Prix indicatifs réellement disponibles dans la base marché (aucune offre
+  // n'est inventée : la requête ne renvoie que les articles qui en possèdent).
+  const materialNames = useMemo(
+    () => materialContext.materials.map((m) => m.name),
+    [materialContext.materials],
+  );
+  const marketOffers = useQuery(
+    api.marketData.getCheapestSuppliers,
+    fromMaterials && materialNames.length > 0 ? { names: materialNames } : "skip",
+  );
+  const [widenRegion, setWidenRegion] = useState(false);
 
   // Texte recherché : état local, initialisé depuis l'URL (il est transmis
   // explicitement lors d'une bascule « Type », avec le contexte du projet).
@@ -113,7 +151,6 @@ export default function SuppliersDirectory() {
   }, [suppliers]);
 
   // Spécialités / région appliquées automatiquement (source de vérité = URL)
-  const fromMaterials = searchParams.get("from") === "materials";
   const autoSpecialties = useMemo(
     () =>
       (searchParams.get("specialty") ?? "")
@@ -149,14 +186,47 @@ export default function SuppliersDirectory() {
     // Le texte recherché reste un état local : il ne traîne pas dans l'URL (il
     // est transmis explicitement lors d'une bascule de type d'annuaire).
     next.delete("q");
-    // Dès qu'il ne reste plus de filtre issu de l'analyse, on retire la mention.
-    if (!next.get("specialty") && !next.get("region")) next.delete("from");
+    // Dès qu'il ne reste plus de filtre issu de l'analyse, on retire la mention
+    // — sauf depuis « Matériaux utilisés », où le contexte projet/matériaux
+    // doit survivre à l'élargissement de la région.
+    if (!fromMaterials && !next.get("specialty") && !next.get("region")) {
+      next.delete("from");
+    }
     setSearchParams(next, { replace: true });
   };
 
   // Filtered suppliers
   const filtered = useMemo(() => {
     if (!suppliers) return [];
+
+    // Depuis « Matériaux utilisés » : seuls les fournisseurs qui déclarent une
+    // spécialité correspondant à au moins un article sont retenus, classés par
+    // couverture puis par région. Aucun fournisseur sans correspondance n'est
+    // affiché ; les correspondances partielles sont conservées et signalées.
+    if (fromMaterials) {
+      return materialMatches
+        .filter(({ supplier: s }) => {
+          if (search) {
+            const q = search.toLowerCase();
+            const haystack = `${s.companyName} ${s.description ?? ""} ${s.specialties.join(" ")}`.toLowerCase();
+            if (!haystack.includes(q)) return false;
+          }
+          // Spécialité choisie explicitement par l'utilisateur (critère
+          // secondaire) : elle reste appliquée au classement matériaux.
+          if (
+            autoSpecialties.length > 0 &&
+            !autoSpecialties.some((sp) => s.specialties.includes(sp))
+          ) {
+            return false;
+          }
+          if (!widenRegion && selectedRegion) {
+            return (s.regions ?? []).includes(selectedRegion);
+          }
+          return true;
+        })
+        .map((m) => m.supplier);
+    }
+
     return suppliers.filter((s) => {
       // Text search
       if (search) {
@@ -175,15 +245,33 @@ export default function SuppliersDirectory() {
       if (selectedRegion && !(s.regions ?? []).includes(selectedRegion)) return false;
       return true;
     });
-  }, [suppliers, search, autoSpecialtiesKey, selectedRegion]);
+  }, [
+    suppliers,
+    search,
+    autoSpecialtiesKey,
+    selectedRegion,
+    fromMaterials,
+    materialMatches,
+    widenRegion,
+  ]);
 
   const activeFilterCount =
-    (autoSpecialties.length > 0 ? 1 : 0) + (selectedRegion ? 1 : 0) + (search ? 1 : 0);
+    (autoSpecialties.length > 0 ? 1 : 0) +
+    (selectedRegion ? 1 : 0) +
+    (search ? 1 : 0) +
+    (fromMaterials ? 1 : 0);
 
   /** Réinitialise tous les critères de recherche. */
   const resetFilters = () => {
     setSearch("");
-    setFilters({ specialty: [], region: null, from: null });
+    // Depuis « Matériaux utilisés », le contexte projet/matériaux est conservé :
+    // seuls les critères choisis par l'utilisateur sont retirés.
+    setFilters({
+      specialty: [],
+      region: null,
+      from: fromMaterials ? "materials" : null,
+    });
+    setWidenRegion(true);
   };
 
   /**
@@ -230,7 +318,8 @@ export default function SuppliersDirectory() {
           specialty: autoSpecialties.includes(v)
             ? autoSpecialties.filter((sp) => sp !== v)
             : [...autoSpecialties, v],
-          from: null, // l'utilisateur reprend la main sur les filtres
+          // En mode « Matériaux utilisés », le contexte projet est conservé.
+          from: fromMaterials ? "materials" : null,
         }),
     },
     {
@@ -239,7 +328,10 @@ export default function SuppliersDirectory() {
       options: availableRegions.map((r) => ({ value: r, label: REGION_LABELS[r] ?? r })),
       selected: selectedRegion ? [selectedRegion] : [],
       onSelect: (v) =>
-        setFilters({ region: selectedRegion === v ? null : v, from: null }),
+        setFilters({
+          region: selectedRegion === v ? null : v,
+          from: fromMaterials ? "materials" : null,
+        }),
     },
   ];
 
@@ -296,7 +388,11 @@ export default function SuppliersDirectory() {
       await createQuoteRequest({
         supplierId: devisSupplier._id as any,
         category: devisSupplier.specialties?.[0] ?? "général",
-        materials: [],
+        // Depuis « Matériaux utilisés », la liste complète des articles du
+        // projet (nom, quantité, unité) accompagne automatiquement le devis.
+        materials: fromMaterials ? materialContext.materials : [],
+        projectId: (projectIdParam as any) ?? undefined,
+        projectName: materialContext.project?.name ?? undefined,
         motif,
         motifOther: motif === QUOTE_MOTIF_OTHER ? motifOther.trim() : undefined,
         attachments: uploaded as any,
@@ -322,6 +418,10 @@ export default function SuppliersDirectory() {
       <ProjectJourneyNav
         projectId={projectIdParam}
         flags={journeyFlags}
+        // L'annuaire fournisseurs est la partie « fournisseurs » de l'étape
+        // « Mise en relation » : l'étape reste active même si sa route
+        // principale est celle de l'annuaire des experts.
+        activeKey="consult"
         featureLabel="Trouvez un fournisseur près de chez vous"
         maxWidthClassName="max-w-7xl"
       />
@@ -329,6 +429,147 @@ export default function SuppliersDirectory() {
       {/* Contenu : espace réservé sous la barre sticky (scroll-mt) pour que la
           recherche et son panneau ne passent jamais sous Projet Journey. */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-4 scroll-mt-28">
+        {/* ── Contexte « Matériaux utilisés » ── */}
+        {fromMaterials && materialContext.project && (
+          <section
+            aria-label="Contexte matériaux du projet"
+            className="overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.08] to-teal-500/[0.03]"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3 p-3.5 sm:p-4">
+              <div className="min-w-0">
+                <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                  <Layers className="h-3.5 w-3.5" />
+                  Mise en relation — fournisseurs de matériaux
+                </p>
+                <h1 className="mt-1 text-sm font-bold leading-snug sm:text-base">
+                  {materialContext.project.name}
+                </h1>
+                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">
+                  <span>{materialTotal} matériau{materialTotal > 1 ? "x" : ""} recherché{materialTotal > 1 ? "s" : ""}</span>
+                  <span aria-hidden>·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {selectedRegion ? (REGION_LABELS[selectedRegion] ?? selectedRegion) : "Toutes régions"}
+                  </span>
+                  <span aria-hidden>·</span>
+                  <span>Scénario {materialContext.scenarioLabel}</span>
+                  <span aria-hidden>·</span>
+                  <span className="font-semibold tabular-nums text-foreground">
+                    Référence{" "}
+                    {materialContext.usage.total.toLocaleString("fr-FR", {
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    TND
+                  </span>
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1 text-[11px]"
+                  onClick={() => {
+                    const scenarioParam = searchParams.get("scenario");
+                    navigate(
+                      `/dashboard/materials-used/${projectIdParam}${
+                        scenarioParam ? `?scenario=${encodeURIComponent(scenarioParam)}` : ""
+                      }`,
+                    );
+                  }}
+                >
+                  <ArrowRight className="h-3 w-3 rotate-180" />
+                  Voir mes matériaux
+                </Button>
+              </div>
+            </div>
+            <p className="flex items-start gap-1.5 border-t border-emerald-500/20 px-3.5 py-2 text-[10.5px] leading-relaxed text-muted-foreground sm:px-4">
+              <Info className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>
+                Le classement s'appuie uniquement sur les articles du projet et
+                les spécialités déclarées par les fournisseurs. La disponibilité
+                et les prix ne sont affichés que lorsqu'ils sont renseignés —
+                aucune donnée n'est inventée.
+              </span>
+            </p>
+          </section>
+        )}
+
+        {/* ── Prix marché réellement renseignés (comparaison d'offres) ── */}
+        {fromMaterials && marketOffers && marketOffers.length > 0 && (
+          <details className="group overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elev-1">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 text-xs font-semibold sm:px-4">
+              <span className="inline-flex items-center gap-1.5">
+                <Banknote className="h-3.5 w-3.5 text-emerald-600" />
+                Prix marché disponibles
+                <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-emerald-700 dark:text-emerald-300">
+                  {marketOffers.length} offre{marketOffers.length > 1 ? "s" : ""}
+                </span>
+              </span>
+              <span className="text-[10px] font-normal text-muted-foreground group-open:hidden">
+                Afficher
+              </span>
+              <span className="hidden text-[10px] font-normal text-muted-foreground group-open:inline">
+                Masquer
+              </span>
+            </summary>
+            <div className="border-t border-border/50 px-3.5 pb-3 sm:px-4">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] text-left text-[11.5px]">
+                  <thead>
+                    <tr className="text-[9.5px] uppercase tracking-wide text-muted-foreground">
+                      <th scope="col" className="py-2 pr-3 font-semibold">Article</th>
+                      <th scope="col" className="px-2 py-2 font-semibold">Fournisseur / source</th>
+                      <th scope="col" className="px-2 py-2 text-right font-semibold">Prix</th>
+                      <th scope="col" className="px-2 py-2 font-semibold">Disponibilité</th>
+                      <th scope="col" className="py-2 pl-2 font-semibold">Région</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {marketOffers.slice(0, 10).map((offer: any, i: number) => (
+                      <tr key={`${offer.name}-${offer.supplier}-${i}`} className="border-t border-border/40">
+                        <td className="py-2 pr-3 font-medium leading-snug">{offer.name}</td>
+                        <td className="px-2 py-2 text-muted-foreground">
+                          {offer.supplier}
+                          {typeof offer.reliabilityIndex === "number" ? (
+                            <span className="ml-1 text-[9.5px] text-emerald-700 dark:text-emerald-300">
+                              · fiabilité {Math.round(offer.reliabilityIndex * 100)} %
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="whitespace-nowrap px-2 py-2 text-right font-semibold tabular-nums">
+                          {Number(offer.minPrice).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}{" TND"}
+                          {offer.unit ? (
+                            <span className="font-normal text-muted-foreground"> / {offer.unit}</span>
+                          ) : null}
+                        </td>
+                        <td className="px-2 py-2">
+                          <AvailabilityBadge value={offer.availability} />
+                        </td>
+                        <td className="py-2 pl-2 text-muted-foreground">
+                          {offer.governorate
+                            ? REGION_LABELS[String(offer.governorate)] ?? String(offer.governorate)
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {marketOffers.length > 10 && (
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  10 offres les plus avantageuses affichées sur {marketOffers.length}.
+                </p>
+              )}
+              <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+                Prix indicatifs issus de la base marché, pour comparaison. Un
+                fournisseur n'est jamais présenté comme disponible sans offre
+                correspondante ; contactez-le depuis les fiches ci-dessous
+                lorsqu'il est inscrit à l'annuaire.
+              </p>
+            </div>
+          </details>
+        )}
+
         {/* Recherche unique : une seule barre + panneau de critères (toujours
             SOUS la barre sticky : la hiérarchie Projet Journey → recherche →
             options → résultats est garantie par le flux normal du document). */}
@@ -340,11 +581,11 @@ export default function SuppliersDirectory() {
           chips={searchChips}
           onReset={resetFilters}
           resultCount={filtered.length}
-          loading={suppliers === undefined}
+          loading={suppliers === undefined || (fromMaterials && materialContext.loading)}
         />
 
         {/* ── Loading state ── */}
-        {suppliers === undefined && (
+        {(suppliers === undefined || (fromMaterials && materialContext.loading)) && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
@@ -356,43 +597,75 @@ export default function SuppliersDirectory() {
         )}
 
         {/* ── Empty state ── */}
-        {suppliers !== undefined && filtered.length === 0 && (
+        {suppliers !== undefined &&
+          !(fromMaterials && materialContext.loading) &&
+          filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted/30 border border-border/30 mb-4">
               <Store className="h-6 w-6 text-muted-foreground" />
             </div>
             <h2 className="text-base font-bold tracking-tight">
-              Aucun fournisseur trouvé
+              {fromMaterials && materialMatches.length > 0
+                ? "Aucun fournisseur dans votre région"
+                : fromMaterials
+                  ? "Aucun fournisseur pertinent pour ces matériaux"
+                  : "Aucun fournisseur trouvé"}
             </h2>
-            <p className="text-xs text-muted-foreground mt-1.5 max-w-sm">
-              {fromMaterials && activeFilterCount > 0
-                ? "Aucun fournisseur inscrit ne correspond aux spécialités/région de votre analyse. Élargissez la recherche pour voir plus de résultats."
-                : activeFilterCount > 0
-                  ? "Essayez de modifier vos filtres ou d'élargir votre recherche."
-                  : "Aucun fournisseur actif n'est encore inscrit sur la plateforme."}
+            <p className="text-xs text-muted-foreground mt-1.5 max-w-md">
+              {fromMaterials && materialMatches.length > 0
+                ? `Aucun fournisseur ne déclare couvrir ces matériaux dans ${selectedRegion ? (REGION_LABELS[selectedRegion] ?? selectedRegion) : "la région du chantier"}. Des fournisseurs d'autres régions couvrent une partie de votre liste.`
+                : fromMaterials
+                  ? materialTotal === 0
+                    ? "Le projet ne contient aucun matériau exploitable : la recherche de fournisseurs est désactivée."
+                    : "Aucun fournisseur inscrit ne déclare de spécialité correspondant à ces matériaux. Aucune disponibilité n'est affichée sans donnée réelle."
+                  : activeFilterCount > 0
+                    ? "Essayez de modifier vos filtres ou d'élargir votre recherche."
+                    : "Aucun fournisseur actif n'est encore inscrit sur la plateforme."}
             </p>
-            {activeFilterCount > 0 && (
-              <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
-                {autoSpecialties.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs"
-                    onClick={() => setFilters({ specialty: [] })}
-                  >
-                    Toutes spécialités
-                  </Button>
-                )}
-                {selectedRegion && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs"
-                    onClick={() => setFilters({ region: null })}
-                  >
-                    Toutes régions
-                  </Button>
-                )}
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+              {fromMaterials && materialMatches.length > 0 && (
+                <Button
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => {
+                    setWidenRegion(true);
+                    setFilters({ region: null });
+                  }}
+                >
+                  Élargir à toutes les régions
+                </Button>
+              )}
+              {fromMaterials && materialMatches.length === 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  onClick={() => setFilters({ specialty: [], region: null, from: null })}
+                >
+                  Voir tous les fournisseurs
+                </Button>
+              )}
+              {!fromMaterials && autoSpecialties.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  onClick={() => setFilters({ specialty: [] })}
+                >
+                  Toutes spécialités
+                </Button>
+              )}
+              {!fromMaterials && selectedRegion && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  onClick={() => setFilters({ region: null })}
+                >
+                  Toutes régions
+                </Button>
+              )}
+              {activeFilterCount > 0 && !fromMaterials && (
                 <Button
                   size="sm"
                   variant="ghost"
@@ -404,8 +677,8 @@ export default function SuppliersDirectory() {
                 >
                   Réinitialiser les filtres
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 
@@ -414,6 +687,7 @@ export default function SuppliersDirectory() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map((s) => {
               const isOwnProfile = user?._id && s.userId && user._id === s.userId;
+              const match = fromMaterials ? materialMatchById.get(s._id) : undefined;
               return (
                 <article key={s._id} className={`${profileCardClass} flex flex-col`}>
                   <div className="flex-1 p-3.5">
@@ -465,6 +739,47 @@ export default function SuppliersDirectory() {
                         <SupplierCardMetrics supplierId={s._id} specialtyCount={s.specialties.length} />
                       </div>
                     </div>
+
+                    {/* ── Correspondance avec les matériaux du projet ── */}
+                    {match && (
+                      <div className="mt-2.5 rounded-lg border border-emerald-500/25 bg-emerald-500/[0.05] px-2.5 py-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[9.5px] font-bold text-white">
+                            <CheckCircle2 className="h-2.5 w-2.5" />
+                            {match.matchedArticles.length}/{materialTotal} article{materialTotal > 1 ? "s" : ""}
+                          </span>
+                          {match.partial && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9.5px] font-semibold text-amber-700 dark:text-amber-300">
+                              <AlertTriangle className="h-2.5 w-2.5" /> Correspondance partielle
+                            </span>
+                          )}
+                          {match.regionMatch ? (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-background px-2 py-0.5 text-[9.5px] font-medium text-emerald-700 dark:text-emerald-300">
+                              <MapPin className="h-2.5 w-2.5" /> Région du chantier
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-background px-2 py-0.5 text-[9.5px] font-medium text-muted-foreground">
+                              <MapPin className="h-2.5 w-2.5" /> Autre région
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+                          <span className="font-medium text-foreground">Articles couverts :</span>{" "}
+                          {match.matchedArticles.slice(0, 3).join(", ")}
+                          {match.matchedArticles.length > 3
+                            ? ` +${match.matchedArticles.length - 3}`
+                            : ""}
+                        </p>
+                        {match.partial && (
+                          <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+                            Non couverts : {match.missingArticles.slice(0, 3).join(", ")}
+                            {match.missingArticles.length > 3
+                              ? ` +${match.missingArticles.length - 3}`
+                              : ""}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {/* ── Description & coordonnées (2 lignes max) ── */}
                     <div className="mt-2.5 space-y-1 border-t border-border/30 pt-2.5">
@@ -551,6 +866,17 @@ export default function SuppliersDirectory() {
           </DialogHeader>
 
           <div className="space-y-4 pt-2">
+            {fromMaterials && materialTotal > 0 && (
+              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/[0.06] px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                  Liste de matériaux jointe automatiquement
+                </p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {materialTotal} article{materialTotal > 1 ? "s" : ""} du projet
+                  {materialContext.project?.name ? ` « ${materialContext.project.name} »` : ""} — quantités et unités incluses.
+                </p>
+              </div>
+            )}
             {/* User contact info (auto-transmitted) */}
             <div>
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -646,6 +972,32 @@ export default function SuppliersDirectory() {
       </Dialog>
     </main>
   );
+}
+
+/** Badge de disponibilité d'une offre marché (données réelles uniquement). */
+function AvailabilityBadge({ value }: { value?: string }) {
+  if (value === "disponible") {
+    return (
+      <span className="inline-flex rounded-full border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-emerald-700 dark:text-emerald-300">
+        Disponible
+      </span>
+    );
+  }
+  if (value === "sur_commande") {
+    return (
+      <span className="inline-flex rounded-full border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-amber-700 dark:text-amber-300">
+        Sur commande
+      </span>
+    );
+  }
+  if (value === "rupture") {
+    return (
+      <span className="inline-flex rounded-full border border-rose-500/25 bg-rose-500/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-rose-700 dark:text-rose-300">
+        Rupture
+      </span>
+    );
+  }
+  return <span className="text-[10px] text-muted-foreground">—</span>;
 }
 
 // ── Métriques de la carte fournisseur (maquette : évaluations · note · spécialités) ──
