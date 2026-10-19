@@ -26,7 +26,6 @@ import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { DecisionSupportModule } from "@/components/decision/DecisionSupportModule";
 import { Button } from "@/components/ui/button";
 import { EmptyState, LoadingState } from "@/components/ui/feedback";
-import { PageHeader } from "@/components/ui/section";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { normalizeLegacyCategory, projectTypeLabel } from "@/convex/projectTypes";
 import { isComplementaryWorkEligible } from "@/lib/customWorksCatalog";
@@ -180,15 +179,7 @@ export default function DecisionSupport() {
           />
         ) : (
           <>
-            {/* ── Titre de page + résumé du projet ── */}
-            <PageHeader
-              title={
-                <span className="text-xl font-semibold tracking-tight sm:text-2xl">
-                  Aide à la décision
-                </span>
-              }
-              subtitle="Optimisez votre budget à partir des données réelles de votre estimation."
-            />
+            {/* ── Résumé du projet ── */}
             <section
               aria-label="Résumé du projet"
               className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elev-1"
