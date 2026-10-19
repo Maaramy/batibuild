@@ -151,6 +151,9 @@ export async function downloadPlansReport(project: ProjectLike): Promise<void> {
     kitchens: project.kitchens ?? undefined,
     livingRooms: project.livingRooms ?? undefined,
     wcs: project.wcs ?? undefined,
+    plotArea: project.surfaceTotale ?? undefined,
+    pools: project.pools ?? undefined,
+    garages: project.garages ?? undefined,
   }).map((variant) => ({
     ...variant,
     floors: variant.floors.map((f) =>
@@ -175,6 +178,8 @@ export async function downloadPlansReport(project: ProjectLike): Promise<void> {
     projectName: project.name ?? "Projet",
     variantName: best.name,
     floorLabel,
+    surfaces: best.surfaces,
+    site: best.site,
   });
 }
 

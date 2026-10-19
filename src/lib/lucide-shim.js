@@ -262,6 +262,7 @@ export { default as TrendingUp } from "../../node_modules/lucide-react/dist/esm/
 export { default as TriangleAlert } from "../../node_modules/lucide-react/dist/esm/icons/triangle-alert.js";
 export { default as TriangleAlertIcon } from "../../node_modules/lucide-react/dist/esm/icons/triangle-alert.js";
 export { default as TreePine } from "../../node_modules/lucide-react/dist/esm/icons/tree-pine.js";
+export { default as Trees } from "../../node_modules/lucide-react/dist/esm/icons/trees.js";
 export { default as Trophy } from "../../node_modules/lucide-react/dist/esm/icons/trophy.js";
 export { default as Truck } from "../../node_modules/lucide-react/dist/esm/icons/truck.js";
 export { default as Undo2 } from "../../node_modules/lucide-react/dist/esm/icons/undo-2.js";

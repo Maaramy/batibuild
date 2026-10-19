@@ -106,7 +106,32 @@ export function SitePlan2D({ site, className, showDimensions = true }: SitePlan2
           <g key={el.id}>
             <rect x={x} y={y} width={w} height={h} fill={c.fill} stroke={c.stroke} strokeWidth={1.2} rx={el.kind === "piscine" ? 4 : 1.5} />
             {el.kind === "terrasse" && (
-              <rect x={x} y={y} width={w} height={h} fill={`url(#${woodId})`} opacity={0.6} rx={1.5} />
+              <>
+                <rect x={x} y={y} width={w} height={h} fill={`url(#${woodId})`} opacity={0.6} rx={1.5} />
+                {el.covered && (
+                  // Pergola : contour de couverture en tirets + appuis, lecture
+                  // immédiate d'une terrasse couverte restant EXTÉRIEURE.
+                  <g stroke={c.stroke} fill={c.stroke}>
+                    <rect
+                      x={x + 2.5}
+                      y={y + 2.5}
+                      width={Math.max(0, w - 5)}
+                      height={Math.max(0, h - 5)}
+                      fill="none"
+                      strokeWidth={0.9}
+                      strokeDasharray="5 3"
+                    />
+                    {[
+                      [x + 4, y + 4],
+                      [x + w - 4, y + 4],
+                      [x + 4, y + h - 4],
+                      [x + w - 4, y + h - 4],
+                    ].map(([cx, cy], i) => (
+                      <circle key={i} cx={cx} cy={cy} r={1.4} stroke="none" />
+                    ))}
+                  </g>
+                )}
+              </>
             )}
             {el.kind === "piscine" && (
               <>
@@ -231,8 +256,9 @@ export function SitePlan2D({ site, className, showDimensions = true }: SitePlan2
 
 export function SiteLegend({ site }: { site: SitePlan }) {
   const present = new Set(site.elements.map((e) => e.kind));
+  const coveredTerrace = site.elements.some((e) => e.kind === "terrasse" && e.covered);
   const items: { kind: SiteElement["kind"]; label: string }[] = [
-    { kind: "terrasse", label: "Terrasse" },
+    { kind: "terrasse", label: coveredTerrace ? "Terrasse couverte" : "Terrasse" },
     { kind: "piscine", label: "Piscine" },
     { kind: "cuisine_exterieure", label: "Cuisine extérieure" },
     { kind: "stationnement", label: "Stationnement" },

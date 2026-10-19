@@ -93,6 +93,41 @@ export function buildSiteScene(
       mesh.receiveShadow = shadows;
       mesh.castShadow = shadows;
       group.add(mesh);
+
+      // Pergola : couverture extérieure légère (poteaux + lames), ouverte sur
+      // les côtés. Elle matérialise la « terrasse couverte » annoncée sans
+      // jamais fermer l'espace ni le compter comme surface habitable.
+      if (el.covered) {
+        const woodMat = track(new THREE.MeshStandardMaterial({ color: 0x8a6a48, roughness: 0.85 }));
+        const postH = 2.45;
+        const px = Math.max(0.3, el.w / 2 - 0.18);
+        const pz = Math.max(0.3, el.h / 2 - 0.18);
+        for (const sx of [-1, 1]) {
+          for (const sz of [-1, 1]) {
+            const postGeo = track(new THREE.BoxGeometry(0.14, postH, 0.14));
+            const post = new THREE.Mesh(postGeo, woodMat);
+            post.position.set(c.x + sx * px, postH / 2, c.z + sz * pz);
+            post.castShadow = shadows;
+            group.add(post);
+          }
+        }
+        for (const sz of [-1, 1]) {
+          const beamGeo = track(new THREE.BoxGeometry(el.w, 0.12, 0.1));
+          const beam = new THREE.Mesh(beamGeo, woodMat);
+          beam.position.set(c.x, postH, c.z + sz * pz);
+          beam.castShadow = shadows;
+          group.add(beam);
+        }
+        const slats = Math.min(22, Math.max(4, Math.round(el.w / 0.45)));
+        for (let i = 0; i < slats; i++) {
+          const t = slats === 1 ? 0.5 : i / (slats - 1);
+          const slatGeo = track(new THREE.BoxGeometry(0.06, 0.07, el.h));
+          const slat = new THREE.Mesh(slatGeo, woodMat);
+          slat.position.set(c.x - el.w / 2 + 0.12 + t * (el.w - 0.24), postH + 0.09, c.z);
+          slat.castShadow = shadows;
+          group.add(slat);
+        }
+      }
     } else if (el.kind === "cuisine_exterieure") {
       const baseGeo = track(new THREE.BoxGeometry(el.w, 0.9, el.h * 0.55));
       const baseMat = track(new THREE.MeshStandardMaterial({ color: 0xcfc6b5, roughness: 0.9 }));

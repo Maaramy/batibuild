@@ -568,7 +568,7 @@ export function FloorPlan3DLegacy({
 
     // ── Contrôles d'orbite (tactiles : 1 doigt = rotation, 2 = zoom/pan) ───
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(L / 2, 0.9, W / 2);
+    controls.target.set(cx0, 0.9, cz0);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.autoRotate = true;

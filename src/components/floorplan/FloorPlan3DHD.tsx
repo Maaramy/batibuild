@@ -668,7 +668,7 @@ export function FloorPlan3DHD({
 
     // ── Contrôles orbitaux (tactile + souris + molette) ────────────────────
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(L / 2, WALL_H * 0.33, W / 2);
+    controls.target.set(cx0, WALL_H * 0.33, cz0);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.autoRotate = true;

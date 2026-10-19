@@ -768,6 +768,27 @@ function genStockage(room: PlanRoom, out: Prim[]) {
   void pitch;
 }
 
+// ── Salle à manger : table + chaises ─────────────────────────────────────────
+
+function genSalleManger(room: PlanRoom, out: Prim[]) {
+  const tw = Math.min(1.9, room.w - 1.4);
+  const th = Math.min(0.95, room.h - 1.4);
+  if (tw < 1.0 || th < 0.6) return;
+  const cx = room.x + room.w / 2;
+  const cy = room.y + room.h / 2;
+  pushIf(room, out, { x: cx - tw / 2, y: cy - th / 2, w: tw, h: th }, {
+    m: "wood",
+    ht: 0.74,
+    rx: 0.06,
+  });
+  const chairs = Math.max(2, Math.min(3, Math.floor(tw / 0.62)));
+  for (let i = 0; i < chairs; i++) {
+    const px = cx - tw / 2 + (tw * (i + 1)) / (chairs + 1);
+    out.push(C(px, cy - th / 2 - 0.32, 0.2, { m: "fabric", ht: 0.45 }));
+    out.push(C(px, cy + th / 2 + 0.32, 0.2, { m: "fabric", ht: 0.45 }));
+  }
+}
+
 // ── Dispatch par nature de pièce ─────────────────────────────────────────────
 
 export function roomFurniture(room: PlanRoom): Prim[] {
@@ -777,7 +798,8 @@ export function roomFurniture(room: PlanRoom): Prim[] {
       genChambre(room, out);
       break;
     case "sejour":
-      genSejour(room, out);
+      if (room.label.toLowerCase().includes("manger")) genSalleManger(room, out);
+      else genSejour(room, out);
       break;
     case "cuisine":
       genCuisine(room, out);

@@ -97,6 +97,20 @@ function expectSoundVariants(variants: FloorPlanVariant[], requestedSurface: num
           expect(overlaps(r, fp.rooms[j])).toBe(false);
         }
         if (!r.exterior) expect(r.doors.length).toBeGreaterThanOrEqual(1);
+        // Proportions professionnelles : les pièces techniques ne doivent pas
+        // absorber la surface faute de programme (WC de 8 m², hall de 16 m²…).
+        if (!r.exterior) {
+          if (r.kind === "wc") expect(r.area).toBeLessThanOrEqual(5.0);
+          if (r.kind === "sdb") expect(r.area).toBeLessThanOrEqual(8.5);
+          if (r.kind === "buanderie") expect(r.area).toBeLessThanOrEqual(7.5);
+          if (r.kind === "hall") expect(r.area).toBeLessThanOrEqual(12.5);
+          if (r.kind === "cuisine") expect(r.area).toBeLessThanOrEqual(20);
+          if (r.kind === "garage") expect(r.area).toBeLessThanOrEqual(25);
+          if (r.kind === "bureau") expect(r.area).toBeLessThanOrEqual(15.5);
+          if (r.kind === "sejour" && r.label.toLowerCase().includes("manger")) {
+            expect(r.area).toBeLessThanOrEqual(19.5);
+          }
+        }
       }
       const sum = fp.rooms.reduce((acc, r) => acc + r.area, 0);
       expect(Math.abs(sum - fp.area) / fp.area).toBeLessThan(0.02);
@@ -105,6 +119,14 @@ function expectSoundVariants(variants: FloorPlanVariant[], requestedSurface: num
     expect(v.validation.areasOk).toBe(true);
     expect(v.validation.circulationOk).toBe(true);
     expect(v.floors[0].rooms.some((r) => r.doors.some((d) => d.isEntry))).toBe(true);
+
+    // La chambre principale est bien la plus grande chambre du logement.
+    const chambres = v.floors.flatMap((f) => f.rooms.filter((r) => r.kind === "chambre"));
+    if (chambres.length > 1) {
+      const master = chambres.find((r) => r.label === "Chambre principale");
+      expect(master).toBeDefined();
+      expect(master!.area).toBeGreaterThanOrEqual(Math.max(...chambres.map((r) => r.area)) - 0.01);
+    }
   }
 }
 
@@ -226,6 +248,26 @@ describe("generateFloorPlans — configurations demandées", () => {
     }
   });
 
+  it("maison à étage R+2 : chambres réparties, une salle d'eau par niveau", () => {
+    const plans = generateFloorPlans({
+      category: "villa",
+      surface: 240,
+      floors: 3,
+      plotArea: 400,
+      works: ["jardin"],
+    });
+    expectSoundVariants(plans, 240);
+    for (const v of plans) {
+      const upper = v.floors.filter((f) => f.level > 0);
+      for (const f of upper) {
+        const beds = f.rooms.filter((r) => r.kind === "chambre").length;
+        const baths = f.rooms.filter((r) => r.kind === "sdb").length;
+        expect(baths).toBeGreaterThanOrEqual(1);
+        expect(baths).toBeLessThanOrEqual(Math.max(1, Math.ceil(beds / 2)));
+      }
+    }
+  });
+
   it("villa avec jardin + piscine + cuisine extérieure sur 600 m²", () => {
     const plans = generateFloorPlans({
       category: "villa",
@@ -243,6 +285,16 @@ describe("generateFloorPlans — configurations demandées", () => {
       expect(pool).toBeDefined();
       expect(kitchen).toBeDefined();
       expect(terrace).toBeDefined();
+      // La couverture annoncée par le parti (pergola, débord de toit) est
+      // représentée sur la terrasse EXTÉRIEURE, jamais comme une pièce.
+      const profilesWithCover = ["contemporain", "mediterraneen", "patio", "jardin"];
+      if (profilesWithCover.includes(v.styleId)) {
+        expect(terrace!.covered).toBe(true);
+        expect(terrace!.label).toBe("Terrasse couverte");
+        expect(
+          v.floors.flatMap((f) => f.rooms).some((r) => r.label === "Terrasse couverte"),
+        ).toBe(false);
+      }
       expect(pool!.area).toBeGreaterThanOrEqual(30);
       // Piscine et cuisine d'été restent strictement hors du bâti.
       expect(overlaps(pool!, v.site.building)).toBe(false);

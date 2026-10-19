@@ -130,6 +130,8 @@ export interface SiteElement {
   area: number;
   /** Espace praticable / dur (terrasse, allée, piscine…). */
   hardscape?: boolean;
+  /** Terrasse couverte (pergola / débord de toit) — jamais une pièce fermée. */
+  covered?: boolean;
 }
 
 export interface SitePlan {
@@ -362,18 +364,26 @@ function residentialProgram(
 ): { level: number; items: ProgramItem[] }[] {
   const area = floorAreaPerLevel;
   const tune = style?.tuning ?? {};
+  // Le nombre de chambres se déduit de la surface TOTALE du logement (et non
+  // du seul niveau) : 180 m² → 4 chambres, 120 m² → 3, 90-100 m² → 2.
+  // Densifier davantage produirait des chambres de couloir et des pièces d'eau
+  // surdimensionnées par rapport aux usages familiaux tunisiens.
+  const totalArea = area * Math.max(1, levels);
   const bedrooms =
     input.bedrooms && input.bedrooms > 0
       ? input.bedrooms
-      : Math.max(1, Math.min(6, Math.round(area / 32)));
+      : Math.max(1, Math.min(6, Math.ceil(totalArea / 48)));
   const bathrooms =
     input.bathrooms && input.bathrooms > 0
       ? input.bathrooms
-      : Math.max(1, Math.round(bedrooms / 2));
+      : Math.max(1, Math.min(3, Math.floor(bedrooms / 2)));
   const kitchens = input.kitchens && input.kitchens > 0 ? input.kitchens : 1;
   const livingRooms =
     input.livingRooms && input.livingRooms > 0 ? input.livingRooms : 1;
-  const wcs = input.wcs && input.wcs > 0 ? input.wcs : Math.max(1, bathrooms);
+  // 1 à 3 chambres : une salle d'eau + le WC invités suffisent. À partir de
+  // 4 chambres, un second WC séparé devient confortable et réaliste.
+  const wcs =
+    input.wcs && input.wcs > 0 ? input.wcs : bedrooms >= 4 ? 2 : 1;
   const works = input.works ?? [];
 
   const bedroomScale = tune.bedroomScale ?? 1;
@@ -398,6 +408,32 @@ function residentialProgram(
   }
   if (levels === 1) {
     bedroomLevels[0] = Array.from({ length: bedrooms }, (_, k) => k);
+  }
+
+  // Répartition des salles de bains entre étages : une par étage occupé au
+  // minimum, puis les salles restantes vont à l'étage le plus chargé. On ne
+  // multiplie pas les salles d'eau à chaque niveau (R+2 = 4 salles sinon).
+  const bathAlloc = new Map<number, number>();
+  if (levels > 1) {
+    const occupied: number[] = [];
+    for (let lvl = 1; lvl < levels; lvl++) {
+      if ((bedroomLevels[lvl]?.length ?? 0) > 0) occupied.push(lvl);
+    }
+    let remaining = Math.max(1, bathrooms);
+    for (const lvl of occupied) {
+      bathAlloc.set(lvl, 1);
+      remaining--;
+    }
+    let guard = 0;
+    while (remaining > 0 && occupied.length > 0 && guard++ < 8) {
+      const target = occupied.reduce(
+        (best, l) =>
+          (bedroomLevels[l]?.length ?? 0) > (bedroomLevels[best]?.length ?? 0) ? l : best,
+        occupied[0],
+      );
+      bathAlloc.set(target, Math.min(3, (bathAlloc.get(target) ?? 1) + 1));
+      remaining--;
+    }
   }
 
   const result: { level: number; items: ProgramItem[] }[] = [];
@@ -430,6 +466,32 @@ function residentialProgram(
         min: 1.5,
         priority: 5,
       });
+      // Salle à manger séparée : pertinente dès qu'un niveau est assez grand
+      // (villa de 180 m², R+1 de 140 m² et plus). Elle évite de gonfler
+      // artificiellement le séjour ou les pièces d'eau pour remplir la surface.
+      if (area >= (levels > 1 ? 70 : 110)) {
+        items.push({
+          kind: "sejour",
+          label: "Salle à manger",
+          target: 13,
+          min: 9,
+          priority: 13,
+          habitable: true,
+        });
+      }
+      // Bureau / chambre d'appoint au RDC des maisons à étage suffisamment
+      // grandes : usage courant (télétravail, invités) et absorbe l'espace
+      // restant sans créer de pièces de service surdimensionnées.
+      if (levels > 1 && area >= 85) {
+        items.push({
+          kind: "bureau",
+          label: "Bureau",
+          target: 11,
+          min: 8,
+          priority: 8,
+          habitable: true,
+        });
+      }
       // Hall / sas d'entrée : filtre les flux et évite de traverser le séjour.
       if (tune.addHall) {
         items.push({
@@ -448,6 +510,17 @@ function residentialProgram(
           target: 4.5,
           min: 3,
           priority: 7,
+        });
+      }
+      // Sans hall (plans compacts), un rangement près de l'entrée évite que le
+      // WC ou la salle d'eau n'occupe seul une bande entière du plan.
+      if (!tune.addHall) {
+        items.push({
+          kind: "stockage",
+          label: "Rangement",
+          target: 2.5,
+          min: 1.5,
+          priority: 4,
         });
       }
 
@@ -470,17 +543,34 @@ function residentialProgram(
         }
       }
     } else {
+      const bedroomsOnLevel = bedroomLevels[lvl]?.length ?? 0;
       for (const idx of bedroomLevels[lvl] ?? []) items.push(mkChambre(idx));
-      items.push({
-        kind: "sdb",
-        label: "Salle de bain",
-        target: 6.5,
-        min: 4,
-        priority: 12,
-        unique: true,
-      });
-      if ((bedroomLevels[lvl]?.length ?? 0) > 2) {
+      // Une salle d'eau pour deux chambres maximum (une seule si l'étage est
+      // peu peuplé) : jamais un chapelet de salles de bains surdimensionnées.
+      const bathsOnLevel = Math.max(1, bathAlloc.get(lvl) ?? 1);
+      for (let k = 0; k < bathsOnLevel; k++) {
+        items.push({
+          kind: "sdb",
+          label: k === 0 ? "Salle de bain" : `SDB ${k + 1}`,
+          target: 6.5,
+          min: 4,
+          priority: 12 - k,
+        });
+      }
+      if (bedroomsOnLevel > 2) {
         items.push({ kind: "wc", label: "WC étage", target: 2.5, min: 1.5, priority: 4 });
+      }
+      // Étage peu chargé en chambres (R+2, grande villa) : une salle de jeux /
+      // espace familial évite qu'une chambre n'absorbe seule 30 m² de surplus.
+      if (bedroomsOnLevel > 0 && bedroomsOnLevel <= 2 && area >= 60) {
+        items.push({
+          kind: "sejour",
+          label: "Salle de jeux",
+          target: 14,
+          min: 10,
+          priority: 7,
+          habitable: true,
+        });
       }
       // Couloir de distribution : dessert les chambres sans traverser le séjour.
       if ((bedroomLevels[lvl]?.length ?? 0) >= 2) {
@@ -693,7 +783,13 @@ function bspLayout<T extends { target: number }>(rect: Rect, items: T[]): Placed
       s2 += it.target;
     }
   }
-  const f1 = Math.min(0.85, Math.max(0.15, s1 / total));
+  // Chaque sous-zone doit rester physiquement utilisable : au moins ~1,1 m
+  // dans l'axe de coupe. Sans ce plancher, une petite pièce d'eau recevait une
+  // bande de 15 % de la zone (jusqu'à 8 m² pour un WC) ; avec, elle reçoit une
+  // bande réaliste de 2,5 à 4 m² et le surplus revient aux pièces de vie.
+  const along = rect.w >= rect.h ? rect.w : rect.h;
+  const minFrac = Math.min(0.4, 1.1 / Math.max(1, along));
+  const f1 = Math.min(1 - minFrac, Math.max(minFrac, s1 / total));
   if (rect.w >= rect.h) {
     const split = round3(Math.round(rect.w * f1 * 1000) / 1000);
     return [
@@ -730,10 +826,71 @@ function fitProgram(items: ProgramItem[], available: number): ProgramItem[] {
     if (kept.length <= 2 || victim.priority >= 18) break; // ne jamais sacrifier l'essentiel
     kept = kept.filter((i) => i !== victim);
   }
-  // Mise à l'échelle finale
+  // Mise à l'échelle finale, puis plafonnement des petites pièces.
   const sumTargets = kept.reduce((s, i) => s + i.target, 0);
   const scale = available / sumTargets;
-  return kept.map((i) => ({ ...i, target: Math.max(i.min, i.target * scale) }));
+  const isDining = (i: ProgramItem) =>
+    i.kind === "sejour" && i.label.toLowerCase().includes("manger");
+  // Sans plafond, une zone peu remplie gonflait uniformément TOUTES les pièces :
+  // WC de 8 m², buanderies de 10 m², salles à manger de 30 m².
+  const cap = (i: ProgramItem, target: number): number => {
+    switch (i.kind) {
+      case "wc": return Math.min(target, 3.8);
+      case "sdb": return Math.min(target, 8);
+      case "buanderie": return Math.min(target, 6);
+      case "hall": return Math.min(target, 10);
+      case "cuisine": return Math.min(target, 18);
+      case "garage": return Math.min(target, 24);
+      case "couloir": return Math.min(target, 8);
+      case "bureau": return Math.min(target, 14);
+      case "sejour": return Math.min(target, isDining(i) ? 18 : 60);
+      case "chambre": return Math.min(target, 22);
+      default: return target;
+    }
+  };
+  const fitted = kept.map((i) => ({
+    ...i,
+    target: cap(i, Math.max(i.min, i.target * scale)),
+  }));
+
+  // Le surplus créé par les plafonds revient aux PIÈCES DE VIE (séjour, puis
+  // chambres). La surface totale du niveau reste exactement occupée.
+  const leftover = available - fitted.reduce((s, i) => s + i.target, 0);
+  if (leftover > 0.5) {
+    const living = fitted
+      .filter((i) => i.kind === "sejour" && !isDining(i))
+      .sort((a, b) => b.target - a.target);
+    if (living.length > 0) {
+      living[0].target += leftover;
+    } else {
+      const rooms = fitted.filter((i) => i.kind === "chambre");
+      const weight = rooms.reduce((s, i) => s + i.target, 0);
+      if (rooms.length > 0 && weight > 0) {
+        for (const r of rooms) r.target += (leftover * r.target) / weight;
+      } else if (leftover >= 6) {
+        // Zone sans pièce de vie : le surplus devient un espace polyvalent
+        // (jeux, télétravail, réception) plutôt qu'un couloir surdimensionné.
+        fitted.push({
+          kind: "sejour",
+          label: "Espace polyvalent",
+          target: leftover,
+          min: 5,
+          priority: 2,
+          habitable: true,
+        });
+      } else if (leftover >= 1.2) {
+        // Petit surplus : rangement intégré, usage courant et surface utile.
+        fitted.push({
+          kind: "stockage",
+          label: "Rangement",
+          target: leftover,
+          min: 1.2,
+          priority: 1,
+        });
+      }
+    }
+  }
+  return fitted;
 }
 
 // ── Voisinages, portes et fenêtres ──────────────────────────────────────────
@@ -939,9 +1096,26 @@ function addOpenings(
         : (["S", "E", "W", "N"] as WallSide[]).find((s) => onFacade(entry!, s)) ?? "S";
     const wallLen = side === "N" || side === "S" ? entry.w : entry.h;
     const width = Math.min(1.1, wallLen - 0.4);
+    const existing = entry.doors.filter((d) => d.wall === side);
+    const candidates = [
+      wallLen / 2 - width / 2,
+      0.2,
+      wallLen - width - 0.2,
+    ];
+    let position = candidates[0];
+    for (const c of candidates) {
+      const pos = Math.max(0.2, Math.min(c, wallLen - width - 0.2));
+      const clash = existing.some(
+        (d) => pos < d.position + d.width + 0.15 && pos + width > d.position - 0.15,
+      );
+      if (!clash) {
+        position = pos;
+        break;
+      }
+    }
     entry.doors.push({
       wall: side,
-      position: round3(Math.max(0.2, wallLen / 2 - width / 2)),
+      position: round3(position),
       width: round3(width),
       isEntry: true,
     });
@@ -1087,10 +1261,19 @@ function fillZones(
 
   const remaining = [...sortedItems];
   for (const { i } of zoneOrder) {
-    const assignedZones = buckets.filter((b) => b.length > 0).length;
-    if (remaining.length < usable.length - assignedZones) break;
-    const item = remaining.shift();
-    if (!item) break;
+    if (remaining.length === 0) break;
+    const zoneArea = usable[i].w * usable[i].h;
+    // Première pièce d'une zone : elle doit être assez grande pour occuper
+    // utilement la zone. Sans ce filtre, un WC de 2,5 m² pouvait être seul
+    // dans une bande de 16 m² et devenir un « WC salon » de 16 m².
+    let pick = remaining.findIndex((it) => it.target >= zoneArea * 0.45);
+    if (pick === -1) {
+      pick = remaining.reduce(
+        (best, it, idx) => (it.target > remaining[best].target ? idx : best),
+        0,
+      );
+    }
+    const [item] = remaining.splice(pick, 1);
     buckets[i].push(item);
     assigned[i] += item.target;
   }
@@ -1149,26 +1332,33 @@ function carveLinear(zone: Rect): { zones: Rect[]; corridor: Rect | null } {
   // sinon on obtient des pièces-couloirs de 1,3 m de profondeur, inutilisables.
   const MIN_BAND = 1.5;
   const CORRIDOR = 1.1;
+  // Le couloir ne traverse que ~62 % de la longueur : la pièce d'about occupe
+  // toute la profondeur. Un couloir filant sur 14 m représenterait 15 % de la
+  // surface d'une maison de 100 m², ce qui n'est pas « compact ».
   if (zone.w >= zone.h && zone.h >= 2 * MIN_BAND + CORRIDOR) {
     const ch = CORRIDOR;
     const cy = round3(zone.y + (zone.h - ch) / 2);
+    const cl = round3(zone.w * 0.62);
     return {
       zones: [
-        { x: zone.x, y: zone.y, w: zone.w, h: round3(cy - zone.y) },
-        { x: zone.x, y: round3(cy + ch), w: zone.w, h: round3(zone.y + zone.h - (cy + ch)) },
-      ].filter((z) => z.h > 0.8),
-      corridor: { x: zone.x, y: cy, w: zone.w, h: ch },
+        { x: zone.x, y: zone.y, w: cl, h: round3(cy - zone.y) },
+        { x: zone.x, y: round3(cy + ch), w: cl, h: round3(zone.y + zone.h - (cy + ch)) },
+        { x: round3(zone.x + cl), y: zone.y, w: round3(zone.w - cl), h: zone.h },
+      ].filter((z) => z.h > 0.8 && z.w > 0.8),
+      corridor: { x: zone.x, y: cy, w: cl, h: ch },
     };
   }
   if (zone.w < 2 * MIN_BAND + CORRIDOR) return { zones: [zone], corridor: null };
   const cw = CORRIDOR;
   const cx = round3(zone.x + (zone.w - cw) / 2);
+  const cl = round3(zone.h * 0.62);
   return {
     zones: [
-      { x: zone.x, y: zone.y, w: round3(cx - zone.x), h: zone.h },
-      { x: round3(cx + cw), y: zone.y, w: round3(zone.x + zone.w - (cx + cw)), h: zone.h },
-    ].filter((z) => z.w > 0.8),
-    corridor: { x: cx, y: zone.y, w: cw, h: zone.h },
+      { x: zone.x, y: zone.y, w: round3(cx - zone.x), h: cl },
+      { x: round3(cx + cw), y: zone.y, w: round3(zone.x + zone.w - (cx + cw)), h: cl },
+      { x: zone.x, y: round3(zone.y + cl), w: zone.w, h: round3(zone.h - cl) },
+    ].filter((z) => z.w > 0.8 && z.h > 0.8),
+    corridor: { x: cx, y: zone.y, w: cw, h: cl },
   };
 }
 
@@ -1269,7 +1459,7 @@ function buildLevel(
     Math.max(mainZone.w, mainZone.h) >= 7
   ) {
     const carved = carveLinear(mainZone);
-    if (carved.zones.length === 2 && carved.corridor) {
+    if (carved.zones.length >= 2 && carved.corridor) {
       roomZones = carved.zones;
       specialRooms.push({ rect: carved.corridor, kind: "couloir", label: "Couloir central" });
     } else {
@@ -1318,6 +1508,23 @@ function buildLevel(
     plan.rooms.push(
       makeRoom(rid(), s.kind, s.label, s.rect.x, s.rect.y, s.rect.w, s.rect.h, false, s.exterior),
     );
+  }
+
+  // Cohérence du programme : la chambre principale doit être la plus grande
+  // chambre du niveau. Le découpage BSP peut inverser deux rectangles voisins ;
+  // on échange alors les libellés (la géométrie et les surfaces restent celles
+  // réellement dessinées) plutôt que d'afficher une « suite » plus petite que
+  // les chambres secondaires.
+  const chambres = plan.rooms.filter((r) => r.kind === "chambre");
+  const master = chambres.find((r) => r.label === "Chambre principale");
+  const biggest = chambres.reduce<PlanRoom | null>(
+    (best, r) => (!best || r.area > best.area ? r : best),
+    null,
+  );
+  if (master && biggest && biggest !== master && biggest.area > master.area + 0.5) {
+    const label = master.label;
+    master.label = biggest.label;
+    biggest.label = label;
   }
 
   addOpenings(
@@ -1693,6 +1900,8 @@ interface StyleProfile {
   characteristics: string[];
   /** Grandes baies vitrées sur la façade jardin. */
   bayWindows?: boolean;
+  /** Terrasse extérieure couverte par une pergola ou un débord de toit. */
+  coveredTerrace?: boolean;
   tuning: {
     livingScale?: number;
     kitchenScale?: number;
@@ -1727,6 +1936,7 @@ const STYLE_PROFILES: StyleProfile[] = [
       "Cuisine fermée adjacente au séjour",
     ],
     bayWindows: true,
+    coveredTerrace: true,
     tuning: { livingScale: 1.15, addHall: true, addLaundry: true },
   },
   {
@@ -1776,6 +1986,7 @@ const STYLE_PROFILES: StyleProfile[] = [
       "Moucharabieh / claustra sur les ouvertures ouest",
       "Enduit à la chaux et pierre locale en soubassement",
     ],
+    coveredTerrace: true,
     tuning: { livingScale: 1.05, addHall: true, addLaundry: true, masterBoost: 1 },
   },
   {
@@ -1824,6 +2035,7 @@ const STYLE_PROFILES: StyleProfile[] = [
       "Pergola en bois sur la terrasse sud",
       "Suite parentale avec salle d'eau privative",
     ],
+    coveredTerrace: true,
     tuning: { livingScale: 1.2, masterBoost: 2, addHall: true, addLaundry: true },
   },
   {
@@ -1873,6 +2085,7 @@ const STYLE_PROFILES: StyleProfile[] = [
       "Cuisine d'été et point d'eau dans le jardin",
     ],
     bayWindows: true,
+    coveredTerrace: true,
     tuning: { livingScale: 1.3, addLaundry: true, masterBoost: 1 },
   },
   {
@@ -1921,7 +2134,7 @@ const STYLE_PROFILES: StyleProfile[] = [
       "Toiture à un pan ou toit-terrasse",
       "Menuiseries verticales pour limiter les vis-à-vis",
     ],
-    tuning: { livingScale: 1.05, kitchenScale: 0.95, bedroomScale: 0.95 },
+    tuning: { livingScale: 1.05, kitchenScale: 0.95, bedroomScale: 0.95, addHall: true, addLaundry: true },
   },
   {
     id: "modulaire",
@@ -1996,20 +2209,30 @@ function placeSiteElement(
   w: number,
   h: number,
   candidates: { x: number; y: number }[],
-  occupied: { x: number; y: number; w: number; h: number }[],
+  occupied: { x: number; y: number; w: number; h: number; kind?: SiteElementKind }[],
   plotL: number,
   plotW: number,
   gap = 0.8,
 ): SiteElement | null {
+  const margin = kind === "piscine" ? 1.0 : 0.2;
   for (const c of candidates) {
     const rect = {
-      x: round3(Math.max(0.2, Math.min(c.x, plotL - w - 0.2))),
-      y: round3(Math.max(0.2, Math.min(c.y, plotW - h - 0.2))),
+      x: round3(Math.max(margin, Math.min(c.x, plotL - w - margin))),
+      y: round3(Math.max(margin, Math.min(c.y, plotW - h - margin))),
       w: round3(w),
       h: round3(h),
     };
-    if (!insidePlot(rect, plotL, plotW, 0.2)) continue;
-    if (occupied.some((o) => rectsOverlap(rect, o, gap))) continue;
+    if (!insidePlot(rect, plotL, plotW, margin)) continue;
+    // Dégagement de sécurité du bassin : 1,10 m minimum avec tout élément.
+    // Le bâti est mémorisé avec une marge de 0,60 m : on la retranche pour ne
+    // pas exiger 1,70 m au lieu de 1,10 m depuis le mur réel.
+    const blocked = occupied.some((o) => {
+      const required =
+        kind === "piscine" || o.kind === "piscine" ? Math.max(gap, 1.1) : gap;
+      const g = o.kind ? required : Math.max(0.05, required - 0.6);
+      return rectsOverlap(rect, o, g);
+    });
+    if (blocked) continue;
     return { id, kind, label, ...rect, area: round3(w * h), hardscape: true };
   }
   return null;
@@ -2106,7 +2329,7 @@ function buildSitePlan(params: {
   const eastDepth = round3(plotL - (bx + L));
   const westDepth = bx;
 
-  const occupied: { x: number; y: number; w: number; h: number }[] = [
+  const occupied: { x: number; y: number; w: number; h: number; kind?: SiteElementKind }[] = [
     { x: bx - 0.6, y: by - 0.6, w: L + 1.2, h: W + 1.2 },
   ];
   const elements: SiteElement[] = [];
@@ -2135,8 +2358,14 @@ function buildSitePlan(params: {
       0.35,
     );
     if (terrace) {
+      // La couverture est un dispositif EXTÉRIEUR (pergola, débord de toit) :
+      // elle ne crée aucune pièce et n'entre pas dans la surface habitable.
+      if (profile.coveredTerrace) {
+        terrace.covered = true;
+        terrace.label = "Terrasse couverte";
+      }
       elements.push(terrace);
-      occupied.push(terrace);
+      occupied.push({ ...terrace, kind: "terrasse" });
     }
   }
   if (!elements.some((e) => e.kind === "terrasse")) {
@@ -2188,7 +2417,7 @@ function buildSitePlan(params: {
     }
     if (placedPool) {
       elements.push(placedPool);
-      occupied.push(placedPool);
+      occupied.push({ ...placedPool, kind: "piscine" });
       if (placedPool.w < 8) {
         constraints.push(
           `Piscine dimensionnée à ${placedPool.w} × ${placedPool.h} m (${Math.round(placedPool.area)} m²) pour respecter les dégagements de sécurité dans la parcelle.`,
@@ -2234,7 +2463,7 @@ function buildSitePlan(params: {
     );
     if (kitchen) {
       elements.push(kitchen);
-      occupied.push(kitchen);
+      occupied.push({ ...kitchen, kind: "cuisine_exterieure" });
     } else {
       constraints.push(
         "Cuisine extérieure non représentée : espace extérieur insuffisant pour l'implanter hors du bâti. Elle pourra être ajoutée après abattage d'un mur de clôture ou selon l'aménagement du jardin.",
@@ -2244,13 +2473,26 @@ function buildSitePlan(params: {
 
   // ── 6. Accès et stationnement depuis la voirie (côté sud) ──────────────
   const gateX = round3(Math.min(Math.max(bx + L * 0.35, 1.0), plotL - 3.0));
+  // L'allée relie la voirie au jardin/à l'entrée sans traverser le bâti. Elle
+  // démarre après le dégagement de 0,60 m du bâti et peut se rabattre sur un
+  // côté si la terrasse occupe toute la façade. Sans cela, aucune allée n'était
+  // tracée sur la plupart des parcelles.
+  const alleyY = round3(by + W + 0.7);
+  const alleyH = Math.max(1.0, round3(plotW - alleyY - 0.2));
+  const alleyX = [
+    gateX,
+    Math.max(0.35, round3(bx - 1.65)),
+    Math.min(plotL - 1.75, round3(bx + L + 0.25)),
+    0.4,
+    round3(plotL - 1.8),
+  ];
   const alley = placeSiteElement(
     "site-allee",
     "allee",
     "Allée d'accès",
     1.4,
-    Math.max(1.2, frontDepth),
-    [{ x: gateX, y: by + W + 0.1 }],
+    alleyH,
+    alleyX.map((x) => ({ x, y: alleyY })),
     occupied,
     plotL,
     plotW,
@@ -2258,7 +2500,7 @@ function buildSitePlan(params: {
   );
   if (alley) {
     elements.push({ ...alley, label: "Allée d'accès" });
-    occupied.push(alley);
+    occupied.push({ ...alley, kind: "allee" });
   }
 
   if (family === "residential" || family === "commercial" || family === "restoration") {
@@ -2283,7 +2525,7 @@ function buildSitePlan(params: {
     );
     if (parking) {
       elements.push(parking);
-      occupied.push(parking);
+      occupied.push({ ...parking, kind: "stationnement" });
     } else if (frontDepth < 2.5) {
       constraints.push("Stationnement non représenté : accès véhicule trop court depuis la voirie.");
     }
@@ -2440,6 +2682,22 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
             profile,
           ),
         );
+      }
+    }
+
+    // Cohérence inter-niveaux : la chambre principale est la plus grande
+    // chambre de TOUT le logement, pas seulement du niveau où elle est née.
+    if (family === "residential") {
+      const chambres = floors.flatMap((f) => f.rooms.filter((r) => r.kind === "chambre"));
+      const master = chambres.find((r) => r.label === "Chambre principale");
+      const biggest = chambres.reduce<PlanRoom | null>(
+        (best, r) => (!best || r.area > best.area ? r : best),
+        null,
+      );
+      if (master && biggest && biggest !== master && biggest.area > master.area + 0.5) {
+        const label = master.label;
+        master.label = biggest.label;
+        biggest.label = label;
       }
     }
 

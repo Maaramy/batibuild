@@ -718,10 +718,16 @@ export function generatePlumbingPlan(input: TechnicalPlanInput): PlumbingPlan {
   }
 
   // Ventilation primaire : évent de la colonne, représenté au droit de la gaine.
+  // La gaine peut se trouver contre la façade nord : on oriente alors l'évent
+  // vers l'intérieur, sinon le tracé serait de longueur nulle.
+  const ventY =
+    riser.y - 1.2 >= 0.3
+      ? riser.y - 1.2
+      : Math.min(Math.max(0.3, plan.width - 0.3), riser.y + 1.2);
   pushPipe(
     pipes,
     "ventilation",
-    [riser, inPlan({ x: riser.x, y: Math.max(0.3, riser.y - 1.2) })],
+    [riser, inPlan({ x: riser.x, y: ventY })],
     100,
     true,
   );

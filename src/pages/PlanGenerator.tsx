@@ -497,7 +497,20 @@ function VariantCard({
   // met en surbrillance dans l'autre (même identifiant de pièce).
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const floor: FloorPlan = variant.floors[Math.min(floorIdx, variant.floors.length - 1)];
-  const surfaces = useMemo(() => summarizeSurfaces(floor), [floor]);
+  // Tableau des surfaces INTÉRIEURES : le patio extérieur est présenté dans
+  // le plan de masse et la catégorie « extérieure », jamais dans le bâti.
+  const surfaces = useMemo(() => {
+    const rows = summarizeSurfaces(floor).filter((s) => s.kind !== "patio");
+    const total = rows.reduce((s, r) => s + r.area, 0) || 1;
+    return rows.map((r) => ({
+      ...r,
+      sharePct: Math.round((r.area / total) * 1000) / 10,
+    }));
+  }, [floor]);
+  const builtLevelArea = useMemo(
+    () => floor.rooms.filter((r) => !r.exterior).reduce((s, r) => s + r.area, 0),
+    [floor],
+  );
   const analysis = useMemo(() => analyzeFloorPlan(floor), [floor]);
   const floorLabel = floor.level === 0 ? "Rez-de-chaussée" : `Niveau ${floor.level}`;
   const v = variant.validation;
@@ -875,12 +888,23 @@ function VariantCard({
                   </tr>
                 ))}
                 <tr className="border-t border-border bg-muted/30">
-                  <td className="px-3 py-1.5 font-semibold">Total niveau</td>
+                  <td className="px-3 py-1.5 font-semibold">Total bâti du niveau</td>
                   <td className="px-3 py-1.5 text-right tabular-nums font-bold">
-                    {floor.area.toFixed(1)} m²
+                    {builtLevelArea.toFixed(1)} m²
                   </td>
                   <td className="px-3 py-1.5" />
                 </tr>
+                {floor.rooms.some((r) => r.exterior) && (
+                  <tr className="border-t border-lime-600/20 bg-lime-500/[0.05]">
+                    <td className="px-3 py-1.5 text-[10px] text-lime-800 dark:text-lime-300">
+                      Patio extérieur (hors surface bâtie)
+                    </td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-[10px]">
+                      {floor.rooms.filter((r) => r.exterior).reduce((s, r) => s + r.area, 0).toFixed(1)} m²
+                    </td>
+                    <td className="px-3 py-1.5" />
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

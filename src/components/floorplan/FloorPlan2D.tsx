@@ -160,8 +160,9 @@ export function FloorPlan2D({
             width={r.w * S}
             height={r.h * S}
             fill="none"
-            stroke={INK}
-            strokeWidth={INT}
+            stroke={r.exterior ? "#4d7c0f" : INK}
+            strokeWidth={r.exterior ? 1.1 : INT}
+            strokeDasharray={r.exterior ? "4 3" : undefined}
           />
         ))}
       </g>
