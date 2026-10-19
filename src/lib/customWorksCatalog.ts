@@ -240,7 +240,7 @@ export function builtSurface(ctx: CustomWorkProjectContext): number {
  * Surface à chiffrer pour un travail personnalisé, déduite du projet :
  *  • Piscine : 32 m² par bassin déclaré, sinon ~10 % de la surface bâtie
  *    (bornée 24-72 m²) ;
- *  • Garage : 18 m² par garage déclaré (au moins un) ;
+ *  • Garage : 12 m² par garage déclaré (au moins un) ;
  *  • Cuisine extérieure : ~6 % du bâti (bornée 10-24 m²) ;
  *  • Jardin : surface restante du terrain hors bâti, sinon ~25 % du bâti.
  *
@@ -260,7 +260,7 @@ export function resolveCustomWorkSurface(
     }
     case "garage": {
       const declared = Math.round(ctx.garages ?? 0);
-      return 18 * Math.max(1, declared);
+      return 12 * Math.max(1, declared);
     }
     case "cuisine_exterieure":
       // Cuisine d'été : surface déduite du bâti (~6 %), bornée 10-24 m²

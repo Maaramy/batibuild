@@ -48,8 +48,8 @@ describe("customWorksCatalog", () => {
   });
 
   it("déduit les quantités des données réelles du projet", () => {
-    expect(resolveCustomWorkSurface("garage", CTX)).toBe(18);
-    expect(resolveCustomWorkSurface("garage", { ...CTX, garages: 2 })).toBe(36);
+    expect(resolveCustomWorkSurface("garage", CTX)).toBe(12);
+    expect(resolveCustomWorkSurface("garage", { ...CTX, garages: 2 })).toBe(24);
     expect(resolveCustomWorkSurface("piscine", { ...CTX, pools: 1 })).toBe(32);
     // Jardin : reste du terrain hors bâti (400 - 150).
     expect(resolveCustomWorkSurface("jardin", CTX)).toBe(250);
@@ -171,7 +171,7 @@ describe("estimateCustomWork", () => {
     expect(small.surface).toBe(0);
     expect(huge.surface).toBe(0);
     // Les autres travaux restent, eux, dimensionnés par le projet.
-    expect(estimateCustomWork("garage", { ...CTX, garages: 2 }, "tunis", "standard").surface).toBe(36);
+    expect(estimateCustomWork("garage", { ...CTX, garages: 2 }, "tunis", "standard").surface).toBe(24);
   });
 
   it("suit la grille système TTC posé dans chaque scénario (4 panneaux ≈ 7 200-8 000 DT)", () => {
