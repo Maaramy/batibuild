@@ -168,59 +168,6 @@ export const projectStatusValidator = v.union(
 export type ProjectStatus = Infer<typeof projectStatusValidator>;
 
 // ============================================================================
-// Plan architectural validé (Project Journey)
-// ----------------------------------------------------------------------------
-// Instantané enregistré quand l'utilisateur valide une variante depuis
-// « Plans architecturaux AI ». Il devient la SOURCE des données géométriques
-// des étapes suivantes : surfaces couvertes par niveau, dimensions des pièces,
-// nombre de niveaux et de pièces. La validation met aussi à jour les champs
-// `surface`, `floors`, `levelSurfaces` et les compteurs de pièces du projet
-// (voir `projects.validateProjectPlan`), afin que les moteurs de coût, de
-// matériaux et d'aide à la décision travaillent tous sur le même plan.
-// ============================================================================
-
-const validatedPlanRoomFields = {
-  id: v.string(),
-  kind: v.string(),
-  label: v.string(),
-  /** Largeur de la pièce (m). */
-  w: v.number(),
-  /** Profondeur de la pièce (m). */
-  h: v.number(),
-  /** Surface de la pièce (m²). */
-  area: v.number(),
-};
-
-export const validatedPlanFloorValidator = v.object({
-  level: v.number(),
-  /** Surface couverte du niveau (m²). */
-  area: v.number(),
-  rooms: v.array(v.object(validatedPlanRoomFields)),
-});
-
-/** Brouillon transmis par le client (la date est ajoutée côté serveur). */
-export const validatedPlanDraftValidator = v.object({
-  variantId: v.string(),
-  variantName: v.string(),
-  score: v.number(),
-  footprint: v.object({ length: v.number(), width: v.number() }),
-  /** Somme des surfaces de tous les niveaux (m²). */
-  totalArea: v.number(),
-  floors: v.array(validatedPlanFloorValidator),
-});
-
-/** Plan validé tel qu'enregistré sur le projet. */
-export const validatedPlanValidator = v.object({
-  variantId: v.string(),
-  variantName: v.string(),
-  score: v.number(),
-  footprint: v.object({ length: v.number(), width: v.number() }),
-  totalArea: v.number(),
-  floors: v.array(validatedPlanFloorValidator),
-  validatedAt: v.number(),
-});
-
-// ============================================================================
 // Material Categories for Cost Estimation
 // ============================================================================
 
@@ -465,9 +412,6 @@ const schema = defineSchema(
       pools: v.optional(v.number()),
       // Surface totale du terrain (m2)
       surfaceTotale: v.optional(v.number()),
-      // Plan architectural validé : source des surfaces, niveaux et pièces
-      // utilisés par les étapes suivantes du Project Journey.
-      validatedPlan: v.optional(validatedPlanValidator),
       
       // AI Analysis results
       aiAnalysis: v.optional(

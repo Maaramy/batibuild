@@ -2,11 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
-import { toast } from "sonner";
 import {
   BadgeCheck,
   Building2,
-  CheckCircle2,
   ChevronDown,
   Compass,
   Download,
@@ -30,8 +28,6 @@ import {
   normalizeLegacyCategory,
 } from "@/convex/projectTypes";
 import { isComplementaryWorkEligible } from "@/lib/customWorksCatalog";
-import { realBuiltArea } from "@/lib/buildingLevels";
-import { planDraftFromVariant, validatedPlanSummary } from "@/lib/validatedPlan";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -103,12 +99,6 @@ export default function PlanGenerator() {
     loading || !id ? "skip" : { projectId: id as any },
   );
 
-  // Validation d'un plan : seule écriture du parcours. Le plan validé devient
-  // la source des surfaces / niveaux / pièces des étapes suivantes.
-  const validateProjectPlan = useMutation(api.projects.validateProjectPlan);
-  const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
-  const [validatingId, setValidatingId] = useState<string | null>(null);
-
   // ── Travaux complémentaires sélectionnés par l'utilisateur ──
   // Source unique (enregistrée côté serveur, partagée avec le résultat
   // « Coût de construction ») : aucune liste indépendante n'est créée. Chaque
@@ -136,23 +126,10 @@ export default function PlanGenerator() {
   // dans les murs, accès à toute pièce (2D et 3D partagent les mêmes données).
   const allVariants: FloorPlanVariant[] = useMemo(() => {
     if (!project) return [];
-    // `generateFloorPlans` attend la surface CONSTRUITE de tous les niveaux.
-    // `project.surface` est la surface couverte du RDC : on la convertit avec
-    // les surfaces réelles par niveau, sinon un R+1 de 100 + 80 m² serait
-    // dessiné comme deux niveaux de 90 m² au lieu de 100 + 80.
-    const floors = Math.max(
-      1,
-      Math.min(4, project.floors ?? inferFloorsFromCategory(project.category)),
-    );
-    const totalBuiltArea = realBuiltArea(
-      project.surface ?? 120,
-      floors,
-      project.levelSurfaces,
-    );
     return generateFloorPlans({
       category: project.category as string,
-      surface: totalBuiltArea,
-      floors,
+      surface: project.surface ?? 120,
+      floors: Math.max(1, Math.min(4, project.floors ?? inferFloorsFromCategory(project.category))),
       bedrooms: project.bedrooms ?? undefined,
       bathrooms: project.bathrooms ?? undefined,
       kitchens: project.kitchens ?? undefined,
@@ -176,48 +153,14 @@ export default function PlanGenerator() {
     [variants],
   );
 
-  // Plan déjà validé (source des étapes suivantes) et son résumé lisible.
-  const validatedPlan = project?.validatedPlan ?? null;
-  const validatedSummary = useMemo(
-    () => validatedPlanSummary(validatedPlan),
-    [validatedPlan],
-  );
-
-  const handleValidate = async (variant: FloorPlanVariant) => {
-    if (!project || validatingId) return;
-    setValidatingId(variant.id);
-    try {
-      // 1. Enregistre le plan : surfaces par niveau, niveaux, pièces, dimensions.
-      await validateProjectPlan({
-        projectId: project._id,
-        plan: planDraftFromVariant(variant),
-      });
-      // 2. Recalcule immédiatement le coût et le quantitatif à partir du plan
-      //    validé : « Matériaux utilisés » et « Aide à la décision » lisent
-      //    ensuite ces résultats, sans ressaisir de surface.
-      try {
-        await simulateAnalysis({ projectId: project._id });
-        toast.success("Plan validé : coût et quantités recalculés sur ses surfaces.");
-      } catch {
-        toast.success("Plan validé.");
-        toast.error(
-          "Le coût n'a pas pu être recalculé automatiquement. Relancez l'estimation depuis « Coût estimatif ».",
-        );
-      }
-    } catch (error: any) {
-      toast.error(error?.message || "Impossible de valider ce plan.");
-    } finally {
-      setValidatingId(null);
-    }
-  };
-
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
         <ClientProPaywall>
-      {/* Parcours du projet — « Plans architecturaux AI » est la PREMIÈRE étape
-          du parcours : cette page n'a pas d'étape précédente, et « Suivant → »
-          ouvre le coût estimatif. La validation du plan transmet ses surfaces,
-          ses niveaux et ses pièces à toutes les étapes suivantes. */}
+      {/* Parcours du projet — l'étape « Plans architecturaux AI » fait partie
+          du parcours (groupes A et B) : cette page affiche donc son étape
+          dédiée, avec « Étape précédente : Coût estimatif » et « Suivant → »
+          pour enchaîner sans perdre les données du projet. `featureLabel` sert
+          de repli tant que le projet n'est pas encore chargé. */}
       <ProjectJourneyNav
         projectId={id}
         category={project?.category}
@@ -292,32 +235,6 @@ export default function PlanGenerator() {
               </CardContent>
             </Card>
 
-            {/* ── Plan validé : données transmises aux étapes suivantes ── */}
-            {validatedPlan && validatedSummary && (
-              <Card className="border-emerald-500/30 bg-emerald-500/[0.04]">
-                <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                    <p className="text-xs font-semibold">
-                      Plan validé · {validatedPlan.variantName}
-                    </p>
-                  </div>
-                  <p className="text-[11px] tabular-nums text-muted-foreground">
-                    {validatedSummary.surface} m² RDC ·{" "}
-                    {validatedSummary.levels === 1
-                      ? "1 niveau"
-                      : `${validatedSummary.levels} niveaux`}{" "}
-                    · {validatedSummary.totalArea} m² construits ·{" "}
-                    {validatedSummary.rooms} pièces
-                  </p>
-                  <p className="w-full text-[10px] text-muted-foreground">
-                    Ces surfaces, niveaux, dimensions de pièces et quantités alimentent
-                    le coût estimatif, les matériaux utilisés et l'aide à la décision.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
             {/* ── Grille des variantes ── */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
               {variants.map((variant, i) => (
@@ -326,10 +243,6 @@ export default function PlanGenerator() {
                   variant={variant}
                   index={i}
                   projectName={project.name}
-                  validated={validatedPlan?.variantId === variant.id}
-                  validating={validatingId === variant.id}
-                  validationBusy={validatingId != null}
-                  onValidate={() => handleValidate(variant)}
                 />
               ))}
             </div>
@@ -376,21 +289,10 @@ function VariantCard({
   variant,
   index,
   projectName,
-  validated,
-  validating,
-  validationBusy,
-  onValidate,
 }: {
   variant: FloorPlanVariant;
   index: number;
   projectName: string;
-  /** Cette variante est le plan validé du projet. */
-  validated: boolean;
-  /** La validation de CETTE variante est en cours. */
-  validating: boolean;
-  /** Une validation est en cours (toutes variantes). */
-  validationBusy: boolean;
-  onValidate: () => void;
 }) {
   const [floorIdx, setFloorIdx] = useState(0);
   const [view, setView] = useState<"2d" | "3d">("2d");
@@ -447,17 +349,7 @@ function VariantCard({
       <Card className="overflow-hidden">
         <CardHeader className="pb-3 pt-4 px-4">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <CardTitle className="text-sm font-bold tracking-tight">{variant.name}</CardTitle>
-              {validated && (
-                <Badge
-                  variant="outline"
-                  className="shrink-0 border-emerald-500/40 bg-emerald-500/10 text-[9px] text-emerald-700 dark:text-emerald-300"
-                >
-                  <CheckCircle2 className="mr-1 h-2.5 w-2.5" /> Plan validé
-                </Badge>
-              )}
-            </div>
+            <CardTitle className="text-sm font-bold tracking-tight">{variant.name}</CardTitle>
             <Badge variant="outline" className={cn("text-[10px] shrink-0", scoreColor)}>
               Note {v.score}/100
             </Badge>
@@ -565,30 +457,8 @@ function VariantCard({
             </div>
           )}
 
-          {/* Actions : validation du plan (source des étapes suivantes),
-              export PDF et analyse. */}
+          {/* Actions : export PDF + analyse */}
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              onClick={onValidate}
-              disabled={validated || validationBusy}
-              title={
-                validated
-                  ? "Ce plan alimente déjà le coût, les matériaux et l'aide à la décision"
-                  : "Valider ce plan et transmettre ses surfaces, niveaux et pièces au parcours"
-              }
-            >
-              {validating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-3.5 w-3.5" />
-              )}
-              {validated
-                ? "Plan validé"
-                : validating
-                  ? "Validation…"
-                  : "Valider ce plan"}
-            </Button>
             <Button
               size="sm"
               variant="outline"

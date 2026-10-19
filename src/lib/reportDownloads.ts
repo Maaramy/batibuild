@@ -25,7 +25,6 @@ import {
   type QuantitatifCustomizationEntry,
 } from "@/convex/quantitatifCustomLogic";
 import { generateFloorPlans, repairFloorPlan } from "./floorPlanEngine";
-import { realBuiltArea } from "./buildingLevels";
 import { downloadFloorPlanPdf } from "./floorPlanPdf";
 import { generateMaterialReportPdf } from "./materialReportPdf";
 import { generateProjectPdf } from "./projectPdf";
@@ -140,17 +139,13 @@ export async function downloadPlansReport(project: ProjectLike): Promise<void> {
   const surface = typeof project?.surface === "number" ? project.surface : 0;
   if (surface <= 0) throw new Error("report-unavailable");
 
-  // Le moteur de plans attend la surface construite de TOUS les niveaux :
-  // `project.surface` est la surface couverte du RDC. Sans cette conversion,
-  // un R+1 de 100 + 80 m² serait dessiné comme deux niveaux de 90 m².
-  const floors = Math.max(
-    1,
-    Math.min(4, project.floors ?? inferFloorsFromCategory(project.category)),
-  );
   const variants = generateFloorPlans({
     category: project.category as string,
-    surface: realBuiltArea(surface, floors, project.levelSurfaces),
-    floors,
+    surface,
+    floors: Math.max(
+      1,
+      Math.min(4, project.floors ?? inferFloorsFromCategory(project.category)),
+    ),
     bedrooms: project.bedrooms ?? undefined,
     bathrooms: project.bathrooms ?? undefined,
     kitchens: project.kitchens ?? undefined,
@@ -167,12 +162,10 @@ export async function downloadPlansReport(project: ProjectLike): Promise<void> {
   }));
 
   if (!variants.length) throw new Error("report-unavailable");
-  // Le plan VALIDÉ prime : le PDF doit décrire la géométrie qui alimente le
-  // coût et les quantités, pas la variante la mieux notée. Sans plan validé,
-  // la meilleure variante reste exportée (comportement historique).
-  const validatedVariantId = project?.validatedPlan?.variantId;
-  const best = variants.find((v) => v.id === validatedVariantId) ??
-    variants.reduce((a, b) => (b.validation.score > a.validation.score ? b : a), variants[0]);
+  const best = variants.reduce(
+    (a, b) => (b.validation.score > a.validation.score ? b : a),
+    variants[0],
+  );
   const floor = best.floors[0];
   if (!floor) throw new Error("report-unavailable");
   const floorLabel = floor.level === 0 ? "Rez-de-chaussée" : `Niveau ${floor.level}`;

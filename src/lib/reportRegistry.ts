@@ -99,12 +99,6 @@ export interface ProjectReportInput {
   category?: string | null;
   surface?: number | null;
   costEstimate?: unknown;
-  /**
-   * Plan architectural validé (première étape du parcours). Le rapport PDF du
-   * plan n'est proposé qu'une fois le plan validé : il décrit alors la même
-   * géométrie que le coût et les quantités.
-   */
-  validatedPlan?: unknown;
 }
 
 /** Artefacts persistés côté serveur (`reportCenter.getMyReportArtifacts`). */
@@ -121,9 +115,9 @@ export function reportStatuses(
   const hasDimensions = typeof project.surface === "number" && project.surface > 0;
   return {
     cost: project.costEstimate ? "available" : "not_executed",
-    // Le plan n'est disponible qu'une fois VALIDÉ : c'est le plan validé qui
-    // sert de source aux surfaces et quantités des étapes suivantes.
-    plans: hasDimensions && project.validatedPlan ? "available" : "not_executed",
+    // Le plan IA est composé de façon déterministe à partir des dimensions du
+    // projet : il est disponible dès que le projet porte une surface.
+    plans: hasDimensions ? "available" : "not_executed",
     materials: artifacts?.materialsAnalysisId ? "available" : "not_executed",
     execution: artifacts?.roadmapId ? "available" : "not_executed",
   };

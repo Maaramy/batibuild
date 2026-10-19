@@ -726,11 +726,7 @@ export default function NewProject() {
       setAnalysisProgress(100);
       setTimeout(() => {
         markStepCompleted("analyzing");
-        // Le parcours commence obligatoirement par « Plans architecturaux AI » :
-        // le projet nouvellement créé ouvre donc la génération de plans. Le
-        // plan validé alimentera ensuite le coût, les matériaux et l'aide à la
-        // décision (surfaces, niveaux et pièces).
-        setTimeout(() => navigate(`/dashboard/plans/${projectId}`), 800);
+        setTimeout(() => navigate(`/dashboard/project/${projectId}`), 800);
       }, 500);
     } catch (error: any) {
       clearInterval(interval);
