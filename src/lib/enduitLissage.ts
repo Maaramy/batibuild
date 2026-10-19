@@ -84,8 +84,12 @@ export function enduitLissageBucketPrice(
   const bucketKg = enduitLissageBucketKg(unit);
   const u = norm(unit);
   const packaging = /\b(seau|seaux|sac|sacs|pot|pots|bidon|bidons|bucket)\b/.test(u);
-  // Prix exprimé au kilogramme : conversion explicite vers le seau.
-  if (!packaging && /\bkg\b/.test(u)) return round2(price * bucketKg);
+  // Prix exprimé au kilogramme : conversion explicite vers le seau. Un prix
+  // supérieur à 10 TND/kg ne peut pas être un prix d'enduit au kg : c'est un
+  // prix de seau mal étiqueté (anciennes estimations), on le conserve tel quel.
+  if (!packaging && /\bkg\b/.test(u)) {
+    return round2(price >= 10 ? price : price * bucketKg);
+  }
   if (packaging) return round2(price);
   // Unité absente ou inconnue : un prix élevé est un prix de seau, un prix
   // faible un prix au kg. Aucun prix n'est inventé.

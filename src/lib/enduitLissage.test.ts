@@ -32,6 +32,9 @@ describe("enduit de lissage — quantité physique et conversion en seaux", () =
     expect(byBucket?.total).toBe(3280.5);
     expect(byBucket?.bucketKg).toBe(20);
     expect(byBucket?.buckets).toBe(75);
+    // Ancienne ligne mal étiquetée « kg » avec un prix de seau : le prix reste
+    // un prix de seau, il n'est jamais multiplié par 20.
+    expect(computeEnduitLissageQuote(250, "kg", 43.74)?.pricePerBucket).toBe(43.74);
   });
 
   it("ne modifie pas un poste qui n'est pas de l'enduit de lissage", () => {
