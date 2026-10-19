@@ -4,8 +4,9 @@
 // Affiche le tableau des articles réellement nécessaires au projet :
 //   Article · Quantité · Prix unitaire · Prix total (TND)
 //
-// • Les quantités et prix viennent du quantitatif déjà enregistré (moteur BIM,
-//   et lignes « matériaux » du DQE en repli) : aucune donnée fictive.
+// • Les quantités et prix viennent du quantitatif déjà enregistré : lignes
+//   matériaux du DQE lorsqu'il les porte, sinon détail matériaux du moteur
+//   BIM. Aucune donnée fictive, aucune source additionnée à une autre.
 // • Le scénario actif (Économique / Standard / Premium / Personnalisé) est
 //   repris tel quel ; toute modification du projet, du quantitatif, des prix ou
 //   du scénario met le tableau à jour automatiquement (requêtes réactives).

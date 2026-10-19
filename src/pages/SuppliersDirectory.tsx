@@ -113,6 +113,12 @@ export default function SuppliersDirectory() {
     api.marketData.getCheapestSuppliers,
     fromMaterials && materialNames.length > 0 ? { names: materialNames } : "skip",
   );
+  // Comparaison par prix croissant, uniquement sur les offres réellement
+  // renseignées (aucune ligne sans donnée).
+  const marketOfferRows = useMemo(
+    () => [...(marketOffers ?? [])].sort((a: any, b: any) => a.minPrice - b.minPrice),
+    [marketOffers],
+  );
   const [widenRegion, setWidenRegion] = useState(false);
 
   // Texte recherché : état local, initialisé depuis l'URL (il est transmis
@@ -495,14 +501,14 @@ export default function SuppliersDirectory() {
         )}
 
         {/* ── Prix marché réellement renseignés (comparaison d'offres) ── */}
-        {fromMaterials && marketOffers && marketOffers.length > 0 && (
+        {fromMaterials && marketOfferRows.length > 0 && (
           <details className="group overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elev-1">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3.5 py-3 text-xs font-semibold sm:px-4">
               <span className="inline-flex items-center gap-1.5">
                 <Banknote className="h-3.5 w-3.5 text-emerald-600" />
                 Prix marché disponibles
                 <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9.5px] font-semibold text-emerald-700 dark:text-emerald-300">
-                  {marketOffers.length} offre{marketOffers.length > 1 ? "s" : ""}
+                  {marketOfferRows.length} offre{marketOfferRows.length > 1 ? "s" : ""}
                 </span>
               </span>
               <span className="text-[10px] font-normal text-muted-foreground group-open:hidden">
@@ -525,7 +531,7 @@ export default function SuppliersDirectory() {
                     </tr>
                   </thead>
                   <tbody>
-                    {marketOffers.slice(0, 10).map((offer: any, i: number) => (
+                    {marketOfferRows.slice(0, 10).map((offer: any, i: number) => (
                       <tr key={`${offer.name}-${offer.supplier}-${i}`} className="border-t border-border/40">
                         <td className="py-2 pr-3 font-medium leading-snug">{offer.name}</td>
                         <td className="px-2 py-2 text-muted-foreground">
@@ -555,9 +561,9 @@ export default function SuppliersDirectory() {
                   </tbody>
                 </table>
               </div>
-              {marketOffers.length > 10 && (
+              {marketOfferRows.length > 10 && (
                 <p className="mt-2 text-[10px] text-muted-foreground">
-                  10 offres les plus avantageuses affichées sur {marketOffers.length}.
+                  10 offres les plus avantageuses affichées sur {marketOfferRows.length}.
                 </p>
               )}
               <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">

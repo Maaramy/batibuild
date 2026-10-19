@@ -217,6 +217,8 @@ export function buildMaterialUsage(input: BuildMaterialUsageInput): MaterialUsag
       existing.total = round2(existing.total + total);
       // Prix unitaire moyen réellement facturé (quantité pondérée).
       existing.unitPrice = round2(existing.total / existing.quantity);
+      // Le total d'une ligne reste TOUJOURS quantité × prix unitaire.
+      existing.total = round2(existing.quantity * existing.unitPrice);
       return;
     }
     buckets.set(key, {
