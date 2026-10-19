@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
@@ -53,6 +54,7 @@ import { cn } from "@/lib/utils";
 import { analyzeFloorPlan } from "@/lib/planAnalysis";
 import type { FloorPlanAnalysis } from "@/lib/planAnalysis";
 import { downloadFloorPlanPdf } from "@/lib/floorPlanPdf";
+import { resolvePlanPagePhase } from "@/lib/planPageState";
 
 /** Durée fixe de l'écran de chargement : 3 secondes. */
 const LOADING_DURATION_MS = 3000;
@@ -71,6 +73,10 @@ export default function PlanGenerator() {
   });
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // Identifiant réel du projet transmis par le Journey (`/dashboard/plans/:id`).
+  // Aucun identifiant n'est créé côté page : sans identifiant, aucune requête
+  // n'est envoyée et la page affiche l'état « projet introuvable ».
+  const projectId = (id ?? "").trim();
 
   // ── Écran de chargement fixe (3 s) avant affichage des résultats ──
   const [loading, setLoading] = useState(true);
@@ -94,9 +100,13 @@ export default function PlanGenerator() {
     };
   }, []);
 
+  // ── Récupération du projet : requêtes lancées IMMÉDIATEMENT, en parallèle de
+  // l'écran d'introduction. L'écran de 3 s ne doit jamais retarder ni
+  // interrompre le chargement Convex, sinon la première réponse (`undefined`)
+  // serait prise à tort pour un projet inexistant.
   const project = useQuery(
     api.projects.getProject,
-    loading || !id ? "skip" : { projectId: id as any },
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
   );
 
   // ── Travaux complémentaires sélectionnés par l'utilisateur ──
@@ -105,8 +115,17 @@ export default function PlanGenerator() {
   // travail devient un besoin / une contrainte du programme architectural.
   const customWorks = useQuery(
     api.customWorks.getProjectCustomWorks,
-    loading || !id ? "skip" : { projectId: id as any },
+    projectId ? { projectId: projectId as Id<"projects"> } : "skip",
   );
+
+  // États distincts : `undefined` (requête en cours) ≠ `null` (projet
+  // réellement introuvable ou inaccessible). Voir `@/lib/planPageState`.
+  const phase = resolvePlanPagePhase({
+    introLoading: loading,
+    projectId,
+    project,
+    customWorks,
+  });
   const planWorks = useMemo(() => customWorks?.keys ?? [], [customWorks]);
   // Mêmes conditions d'accès que le résultat d'estimation : les travaux
   // complémentaires ne sont pris en compte que pour les projets éligibles
@@ -162,7 +181,7 @@ export default function PlanGenerator() {
           pour enchaîner sans perdre les données du projet. `featureLabel` sert
           de repli tant que le projet n'est pas encore chargé. */}
       <ProjectJourneyNav
-        projectId={id}
+        projectId={projectId || undefined}
         category={project?.category}
         featureLabel="Plans architecturaux AI"
         maxWidthClassName="max-w-7xl"
@@ -170,7 +189,7 @@ export default function PlanGenerator() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
         {/* ── Écran de chargement (3 secondes) ── */}
-        {loading ? (
+        {phase === "intro" ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="relative mb-6">
               <div className="absolute inset-0 rounded-full bg-violet-500/10 animate-ping" />
@@ -197,8 +216,11 @@ export default function PlanGenerator() {
               </motion.p>
             </div>
           </div>
-        ) : !project ? (
-          /* ── Projet introuvable ── */
+        ) : phase === "loading" ? (
+          /* ── Requête Convex encore en cours : squelette, jamais d'erreur ── */
+          <PlansLoadingSkeleton />
+        ) : phase === "not-found" ? (
+          /* ── Projet introuvable (réponse serveur confirmée) ── */
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <Info className="h-8 w-8 text-muted-foreground mb-3" />
             <h2 className="text-base font-semibold">Projet introuvable</h2>
@@ -209,7 +231,7 @@ export default function PlanGenerator() {
               Retour au tableau de bord
             </Button>
           </div>
-        ) : (
+        ) : project ? (
           <>
             {/* ── Bandeau synthèse projet ── */}
             <Card className="border-primary/15 bg-gradient-to-r from-violet-500/[0.05] to-transparent">
@@ -252,7 +274,7 @@ export default function PlanGenerator() {
               inscrit à l'ordre requise avant dépôt du permis de bâtir.
             </p>
           </>
-        )}
+        ) : null}
       </div>
             </ClientProPaywall>
 </main>
@@ -260,6 +282,33 @@ export default function PlanGenerator() {
 }
 
 // ── Sous-composants ─────────────────────────────────────────────────────────
+
+/** Squelette affiché pendant la requête Convex (aucun message d'erreur). */
+function PlansLoadingSkeleton() {
+  return (
+    <div
+      className="space-y-5"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <span className="sr-only">Chargement des données du projet…</span>
+      <div className="h-[76px] animate-pulse rounded-xl border border-border/60 bg-card" />
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+        {[0, 1].map((i) => (
+          <div
+            key={i}
+            className="space-y-3 rounded-xl border border-border/60 bg-card p-4"
+          >
+            <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+            <div className="h-[240px] animate-pulse rounded-lg bg-muted" />
+            <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function SynthStat({
   icon: Icon,
