@@ -73,6 +73,9 @@ export function EstimateLoadingScreen({
   description,
   steps,
   progressLabel = "Progression de l'estimation",
+  readyLabel = "Estimation prête, affichage des résultats…",
+  waitingLabel = "Calculs en cours — attente des données réelles…",
+  waitingDetail = "Finalisation des calculs réels…",
   className,
 }: {
   /** Nom du projet envoyé au calcul (affichage uniquement). */
@@ -95,6 +98,12 @@ export function EstimateLoadingScreen({
   steps?: readonly string[];
   /** Libellé accessible de la barre de progression. */
   progressLabel?: string;
+  /** Texte de la phase « données prêtes, fin d'animation ». */
+  readyLabel?: string;
+  /** Texte de la phase d'attente discrète (animation terminée, données en cours). */
+  waitingLabel?: string;
+  /** Détail affiché sous l'indicateur d'attente discrète. */
+  waitingDetail?: string;
   className?: string;
 }) {
   const reduceMotion = useReducedMotion();
@@ -302,15 +311,15 @@ export function EstimateLoadingScreen({
                 aria-live="polite"
               >
                 {phase === "complete"
-                  ? "Estimation prête, affichage des résultats…"
+                  ? readyLabel
                   : phase === "waiting"
-                    ? "Calculs en cours — attente des données réelles…"
+                    ? waitingLabel
                     : stepLabels[intro.activeIndex]}
               </p>
               {phase === "waiting" && (
                 <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
-                  Finalisation des calculs réels…
+                  {waitingDetail}
                 </div>
               )}
             </>

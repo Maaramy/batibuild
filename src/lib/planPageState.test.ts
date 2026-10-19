@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolvePlanPagePhase } from "./planPageState";
+import { resolvePlanPagePhase, resolvePlanPageView } from "./planPageState";
 
 const PROJECT_ID = "jd7abcdefghijklmnopqrstuvwxyz012";
 
@@ -105,5 +105,47 @@ describe("resolvePlanPagePhase — page Plans architecturaux AI", () => {
         customWorks: undefined,
       }),
     ).toBe("loading");
+  });
+});
+
+describe("resolvePlanPageView — animation de 4 s puis affichage des plans", () => {
+  it("affiche l'écran de chargement partagé pendant toute l'animation", () => {
+    expect(resolvePlanPageView({ phase: "intro", revealed: false })).toBe("loading");
+  });
+
+  it("attend la fin de l'animation même si les données sont déjà prêtes", () => {
+    // Données prêtes dès la première réponse, mais `onComplete` n'a pas encore
+    // été appelé (fin des 4 s) : les plans ne doivent pas s'afficher.
+    expect(resolvePlanPageView({ phase: "ready", revealed: false })).toBe("loading");
+    expect(resolvePlanPageView({ phase: "ready", revealed: true })).toBe("plans");
+  });
+
+  it("données lentes : attente discrète après les 4 s, jamais de page vide", () => {
+    expect(resolvePlanPageView({ phase: "loading", revealed: false })).toBe("loading");
+    expect(resolvePlanPageView({ phase: "loading", revealed: true })).toBe("loading");
+  });
+
+  it("aucun « Projet introuvable » pendant l'animation ou une requête en cours", () => {
+    // Réponse `null` arrivée pendant l'introduction : la phase reste `intro`.
+    const introPhase = resolvePlanPagePhase({
+      introLoading: true,
+      projectId: PROJECT_ID,
+      project: null,
+      customWorks: null,
+    });
+    expect(introPhase).toBe("intro");
+    expect(resolvePlanPageView({ phase: introPhase, revealed: false })).toBe("loading");
+    expect(resolvePlanPageView({ phase: "loading", revealed: false })).toBe("loading");
+  });
+
+  it("affiche « Projet introuvable » seulement après la réponse serveur", () => {
+    expect(resolvePlanPageView({ phase: "not-found", revealed: false })).toBe("not-found");
+    expect(resolvePlanPageView({ phase: "not-found", revealed: true })).toBe("not-found");
+  });
+
+  it("les plans ne s'affichent jamais sans données réellement prêtes", () => {
+    for (const phase of ["intro", "loading"] as const) {
+      expect(resolvePlanPageView({ phase, revealed: true })).toBe("loading");
+    }
   });
 });

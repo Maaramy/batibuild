@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
@@ -15,12 +15,15 @@ import {
   Maximize2,
   Ruler,
   ScanLine,
-  Sparkles,
 } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
+import {
+  EstimateLoadingScreen,
+  ESTIMATE_LOADING_DURATION_MS,
+} from "@/components/EstimateLoadingScreen";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
 import {
@@ -37,7 +40,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   generateFloorPlans,
@@ -54,16 +56,24 @@ import { cn } from "@/lib/utils";
 import { analyzeFloorPlan } from "@/lib/planAnalysis";
 import type { FloorPlanAnalysis } from "@/lib/planAnalysis";
 import { downloadFloorPlanPdf } from "@/lib/floorPlanPdf";
-import { resolvePlanPagePhase } from "@/lib/planPageState";
+import {
+  resolvePlanPagePhase,
+  resolvePlanPageView,
+} from "@/lib/planPageState";
 
-/** Durée fixe de l'écran de chargement : 3 secondes. */
-const LOADING_DURATION_MS = 3000;
-
+/**
+ * Six étapes du parcours de préparation des plans : même nombre d'étapes que
+ * l'écran « Coût estimatif », donc même logo, mêmes animations, même barre de
+ * progression et même disposition responsive (aucun second design).
+ */
 const LOADING_STEPS = [
-  "Analyse des caractéristiques du projet…",
-  "Génération des variantes architecturales…",
-  "Validation spatiale (surfaces, circulation, structure)…",
-];
+  "Récupération du projet",
+  "Lecture du programme architectural",
+  "Analyse de la surface réelle",
+  "Composition des espaces",
+  "Variantes architecturales 2D / 3D",
+  "Validation des plans",
+] as const;
 
 export default function PlanGenerator() {
   usePageSEO({
@@ -78,32 +88,38 @@ export default function PlanGenerator() {
   // n'est envoyée et la page affiche l'état « projet introuvable ».
   const projectId = (id ?? "").trim();
 
-  // ── Écran de chargement fixe (3 s) avant affichage des résultats ──
-  const [loading, setLoading] = useState(true);
-  const [progress, setProgress] = useState(0);
-  const [stepIdx, setStepIdx] = useState(0);
+  const hasProjectId = projectId.length > 0;
+
+  // ── Écran de chargement partagé avec « Coût estimatif de construction » ──
+  // Durée initiale identique (4 000 ms) ; les requêtes Convex sont lancées
+  // IMMÉDIATEMENT, en parallèle de l'animation. L'animation ne retarde ni
+  // n'interrompt jamais le chargement des données.
+  const [introDone, setIntroDone] = useState(false);
+  // `true` uniquement lorsque l'animation est terminée ET que les données
+  // requises sont disponibles : la page des plans n'apparaît jamais avant.
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
-    const start = Date.now();
-    const tick = setInterval(() => {
-      const pct = Math.min(100, ((Date.now() - start) / LOADING_DURATION_MS) * 100);
-      setProgress(pct);
-      setStepIdx(Math.min(LOADING_STEPS.length - 1, Math.floor((pct / 100) * LOADING_STEPS.length)));
-    }, 50);
-    const timer = setTimeout(() => {
-      setLoading(false);
-      clearInterval(tick);
-    }, LOADING_DURATION_MS);
-    return () => {
-      clearTimeout(timer);
-      clearInterval(tick);
-    };
-  }, []);
+    // Nouveau projet (navigation d'un projet à l'autre sans démontage de la
+    // page) : on repart de l'animation complète, jamais d'un écran à moitié
+    // chargé ni des données du projet précédent.
+    setIntroDone(false);
+    setRevealed(false);
+    // Borné à la durée exacte de l'animation : le message « Projet
+    // introuvable » ne peut donc jamais s'afficher pendant le chargement.
+    const timer = window.setTimeout(
+      () => setIntroDone(true),
+      ESTIMATE_LOADING_DURATION_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [projectId]);
+
+  const handleLoaderComplete = useCallback(() => setRevealed(true), []);
 
   // ── Récupération du projet : requêtes lancées IMMÉDIATEMENT, en parallèle de
-  // l'écran d'introduction. L'écran de 3 s ne doit jamais retarder ni
-  // interrompre le chargement Convex, sinon la première réponse (`undefined`)
-  // serait prise à tort pour un projet inexistant.
+  // l'écran d'introduction. Ce dernier ne doit jamais retarder ni interrompre
+  // le chargement Convex, sinon la première réponse (`undefined`) serait prise
+  // à tort pour un projet inexistant.
   const project = useQuery(
     api.projects.getProject,
     projectId ? { projectId: projectId as Id<"projects"> } : "skip",
@@ -120,12 +136,18 @@ export default function PlanGenerator() {
 
   // États distincts : `undefined` (requête en cours) ≠ `null` (projet
   // réellement introuvable ou inaccessible). Voir `@/lib/planPageState`.
+  // Données requises : le projet ET ses travaux complémentaires (les plans en
+  // dépendent) — `undefined` signifie « requête encore en cours ».
+  const dataReady = project !== undefined && customWorks !== undefined;
   const phase = resolvePlanPagePhase({
-    introLoading: loading,
+    // Sans identifiant, aucune requête n'est envoyée : inutile de faire patienter
+    // l'utilisateur derrière une animation.
+    introLoading: !introDone && hasProjectId,
     projectId,
     project,
     customWorks,
   });
+  const view = resolvePlanPageView({ phase, revealed });
   const planWorks = useMemo(() => customWorks?.keys ?? [], [customWorks]);
   // Mêmes conditions d'accès que le résultat d'estimation : les travaux
   // complémentaires ne sont pris en compte que pour les projets éligibles
@@ -188,39 +210,26 @@ export default function PlanGenerator() {
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
-        {/* ── Écran de chargement (3 secondes) ── */}
-        {phase === "intro" ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="relative mb-6">
-              <div className="absolute inset-0 rounded-full bg-violet-500/10 animate-ping" />
-              <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-500/20 to-indigo-500/10 border border-violet-500/30">
-                <Loader2 className="h-9 w-9 animate-spin text-violet-600" />
-              </div>
-            </div>
-            <h2 className="text-lg font-bold tracking-tight">
-              Génération des plans d'architecte…
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1 max-w-md">
-              Le moteur spatial compose, valide et note chaque variante avant affichage.
-            </p>
-            <div className="w-full max-w-sm mt-6 space-y-2">
-              <Progress value={progress} className="h-1.5" />
-              <motion.p
-                key={stepIdx}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-[11px] text-muted-foreground flex items-center justify-center gap-1.5"
-              >
-                <Sparkles className="h-3 w-3 text-violet-500" />
-                {LOADING_STEPS[stepIdx]}
-              </motion.p>
-            </div>
-          </div>
-        ) : phase === "loading" ? (
-          /* ── Requête Convex encore en cours : squelette, jamais d'erreur ── */
-          <PlansLoadingSkeleton />
-        ) : phase === "not-found" ? (
-          /* ── Projet introuvable (réponse serveur confirmée) ── */
+        {/* ── Chargement harmonisé avec « Coût estimatif de construction » ── */}
+        {view === "loading" ? (
+          <EstimateLoadingScreen
+            // Un projet différent repart d'une animation complète, comme à
+            // l'ouverture directe de la page.
+            key={projectId}
+            projectName={project?.name}
+            pending={!dataReady}
+            onComplete={handleLoaderComplete}
+            durationMs={ESTIMATE_LOADING_DURATION_MS}
+            steps={LOADING_STEPS}
+            title="BatiBuild prépare vos plans architecturaux"
+            description="Type de projet, région, surface réelle, niveaux et travaux complémentaires — les variantes 2D / 3D se préparent."
+            progressLabel="Progression de la préparation des plans"
+            readyLabel="Plans prêts, affichage…"
+            waitingLabel="Récupération des données du projet…"
+            waitingDetail="Chargement du projet et de ses travaux complémentaires…"
+          />
+        ) : view === "not-found" ? (
+          /* ── Projet introuvable (réponse serveur confirmée, après l'animation) ── */
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <Info className="h-8 w-8 text-muted-foreground mb-3" />
             <h2 className="text-base font-semibold">Projet introuvable</h2>
@@ -282,33 +291,6 @@ export default function PlanGenerator() {
 }
 
 // ── Sous-composants ─────────────────────────────────────────────────────────
-
-/** Squelette affiché pendant la requête Convex (aucun message d'erreur). */
-function PlansLoadingSkeleton() {
-  return (
-    <div
-      className="space-y-5"
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-    >
-      <span className="sr-only">Chargement des données du projet…</span>
-      <div className="h-[76px] animate-pulse rounded-xl border border-border/60 bg-card" />
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        {[0, 1].map((i) => (
-          <div
-            key={i}
-            className="space-y-3 rounded-xl border border-border/60 bg-card p-4"
-          >
-            <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
-            <div className="h-[240px] animate-pulse rounded-lg bg-muted" />
-            <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function SynthStat({
   icon: Icon,

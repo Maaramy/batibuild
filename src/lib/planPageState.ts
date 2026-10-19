@@ -5,8 +5,9 @@
  * de Convex (requête encore en cours) ne soit JAMAIS confondu avec `null`
  * (projet réellement introuvable ou inaccessible).
  *
- *   - `intro`     : écran d'introduction de génération (3 s), les requêtes
- *                   Convex sont déjà lancées en parallèle ;
+ *   - `intro`     : écran d'introduction de génération (4 s, identique à
+ *                   l'estimation de coût de construction), les requêtes Convex
+ *                   sont déjà lancées en parallèle ;
  *   - `loading`   : requête du projet ou des travaux complémentaires encore en
  *                   cours — squelette affiché, jamais de message d'erreur ;
  *   - `not-found` : l'identifiant est absent ou la requête a répondu `null` ;
@@ -44,4 +45,31 @@ export function resolvePlanPagePhase({
   // remplacer (aucun résultat intermédiaire n'est affiché).
   if (customWorks === undefined) return "loading";
   return "ready";
+}
+
+/**
+ * Vue réellement rendue par la page.
+ *
+ *   - `loading`   : écran de chargement partagé (animation de 4 s puis attente
+ *                   discrète si nécessaire) — jamais de message d'erreur tant
+ *                   qu'une requête est en cours ;
+ *   - `not-found` : le serveur a répondu `null` (ou aucun identifiant) ;
+ *   - `plans`     : animation terminée ET données disponibles.
+ *
+ * `revealed` provient de `onComplete` de l'écran de chargement : il garantit
+ * que les plans ne remplacent jamais l'animation avant sa fin, même lorsque
+ * les données arrivent immédiatement.
+ */
+export type PlanPageView = "loading" | "not-found" | "plans";
+
+export function resolvePlanPageView({
+  phase,
+  revealed,
+}: {
+  phase: PlanPagePhase;
+  revealed: boolean;
+}): PlanPageView {
+  if (phase === "not-found") return "not-found";
+  if (phase !== "ready" || !revealed) return "loading";
+  return "plans";
 }
