@@ -154,8 +154,9 @@ export function useProjectMaterialUsage(
         dqeLots: dqeLotsForUsage,
         scenarioFactor,
         complementaryWorks,
+        builtArea: builtSurface,
       }),
-    [project, dqeLotsForUsage, scenarioFactor, complementaryWorks],
+    [project, dqeLotsForUsage, scenarioFactor, complementaryWorks, builtSurface],
   );
 
   // Le scénario « Personnalisé » n'est affiché que s'il existe réellement.

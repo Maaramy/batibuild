@@ -71,6 +71,10 @@ import {
   runBIMEstimation,
 } from "@/convex/bimEngine";
 import { realBuiltArea } from "@/lib/buildingLevels";
+import {
+  correctEnduitLissageBimItems,
+  isEnduitLissageName,
+} from "@/lib/enduitLissage";
 import { resolveEstimationBudget } from "@/lib/estimationBudget";
 // Impact régional & comparatif régional : UNE seule source de calcul
 // (`lib/regionImpact`), la même que celle du moteur BIM. Elle ne fait varier
@@ -692,16 +696,29 @@ export default function ProjectDetail() {
   // Scaled breakdown for current scenario
   const scaledBreakdown = useMemo(() => {
     if (!ce?.breakdown) return [] as any[];
-    if (scaleFactor === 1) return ce.breakdown;
-    return ce.breakdown.map((cat: any) => ({
+    // Correction « enduit de lissage » appliquée aussi aux estimations déjà
+    // enregistrées : kg → seaux de 20 kg, total = seaux × prix du seau.
+    const corrected = ce.breakdown.map((cat: any) => ({
+      ...cat,
+      items: correctEnduitLissageBimItems(cat.items, builtSurface),
+    }));
+    if (scaleFactor === 1) return corrected;
+    return corrected.map((cat: any) => ({
       ...cat,
       estimatedCost: Math.round(cat.estimatedCost * scaleFactor),
-      items: cat.items?.map((item: any) => ({
-        ...item,
-        totalPrice: Math.round(item.totalPrice * scaleFactor),
-      })),
+      items: cat.items?.map((item: any) => {
+        const totalPrice = Math.round(item.totalPrice * scaleFactor);
+        if (!isEnduitLissageName(item.name)) {
+          return { ...item, totalPrice };
+        }
+        return {
+          ...item,
+          unitPrice: Math.round((totalPrice / (item.quantity || 1)) * 100) / 100,
+          totalPrice,
+        };
+      }),
     }));
-  }, [ce?.breakdown, scaleFactor]);
+  }, [ce?.breakdown, scaleFactor, builtSurface]);
 
   // Current total cost for selected scenario
   const currentTotal = useMemo(() => {

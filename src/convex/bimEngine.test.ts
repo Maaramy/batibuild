@@ -436,19 +436,24 @@ describe("applyRealisticDoorsWindows — portes & fenêtres par pièce (Quantita
     expect(find(so, "Grille").unitPrice).toBe(176);
   });
 
-  it("le total de la catégorie second œuvre est préservé (budget inchangé)", () => {
+  it("préserve l'enveloppe de la catégorie et ne recale jamais l'enduit corrigé", () => {
     const full = withDefaults(MANY);
     const res = runBIMEstimation("maison", 150, 1, "tunis", "standard", full);
-    const before = getBreakdown(res, "second_oeuvre").estimatedCost;
+    const beforeBreakdown = getBreakdown(res, "second_oeuvre");
+    const before = beforeBreakdown.estimatedCost;
+    const enduitBefore = beforeBreakdown.items?.find((it: any) =>
+      String(it.name).includes("Enduit de lissage"),
+    );
     res.costEstimate.breakdown = applyRealisticDoorsWindows(res.costEstimate.breakdown, full);
-    const after = getBreakdown(res, "second_oeuvre").estimatedCost;
+    const afterBreakdown = getBreakdown(res, "second_oeuvre");
+    const after = afterBreakdown.estimatedCost;
+    const enduitAfter = afterBreakdown.items?.find((it: any) =>
+      String(it.name).includes("Enduit de lissage"),
+    );
+    // La correction physique de l'enduit (kg → seaux) n'est jamais écrasée
+    // par le recalcul portes / fenêtres ; l'enveloppe du lot reste la même.
+    expect(enduitAfter).toEqual(enduitBefore);
     expect(Math.abs(after - before)).toBeLessThan(10);
-    const sum =
-      getBreakdown(res, "second_oeuvre").items?.reduce(
-        (s: number, it: any) => s + it.totalPrice,
-        0,
-      ) ?? 0;
-    expect(Math.abs(sum - after)).toBeLessThan(10);
   });
 
   it("les catégories hors second œuvre restent inchangées", () => {

@@ -12,6 +12,8 @@
 // postes pour que le total de la catégorie reste inchangé.
 // ============================================================================
 
+import { isEnduitLissageName } from "../lib/enduitLissage";
+
 export interface RoomCountsInput {
   bedrooms?: number;
   bathrooms?: number;
@@ -61,8 +63,15 @@ export function applyRealisticDoorsWindows<
   return breakdown.map((cat) => {
     if (cat.category !== "second_oeuvre" || !cat.items?.length) return cat;
     const items = cat.items;
+    const hasEnduit = items.some((it: any) => isEnduitLissageName(it?.name));
+    // Budget mobile du lot, HORS enduit de lissage : celui-ci est déjà corrigé
+    // physiquement par le moteur BIM (kg → seaux). Sa quantité, son prix
+    // unitaire et son montant ne sont jamais recalés ; les autres postes
+    // conservent donc exactement leurs montants (hors correction portes /
+    // fenêtres). Le total du lot diminue de l'écart réel de l'enduit.
     const budget = items.reduce(
-      (s: number, it: any) => s + (Number(it.totalPrice) || 0),
+      (s: number, it: any) =>
+        s + (isEnduitLissageName(it?.name) ? 0 : Number(it.totalPrice) || 0),
       0,
     );
 
@@ -81,13 +90,17 @@ export function applyRealisticDoorsWindows<
     if (!fixedIdx.length) return cat;
 
     // Répartit l'écart de budget sur les autres postes de la catégorie.
-    const movable = items.filter((_: any, i: number) => !fixedIdx.includes(i));
+    const movable = items.filter(
+      (it: any, i: number) => !fixedIdx.includes(i) && !isEnduitLissageName(it?.name),
+    );
     const movableTotal = movable.reduce(
       (s: number, it: any) => s + (Number(it.totalPrice) || 0),
       0,
     );
     const scale =
-      movableTotal > 0 ? Math.max(0, (budget - fixedTotal) / movableTotal) : 1;
+      movableTotal > 0
+        ? Math.max(0, (budget - fixedTotal) / movableTotal)
+        : 1;
     for (const it of movable) {
       it.totalPrice = Math.round((Number(it.totalPrice) || 0) * scale);
     }
@@ -96,7 +109,12 @@ export function applyRealisticDoorsWindows<
       (s: number, it: any) => s + (Number(it.totalPrice) || 0),
       0,
     );
-    if (typeof cat.estimatedCost === "number") cat.estimatedCost = newTotal;
+    // Catégorie avec enduit : l'enveloppe budgétaire du lot reste la référence
+    // (le total global et la somme des catégories ne bougent pas) ; le détail
+    // des postes porte la quantité et le prix réels de l'enduit.
+    if (typeof cat.estimatedCost === "number" && !hasEnduit) {
+      cat.estimatedCost = newTotal;
+    }
     return cat;
   });
 }

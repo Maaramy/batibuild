@@ -32,6 +32,10 @@
 // ============================================================================
 
 import { legacyContingencyFactor } from "@/lib/constructionCost";
+import {
+  correctEnduitLissageBimItem,
+  correctEnduitLissageDqeLine,
+} from "@/lib/enduitLissage";
 import type { CustomWorkEstimate } from "@/convex/customWorksEngine";
 
 /** Catégories du moteur BIM considérées comme des matériaux. */
@@ -114,6 +118,12 @@ export interface BuildMaterialUsageInput {
    * moteur). Leurs articles matériaux sont ajoutés à la liste de base.
    */
   complementaryWorks?: readonly CustomWorkEstimate[] | null;
+  /**
+   * Surface réellement construite (m²). Sert à recalculer le poste « Enduit de
+   * lissage » à partir de la surface des murs/plafonds, y compris pour les
+   * estimations déjà enregistrées avant la correction.
+   */
+  builtArea?: number;
 }
 
 const round2 = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
@@ -190,6 +200,7 @@ export function buildMaterialUsage(input: BuildMaterialUsageInput): MaterialUsag
       ? (input.scenarioFactor as number)
       : 1;
   const factor = scenarioFactor * legacyFactor;
+  const builtArea = Number(input.builtArea) || 0;
 
   const buckets = new Map<string, Accumulator>();
   let source: MaterialUsageSource = "none";
@@ -238,7 +249,8 @@ export function buildMaterialUsage(input: BuildMaterialUsageInput): MaterialUsag
   // complémentaires. Les prix sont repris SANS second facteur (déjà appliqué).
   if (dqeIsGranular) {
     for (const lot of input.dqeLots ?? []) {
-      for (const line of lot?.lines ?? []) {
+      for (const rawLine of lot?.lines ?? []) {
+        const line = correctEnduitLissageDqeLine(rawLine, builtArea);
         const nature = String(line?.nature ?? lot?.nature ?? "");
         if (nature !== "materiaux") continue;
         addRow(
@@ -261,7 +273,8 @@ export function buildMaterialUsage(input: BuildMaterialUsageInput): MaterialUsag
     const breakdown = input.costEstimate?.breakdown ?? [];
     for (const cat of breakdown) {
       if (!isMaterialCategory(cat?.category)) continue;
-      for (const item of cat?.items ?? []) {
+      for (const rawItem of cat?.items ?? []) {
+        const item = correctEnduitLissageBimItem(rawItem, builtArea);
         const label = String(item?.name ?? "").trim();
         const unit = String(item?.unit ?? "").trim();
         const quantity = Number(item?.quantity) || 0;

@@ -245,9 +245,15 @@ export function estimateCustomWork(
 
   for (const cat of result.costEstimate.breakdown) {
     const nature = CATEGORY_NATURE[cat.category] ?? "materiaux";
-    const cost = Math.max(0, Number(cat.estimatedCost) || 0);
+    const items = cat.items ?? [];
+    // Les agrégats par nature sont la SOMME des postes affichés : la correction
+    // physique de l'enduit (kg → seaux) ne peut donc jamais créer d'écart entre
+    // le total d'un travail et le détail de ses lignes.
+    const cost = items.length
+      ? items.reduce((sum, item) => sum + (Number(item.totalPrice) || 0), 0)
+      : Math.max(0, Number(cat.estimatedCost) || 0);
     byNature[nature] = round2(byNature[nature] + cost);
-    for (const item of cat.items ?? []) {
+    for (const item of items) {
       lines.push({
         designation: String(item.name ?? "").trim() || "Article",
         quantity: Number(item.quantity) || 0,

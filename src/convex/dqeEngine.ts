@@ -25,6 +25,10 @@ import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 import { resolveProjectType } from "./projectTypes";
 import { realBuiltArea } from "../lib/buildingLevels";
 import {
+  correctEnduitLissageDqeLots,
+  enduitLissageBucketPrice,
+} from "../lib/enduitLissage";
+import {
   ELECTRICITY_BAREME_M2,
   ELECTRICITY_LABOR_M2,
   PAINT_BAREME,
@@ -167,6 +171,7 @@ const DQE_TO_CATALOG: Record<string, string> = {
   "Revêtements muraux SDB/Cuisine (faïence)": "Faïence 20×30 (m²)",
   "Peinture intérieure (3 couches, finition standard)": "Peinture intérieure mate (L)",
   "Peinture extérieure (façade, monocouche acrylique)": "Peinture extérieure acrylique (L)",
+  "Enduit de lissage": "Enduit de lissage (kg)",
   "Menuiserie intérieure (portes en bois semi-massif/stratifié)": "Porte intérieure bois pleine",
   "Menuiserie extérieure (porte d'entrée en bois massif)": "Porte d'entrée métallique",
   "Ciment CPJ 42.5": "Ciment CPJ 42.5 (sac 50 kg)",
@@ -1079,6 +1084,21 @@ export function dqeQuantityScales(
 
 export function generateDqe(input: DqeInput): DqeResult {
   const { category, surface, floors, totalBudget } = input;
+  // Prix du seau d'enduit AVANT le calage budgétaire des lots : le prix de la
+  // ligne est ensuite calibré pour tenir le sous-total du lot, il ne doit donc
+  // jamais servir de prix de seau. On résout la référence réelle (kg ou seau)
+  // une seule fois, puis on l'applique à la conversion kg → seaux.
+  const enduitBasePrice = resolveUnitPrice(
+    "Enduit de lissage",
+    1.2,
+    input.livePrices,
+  );
+  const enduitBucketPrice =
+    enduitLissageBucketPrice(
+      enduitBasePrice.unit ?? "kg",
+      enduitBasePrice.up,
+    ) ?? undefined;
+
   const { builtArea: tb, scale, footprintScale } = dqeQuantityScales(
     surface,
     floors,
@@ -1112,7 +1132,7 @@ export function generateDqe(input: DqeInput): DqeResult {
     lotBudgets[heaviest] += remainder;
   }
 
-  const lots: DqeLot[] = lotTpls.map((lt, lotIndex) => {
+  let lots: DqeLot[] = lotTpls.map((lt, lotIndex) => {
     const lotBudget = lotBudgets[lotIndex];
     // 1. Quantités & prix de référence
     const lines: DqeLine[] = lt.lines.map((tpl) => {
@@ -1202,6 +1222,12 @@ export function generateDqe(input: DqeInput): DqeResult {
       lines: scaledLines,
     };
   });
+
+  // Enduit de lissage : même correction physique que le moteur BIM. La ligne
+  // existe dans certains DQE (peinture / rénovation) ; elle est recalculée en
+  // kg puis convertie en seaux de 20 kg, sans toucher aux autres postes. Le
+  // sous-total du lot et le total du DQE suivent automatiquement.
+  lots = correctEnduitLissageDqeLots(lots, tb, enduitBucketPrice);
 
   const grandTotal = lots.reduce((s, l) => s + l.subtotal, 0);
   // Pourcentages recalculés sur le total RÉEL : la somme des parts reste 100 %

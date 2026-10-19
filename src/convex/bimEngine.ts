@@ -11,6 +11,7 @@ import {
   type RegionScenarioKey,
 } from "../lib/regionImpact";
 import { ELECTRICITY_BAREME_M2, PLUMBING_BAREME_M2 } from "../lib/technicalBareme";
+import { correctEnduitLissageBimItems } from "../lib/enduitLissage";
 
 // ============================================================================
 // PROFESSIONAL BIM COST ESTIMATION ENGINE
@@ -1928,6 +1929,16 @@ export function runBIMEstimation(
       items: scaledItems,
     };
   });
+
+  // ── Enduit de lissage : quantité PHYSIQUE en kg, achat en seaux ────────
+  // La mise à l'échelle budgétaire du second œuvre gonfle les quantités pour
+  // faire tomber le lot sur son enveloppe (ex. 535,7 « seaux »). Le poste est
+  // donc recalculé à partir de la surface réelle des murs + plafonds, des deux
+  // couches et du rendement de 1,2 kg/m²/couche, puis converti en seaux de
+  // 20 kg avec arrondi supérieur. Les autres postes ne sont pas modifiés.
+  for (const cat of breakdown) {
+    cat.items = correctEnduitLissageBimItems(cat.items, tb);
+  }
 
   // Aucune marge d'imprévus : le coût total EST la somme réelle des postes
   // calculés. Le coût au m² affiché reste la valeur EXACTE de la grille.
