@@ -38,10 +38,11 @@ import { cn } from "@/lib/utils";
  * revient à l'étape précédente ; le parcours complet n'est jamais déroulé en
  * même temps.
  *
- *   - les étapes viennent de `@/lib/projectJourney` (groupe A : 6 étapes,
- *     groupe B : 4 étapes) et sont filtrées par les feature flags de
- *     l'administration — une étape désactivée disparaît et le total est
- *     recalculé automatiquement ;
+ *   - les étapes viennent de `@/lib/projectJourney` (groupe A : Plans
+ *     architecturaux AI → Coût estimatif → Matériaux utilisés → Aide à la
+ *     décision → Mise en relation → Exécution & suivi ; groupe B : parcours
+ *     simplifié) et sont filtrées par les feature flags de l'administration —
+ *     une étape désactivée disparaît et le total est recalculé automatiquement ;
  *   - l'icône PDF de chaque étape télécharge le rapport DÉJÀ GÉNÉRÉ à partir des
  *     données enregistrées (aucun recalcul d'analyse). Elle réutilise le système
  *     PDF existant (`reportDownloads`, logo BatiBuild) et respecte les
@@ -108,6 +109,8 @@ interface JourneyProject {
   surfaceTotale?: number;
   region?: string;
   costEstimate?: unknown;
+  /** Plan architectural validé (première étape du parcours). */
+  validatedPlan?: unknown;
 }
 
 export function ProjectJourneyNav({
@@ -281,6 +284,12 @@ export function ProjectJourneyNav({
     : undefined;
   const previous = step && stepIndex > 0 ? steps[stepIndex - 1] : undefined;
   const next = step && stepIndex < total - 1 ? steps[stepIndex + 1] : undefined;
+  // « Plans architecturaux AI » ouvre le parcours. Tant qu'aucun plan n'est
+  // validé, l'étape indique explicitement que ses surfaces, niveaux et pièces
+  // ne sont pas encore transmis aux étapes suivantes — sans bloquer la
+  // navigation (un projet existant doit rester consultable).
+  const planValidated = project?.validatedPlan != null;
+  const planPending = step?.key === "plans" && project != null && !planValidated;
 
   const hasReport = !!step?.reportKey;
   const pdfReady = step ? pdfReadyFor(step) : false;
@@ -429,6 +438,14 @@ export function ProjectJourneyNav({
               <span className="h-7 w-7 shrink-0" aria-hidden />
             )}
           </div>
+
+          {/* Plans : rappel de la transmission des données au reste du parcours. */}
+          {planPending && (
+            <p className="mt-2.5 text-[10px] text-muted-foreground">
+              Validez un plan pour transmettre ses surfaces, niveaux et pièces au coût
+              estimatif, aux matériaux utilisés et à l'aide à la décision.
+            </p>
+          )}
 
           {/* Retour à l'étape précédente (les données restent conservées). */}
           {previous && (

@@ -10,6 +10,7 @@ import {
   PROJECT_STATUS,
   materialCategoryValidator,
   regionValidator,
+  validatedPlanDraftValidator,
   SPECIALTY_TO_PROVIDER_TYPE,
 } from "./schema";
 import {
@@ -25,6 +26,7 @@ import {
   type LevelCostConfig,
 } from "../lib/buildingLevels";
 import { parseLevelCoefficients } from "./bimConfig";
+import { planProjectFields } from "../lib/validatedPlan";
 
 type DbCtx = MutationCtx | QueryCtx;
 
@@ -649,6 +651,71 @@ export const updateProjectDimensions = mutation({
       levelSurfaces,
       updatedAt: Date.now(),
     });
+  },
+});
+
+/**
+ * VALIDE LE PLAN ARCHITECTURAL D'UNE VARIANTE.
+ *
+ * Le plan validé est la SOURCE des données géométriques des étapes suivantes :
+ *   • `surface` / `levelSurfaces` ← surfaces couvertes réelles des niveaux ;
+ *   • `floors` ← nombre de niveaux du plan ;
+ *   • `bedrooms`, `bathrooms`, `kitchens`, `livingRooms`, `wcs`, `garages`
+ *     ← pièces réellement dessinées (dimensions × profondeur comprises) ;
+ *   • `validatedPlan` ← instantané complet (pièces, dimensions, emprise),
+ *     afin que l'origine des chiffres reste consultable.
+ *
+ * L'estimation et le quantitatif enregistrés sont invalidés : ils décrivaient
+ * l'ancienne géométrie. La page Plans relance immédiatement l'estimation, qui
+ * reconstruit le coût et le DQE à partir du plan validé. Les étapes
+ * « Matériaux utilisés » et « Aide à la décision » lisent ensuite ces résultats
+ * sans jamais ressaisir de surface.
+ */
+export const validateProjectPlan = mutation({
+  args: {
+    projectId: v.id("projects"),
+    plan: validatedPlanDraftValidator,
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Unauthorized");
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+    if (project.userId !== user._id && user.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    // Dérivation pure : surfaces par niveau, niveaux et compteurs de pièces.
+    // Une erreur explicite est renvoyée au client si le plan est inexploitable.
+    const fields = planProjectFields(args.plan);
+    const totalArea = Math.round(
+      fields.levelSurfaces.reduce((sum, area) => sum + area, 0) * 100,
+    ) / 100;
+
+    await ctx.db.patch(args.projectId, {
+      validatedPlan: {
+        ...args.plan,
+        score: Math.max(0, Math.min(100, Math.round(args.plan.score))),
+        totalArea,
+        validatedAt: Date.now(),
+      },
+      surface: fields.surface,
+      floors: fields.floors,
+      levelSurfaces: fields.levelSurfaces,
+      bedrooms: fields.bedrooms,
+      bathrooms: fields.bathrooms,
+      kitchens: fields.kitchens,
+      livingRooms: fields.livingRooms,
+      wcs: fields.wcs,
+      garages: fields.garages,
+      // Résultats devenus obsolètes : ils sont recalculés depuis le plan.
+      costEstimate: undefined,
+      dqe: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return { ...fields, totalArea };
   },
 });
 

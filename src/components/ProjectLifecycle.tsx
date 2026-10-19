@@ -24,8 +24,12 @@ import { ResultPlaceholder, StepResultPanel } from "@/components/LifecycleStepRe
  * Représente les 6 étapes du projet, dans l'ordre officiel de « Projet Journey »
  * (`src/lib/projectJourney.ts`) :
  *
- *   01 Coût estimatif → 02 Matériaux utilisés → 03 Aide à la décision →
- *   04 Plan IA → 05 Consultations → 06 Exécution & suivi
+ *   01 Plans architecturaux AI → 02 Coût estimatif →
+ *   03 Matériaux utilisés → 04 Aide à la décision →
+ *   05 Mise en relation → 06 Exécution & suivi
+ *
+ * Le plan architectural est la PREMIÈRE étape : ses surfaces, niveaux et pièces
+ * alimentent le coût, les matériaux et l'aide à la décision.
  *
  * Les intitulés, l'ordre et les feature flags sont identiques à ceux du
  * parcours projet : une fonctionnalité désactivée par l'administrateur est
@@ -58,6 +62,21 @@ interface LifecycleStep {
 }
 
 const LIFECYCLE_STEPS: LifecycleStep[] = [
+  {
+    key: "plans",
+    label: "Plans architecturaux AI",
+    description:
+      "Générez les plans 2D/3D et validez celui qui définira les surfaces, niveaux et pièces du projet.",
+    icon: Ruler,
+    flag: JOURNEY_FLAG_KEYS.plans,
+    accents: {
+      gradient: "from-sky-500 to-cyan-500",
+      text: "text-sky-600 dark:text-sky-400",
+      ring: "ring-sky-500/20",
+      shadow: "shadow-sky-500/30",
+      chip: "bg-sky-500/10",
+    },
+  },
   {
     key: "cost",
     label: "Coût estimatif",
@@ -105,23 +124,8 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
     },
   },
   {
-    key: "plans",
-    label: "Plan IA",
-    description:
-      "Obtenir des plans architecturaux en 2D/3D pour votre projet avec l'intelligence artificielle.",
-    icon: Ruler,
-    flag: JOURNEY_FLAG_KEYS.plans,
-    accents: {
-      gradient: "from-sky-500 to-cyan-500",
-      text: "text-sky-600 dark:text-sky-400",
-      ring: "ring-sky-500/20",
-      shadow: "shadow-sky-500/30",
-      chip: "bg-sky-500/10",
-    },
-  },
-  {
     key: "consult",
-    label: "Consultations",
+    label: "Mise en relation",
     description: "Trouvez des experts et prestataires adaptés à vos besoins.",
     icon: Users,
     // Étape de consultation : pas de feature flag dédié (toujours disponible).

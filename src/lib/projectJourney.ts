@@ -12,13 +12,19 @@
  *   - **Groupe A** — projets neufs / immobiliers (maison, villa, appartement,
  *     studio, duplex, immeuble, local commercial, bureau, entrepôt,
  *     résidence touristique, projet immobilier neuf) : parcours complet en 6
- *     étapes :
- *       1. Coût estimatif
- *       2. Matériaux utilisés
- *       3. Aide à la décision
- *       4. Plans architecturaux AI
+ *     étapes, dans cet ordre STRICT :
+ *       1. Plans architecturaux AI  ← première étape obligatoire
+ *       2. Coût estimatif
+ *       3. Matériaux utilisés
+ *       4. Aide à la décision
  *       5. Mise en relation
  *       6. Exécution & suivi
+ *
+ *     Le plan validé est la SOURCE des données géométriques du reste du
+ *     parcours : surfaces couvertes par niveau, dimensions des pièces,
+ *     nombre de niveaux et nombre de pièces. La validation d'un plan
+ *     enregistre ces données sur le projet (voir `convex/projects.ts`) ; les
+ *     étapes suivantes les lisent via le projet, sans ressaisie parallèle.
  *   - **Groupe B** — tous les autres types (rénovation, extension, piscine,
  *     restaurant, café, travaux techniques…) : parcours simplifié en 4 étapes
  *     (coût estimatif → matériaux utilisés → aide à la décision → mise en
@@ -218,8 +224,9 @@ export function buildProjectJourney(
     reportKey: null,
   };
 
-  // Étape exclusive du groupe A : la génération des plans d'architecte IA
-  // s'appuie uniquement sur les données déjà enregistrées du projet.
+  // Étape exclusive du groupe A — PREMIÈRE étape obligatoire du parcours :
+  // la génération des plans s'appuie sur les données du projet, puis le plan
+  // validé alimente toutes les étapes suivantes (surfaces, niveaux, pièces).
   const plans: ProjectJourneyStep = {
     key: "plans",
     label: "Plans architecturaux AI",
@@ -245,12 +252,14 @@ export function buildProjectJourney(
     return filterDisabledSteps([cost, materialsUsed, decision, consult], flags);
   }
 
-  // Groupe A — parcours complet (6 étapes) :
-  //   1. Coût estimatif → 2. Matériaux utilisés → 3. Aide à la décision →
-  //   4. Plans architecturaux AI → 5. Mise en relation →
-  //   6. Exécution & suivi.
+  // Groupe A — parcours complet (6 étapes), ordre strict :
+  //   1. Plans architecturaux AI → 2. Coût estimatif →
+  //   3. Matériaux utilisés → 4. Aide à la décision →
+  //   5. Mise en relation → 6. Exécution & suivi.
+  // Le plan validé est enregistré sur le projet : les étapes 2 à 6 lisent ses
+  // surfaces, ses niveaux et ses pièces, jamais une saisie parallèle.
   return filterDisabledSteps(
-    [cost, materialsUsed, decision, plans, consult, execution],
+    [plans, cost, materialsUsed, decision, consult, execution],
     flags,
   );
 }
