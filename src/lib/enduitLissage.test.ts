@@ -7,6 +7,7 @@ import {
   enduitLissageNeededKg,
   enduitLissageSurfaceM2,
 } from "@/lib/enduitLissage";
+import { generateDqe } from "@/convex/dqeEngine";
 import {
   buildLivePriceMap,
   runBIMEstimation,
@@ -117,6 +118,29 @@ describe("enduit de lissage — intégration moteur BIM", () => {
 });
 
 describe("enduit de lissage — DQE", () => {
+  it("génère une ligne DQE à 75 seaux de 43,74 TND (prix avant calage du lot)", () => {
+    const live = new Map([
+      ["enduitdelissagekg", { unit: "seau 20 kg", unitPrice: 43.74 }],
+    ]);
+    const dqe = generateDqe({
+      category: "peinture_interieure",
+      surface: 125,
+      floors: 2,
+      totalBudget: 1800 * 250,
+      livePrices: live,
+    });
+    const line = dqe.lots
+      .flatMap((lot) => lot.lines)
+      .find((l) => /Enduit de lissage/.test(l.designation));
+
+    expect(line).toBeTruthy();
+    expect(line?.quantity).toBe(75);
+    expect(line?.unit).toBe("seau 20 kg");
+    expect(line?.unitPrice).toBe(43.74);
+    expect(line?.total).toBe(3280.5);
+    expect(line?.total).toBe((line?.quantity ?? 0) * (line?.unitPrice ?? 0));
+  });
+
   it("convertit une ligne DQE en kg + seaux sans modifier son prix de seau", () => {
     const line = correctEnduitLissageDqeLine(
       {
