@@ -65,44 +65,55 @@ export function OptimizationSection({
   const budgetValid = Number.isFinite(budgetNumber) && budgetNumber >= MIN_BUDGET_TND;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* ── Saisie du budget ── */}
-      <Card className="border-border/60 bg-card shadow-elev-1">
-        <CardContent className="p-4">
-          <div className="flex items-start gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Coins className="h-4 w-4" />
+      <Card className="rounded-2xl border-border/60 bg-card shadow-elev-1">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Coins className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold tracking-tight">Quel est votre budget disponible ?</p>
-              <p className="text-[11px] text-muted-foreground">
-                Saisissez votre budget total disponible pour ce projet. L'analyse de la capacité de
-                construction sera calculée automatiquement.
+              <h3 className="text-base font-semibold leading-tight tracking-tight sm:text-lg">
+                Quel est votre budget disponible ?
+              </h3>
+              <p className="mt-1 text-xs leading-snug text-muted-foreground sm:text-[13px]">
+                Saisissez votre budget total pour ce projet. L'analyse de la capacité de construction
+                est calculée automatiquement à partir de votre Quantitatif.
               </p>
               {projectContextLabel ? (
-                <p className="mt-0.5 text-[10px] text-muted-foreground/80">{projectContextLabel}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{projectContextLabel}</p>
               ) : null}
             </div>
           </div>
 
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label className="sr-only" htmlFor="budget-available">
-                Budget total (TND)
+              <label
+                className="text-[11.5px] font-semibold text-foreground"
+                htmlFor="budget-available"
+              >
+                Budget total
               </label>
-              <Input
-                id="budget-available"
-                type="number"
-                min="0"
-                step="1000"
-                value={budgetInputValue}
-                onChange={(e) => onBudgetChange?.(e.target.value)}
-                placeholder={`${MIN_BUDGET_TND} TND minimum`}
-                className="h-10 text-base font-medium tabular-nums"
-              />
+              <div className="relative mt-1.5">
+                <Input
+                  id="budget-available"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  step="1000"
+                  value={budgetInputValue}
+                  onChange={(e) => onBudgetChange?.(e.target.value)}
+                  placeholder={`${MIN_BUDGET_TND} TND minimum`}
+                  className="h-12 rounded-xl pr-14 text-base font-semibold tabular-nums"
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[11px] font-semibold text-muted-foreground">
+                  TND
+                </span>
+              </div>
               <p
                 className={cn(
-                  "mt-1 text-[10.5px]",
+                  "mt-1.5 text-[11px] leading-snug",
                   budgetTooLow ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
                 )}
               >
@@ -112,7 +123,7 @@ export function OptimizationSection({
               </p>
             </div>
             <Button
-              className="gap-1.5 whitespace-nowrap"
+              className="h-12 w-full gap-1.5 whitespace-nowrap rounded-xl sm:w-auto"
               disabled={!budgetValid}
               onClick={() => onBudgetAnalyze?.(budgetNumber)}
             >
@@ -133,12 +144,14 @@ export function OptimizationSection({
           complementaryWorksEnabled={complementaryWorksEnabled}
         />
       ) : budgetAnalysis?.reason ? (
-        <Card className="border-border/60 bg-card">
-          <CardContent className="flex items-start gap-2.5 p-4">
+        <Card className="rounded-2xl border-border/60 bg-card">
+          <CardContent className="flex items-start gap-2.5 p-4 sm:p-5">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <div>
-              <h3 className="text-sm font-semibold">Capacité de construction</h3>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">{budgetAnalysis.reason}</p>
+              <h3 className="text-sm font-semibold sm:text-base">Capacité de construction</h3>
+              <p className="mt-1 text-xs leading-snug text-muted-foreground sm:text-[13px]">
+                {budgetAnalysis.reason}
+              </p>
             </div>
           </CardContent>
         </Card>

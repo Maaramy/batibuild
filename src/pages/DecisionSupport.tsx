@@ -18,14 +18,13 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useQuery } from "convex/react";
-import { Building2, MapPin, Ruler } from "lucide-react";
+import { Building2, MapPin, Ruler, Wallet } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import { realBuiltArea } from "@/lib/buildingLevels";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { DecisionSupportModule } from "@/components/decision/DecisionSupportModule";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState, LoadingState } from "@/components/ui/feedback";
 import { PageHeader } from "@/components/ui/section";
 import { usePageSEO } from "@/hooks/use-page-seo";
@@ -39,6 +38,7 @@ import {
   type BudgetScenarioKey,
 } from "@/convex/quantitatifCustomLogic";
 import type { Id } from "@/convex/_generated/dataModel";
+import { formatTndAmount } from "@/lib/budgetEngine";
 import { resolveEstimationBudget } from "@/lib/estimationBudget";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
 
@@ -145,10 +145,10 @@ export default function DecisionSupport() {
         projectId={id}
         category={project?.category}
         featureLabel="Aide à la décision"
-        maxWidthClassName="max-w-7xl"
+        maxWidthClassName="max-w-6xl"
       />
 
-      <div className="mx-auto mt-5 max-w-7xl space-y-4 px-4 sm:px-6">
+      <div className="mx-auto mt-4 max-w-6xl space-y-4 px-3 sm:px-6">
         {project === undefined ? (
           /* ── Chargement du projet ── */
           <LoadingState message="Chargement du projet…" />
@@ -180,33 +180,61 @@ export default function DecisionSupport() {
           />
         ) : (
           <>
-            {/* ── Titre de page (§15) + synthèse projet ── */}
+            {/* ── Titre de page + résumé du projet ── */}
             <PageHeader
-              title="Aide à la décision"
-              subtitle="Optimisez votre projet à partir des données réelles de votre estimation."
+              title={
+                <span className="text-xl font-semibold tracking-tight sm:text-2xl">
+                  Aide à la décision
+                </span>
+              }
+              subtitle="Optimisez votre budget à partir des données réelles de votre estimation."
             />
-            <Card className="border-border/60 bg-card shadow-elev-1">
-              <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-4 sm:px-5">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <Building2 className="h-4 w-4 shrink-0 text-primary" />
+            <section
+              aria-label="Résumé du projet"
+              className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elev-1"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Building2 className="h-5 w-5" />
+                  </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold tracking-tight">
+                    <h2 className="line-clamp-2 text-base font-semibold leading-tight tracking-tight sm:text-lg">
                       {project.name}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
+                    </h2>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       {projectTypeLabel(project.category)}
+                      {regionLabel ? ` · ${regionLabel}` : ""}
                     </p>
                   </div>
                 </div>
+                <div className="flex flex-col items-start gap-1 sm:items-end">
+                  <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11.5px] font-semibold text-primary">
+                    Scénario {scenarioLabel}
+                  </span>
+                  <p className="mt-1 text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Coût estimé
+                  </p>
+                  <p className="text-xl font-bold leading-tight tabular-nums sm:text-2xl">
+                    {formatTndAmount(projectTotal)}
+                  </p>
+                  {costPerM2 > 0 ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      {formatTndAmount(costPerM2)}/m²
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="grid grid-cols-3 divide-x divide-border/50 border-t border-border/50">
                 <SynthStat
                   icon={Ruler}
                   label="Surface"
                   value={builtSurface ? `${builtSurface} m²` : "—"}
                 />
                 <SynthStat icon={MapPin} label="Région" value={regionLabel ?? "—"} />
-                <SynthStat label="Scénario" value={scenarioLabel} />
-              </CardContent>
-            </Card>
+                <SynthStat icon={Wallet} label="Scénario" value={scenarioLabel} />
+              </div>
+            </section>
 
             {/* ── Module budget / capacité de construction ── */}
             <DecisionSupportModule
@@ -238,14 +266,14 @@ function SynthStat({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground" />}
-      <div>
-        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-          {label}
-        </p>
-        <p className="text-xs font-semibold text-foreground">{value}</p>
-      </div>
+    <div className="min-w-0 px-3 py-3 sm:px-4">
+      <p className="flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+        {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
+        <span className="truncate">{label}</span>
+      </p>
+      <p className="mt-1 truncate text-[13px] font-semibold text-foreground" title={value}>
+        {value}
+      </p>
     </div>
   );
 }
