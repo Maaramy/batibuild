@@ -5,8 +5,14 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
+import {
+  ESTIMATE_ANALYSIS_TIMEOUT_MS,
+  describeEstimateError,
+  isEstimateProjectReady,
+} from "@/lib/estimateLoaderTiming";
 import { useMutation, useQuery } from "convex/react";
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
@@ -565,13 +571,19 @@ export default function NewProject() {
     })];
   }, [floors, surface, upperSurfaces]);
   const [analyzing, setAnalyzing] = useState(false);
-  // `calculationDone` : la création du projet ET le calcul réel de
-  // l'estimation sont terminés. L'écran de chargement de 4 s s'en sert pour ne
-  // jamais naviguer avant la disponibilité réelle des résultats.
-  const [calculationDone, setCalculationDone] = useState(false);
+  // Identifiant réel du projet créé : les résultats sont observés via la requête
+  // réactive `getProject` (source de vérité), JAMAIS via la seule promesse de la
+  // mutation — qui peut être lente, interrompue ou incomplète.
+  const [analysisProjectId, setAnalysisProjectId] = useState<Id<"projects"> | null>(
+    null,
+  );
+  // Erreur réelle : affichée sur l'écran de chargement avec « Réessayer ».
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  // Incrémenté à chaque tentative : remonte l'écran (animation initiale de 4 s).
+  const [analysisAttempt, setAnalysisAttempt] = useState(0);
   const [analysisProjectName, setAnalysisProjectName] = useState("");
   // Identifiant réel du projet créé — jamais régénéré côté page.
-  const createdProjectIdRef = useRef<string | null>(null);
+  const createdProjectIdRef = useRef<Id<"projects"> | null>(null);
   // Verrou anti double-clic : un seul projet créé et un seul calcul lancé.
   const analysisStartedRef = useRef(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -580,6 +592,33 @@ export default function NewProject() {
 
   const createProject = useMutation(api.projects.createProject);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
+
+  // Résultats réels : observation du projet enregistré (statut terminé + coût +
+  // analyse IA). La requête est réactive : dès que la mutation a réellement
+  // commité, les données arrivent ici sans polling ni appel supplémentaire.
+  const analysisProject = useQuery(
+    api.projects.getProject,
+    analysisProjectId ? { projectId: analysisProjectId } : "skip",
+  );
+  const resultsReady = isEstimateProjectReady(analysisProject);
+  const resultsReadyRef = useRef(resultsReady);
+  resultsReadyRef.current = resultsReady;
+
+  // Garde-fou anti-blocage : si les résultats réels ne sont toujours pas
+  // observables après le délai, l'attente s'arrête et une erreur actionnable
+  // s'affiche (aucun écran de chargement infini possible).
+  useEffect(() => {
+    if (step !== "analyzing" || analysisError) return;
+    const timer = window.setTimeout(() => {
+      if (resultsReadyRef.current) return;
+      analysisStartedRef.current = false;
+      setAnalyzing(false);
+      setAnalysisError(
+        "Le calcul de l'estimation n'a pas abouti dans le délai prévu. Vos données de projet sont conservées : vous pouvez réessayer.",
+      );
+    }, ESTIMATE_ANALYSIS_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [step, analysisError, analysisAttempt]);
   // Aperçu du compteur Convex : lecture seule, aucun numéro n'est réservé ici —
   // le numéro définitif est attribué à l'enregistrement (voir createProject).
   const nextNumber = useQuery(api.projects.nextProjectNumber, {});
@@ -699,15 +738,34 @@ export default function NewProject() {
     handleStartAnalysis(name);
   };
 
+  const failAnalysis = (error: unknown) => {
+    console.error("Estimation error:", error);
+    analysisStartedRef.current = false;
+    setAnalyzing(false);
+    setAnalysisError(describeEstimateError(error));
+  };
+
+  // Lance (ou relance) le calcul sur le projet existant. La fin réelle est
+  // constatée par `analysisProject` : cette promesse ne pilote pas la sortie.
+  const runAnalysis = async (projectId: Id<"projects">) => {
+    try {
+      await simulateAnalysis({ projectId });
+    } catch (error) {
+      failAnalysis(error);
+    }
+  };
+
   const handleStartAnalysis = async (formName: string = projectName) => {
     if (analysisStartedRef.current) return;
     if (!validateForm(formName)) return;
     analysisStartedRef.current = true;
 
     setAnalyzing(true);
-    setCalculationDone(false);
+    setAnalysisError(null);
+    setAnalysisProjectId(null);
     createdProjectIdRef.current = null;
     setAnalysisProjectName(formName.trim());
+    setAnalysisAttempt((n) => n + 1);
     markStepCompleted("form");
     goToStep("analyzing");
 
@@ -725,31 +783,52 @@ export default function NewProject() {
         // moteur de coûts, au DQE et à l'aide à la décision.
         levelSurfaces,
       });
+      if (!projectId) throw new Error("Le projet n'a pas pu être créé.");
 
-      await simulateAnalysis({ projectId });
-
-      // Les résultats sont réellement disponibles : l'écran de chargement
-      // termine son animation de 4 s (sans la prolonger) avant la navigation.
-      setCalculationDone(true);
-    } catch (error: any) {
-      console.error("Error:", error);
-      analysisStartedRef.current = false;
-      createdProjectIdRef.current = null;
-      setErrors({ name: "Une erreur est survenue. Veuillez réessayer." });
-      setAnalyzing(false);
-      goToStep("form");
+      createdProjectIdRef.current = projectId;
+      setAnalysisProjectId(projectId);
+      await runAnalysis(projectId);
+    } catch (error) {
+      failAnalysis(error);
     }
   };
 
-  // Fin de l'écran de chargement : appelée uniquement lorsque l'animation de
-  // 4 s ET le calcul réel sont terminés. Le projet affiché est celui qui vient
-  // d'être créé (même identifiant que celui enregistré côté Convex).
+  // Nouvelle tentative : ne recrée JAMAIS un projet déjà créé. Seul le calcul
+  // est relancé sur l'identifiant existant (données, surface, région et
+  // scénario conservés).
+  const handleRetryAnalysis = () => {
+    // Un seul nouvel essai à la fois (double-clic ignoré).
+    if (analysisStartedRef.current) return;
+    analysisStartedRef.current = true;
+
+    const existingId = createdProjectIdRef.current;
+    setAnalysisError(null);
+    setAnalyzing(true);
+    if (existingId) {
+      setAnalysisAttempt((n) => n + 1);
+      setAnalysisProjectId(existingId);
+      void runAnalysis(existingId);
+      return;
+    }
+    // Aucun projet n'a été créé lors de la tentative précédente : on peut
+    // recommencer la création sans risque de doublon.
+    analysisStartedRef.current = false;
+    void handleStartAnalysis(analysisProjectName || projectName);
+  };
+
+  // Fin de l'écran de chargement : uniquement lorsque les données réelles sont
+  // enregistrées (statut terminé + coût + analyse IA). Une erreur transitoire
+  // n'empêche pas l'affichage si le calcul a finalement abouti. Le projet
+  // affiché est celui qui vient d'être créé (même identifiant côté Convex).
   const handleAnalysisComplete = useCallback(() => {
     const projectId = createdProjectIdRef.current;
-    if (!projectId) return;
+    // La disponibilité réelle des données prime : jamais de navigation sans
+    // résultat enregistré, jamais de blocage si une erreur transitoire a été
+    // affichée puis que le calcul a finalement abouti.
+    if (!projectId || !resultsReady) return;
     setCompletedSteps((prev) => new Set(prev).add("analyzing"));
     navigate(`/dashboard/project/${projectId}`);
-  }, [navigate]);
+  }, [navigate, resultsReady]);
 
   // Bornes / pas / valeur recommandée de la barre de surface : recalculés à
   // chaque changement de type de projet.
@@ -1199,7 +1278,7 @@ export default function NewProject() {
 
         {step === "analyzing" && (
           <motion.div
-            key="analyzing"
+            key={`analyzing-${analysisAttempt}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -1207,7 +1286,9 @@ export default function NewProject() {
           >
             <EstimateLoadingScreen
               projectName={analysisProjectName}
-              pending={!calculationDone}
+              pending={!resultsReady}
+              error={analysisError}
+              onRetry={handleRetryAnalysis}
               onComplete={handleAnalysisComplete}
             />
           </motion.div>

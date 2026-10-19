@@ -23,16 +23,91 @@ export const ESTIMATE_JOURNEY_STEPS = [
 export type EstimateJourneyStep = (typeof ESTIMATE_JOURNEY_STEPS)[number];
 
 /**
- * L'écran peut-il rendre la main ? Uniquement lorsque l'animation de 4 s est
- * terminée ET que le calcul réel a répondu. Si le calcul est plus rapide,
- * l'animation va quand même jusqu'au bout ; s'il est plus lent, l'écran reste
- * affiché en attente (aucun résultat fictif, aucune navigation prématurée).
+ * Garde-fou : au-delà de ce délai sans résultats réels observables, le
+ * chargement passe en erreur avec une action « Réessayer » — il ne peut donc
+ * jamais rester bloqué indéfiniment, même si une promesse ne se résout pas.
  */
-export function isEstimateLoadingComplete(
+export const ESTIMATE_ANALYSIS_TIMEOUT_MS = 90_000;
+
+/**
+ * L'écran peut-il rendre la main ? Uniquement lorsque l'animation de 4 s est
+ * terminée ET que les données réelles sont disponibles. La disponibilité réelle
+ * prime sur une erreur précédente : si le calcul a fini par aboutir, les
+ * résultats doivent s'afficher (aucun résultat fictif, aucune attente infinie).
+ */
+export function isEstimateResultReady(
   introDone: boolean,
-  pending: boolean,
+  dataReady: boolean,
 ): boolean {
-  return introDone && !pending;
+  return introDone && dataReady;
+}
+
+/** Forme minimale du projet lue dans Convex pour constater la fin du calcul. */
+export interface EstimateProjectSnapshot {
+  status?: string;
+  costEstimate?: unknown;
+  aiAnalysis?: unknown;
+}
+
+/**
+ * Les résultats réels sont-ils réellement enregistrés ? Source de vérité : le
+ * document projet relu par la requête réactive, jamais la seule résolution de
+ * la mutation (qui peut être lente, interrompue ou incomplète).
+ */
+export function isEstimateProjectReady(
+  project: EstimateProjectSnapshot | null | undefined,
+): boolean {
+  return Boolean(
+    project &&
+      project.status === "completed" &&
+      project.costEstimate &&
+      project.aiAnalysis,
+  );
+}
+
+/** Phase réellement affichée par l'écran de chargement. */
+export type EstimateFlowPhase = "loading" | "waiting" | "error" | "complete";
+
+/**
+ * Machine à états explicite, sans dépendance circulaire :
+ *   - `loading`  : animation initiale en cours ;
+ *   - `waiting`  : animation terminée, données réelles pas encore disponibles ;
+ *   - `complete` : animation terminée ET données disponibles ;
+ *   - `error`    : erreur réelle (le message est affiché, avec « Réessayer »).
+ */
+export function resolveEstimateFlowPhase({
+  introDone,
+  dataReady,
+  error,
+}: {
+  introDone: boolean;
+  dataReady: boolean;
+  error: string | null;
+}): EstimateFlowPhase {
+  // Les données réelles gagnent toujours : dès qu'elles existent, l'écran
+  // termine (ou continue simplement l'animation puis termine) sans erreur.
+  if (dataReady) return introDone ? "complete" : "loading";
+  if (error) return "error";
+  return introDone ? "waiting" : "loading";
+}
+
+/** Message explicite présenté à l'utilisateur lorsqu'une tentative échoue. */
+export function describeEstimateError(error: unknown): string {
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+
+  if (/abonnement|client\s*pro|acc[eè]s|access|unauthor/i.test(raw)) {
+    return raw.trim() ||
+      "Votre accès Client Pro ne permet pas de lancer l'estimation. Vérifiez votre abonnement puis réessayez.";
+  }
+  if (/network|connexion|offline|websocket|fetch|timeout/i.test(raw)) {
+    return "La connexion a été interrompue pendant le calcul. Vérifiez votre réseau puis réessayez : vos données de projet sont conservées.";
+  }
+  return "Le calcul de l'estimation a échoué. Vos données de projet sont conservées — réessayez sans recréer le projet.";
 }
 
 export interface EstimateIntroState {

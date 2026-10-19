@@ -1,25 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
+  AlertTriangle,
   Boxes,
   BrainCircuit,
   Calculator,
   Check,
   HardHat,
   Loader2,
+  RotateCcw,
   Ruler,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { LogoMark } from "@/components/Logo";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
   ESTIMATE_INTRO_MS,
   ESTIMATE_JOURNEY_STEPS,
   estimateIntroState,
-  isEstimateLoadingComplete,
+  isEstimateResultReady,
+  resolveEstimateFlowPhase,
   type EstimateIntroState,
 } from "@/lib/estimateLoaderTiming";
 
@@ -33,7 +37,9 @@ import {
  *
  * Aucune donnée n'est inventée : si le calcul dépasse 4 s, l'animation se
  * termine à 4 s et un indicateur d'attente discret reste affiché jusqu'à la
- * disponibilité réelle des résultats (`pending`).
+ * disponibilité réelle des résultats (`pending`). En cas d'échec réel, un
+ * message explicite et une action « Réessayer » remplacent l'attente : l'écran
+ * ne peut jamais rester bloqué.
  *
  * « Réduire les animations » conserve la progression (barre, étapes, %) mais
  * supprime les mouvements (pulsation, flottement, transitions).
@@ -59,15 +65,21 @@ const STEP_LABELS: Record<StepVisual, string> = {
 export function EstimateLoadingScreen({
   projectName,
   pending,
+  error = null,
   onComplete,
+  onRetry,
   className,
 }: {
   /** Nom du projet envoyé au calcul (affichage uniquement). */
   projectName?: string;
-  /** `true` tant que le calcul réel n'est pas terminé. */
+  /** `true` tant que les résultats réels ne sont pas disponibles. */
   pending: boolean;
-  /** Appelé une seule fois : animation terminée ET calcul disponible. */
+  /** Message d'erreur réel : affiché avec une action « Réessayer ». */
+  error?: string | null;
+  /** Appelé une seule fois : animation terminée ET données réelles prêtes. */
   onComplete: () => void;
+  /** Nouvelle tentative sans recréer le projet (action utilisateur). */
+  onRetry?: () => void;
   className?: string;
 }) {
   const reduceMotion = useReducedMotion();
@@ -76,32 +88,57 @@ export function EstimateLoadingScreen({
   );
   const notifiedRef = useRef(false);
 
-  // Horloge dédiée (requestAnimationFrame) : une seule boucle, nettoyée au
-  // démontage. L'état n'est mis à jour que lorsque la progression change.
+  // Horloge dédiée (requestAnimationFrame) + filet de sécurité : la fin des
+  // 4 s ne dépend JAMAIS d'une frame (onglet en arrière-plan, appareil lent).
+  // Une seule boucle et un seul timer, tous deux nettoyés au démontage.
   useEffect(() => {
     const start = performance.now();
     let frame = 0;
-    let lastProgress = -1;
-    let lastDone = false;
+    let finished = false;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      setIntro(estimateIntroState(ESTIMATE_INTRO_MS));
+    };
 
     const tick = (now: number) => {
+      if (finished) return;
       const next = estimateIntroState(now - start);
-      if (next.progress !== lastProgress || next.done !== lastDone) {
-        lastProgress = next.progress;
-        lastDone = next.done;
-        setIntro(next);
+      if (next.done) {
+        finish();
+        return;
       }
-      if (next.done) return;
+      setIntro((prev) =>
+        prev.progress === next.progress &&
+        prev.activeIndex === next.activeIndex
+          ? prev
+          : next,
+      );
       frame = requestAnimationFrame(tick);
     };
 
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    const backstop = window.setTimeout(finish, ESTIMATE_INTRO_MS);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(backstop);
+    };
   }, []);
 
-  // Fin de l'écran : jamais avant 4 s, jamais avant la fin réelle du calcul.
+  // Machine à états : les données réelles priment, puis l'erreur, puis
+  // l'attente / l'animation.
+  const phase = resolveEstimateFlowPhase({
+    introDone: intro.done,
+    dataReady: !pending,
+    error,
+  });
+
+  // Fin de l'écran : jamais avant 4 s, jamais sans données réelles. Si les
+  // données arrivent après une erreur (calcul finalement abouti), l'écran se
+  // ferme automatiquement. `notifiedRef` garantit un unique appel.
   useEffect(() => {
-    if (notifiedRef.current || !isEstimateLoadingComplete(intro.done, pending)) {
+    if (notifiedRef.current || !isEstimateResultReady(intro.done, !pending)) {
       return;
     }
     notifiedRef.current = true;
@@ -109,6 +146,9 @@ export function EstimateLoadingScreen({
   }, [intro.done, pending, onComplete]);
 
   const stateOf = (index: number): StepVisual => {
+    // En erreur, l'étape en cours n'est plus « active » : aucun indicateur
+    // animé ne doit laisser croire que le chargement continue.
+    if (error) return index < intro.activeIndex ? "done" : "pending";
     if (intro.done) return "done";
     if (index < intro.activeIndex) return "done";
     if (index === intro.activeIndex) return "active";
@@ -117,6 +157,7 @@ export function EstimateLoadingScreen({
 
   return (
     <div
+      aria-busy={phase === "loading" || phase === "waiting"}
       className={cn(
         "relative overflow-hidden rounded-2xl border border-emerald-600/15 bg-gradient-to-b from-emerald-500/[0.07] via-background to-background px-4 py-8 sm:px-8 sm:py-10",
         className,
@@ -188,9 +229,11 @@ export function EstimateLoadingScreen({
         <div className="mt-6 w-full max-w-md">
           <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             <span className="truncate">
-              {intro.done
-                ? "Parcours prêt"
-                : `Étape ${intro.activeIndex + 1} sur ${ESTIMATE_JOURNEY_STEPS.length}`}
+              {phase === "error"
+                ? "Chargement interrompu"
+                : phase === "loading"
+                  ? `Étape ${intro.activeIndex + 1} sur ${ESTIMATE_JOURNEY_STEPS.length}`
+                  : "Parcours prêt"}
             </span>
             <span className="shrink-0 tabular-nums text-emerald-700 dark:text-emerald-400">
               {intro.progress} %
@@ -201,22 +244,54 @@ export function EstimateLoadingScreen({
             aria-label="Progression de l'estimation"
             className="h-2 [&_[data-slot=progress-indicator]]:transition-none"
           />
-          <p
-            className="mt-2 min-h-4 text-[11px] font-medium text-muted-foreground"
-            role="status"
-            aria-live="polite"
-          >
-            {intro.done
-              ? pending
-                ? "Calculs en cours — attente des données réelles…"
-                : "Estimation prête, affichage des résultats…"
-              : ESTIMATE_JOURNEY_STEPS[intro.activeIndex]}
-          </p>
-          {intro.done && pending && (
-            <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
-              Finalisation des calculs réels…
+          {phase === "error" ? (
+            <div
+              role="alert"
+              className="mt-3 rounded-xl border border-red-500/30 bg-red-500/[0.06] px-3 py-3 text-left"
+            >
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-foreground">
+                    Le chargement des résultats a échoué
+                  </p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                    {error}
+                  </p>
+                </div>
+              </div>
+              {onRetry && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-3 w-full gap-1.5 sm:w-auto"
+                  onClick={onRetry}
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Réessayer
+                </Button>
+              )}
             </div>
+          ) : (
+            <>
+              <p
+                className="mt-2 min-h-4 text-[11px] font-medium text-muted-foreground"
+                role="status"
+                aria-live="polite"
+              >
+                {phase === "complete"
+                  ? "Estimation prête, affichage des résultats…"
+                  : phase === "waiting"
+                    ? "Calculs en cours — attente des données réelles…"
+                    : ESTIMATE_JOURNEY_STEPS[intro.activeIndex]}
+              </p>
+              {phase === "waiting" && (
+                <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                  Finalisation des calculs réels…
+                </div>
+              )}
+            </>
           )}
         </div>
 

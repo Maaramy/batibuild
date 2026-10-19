@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ESTIMATE_ANALYSIS_TIMEOUT_MS,
   ESTIMATE_INTRO_MS,
   ESTIMATE_JOURNEY_STEPS,
+  describeEstimateError,
   estimateIntroState,
-  isEstimateLoadingComplete,
+  isEstimateProjectReady,
+  isEstimateResultReady,
+  resolveEstimateFlowPhase,
 } from "./estimateLoaderTiming";
 
 describe("estimateIntroState — animation de l'estimation", () => {
@@ -71,15 +75,78 @@ describe("estimateIntroState — animation de l'estimation", () => {
   });
 
   it("estimation rapide : l'animation de 4 s est conservée avant d'afficher les résultats", () => {
-    // Calcul terminé très tôt (ex. 600 ms) : la page ne doit pas naviguer.
-    expect(isEstimateLoadingComplete(false, false)).toBe(false);
-    // À 4 000 ms, le calcul étant prêt, l'écran rend la main.
-    expect(isEstimateLoadingComplete(true, false)).toBe(true);
+    // Données prêtes très tôt (ex. 600 ms) : la page ne doit pas naviguer.
+    expect(isEstimateResultReady(false, true)).toBe(false);
+    // À 4 000 ms, les données étant prêtes, l'écran rend la main.
+    expect(isEstimateResultReady(true, true)).toBe(true);
   });
 
   it("estimation lente : attente discrète après les 4 s, aucune navigation avant les données", () => {
-    expect(isEstimateLoadingComplete(true, true)).toBe(false);
-    expect(isEstimateLoadingComplete(false, true)).toBe(false);
+    expect(isEstimateResultReady(true, false)).toBe(false);
+    expect(isEstimateResultReady(false, false)).toBe(false);
+  });
+
+  it("des résultats réels arrivés après coup priment sur une erreur précédente", () => {
+    // Une erreur seule n'affiche jamais de résultats...
+    expect(isEstimateResultReady(true, false)).toBe(false);
+    // ...mais dès que les données réelles existent, l'écran doit se fermer.
+    expect(isEstimateResultReady(true, true)).toBe(true);
+    expect(
+      resolveEstimateFlowPhase({ introDone: true, dataReady: true, error: "boom" }),
+    ).toBe("complete");
+    expect(
+      resolveEstimateFlowPhase({ introDone: true, dataReady: false, error: "boom" }),
+    ).toBe("error");
+  });
+
+  it("ne rend jamais la main sans projet réellement terminé et chiffré", () => {
+    expect(isEstimateProjectReady(undefined)).toBe(false);
+    expect(isEstimateProjectReady(null)).toBe(false);
+    expect(isEstimateProjectReady({ status: "draft" })).toBe(false);
+    expect(isEstimateProjectReady({ status: "analyzing" })).toBe(false);
+    // Statut terminé mais résultat absent ou partiel : pas encore prêt.
+    expect(isEstimateProjectReady({ status: "completed" })).toBe(false);
+    expect(
+      isEstimateProjectReady({ status: "completed", costEstimate: {} }),
+    ).toBe(false);
+    expect(
+      isEstimateProjectReady({
+        status: "completed",
+        costEstimate: { totalCost: 1 },
+        aiAnalysis: { confidence: 0.9 },
+      }),
+    ).toBe(true);
+  });
+
+  it("expose une machine à états sans cycle (loading → waiting → complete / error)", () => {
+    expect(
+      resolveEstimateFlowPhase({ introDone: false, dataReady: false, error: null }),
+    ).toBe("loading");
+    expect(
+      resolveEstimateFlowPhase({ introDone: false, dataReady: true, error: null }),
+    ).toBe("loading");
+    expect(
+      resolveEstimateFlowPhase({ introDone: true, dataReady: false, error: null }),
+    ).toBe("waiting");
+    expect(
+      resolveEstimateFlowPhase({ introDone: true, dataReady: true, error: null }),
+    ).toBe("complete");
+    // L'erreur n'est jamais affichée si les données réelles sont disponibles.
+    expect(
+      resolveEstimateFlowPhase({ introDone: true, dataReady: true, error: "boom" }),
+    ).toBe("complete");
+  });
+
+  it("le garde-fou anti-blocage est borné et non infini", () => {
+    expect(ESTIMATE_ANALYSIS_TIMEOUT_MS).toBeGreaterThan(ESTIMATE_INTRO_MS);
+    expect(ESTIMATE_ANALYSIS_TIMEOUT_MS).toBeLessThanOrEqual(120_000);
+  });
+
+  it("produit un message explicite et actionnable pour chaque type d'erreur", () => {
+    expect(describeEstimateError(new Error("Accès refusé"))).toContain("Accès refusé");
+    expect(describeEstimateError(new Error("network error"))).toMatch(/connexion/i);
+    expect(describeEstimateError(new Error("boom"))).toMatch(/réessayez/i);
+    expect(describeEstimateError(undefined)).toMatch(/réessayez/i);
   });
 
   it("progresse de façon monotone (aucun retour en arrière)", () => {
