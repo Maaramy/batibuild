@@ -225,6 +225,7 @@ export default function PlanGenerator() {
 
   const variants = allVariants;
   const selectProjectPlan = useMutation(api.projects.selectProjectPlan);
+  const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
   const [savingPlanId, setSavingPlanId] = useState<string | null>(null);
   const selectedPlanId = project?.planSelection?.variantId ?? null;
 
@@ -249,13 +250,20 @@ export default function PlanGenerator() {
           ),
           footprint: variant.footprint,
         });
+        // Les surfaces du plan retenu deviennent la référence : le coût et le
+        // quantitatif sont recalculés avec ces surfaces réelles par niveau.
+        try {
+          await simulateAnalysis({ projectId: projectId as Id<"projects"> });
+        } catch (err) {
+          console.warn("Recalcul du coût après sélection du plan impossible :", err);
+        }
       } catch (err) {
         console.error("Enregistrement du plan de référence impossible :", err);
       } finally {
         setSavingPlanId(null);
       }
     },
-    [projectId, savingPlanId, selectProjectPlan],
+    [projectId, savingPlanId, selectProjectPlan, simulateAnalysis],
   );
 
   const bestScore = useMemo(
@@ -404,7 +412,7 @@ export default function PlanGenerator() {
                   kind="plomberie"
                   key={`plomberie-${projectId}`}
                   savedPlans={savedTechnicalPlans}
-                  initialVariantId={techVariantId}
+                  initialVariantId={techVariantId ?? selectedPlanId ?? undefined}
                 />
               </TabsContent>
 
@@ -423,7 +431,7 @@ export default function PlanGenerator() {
                   kind="electricite"
                   key={`electricite-${projectId}`}
                   savedPlans={savedTechnicalPlans}
-                  initialVariantId={techVariantId}
+                  initialVariantId={techVariantId ?? selectedPlanId ?? undefined}
                 />
               </TabsContent>
             </Tabs>

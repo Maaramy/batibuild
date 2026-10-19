@@ -19,7 +19,7 @@ export function FurnitureLayer({ plan, S }: { plan: FloorPlan; S: number }) {
   return (
     <g>
       {plan.rooms.map((room) =>
-        roomFurniture(room).map((p, i) => (
+        (room.exterior ? [] : roomFurniture(room)).map((p, i) => (
           <FurnPrim key={`${room.id}-f${i}`} p={p} S={S} />
         )),
       )}

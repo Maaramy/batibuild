@@ -1108,7 +1108,16 @@ function fillZones(
 
   const placed: Placed<ProgramItem>[] = [];
   usable.forEach((zone, i) => {
-    if (buckets[i].length === 0) return;
+    // Filet de sécurité : aucune zone vide (sinon un trou dans la surface).
+    if (buckets[i].length === 0) {
+      buckets[i].push({
+        kind: "couloir",
+        label: "Dégagement",
+        target: zone.w * zone.h,
+        min: 1,
+        priority: 1,
+      });
+    }
     const fitted = fitProgram(buckets[i], zone.w * zone.h);
     placed.push(
       ...(mode === "linear" ? linearFill(zone, fitted) : bspLayout(zone, fitted)),
@@ -1242,7 +1251,10 @@ function buildLevel(
   const mainZone = baseZones[mainIdx];
   const strategy: LayoutStrategy =
     levelIdx === 0 ? profile.layout : "bsp";
-  const enoughItems = items.length >= 4;
+  // Une zone sans pièce laisserait un trou dans le niveau : chaque zone du
+  // parti doit pouvoir recevoir au moins une pièce.
+  const extraZones = Math.max(0, baseZones.length - 1);
+  const enoughItems = items.length >= 4 + extraZones;
 
   let roomZones: Rect[] = [];
   let specialRooms: { rect: Rect; kind: RoomKind; label: string; exterior?: boolean }[] = [];
@@ -1251,7 +1263,11 @@ function buildLevel(
     const carved = carvePatio(mainZone, items);
     roomZones = carved.zones;
     specialRooms.push({ rect: carved.patio, kind: "patio", label: "Patio", exterior: true });
-  } else if (strategy === "linear" && items.length >= 3 && Math.max(mainZone.w, mainZone.h) >= 7) {
+  } else if (
+    strategy === "linear" &&
+    items.length >= 2 + extraZones &&
+    Math.max(mainZone.w, mainZone.h) >= 7
+  ) {
     const carved = carveLinear(mainZone);
     if (carved.zones.length === 2 && carved.corridor) {
       roomZones = carved.zones;
@@ -1259,7 +1275,12 @@ function buildLevel(
     } else {
       roomZones = [mainZone];
     }
-  } else if (strategy === "central-hall" && enoughItems && mainZone.w >= 6 && mainZone.h >= 6) {
+  } else if (
+    strategy === "central-hall" &&
+    items.length >= 3 + extraZones &&
+    mainZone.w >= 6 &&
+    mainZone.h >= 6
+  ) {
     const carved = carveCentralHall(mainZone);
     if (carved.zones.length >= 2) {
       roomZones = carved.zones;
@@ -1267,7 +1288,10 @@ function buildLevel(
     } else {
       roomZones = [mainZone];
     }
-  } else if ((strategy === "day-night" || strategy === "garden") && enoughItems) {
+  } else if (
+    (strategy === "day-night" || strategy === "garden") &&
+    items.length >= 2 + extraZones
+  ) {
     const split = carveDayNight(mainZone, strategy === "garden" ? 0.62 : 0.54);
     roomZones = split.length === 2 ? split : [mainZone];
   } else {

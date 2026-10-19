@@ -39,6 +39,8 @@ const ROOM_TINT: Record<string, string> = {
   logistique: "#ea580c",
   vestiaire: "#8b5cf6",
   polyvalent: "#94a3b8",
+  patio: "#84cc16",
+  buanderie: "#64748b",
 };
 
 export interface FloorPlan2DProps {
@@ -107,8 +109,8 @@ export function FloorPlan2D({
             y={r.y * S}
             width={r.w * S}
             height={r.h * S}
-            fill={ROOM_TINT[r.kind] ?? ROOM_TINT.polyvalent}
-            opacity={0.13}
+            fill={r.exterior ? ROOM_TINT.patio : ROOM_TINT[r.kind] ?? ROOM_TINT.polyvalent}
+            opacity={r.exterior ? 0.24 : 0.13}
           />
         ))}
         {/* Escalier : marches dessinées */}
