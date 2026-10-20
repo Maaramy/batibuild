@@ -680,10 +680,11 @@ export const selectProjectPlan = mutation({
       throw new Error("Unauthorized");
     }
 
-    const floors = Math.max(
-      1,
-      Math.min(6, Math.round(project.floors ?? (args.levelSurfaces.length || 1))),
-    );
+    // Le plan retenu fait référence : son nombre réel de niveaux devient le
+    // nombre de niveaux du projet, sinon un plan à 2 niveaux enregistré sur un
+    // projet saisi à 1 niveau serait tronqué et le coût calculé sur un seul
+    // niveau. La SURFACE demandée n'est jamais réécrite.
+    const floors = Math.max(1, Math.min(6, args.levelSurfaces.length || project.floors || 1));
     const normalized = normalizeLevelSurfaces(
       project.surface ?? args.builtArea,
       floors,
@@ -704,6 +705,7 @@ export const selectProjectPlan = mutation({
         selectedAt: Date.now(),
       },
       levelSurfaces: normalized,
+      floors,
       updatedAt: Date.now(),
     });
 
