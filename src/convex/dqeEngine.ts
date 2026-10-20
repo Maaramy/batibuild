@@ -45,6 +45,13 @@ import {
   type TechnicalInstallation,
   type TechnicalRooms,
 } from "../lib/dqeTechnicalLots";
+import {
+  SDB_VAT_RATE,
+  buildSdbEstimate,
+  isRenovationSdb,
+  type SdbOptions,
+  type SdbScenario,
+} from "../lib/renovationSdbPricing";
 
 export type DqeNature =
   | "materiaux"
@@ -68,9 +75,17 @@ export interface DqeLine {
   unit: string; // Unité
   quantity: number; // Quantité
   unitPrice: number; // Prix unitaire (TND)
-  total: number; // Montant = Quantité × P.U.
+  total: number; // Montant TTC = Quantité × P.U. TTC
   nature: DqeNature;
   observations?: string;
+  /**
+   * Décomposition fiscale (renseignée lorsque la ligne est chiffrée HT + TVA,
+   * ex. rénovation de salle de bain). `total` reste le montant TTC afin de
+   * conserver l'invariant « Montant = Quantité × P.U. » de tout le DQE.
+   */
+  totalHT?: number;
+  vatRate?: number;
+  vatAmount?: number;
   /**
    * Part « main-d'œuvre » du poste, AFFICHÉE sous le poste mais déjà comprise
    * dans son montant : elle n'est jamais ajoutée une seconde fois au lot.
@@ -1093,6 +1108,16 @@ export interface DqeInput {
    * Absent = quantité = surface construite, sans majoration.
    */
   rooms?: TechnicalRooms;
+  /**
+   * Scénario de finition du DQE (rénovation de salle de bain : grille de prix
+   * propre à chaque scénario). Absent → « standard ».
+   */
+  scenario?: SdbScenario;
+  /**
+   * Équipements réellement retenus pour une rénovation de salle de bain :
+   * un poste optionnel non sélectionné n'est jamais facturé.
+   */
+  sdbOptions?: Partial<SdbOptions>;
 }
 
 /**
@@ -1153,6 +1178,125 @@ export function generateDqe(input: DqeInput): DqeResult {
   const regionFactor =
     Number.isFinite(rawRegionFactor) && rawRegionFactor > 0 ? rawRegionFactor : 1;
   const round2 = (n: number) => Math.round(n * 100) / 100;
+
+  // ── Rénovation de salle de bain : DQE AU RÉEL ─────────────────────────
+  // Les prix ne sont plus calés sur un pourcentage du budget (ce calage
+  // écrasait tous les prix unitaires et rendait les articles identiques) :
+  // chaque poste porte son prix de fourniture et sa main-d'œuvre, le scénario
+  // dispose de sa propre grille, les quantités viennent des dimensions réelles
+  // de la pièce, et la TVA est calculée par ligne. Total du DQE = somme réelle
+  // des postes.
+  if (isRenovationSdb(category)) {
+    const adminPriceOf = (designation: string): number | undefined => {
+      if (!input.livePrices) return undefined;
+      const key = normKey(DQE_TO_CATALOG[designation] ?? designation);
+      const liveItem = input.livePrices.get(key);
+      return liveItem && liveItem.unitPrice > 0 ? liveItem.unitPrice : undefined;
+    };
+    const estimate = buildSdbEstimate({
+      surface: tb,
+      scenario: input.scenario ?? "standard",
+      options: input.sdbOptions,
+      regionFactor,
+      resolvePrice: (designation, fallbackHT) => {
+        const adminTTC = adminPriceOf(designation);
+        // Les prix administrés (`materialPrices`) sont saisis TTC, comme tous
+        // les prix de la plateforme : ils sont ramenés HT une seule fois avant
+        // le calcul de la TVA de la ligne.
+        return adminTTC != null
+          ? {
+              price: round2(adminTTC / (1 + SDB_VAT_RATE / 100)),
+              source: "prix_administre" as const,
+            }
+          : { price: fallbackHT, source: "grille_2026" as const };
+      },
+    });
+
+    const sdbLots: DqeLot[] = estimate.lots.map((lot) => {
+      const lines: DqeLine[] = lot.lines.map((l) => {
+        const laborTTC = round2(l.laborHT * (1 + l.vatRate / 100));
+        return {
+          designation: l.designation,
+          description: l.description,
+          unit: l.unit,
+          quantity: l.quantity,
+          unitPrice: l.unitPriceTTC,
+          total: Math.round(l.totalTTC),
+          nature: l.nature,
+          observations: `HT ${l.totalHT} TND + TVA ${l.vatRate} % (${l.vatAmount} TND) · ${
+            l.source === "prix_administre" ? "prix administré" : "grille 2026"
+          }`,
+          totalHT: l.totalHT,
+          vatRate: l.vatRate,
+          vatAmount: l.vatAmount,
+          ...(l.unitPriceLaborHT > 0
+            ? {
+                labor: {
+                  label: `Main-d'œuvre — ${l.designation}`,
+                  quantity: l.quantity,
+                  unit: l.unit,
+                  unitPrice: round2(l.unitPriceLaborHT * (1 + l.vatRate / 100)),
+                  total: Math.round(laborTTC),
+                },
+              }
+            : {}),
+        };
+      });
+      const subtotal = lines.reduce((s, x) => s + x.total, 0);
+      return {
+        id: lot.id,
+        name: lot.name,
+        nature: lot.nature,
+        percent: 0,
+        allocatedSubtotal: subtotal,
+        subtotal,
+        lines,
+      };
+    });
+
+    const sdbTotal = sdbLots.reduce((s, l) => s + l.subtotal, 0);
+    const lotsWithPercent: DqeLot[] = sdbLots.map((l) => ({
+      ...l,
+      percent: sdbTotal > 0 ? Math.round((l.subtotal / sdbTotal) * 1000) / 10 : 0,
+    }));
+
+    // Totaux par nature : la part main-d'œuvre d'un poste est comptée dans la
+    // main-d'œuvre et retirée de la nature de la fourniture, jamais deux fois.
+    const natureTotals: Record<DqeNature, number> = {
+      materiaux: 0,
+      main_oeuvre: 0,
+      equipements: 0,
+      transport: 0,
+      etudes: 0,
+    };
+    for (const lot of lotsWithPercent) {
+      for (const line of lot.lines) {
+        const labor = Number(line.labor?.total) || 0;
+        if (line.nature === "main_oeuvre") {
+          natureTotals.main_oeuvre += line.total;
+        } else {
+          natureTotals[line.nature] += line.total - labor;
+          natureTotals.main_oeuvre += labor;
+        }
+      }
+    }
+
+    return {
+      lots: lotsWithPercent,
+      totals: {
+        materiaux: natureTotals.materiaux,
+        mainOeuvre: natureTotals.main_oeuvre,
+        equipements: natureTotals.equipements,
+        transport: natureTotals.transport,
+        etudes: natureTotals.etudes,
+        total: sdbTotal,
+        costPerM2: tb > 0 ? Math.round(sdbTotal / tb) : 0,
+      },
+      referenceSurface: REF_SURFACE,
+      referenceTotal: Math.round(totalBudget),
+      generatedAt: Date.now(),
+    };
+  }
 
   // Budgets de lots puis absorption de l'écart d'arrondi par le lot le plus
   // important : la somme des sous-totaux du Quantitatif détaillé retombe

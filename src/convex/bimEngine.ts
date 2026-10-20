@@ -12,6 +12,7 @@ import {
 } from "../lib/regionImpact";
 import { ELECTRICITY_BAREME_M2, PLUMBING_BAREME_M2 } from "../lib/technicalBareme";
 import { correctEnduitLissageBimItems } from "../lib/enduitLissage";
+import { buildSdbEstimate, isRenovationSdb } from "../lib/renovationSdbPricing";
 
 // ============================================================================
 // PROFESSIONAL BIM COST ESTIMATION ENGINE
@@ -1882,12 +1883,27 @@ export function runBIMEstimation(
   // Plus de pièces pour la même surface = plus de cloisons, portes & équipements
   const wallFactor = Math.min(1.25, Math.max(0.8, totalRooms / Math.max(1, stdRooms)));
 
+  // ── Rénovation de salle de bain : coût = SOMME RÉELLE du DQE 2026 ───────
+  // Une rénovation de pièce humide ne se décrit pas par un prix au m² global :
+  // le coût est la somme des articles, quantités et prix (fourniture +
+  // main-d'œuvre, TVA) de la grille `lib/renovationSdbPricing`. Le scénario de
+  // finition choisit SA grille — aucun pourcentage global appliqué au total.
+  const sdbRegionFactor =
+    regionCosts && BASE_GRID_2026.std > 0 ? regionCosts.std / BASE_GRID_2026.std : 1;
+  const sdbEstimate = isRenovationSdb(category)
+    ? {
+        eco: buildSdbEstimate({ surface: tb, scenario: "economique", regionFactor: sdbRegionFactor }),
+        std: buildSdbEstimate({ surface: tb, scenario: "standard", regionFactor: sdbRegionFactor }),
+        prem: buildSdbEstimate({ surface: tb, scenario: "premium", regionFactor: sdbRegionFactor }),
+      }
+    : null;
+
   // Coût total = somme des postes calculés niveau par niveau (frais communs
   // comptés une seule fois + étages à leur coefficient + toiture). Aucun autre
   // terme n'est ajouté : ni marge d'imprévus, ni taxe supplémentaire (les prix
   // unitaires de la grille 2026 et du catalogue matériaux sont déjà TTC).
-  const finalTotal = levels.total;
-  const costM2 = levels.costPerM2Real;
+  const finalTotal = sdbEstimate ? sdbEstimate.std.totals.totalTTC : levels.total;
+  const costM2 = sdbEstimate ? sdbEstimate.std.totals.costPerM2TTC : levels.costPerM2Real;
 
   const keys = ["gros_oeuvre","second_oeuvre","equipements","main_oeuvre","transport","etudes_imprevus"];
   const labels = ["Gros œuvre","Second œuvre","Équipements","Main-d'œuvre","Transport","Études & permis"];
@@ -1912,7 +1928,32 @@ export function runBIMEstimation(
     etudes_imprevus: (s: number, f: number, c: string, b: number, r) => genEIItems(finalTotal, b),
   };
 
-  const breakdown = keys.map((k, i) => {
+  // Salle de bain : la répartition affichée est celle des natures RÉELLES du
+  // DQE (fournitures, équipements, main-d'œuvre, transport, études) — aucune
+  // part « gros œuvre » inventée pour une pièce déjà construite.
+  type BreakdownRow = {
+    category: string;
+    label: string;
+    estimatedCost: number;
+    percentage: number;
+    items: any[];
+  };
+  const breakdown: BreakdownRow[] = sdbEstimate
+    ? [
+        { key: "gros_oeuvre", amount: 0 },
+        { key: "second_oeuvre", amount: sdbEstimate.std.totals.materiaux },
+        { key: "equipements", amount: sdbEstimate.std.totals.equipements },
+        { key: "main_oeuvre", amount: sdbEstimate.std.totals.mainOeuvre },
+        { key: "transport", amount: sdbEstimate.std.totals.transport },
+        { key: "etudes_imprevus", amount: sdbEstimate.std.totals.etudes },
+      ].map(({ key, amount }) => ({
+        category: key,
+        label: labels[keys.indexOf(key)],
+        estimatedCost: amount,
+        percentage: finalTotal > 0 ? Math.round((amount / finalTotal) * 100) : 0,
+        items: [] as any[],
+      }))
+    : keys.map((k, i) => {
     const budget = categoryBudgets[k];
     const items = genMap[k](surface, floors, category, budget, roomInfo);
     const itemTotal = items.reduce((s, it) => s + it.totalPrice, 0);
@@ -1954,11 +1995,34 @@ export function runBIMEstimation(
   // seule la valeur du prix au m² change (grille régionale du scénario).
   const totalEco = Math.round(scenarioEcoPrice * levels.equivalentArea);
   const totalPremium = Math.round(scenarioPremiumPrice * levels.equivalentArea);
-  const scenarios = {
-    economique: { label:"Économique", totalCost: totalEco, costPerM2: Math.round(scenarioEcoPrice), multiplier: scenarioEcoPrice / scenarioStdPrice },
-    standard: { label:"Standard", totalCost: finalTotal, costPerM2: Math.round(scenarioStdPrice), multiplier: 1.0 },
-    premium: { label:"Premium", totalCost: totalPremium, costPerM2: Math.round(scenarioPremiumPrice), multiplier: scenarioPremiumPrice / scenarioStdPrice },
-  };
+  // Salle de bain : chaque scénario a SA grille d'articles. Les totaux sont les
+  // sommes réelles des postes, pas un pourcentage du total standard.
+  const scenarios = sdbEstimate
+    ? {
+        economique: {
+          label: "Économique",
+          totalCost: sdbEstimate.eco.totals.totalTTC,
+          costPerM2: sdbEstimate.eco.totals.costPerM2TTC,
+          multiplier: finalTotal > 0 ? sdbEstimate.eco.totals.totalTTC / finalTotal : 1,
+        },
+        standard: {
+          label: "Standard",
+          totalCost: finalTotal,
+          costPerM2: costM2,
+          multiplier: 1.0,
+        },
+        premium: {
+          label: "Premium",
+          totalCost: sdbEstimate.prem.totals.totalTTC,
+          costPerM2: sdbEstimate.prem.totals.costPerM2TTC,
+          multiplier: finalTotal > 0 ? sdbEstimate.prem.totals.totalTTC / finalTotal : 1,
+        },
+      }
+    : {
+        economique: { label:"Économique", totalCost: totalEco, costPerM2: Math.round(scenarioEcoPrice), multiplier: scenarioEcoPrice / scenarioStdPrice },
+        standard: { label:"Standard", totalCost: finalTotal, costPerM2: Math.round(scenarioStdPrice), multiplier: 1.0 },
+        premium: { label:"Premium", totalCost: totalPremium, costPerM2: Math.round(scenarioPremiumPrice), multiplier: scenarioPremiumPrice / scenarioStdPrice },
+      };
 
   // Confidence index
   let confidence = 0.90;

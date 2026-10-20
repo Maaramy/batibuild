@@ -80,6 +80,15 @@ import {
 } from "@/convex/bimEngine";
 import { realBuiltArea } from "@/lib/buildingLevels";
 import {
+  SDB_PRICE_BASE,
+  buildSdbEstimate,
+  buildSdbPriceResolver,
+  isRenovationSdb,
+  latestSdbAdminPriceUpdate,
+  sdbDqeLots,
+  type SdbScenario,
+} from "@/lib/renovationSdbPricing";
+import {
   correctEnduitLissageBimItems,
   isEnduitLissageName,
 } from "@/lib/enduitLissage";
@@ -93,6 +102,7 @@ import {
   REFERENCE_REGION,
   computeRegionImpact,
   nationalAvgPriceM2,
+  regionCostFactor,
   type RegionComparisonRow,
 } from "@/lib/regionImpact";
 
@@ -521,14 +531,28 @@ export default function ProjectDetail() {
       return sel ? sel.totalCost / (scenarios.standard.totalCost || 1) : 1;
     })();
     const dqeData = (project as any)?.dqe;
+    // Rénovation de salle de bain : le devis reprend le quantitatif réel du
+    // scénario exporté (articles, quantités et prix propres à la pièce), et non
+    // une mise à l'échelle du DQE enregistré.
+    const sdbPdfLots =
+      isRenovationSdb(project.category) && scenario !== PERSONALIZED_SCENARIO_KEY
+        ? sdbDqeLots(
+            buildSdbEstimate({
+              surface: builtSurface,
+              scenario: scenario as SdbScenario,
+              regionFactor: regionCostFactor(REGION_COST_M2, project.region, scenario),
+              resolvePrice: sdbPriceResolver,
+            }),
+          )
+        : null;
     await generateProjectPdf({
       project,
       ce,
       ai,
       scenarios,
       scenario,
-      dqe: dqeData,
-      dqeScaleFactor: sf,
+      dqe: sdbPdfLots ? { lots: sdbPdfLots } : dqeData,
+      dqeScaleFactor: sdbPdfLots ? 1 : sf,
       // Scénario « Personnalisé » : `null` s'il n'y a aucune modification — le
       // devis n'en fait alors aucune mention.
       personalized: personalized ?? null,
@@ -702,6 +726,42 @@ export default function ProjectDetail() {
     ? realBuiltArea(project.surface, project.floors || 1, project.levelSurfaces)
     : 0;
 
+  // ── Rénovation de salle de bain : DQE au réel, recalculé par scénario ────
+  // Chaque scénario possède sa propre grille d'articles (fourniture +
+  // main-d'œuvre, TVA par ligne). Le quantitatif affiché n'est donc plus une
+  // mise à l'échelle globale du DQE enregistré : il est reconstruit avec les
+  // dimensions réelles de la pièce, et le total affiché est sa somme.
+  const sdbScenario = effectiveScenario as SdbScenario;
+  const sdbProject = isRenovationSdb(project?.category);
+  // Prix administrés (`materialPrices`) : un article saisi par l'administrateur
+  // remplace le prix de la grille 2026 dans le quantitatif affiché, dans son
+  // total et dans le devis PDF — la même règle que le moteur (`generateDqe`).
+  // Sans prix administré, la base datée de la grille reste utilisée.
+  const adminPriceRows = useQuery(api.materials.getMaterialPrices, {});
+  const sdbPriceResolver = useMemo(
+    () => buildSdbPriceResolver(adminPriceRows),
+    [adminPriceRows],
+  );
+  const adminPriceUpdatedAt = useMemo(
+    () => latestSdbAdminPriceUpdate(adminPriceRows),
+    [adminPriceRows],
+  );
+  const sdbEstimateData = useMemo(() => {
+    if (!isRenovationSdb(project?.category) || !builtSurface) return null;
+    return buildSdbEstimate({
+      surface: builtSurface,
+      scenario: sdbScenario,
+      regionFactor: regionCostFactor(REGION_COST_M2, project?.region, sdbScenario),
+      resolvePrice: sdbPriceResolver,
+    });
+  }, [
+    project?.category,
+    project?.region,
+    builtSurface,
+    sdbScenario,
+    sdbPriceResolver,
+  ]);
+
   // ── Budget de l'estimation : SOURCE UNIQUE des montants ──────────────────
   // Le même résolveur alimente cette page et « Aide à la décision » : montant
   // TTC du scénario affiché, scénarios corrigés des imprévus et scénario
@@ -789,7 +849,11 @@ export default function ProjectDetail() {
     setRefreshingQuantitatif(true);
     try {
       await simulateAnalysis({ projectId: project._id });
-      toast.success("Quantitatif mis à jour selon le catalogue 2026");
+      toast.success(
+        sdbProject
+          ? "Prix mis à jour — quantitatif et coût global recalculés"
+          : "Quantitatif mis à jour selon le catalogue 2026",
+      );
     } catch (err: any) {
       toast.error(err?.message || "Erreur lors de la mise à jour du quantitatif");
     } finally {
@@ -896,11 +960,15 @@ export default function ProjectDetail() {
   const displayTotal: number =
     personalized && isPersonalizedScenario
       ? Number(personalized.totals.total)
-      : Number(estimationBudget.scenarios?.[effectiveScenario as BudgetScenarioKey]?.totalCost ?? currentTotal);
+      : sdbEstimateData
+        ? sdbEstimateData.totals.totalTTC
+        : Number(estimationBudget.scenarios?.[effectiveScenario as BudgetScenarioKey]?.totalCost ?? currentTotal);
   const displayCostM2 =
     personalized && isPersonalizedScenario
       ? personalized.totals.costPerM2
-      : Number(estimationBudget.scenarios?.[effectiveScenario as BudgetScenarioKey]?.costPerM2 ?? currentCostM2);
+      : sdbEstimateData
+        ? sdbEstimateData.totals.costPerM2TTC
+        : Number(estimationBudget.scenarios?.[effectiveScenario as BudgetScenarioKey]?.costPerM2 ?? currentCostM2);
 
   // ── Catégories réellement affichées par le « Quantitatif détaillé » ────
   // SOURCE UNIQUE du quantitatif affiché : mise à l'échelle du scénario
@@ -910,12 +978,21 @@ export default function ProjectDetail() {
   // catégorie » : ces trois blocs ne peuvent donc jamais diverger.
   const quantitatifLots = useMemo<any[]>(
     () =>
-      rawDqeLots.length
-        ? isPersonalizedScenario && personalized
-          ? personalized.lots
-          : scaleDqeLots(rawDqeLots, scaleFactor * realCostFactor)
-        : [],
-    [rawDqeLots, isPersonalizedScenario, personalized, scaleFactor, realCostFactor],
+      isPersonalizedScenario && personalized
+        ? personalized.lots
+        : sdbEstimateData
+          ? sdbDqeLots(sdbEstimateData)
+          : rawDqeLots.length
+            ? scaleDqeLots(rawDqeLots, scaleFactor * realCostFactor)
+            : [],
+    [
+      rawDqeLots,
+      isPersonalizedScenario,
+      personalized,
+      scaleFactor,
+      realCostFactor,
+      sdbEstimateData,
+    ],
   );
 
   // ── Répartition / Détail par catégorie ─────────────────────────────────
@@ -937,9 +1014,15 @@ export default function ProjectDetail() {
 
   // Main-d'œuvre : 1 lot affiché sur la page de résultat.
 
+  // Nombre de postes réellement affichés : le DQE salle de bain est reconstruit
+  // au réel (la répartition par nature du moteur ne porte plus d'articles),
+  // donc on compte ses propres lignes de quantitatif.
   const totalItems = useMemo(
-    () => scaledBreakdown?.reduce((s: number, b: any) => s + (b.items?.length || 0), 0) ?? 0,
-    [scaledBreakdown],
+    () =>
+      isRenovationSdb(project?.category)
+        ? quantitatifLots.reduce((s: number, lot: any) => s + (lot.lines?.length || 0), 0)
+        : (scaledBreakdown?.reduce((s: number, b: any) => s + (b.items?.length || 0), 0) ?? 0),
+    [scaledBreakdown, quantitatifLots, project?.category],
   );
 
   // ── Meilleur fournisseur (prix minimum) par désignation du quantitatif ──
@@ -1926,8 +2009,8 @@ export default function ProjectDetail() {
                     </div>
                     <div className="flex items-center gap-1">
                       <span role="button" tabIndex={0}
-                        aria-label="Mettre à jour le quantitatif selon le catalogue 2026"
-                        title="Mettre à jour le quantitatif selon le catalogue 2026"
+                        aria-label={sdbProject ? "Mettre à jour les prix" : "Mettre à jour le quantitatif selon le catalogue 2026"}
+                        title={sdbProject ? "Mettre à jour les prix" : "Mettre à jour le quantitatif selon le catalogue 2026"}
                         onClick={(e) => { e.stopPropagation(); refreshQuantitatif(); }}
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); refreshQuantitatif(); } }}
                         className={cn("flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors cursor-pointer", refreshingQuantitatif ? "opacity-60" : "hover:bg-muted/30 hover:text-primary")}
@@ -1949,6 +2032,27 @@ export default function ProjectDetail() {
                     {openCat !== "" && (
                       <motion.div key="dqe-table" initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
                         <div className="border-t border-border/10">
+                          {/* Provenance et millésime des prix : date visible et
+                              absence de flux « temps réel » clairement affichée. */}
+                          {sdbEstimateData && (
+                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 px-3 py-2 text-[10px] text-muted-foreground">
+                              <span className="font-semibold text-foreground/80">{SDB_PRICE_BASE.label}</span>
+                              <span>· mise à jour du {new Date(SDB_PRICE_BASE.updatedAt).toLocaleDateString("fr-FR")}</span>
+                              {sdbEstimateData.adminPricedLines > 0 && (
+                                <span className="text-emerald-700 dark:text-emerald-400">
+                                  · {sdbEstimateData.adminPricedLines} prix administré
+                                  {sdbEstimateData.adminPricedLines > 1 ? "s" : ""}
+                                  {adminPriceUpdatedAt
+                                    ? ` (saisis le ${new Date(adminPriceUpdatedAt).toLocaleDateString("fr-FR")})`
+                                    : ""}
+                                </span>
+                              )}
+                              <span>· {SDB_PRICE_BASE.scope}</span>
+                              <span className="text-amber-600 dark:text-amber-400">
+                                · prix indicatifs (aucun flux temps réel), à confirmer par devis
+                              </span>
+                            </div>
+                          )}
 
                           {hasDqeLots ? (
                             /* ══════ VUE HIÉRARCHIQUE DQE (étapes / sous-étapes) ══════ */

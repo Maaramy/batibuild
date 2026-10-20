@@ -10,6 +10,7 @@ import {
   resolveLevelCostConfig,
   type LevelCostConfig,
 } from "../lib/buildingLevels";
+import { SDB_VAT_RATE, resolveSdbVatRate } from "../lib/renovationSdbPricing";
 
 // ============================================================================
 // COEFFICIENTS MULTI-NIVEAUX — configuration administrateur
@@ -99,6 +100,9 @@ export const getBIMConfig = query({
         config.levelCoefficientsValidFrom ?? LEVEL_COEFFICIENTS_VALIDITY_2026.from,
       levelCoefficientsValidUntil:
         config.levelCoefficientsValidUntil ?? LEVEL_COEFFICIENTS_VALIDITY_2026.until,
+      // Taux de TVA réellement appliqué au DQE de rénovation de salle de bain.
+      sdbVatRate: resolveSdbVatRate(config.sdbVatRate),
+      sdbVatRateIsDefault: config.sdbVatRate === undefined,
     };
   },
 });
@@ -245,6 +249,8 @@ export const saveBIMConfig = mutation({
     /** Dates de validité des coefficients (bornes incluses, ms epoch). */
     levelCoefficientsValidFrom: v.optional(v.number()),
     levelCoefficientsValidUntil: v.optional(v.number()),
+    /** Taux de TVA du DQE de rénovation de salle de bain (%, 0-30). */
+    sdbVatRate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -278,6 +284,14 @@ export const saveBIMConfig = mutation({
       }
     }
 
+    // Taux de TVA du DQE salle de bain : une saisie hors 0-30 % est refusée
+    // (la TVA n'est pas un paramètre de marge).
+    if (args.sdbVatRate !== undefined) {
+      if (!Number.isFinite(args.sdbVatRate) || args.sdbVatRate < 0 || args.sdbVatRate > 30) {
+        throw new Error("Taux de TVA invalide : saisir une valeur entre 0 et 30 %.");
+      }
+    }
+
     const bimConfigData = {
       version: existing ? existing.version + 1 : 1,
       refreshedAt: now,
@@ -295,6 +309,8 @@ export const saveBIMConfig = mutation({
         args.levelCoefficientsValidUntil ??
         existing?.levelCoefficientsValidUntil ??
         LEVEL_COEFFICIENTS_VALIDITY_2026.until,
+      // Conservé tel quel si l'administrateur ne le modifie pas.
+      sdbVatRate: args.sdbVatRate ?? existing?.sdbVatRate ?? SDB_VAT_RATE,
     };
 
     if (existing) {
@@ -315,6 +331,7 @@ export const saveBIMConfig = mutation({
       version: bimConfigData.version,
       refreshedAt: now,
       levelCoefficients: resolveLevelCostConfig(resolvedLevels),
+      sdbVatRate: bimConfigData.sdbVatRate,
     };
   },
 });

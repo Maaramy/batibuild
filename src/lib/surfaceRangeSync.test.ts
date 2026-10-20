@@ -94,6 +94,23 @@ describe("surface → quantitatif détaillé : les quantités suivent la surface
       for (const surface of [rule.min, rule.defaultValue, rule.max]) {
         const { totalBudget, dqe } = chain(category, surface);
         const label = `${category}@${surface}`;
+        // Rénovation de salle de bain : le DQE est facturé AU RÉEL (prix par
+        // article, fourniture + main-d'œuvre, TVA par ligne). Aucun lot n'est
+        // donc calé sur un pourcentage du budget : le total EST la somme des
+        // postes, et chaque lot vaut exactement son propre sous-total.
+        if (category === "renovation_salle_de_bain") {
+          const sumLots = dqe.lots.reduce((s, l) => s + l.subtotal, 0);
+          expect(dqe.totals.total, label).toBe(sumLots);
+          for (const lot of dqe.lots) {
+            expect(lot.allocatedSubtotal, `${label} / ${lot.name}`).toBe(lot.subtotal);
+          }
+          // Le budget du moteur BIM est lui aussi la somme réelle des postes :
+          // seul l'arrondi ligne à ligne peut l'écarter de quelques dinars.
+          expect(Math.abs(sumLots - Math.round(totalBudget)), label).toBeLessThanOrEqual(
+            dqe.lots.reduce((s, l) => s + l.lines.length, 0),
+          );
+          continue;
+        }
         // La somme des budgets alloués retombe sur le budget BIM.
         const allocated = dqe.lots.reduce(
           (s, l) => s + (l.allocatedSubtotal ?? l.subtotal),

@@ -1266,6 +1266,9 @@ const schema = defineSchema(
       levelCoefficients: v.optional(v.string()),
       levelCoefficientsValidFrom: v.optional(v.number()),
       levelCoefficientsValidUntil: v.optional(v.number()),
+      // Taux de TVA appliqué au DQE de rénovation de salle de bain (%), réglé
+      // par l'administrateur. Absent → taux de droit commun (19 %).
+      sdbVatRate: v.optional(v.number()),
       version: v.number(),
       refreshedAt: v.number(),
       refreshedBy: v.id("users"),
