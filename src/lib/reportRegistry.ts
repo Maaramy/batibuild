@@ -128,23 +128,25 @@ export function reportStatuses(
  *
  * Le groupe est déduit automatiquement du type de projet enregistré
  * (`projectJourneyGroup`) : aucune sélection manuelle de l'utilisateur n'est
- * requise.
+ * requise. Chaque section correspond à une étape réellement présente dans le
+ * parcours du groupe — aucune section vide ni place-holder.
  *
  *   • **Groupe A** — rapport PDF complet : toutes les fonctionnalités du
  *     parcours réellement activées et compatibles avec le type de projet
  *     (Coût estimatif, Plan IA, Matériaux AI, Exécution).
- *   • **Groupe B** — rapport d'estimation uniquement : seule la section
- *     « Coût estimatif » est présente. Les autres étapes du parcours (Plan IA,
- *     Choix matériaux, Consultation / Trouver un expert, Exécution & suivi)
- *     sont totalement absentes du rapport — aucune section vide ni
- *     place-holder n'est laissé.
+ *   • **Groupe B** — Coût estimatif + Exécution & suivi : le parcours du groupe
+ *     ne comporte pas de plans architecturaux AI.
+ *   • **Groupe C** — rapport d'estimation uniquement : seule la section
+ *     « Coût estimatif » est présente (le parcours s'arrête à la mise en
+ *     relation).
  *
  * L'ordre du tableau suit celui du registre : le filtre retire les sections,
  * il n'en crée jamais.
  */
 export const REPORT_MODULE_KEYS_BY_GROUP: Record<ProjectJourneyGroup, readonly ReportModuleKey[]> = {
   A: ["cost", "plans", "materials", "execution"],
-  B: ["cost"],
+  B: ["cost", "execution"],
+  C: ["cost"],
 };
 
 /** Clés des sections du rapport PDF autorisées pour un groupe de projet. */
@@ -157,7 +159,7 @@ export function reportModuleKeysForGroup(
 /**
  * Modules réellement affichables pour un projet :
  *   - masqués si leur section n'est pas autorisée pour le groupe du projet
- *     (Groupe B → Coût estimatif uniquement) ;
+ *     (Groupe C → Coût estimatif uniquement) ;
  *   - masqués si leur feature flag est désactivé par l'administration ;
  *   - masqués s'ils ne s'appliquent pas au type de projet.
  */

@@ -4,7 +4,8 @@
 // Complète `src/convex/renovationCuisine.test.ts` (moteurs BIM / DQE /
 // quantitatif, non importables depuis `src/lib` côté Convex) :
 //
-//   • nom exact du type et classement dans le parcours (groupe B) ;
+//   • nom exact du type et classement dans le parcours (groupe B, sans plans
+//     architecturaux AI mais avec aide à la décision et exécution) ;
 //   • rapport PDF : sections exportées et scénario « Personnalisé » ;
 //   • helper fiscal partagé (TTC → HT + TVA) appliqué au total du projet.
 //
@@ -50,28 +51,37 @@ describe("« Rénovation Cuisine » — intégration plateforme", () => {
     expect(PROJECT_TYPE_LABELS[CATEGORY]).toBe("Rénovation Cuisine");
   });
 
-  it("suit le parcours simplifié : type → coût → mise en relation (sans aide à la décision)", () => {
+  it("suit le parcours groupe B : coût → aide à la décision → mise en relation → exécution (sans plans AI)", () => {
     expect(projectJourneyGroup(CATEGORY)).toBe("B");
     const steps = buildProjectJourney(CATEGORY, PROJECT_ID);
     expect(steps.map((s) => s.label)).toEqual([
-      "Type de projet",
       "Coût estimatif",
+      "Aide à la décision",
       "Mise en relation",
+      "Exécution & Suivi",
     ]);
     // Le lien de la mise en relation conserve le contexte du projet.
     expect(steps[2].href).toBe(`/dashboard/professionals-directory?project=${PROJECT_ID}`);
     // « Matériaux utilisés » a été supprimée : aucune étape ne pointe vers elle.
     expect(steps.some((s) => s.href.includes("/dashboard/materials-used"))).toBe(false);
-    // « Aide à la décision » est réservée au groupe A : aucun lien vers la page.
-    expect(steps.map((s) => s.href)).not.toContain(`${DECISION_PAGE_PATH}/${PROJECT_ID}`);
-    // Aucune étape de construction neuve (plans, exécution) pour une rénovation
+    // « Aide à la décision » fait partie du parcours du groupe B.
+    expect(steps.map((s) => s.href)).toContain(`${DECISION_PAGE_PATH}/${PROJECT_ID}`);
+    // Aucun plan architectural AI : une rénovation ciblée n'en produit pas.
     expect(steps.map((s) => s.key)).not.toContain("plans");
-    expect(steps.map((s) => s.key)).not.toContain("execution");
+    expect(steps.map((s) => s.href).some((h) => h.includes("/dashboard/plans"))).toBe(false);
+    // L'exécution & suivi reste accessible (groupe B).
+    expect(steps.map((s) => s.key)).toContain("execution");
   });
 
-  it("n'expose que le rapport « Coût estimatif » dans le rapport PDF", () => {
-    expect(reportModuleKeysForGroup(projectJourneyGroup(CATEGORY))).toEqual(["cost"]);
-    expect(visibleReportModules(() => true, CATEGORY).map((m) => m.key)).toEqual(["cost"]);
+  it("expose les rapports « Coût estimatif » et « Exécution & suivi » (sans Plan IA)", () => {
+    expect(reportModuleKeysForGroup(projectJourneyGroup(CATEGORY))).toEqual([
+      "cost",
+      "execution",
+    ]);
+    expect(visibleReportModules(() => true, CATEGORY).map((m) => m.key)).toEqual([
+      "cost",
+      "execution",
+    ]);
   });
 
   it("exporte le quantitatif en quatre sections et le total TTC du scénario", () => {

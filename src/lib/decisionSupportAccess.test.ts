@@ -7,7 +7,8 @@ import {
 
 // ============================================================================
 // « AIDE À LA DÉCISION » — règle d'accès (deux conditions simultanées)
-//   • projet du GROUPE A (classification existante du Project Journey) ;
+//   • projet des GROUPES A ou B (classification centrale du Project Journey) ;
+//     l'étape est absente du parcours du groupe C ;
 //   • abonnement CLIENT PRO actif, valide et non expiré.
 // ============================================================================
 
@@ -80,18 +81,23 @@ describe("evaluateDecisionSupportAccess — scénarios obligatoires", () => {
     expect(res.renewalRequired).toBe(true);
   });
 
-  it("4. Groupe B + Client Pro actif → refusé (le type de projet prime)", () => {
+  it("4. Groupe B + Client Pro actif → autorisé (l'étape existe pour ce groupe)", () => {
     const res = access("extension_batiment", ACTIVE_PRO);
+    expect(res).toMatchObject({ allowed: true, reason: "ok", group: "B" });
+  });
+
+  it("5. Groupe B + compte gratuit → refusé (Client Pro requis)", () => {
+    const res = access("piscine", FREE_PLAN);
     expect(res.allowed).toBe(false);
-    expect(res.reason).toBe("group_b");
+    expect(res.reason).toBe("free_plan");
     expect(res.group).toBe("B");
   });
 
-  it("5. Groupe B + compte gratuit → refusé", () => {
-    const res = access("piscine", FREE_PLAN);
+  it("5 bis. Groupe C + Client Pro actif → refusé (étape absente du parcours)", () => {
+    const res = access("bureau", ACTIVE_PRO);
     expect(res.allowed).toBe(false);
-    expect(res.reason).toBe("group_b");
-    expect(res.group).toBe("B");
+    expect(res.reason).toBe("group_c");
+    expect(res.group).toBe("C");
   });
 
   it("6. Utilisateur non connecté → authentification demandée, même avec un Client Pro actif", () => {
@@ -110,54 +116,62 @@ describe("evaluateDecisionSupportAccess — scénarios obligatoires", () => {
 });
 
 describe("evaluateDecisionSupportAccess — cas limites", () => {
-  it("les 14 types du groupe A sont éligibles avec un Client Pro actif", () => {
+  it("les 10 types du groupe A sont éligibles avec un Client Pro actif", () => {
     for (const type of [
       "maison",
       "appartement",
       "villa",
       "immeuble",
-      "local_commercial",
+      "local",
       "studio",
       "duplex",
-      "bureau",
-      "entrepot",
       "residence_touristique",
       "projet_neuf",
-      "restaurant",
-      "cafe",
       "renovation_complete",
     ]) {
       expect(access(type, ACTIVE_PRO).allowed, type).toBe(true);
     }
   });
 
-  it("aucun autre type du catalogue n'est éligible, même avec un Client Pro actif", () => {
+  it("les 8 types du groupe B sont éligibles avec un Client Pro actif", () => {
     for (const type of [
-      "extension_batiment",
+      "local_commercial",
+      "entrepot",
+      "cafe",
+      "restaurant",
       "renovation_cuisine",
       "renovation_salle_de_bain",
-      "peinture_interieure",
       "piscine",
-      "cloture",
-      "jardin",
+      "extension_batiment",
+    ]) {
+      expect(access(type, ACTIVE_PRO).allowed, type).toBe(true);
+    }
+  });
+
+  it("les types du groupe C ne sont pas éligibles, même avec un Client Pro actif", () => {
+    for (const type of [
+      "bureau",
+      "peinture_interieure",
       "electricite_complete",
       "plomberie_complete",
+      "cloture",
+      "jardin",
     ]) {
       expect(access(type, ACTIVE_PRO).allowed, type).toBe(false);
     }
   });
 
-  it("reconnaît les anciens slugs de projet (maison_r_plus_1 → groupe A)", () => {
+  it("reconnaît les anciens slugs de projet (maison_r_plus_1 → groupe A, atelier → groupe B)", () => {
     expect(access("maison_r_plus_1", ACTIVE_PRO).allowed).toBe(true);
     expect(access("maison_r_plus_2", ACTIVE_PRO).allowed).toBe(true);
     expect(access("atelier", ACTIVE_PRO).allowed).toBe(true);
   });
 
-  it("type absent ou inconnu → groupe B, donc refusé", () => {
+  it("type absent ou inconnu → groupe C, donc refusé", () => {
     for (const category of [null, undefined, "", "type_inexistant"]) {
       const res = access(category, ACTIVE_PRO);
       expect(res.allowed).toBe(false);
-      expect(res.reason).toBe("group_b");
+      expect(res.reason).toBe("group_c");
     }
   });
 
@@ -202,7 +216,7 @@ describe("evaluateDecisionSupportAccess — cas limites", () => {
   it("administrateur / modérateur → bypass de test, comme les autres modules", () => {
     expect(access("villa", null, { isAdmin: true }).allowed).toBe(true);
     // Le bypass ne contourne jamais la restriction de type de projet.
-    expect(access("piscine", null, { isAdmin: true }).allowed).toBe(false);
+    expect(access("bureau", null, { isAdmin: true }).allowed).toBe(false);
   });
 });
 
@@ -211,7 +225,7 @@ describe("DECISION_SUPPORT_DENY_COPY — messages utilisateur", () => {
     for (const reason of [
       "not_authenticated",
       "not_owner",
-      "group_b",
+      "group_c",
       "free_plan",
       "expired",
       "pending",
@@ -221,7 +235,7 @@ describe("DECISION_SUPPORT_DENY_COPY — messages utilisateur", () => {
       const copy = DECISION_SUPPORT_DENY_COPY[reason];
       expect(copy.title.length, reason).toBeGreaterThan(0);
       expect(copy.description.length, reason).toBeGreaterThan(0);
-      if (reason !== "group_b" && reason !== "not_owner") {
+      if (reason !== "group_c" && reason !== "not_owner") {
         expect(copy.cta, reason).toBeTruthy();
       }
     }

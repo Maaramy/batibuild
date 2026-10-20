@@ -296,8 +296,8 @@ export function scenarioToFinishLevel(scenario?: string): "economique" | "standa
 // que pour les SEPT types de projet autorisés ci-dessous ET dont la surface
 // couverte est supérieure ou égale à 120 m².
 //
-// Types EXCLUS : studio, local commercial, bureau, entrepôt et tous les autres
-// types (groupe B du Project Journey). Pour ces projets : aucune option de
+// Types EXCLUS : studio, local, local commercial, bureau, entrepôt et tous les
+// autres types, quel que soit leur parcours. Pour ces projets : aucune option de
 // sélection affichée, aucun poste dans le Quantitatif détaillé, aucun coût
 // ajouté au total (contrôle identique côté backend, `convex/customWorks.ts`).
 // La sélection déjà enregistrée n'est jamais effacée : elle est simplement

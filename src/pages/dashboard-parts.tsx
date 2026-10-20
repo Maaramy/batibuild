@@ -60,7 +60,15 @@ export function ProjectCard({ project }: { project: any }) {
   // ACCÈS RAPIDES — modules liés au projet (routes + contexte du projet).
   // Voir `@/lib/projectQuickActions` (construction des liens, testée).
   const { isEnabled: isFeatureEnabled } = useFeatureFlags();
+  // Groupe réel du projet (classification centrale) : le groupe C n'a que le
+  // coût estimatif et la mise en relation, le groupe B n'a pas de plans AI.
+  const journeyGroup = projectJourneyGroup(project.category);
   const quickActions = buildProjectQuickActions(project).filter((a) => {
+    // « Plan AI » n'existe que pour le groupe A (projets avec plans
+    // architecturaux AI) : aucun lien résiduel vers une étape non autorisée.
+    if (a.key === "plan" && journeyGroup !== "A") return false;
+    // « Démarche » (Exécution & Suivi) est absente du parcours du groupe C.
+    if (a.key === "guide" && journeyGroup === "C") return false;
     // Feature flags : les modules désactivés par l'admin disparaissent des
     // cartes (aucun accès visuel résiduel). Même configuration centrale que
     // les gardes de routes et le parcours du projet — aucun lien résiduel
@@ -159,15 +167,13 @@ export function ProjectCard({ project }: { project: any }) {
           </span>
         </div>
 
-        {/* ─── Accès rapides : modules du projet (Groupe A uniquement) ───
-          * Maison, appartement, villa, immeuble, local commercial, studio,
-          * duplex, bureau, entrepôt, résidence touristique, projet immobilier
-          * neuf, restaurant, café, rénovation complète. Les projets du Groupe B
-          * (piscine, clôture, jardin, extension, cuisine, salle de bain,
-          * peinture, travaux techniques…) n'affichent pas cette section : les
-          * étapes Plans IA et Exécution ne leur sont pas accessibles.
+        {/* ─── Accès rapides : modules réellement accessibles au projet ───
+          * « Plan AI » réservé au groupe A, « Démarche » (Exécution & Suivi)
+          * aux groupes A et B : le groupe C ne conserve que les modules de son
+          * parcours (coût estimatif → mise en relation). Aucun lien direct vers
+          * une étape absente du parcours.
           */}
-        {projectJourneyGroup(project.category) === "A" && (
+        {quickActions.length > 0 && (
         <div className="pt-2 border-t border-border/20">
           <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/60 mb-1.5">
             Accès rapides

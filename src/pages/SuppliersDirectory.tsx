@@ -425,6 +425,10 @@ export default function SuppliersDirectory() {
           projet (contexte conservé dans l'URL). */}
       <ProjectJourneyNav
         projectId={projectIdParam}
+        // Type réel du projet (déduit de son contexte chargé) : le parcours
+        // affiché correspond donc au groupe du projet, jamais à un parcours
+        // générique.
+        category={materialContext.project?.category}
         flags={journeyFlags}
         // L'annuaire fournisseurs est la partie « fournisseurs » de l'étape
         // « Mise en relation » : l'étape reste active même si sa route

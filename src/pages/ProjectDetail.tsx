@@ -11,14 +11,23 @@ import {
 } from "@/components/ui/dialog";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
-import { useQuery, useMutation, useAction } from "convex/react";
+import { useQuery, useMutation, useAction, useConvex, useConvexAuth } from "convex/react";
 import { useParams, useNavigate, useLocation } from "react-router";
-import { useState, useMemo, Fragment, useEffect, useRef } from "react";
+import { useState, useMemo, Fragment, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
+import {
+  buildProjectJourney,
+  costEstimateLoadingSteps,
+} from "@/lib/projectJourney";
+import {
+  resolveEstimateResultsPhase,
+  shouldShowAnimatedEstimateLoader,
+} from "@/lib/estimateLoaderTiming";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
@@ -93,7 +102,7 @@ import {
   normalizeLegacyCategory,
 } from "@/convex/projectTypes";
 import {
-  ArrowLeft, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
+  ArrowLeft, ArrowRight, Building2, Calendar, CheckCircle2, Clock, Cpu, Heart,
   Hourglass, Layers, Lightbulb, Loader2, Map, MapPin, Ruler, Shield,
   Target, TrendingUp, TriangleAlert, Users, Globe,
   PiggyBank, Sparkles, Wallet, Gauge,
@@ -212,13 +221,115 @@ function SectionCard({ icon: Icon, title, badge, children, defaultOpen = true }:
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { hash } = useLocation();
-  const project = useQuery(api.projects.getProject, { projectId: id as any });
+  const location = useLocation();
+  const { hash } = location;
+  const convex = useConvex();
+  // Session Convex en cours de restauration : l'état est « chargement », jamais
+  // « projet introuvable » (la requête ne peut pas encore répondre).
+  const { isLoading: authLoading } = useConvexAuth();
+
+  // ── Chargement des résultats du coût estimatif ───────────────────────────
+  // `undefined` = données en cours d'arrivée ; `null` = réponse serveur
+  // confirmée (projet inexistant ou non accessible). Les deux états sont
+  // DISTINCTS : aucun « Projet introuvable » n'est affiché avant la réponse.
+  // Identifiant vérifié AVANT tout chargement : aucune requête n'est lancée
+  // sans identifiant de projet valide.
+  const hasProjectId = typeof id === "string" && id.trim().length > 0;
+  const projectQuery = useQuery(
+    api.projects.getProject,
+    hasProjectId ? { projectId: id as any } : "skip",
+  );
+  type LoadedProject = NonNullable<typeof projectQuery>;
+  // Projet récupéré par « Réessayer » après une réponse `null` (course réseau) :
+  // il ne remplace jamais l'identifiant de l'URL, il complète la même requête.
+  const [recoveredProject, setRecoveredProject] = useState<LoadedProject | null>(null);
+  const [retryingProject, setRetryingProject] = useState(false);
+  const [projectRetryError, setProjectRetryError] = useState<string | null>(null);
+  // État de navigation transmis par « Nouveau projet » : type du projet (donc
+  // groupe du parcours) et provenance de l'estimation.
+  const navState = (location.state ?? null) as {
+    fromEstimate?: boolean;
+    category?: string;
+  } | null;
+  const fromEstimate = navState?.fromEstimate === true;
+  const [animateLoading, setAnimateLoading] = useState(false);
+  // Le projet affiché est TOUJOURS celui de l'URL : la requête réactive reste
+  // la source de vérité.
+  const project = projectQuery ?? recoveredProject;
+  // « loading » ≠ « introuvable » : le message d'erreur n'apparaît qu'après la
+  // réponse serveur (`null`) et en l'absence de lecture réussie.
+  const resultsPhase = authLoading
+    ? ("loading" as const)
+    : !hasProjectId
+      ? ("not_found" as const)
+      : resolveEstimateResultsPhase(projectQuery, recoveredProject != null);
   usePageSEO({
     title: project ? `Devis ${project.name} - batibuild` : "Détail du projet - batibuild",
     description: project ? `Devis estimatif pour ${project.name}. Coût total, matériaux et analyse IA.` : "Consultez le détail de votre projet de construction.",
   });
   const allProjects = useQuery(api.projects.getUserProjects, {});
+
+  // Type connu AVANT l'arrivée des résultats (navigation depuis l'estimation
+  // ou liste des projets déjà chargée) : l'écran de chargement affiche donc
+  // directement les étapes du bon groupe, jamais un parcours générique.
+  const loadingCategory =
+    navState?.category ??
+    (allProjects ?? []).find((p: any) => p._id === id)?.category ??
+    null;
+
+  // Changement de projet : aucune donnée récupérée du projet précédent ne
+  // subsiste (pas de résultat affiché pour le mauvais projet).
+  useEffect(() => {
+    setRecoveredProject(null);
+    setProjectRetryError(null);
+    setAnimateLoading(false);
+  }, [id]);
+
+  // Écran de chargement animé : affiché pendant l'attente RÉELLE des données.
+  // Le court délai évite tout clignotement lorsque Convex répond aussitôt
+  // (cas normal à la sortie de l'estimation) ; en cas d'attente plus longue le
+  // design animé existant prend le relais.
+  useEffect(() => {
+    if (projectQuery !== undefined) {
+      setAnimateLoading(false);
+      return;
+    }
+    if (!fromEstimate) return;
+    const timer = window.setTimeout(() => setAnimateLoading(true), 250);
+    return () => window.clearTimeout(timer);
+  }, [projectQuery, fromEstimate, id]);
+
+  // Fin de l'animation : la page rend la main d'elle-même dès que le projet
+  // est disponible (aucune navigation, aucun rechargement).
+  const handleLoadingComplete = useCallback(() => {}, []);
+
+  // Nouvelle tentative sans quitter la page ni recréer de projet : on relit le
+  // MÊME identifiant. Un échec réseau est expliqué, un projet réellement absent
+  // le reste (aucune boucle de chargement).
+  const retryProject = useCallback(async () => {
+    if (!hasProjectId || !id) return;
+    setRetryingProject(true);
+    setProjectRetryError(null);
+    try {
+      const fresh = await convex.query(api.projects.getProject, { projectId: id as any });
+      if (fresh) {
+        setRecoveredProject(fresh);
+      } else {
+        setProjectRetryError(
+          "Ce projet n'existe pas ou n'est plus accessible depuis votre compte.",
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      setProjectRetryError(
+        /network|connexion|offline|websocket|fetch|timeout/i.test(message)
+          ? "La connexion a été interrompue. Vérifiez votre réseau puis réessayez : vos données de projet sont conservées."
+          : "Le chargement des résultats a échoué. Réessayez : vos données de projet sont conservées.",
+      );
+    } finally {
+      setRetryingProject(false);
+    }
+  }, [convex, id, hasProjectId]);
   
   // Calculate project counter: index of current project in all user projects
   const projectCounter = useMemo(() => {
@@ -906,19 +1017,101 @@ export default function ProjectDetail() {
   // ── Loading / Skeleton ──────────────────────────────────────────────────
 
   if (!project) {
+    // ── Projet RÉELLEMENT introuvable : uniquement après la réponse serveur.
+    // Jamais pendant le chargement, jamais avant l'affichage des résultats.
+    if (resultsPhase === "not_found") {
+      return (
+        <main className="min-h-screen bg-background">
+          <div className="mx-auto max-w-lg px-4 py-16">
+            <div
+              role="alert"
+              className="rounded-2xl border border-red-500/25 bg-card p-6 text-center shadow-sm"
+            >
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10 text-red-600 dark:text-red-400">
+                <TriangleAlert className="h-6 w-6" />
+              </div>
+              <h2 className="mt-4 text-base font-bold tracking-tight sm:text-lg">
+                Projet introuvable
+              </h2>
+              <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                {projectRetryError ??
+                  "Ce projet n'existe pas ou n'est pas accessible depuis votre compte. Vos autres projets restent inchangés."}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => void retryProject()}
+                  disabled={retryingProject}
+                >
+                  {retryingProject ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  )}
+                  {retryingProject ? "Chargement…" : "Réessayer"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate("/dashboard")}
+                >
+                  Retour au tableau de bord
+                </Button>
+              </div>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
+    // ── Chargement réel : squelette immédiat, puis écran animé BatiBuild
+    // (même design, mêmes couleurs, mêmes transitions) dès que l'attente se
+    // prolonge. Les données ne sont jamais remplacées par un résultat fictif.
     return (
       <main className="min-h-screen bg-background">
-        <div className="max-w-5xl mx-auto px-4 py-8 space-y-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
-          ))}
+        <div className="mx-auto max-w-5xl px-4 py-8">
+          {shouldShowAnimatedEstimateLoader({
+            phase: resultsPhase,
+            fromEstimate,
+            delayElapsed: animateLoading,
+          }) ? (
+            <EstimateLoadingScreen
+              pending
+              title="BatiBuild prépare votre estimation"
+              description="Estimation en cours de préparation — les résultats de votre projet s'affichent dès que les données nécessaires sont prêtes."
+              steps={
+                loadingCategory
+                  ? costEstimateLoadingSteps(loadingCategory)
+                  : undefined
+              }
+              onComplete={handleLoadingComplete}
+            />
+          ) : (
+            <div className="space-y-4" aria-busy="true" aria-live="polite">
+              <span className="sr-only">Préparation de votre estimation…</span>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 rounded-xl" />
+              ))}
+            </div>
+          )}
         </div>
-
-    </main>
+      </main>
     );
   }
 
   // ── Render ──────────────────────────────────────────────────────────────
+
+  // Progression proposée à la fin du chargement : l'étape qui suit réellement
+  // « Coût estimatif » dans le parcours du groupe du projet — « Aide à la
+  // décision » (groupes A et B) ou « Mise en relation » (groupe C). Le parcours
+  // est recalculé depuis le type enregistré : jamais un parcours générique.
+  const journeySteps = buildProjectJourney(project.category, project._id, journeyFlags);
+  const costStepIndex = journeySteps.findIndex((s) => s.key === "cost");
+  const nextJourneyStep =
+    costStepIndex >= 0 && costStepIndex + 1 < journeySteps.length
+      ? journeySteps[costStepIndex + 1]
+      : null;
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.02] via-background to-background pb-10">
@@ -2168,6 +2361,30 @@ export default function ProjectDetail() {
               )}
             </SectionCard>
             </div>
+
+            {/* Progression vers l'étape suivante du parcours RÉEL du projet.
+                Même règle que le Journey : elle conserve le projet et ses
+                données (aucun parcours affiché pour un autre groupe). */}
+            {nextJourneyStep && (
+              <button
+                type="button"
+                onClick={() => navigate(nextJourneyStep.href)}
+                className="group flex w-full items-center gap-3 rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/[0.08] to-transparent p-3.5 text-left transition-colors hover:border-emerald-500/50 hover:from-emerald-500/[0.12] active:scale-[0.99] sm:p-4"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                  <ArrowRight className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700/80 dark:text-emerald-300/80">
+                    Étape suivante
+                  </p>
+                  <p className="truncate text-sm font-semibold text-foreground">
+                    {nextJourneyStep.label}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </button>
+            )}
 
           </motion.div>
         )}

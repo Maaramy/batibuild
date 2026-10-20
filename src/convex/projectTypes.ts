@@ -10,9 +10,10 @@
 //   renovation_salle_de_bain, peinture_interieure, piscine,
 //   restaurant, cafe, electricite_complete, plomberie_complete
 //
-// Le parcours du projet (groupe A / groupe B) est défini séparément dans
-// `src/lib/projectJourney.ts` : le groupe A regroupe 14 types (les 11 types
-// immobiliers + restaurant + cafe + renovation_complete).
+// Le parcours du projet (groupes A, B et C) est défini séparément dans
+// `src/lib/projectJourney.ts` : le groupe A (avec plans architecturaux AI)
+// regroupe 10 types, le groupe B (sans plans AI) 8 types, et tous les autres
+// types appartiennent au groupe C.
 //
 // Chaque type dispose d'un gabarit DQE spécifique dans dqeEngine.ts.
 // ============================================================================

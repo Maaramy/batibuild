@@ -2,8 +2,9 @@
 // « AIDE À LA DÉCISION » — RÈGLE D'ACCÈS (partagée frontend ↔ backend)
 // ----------------------------------------------------------------------------
 // Deux conditions OBLIGATOIRES, vérifiées SIMULTANÉMENT :
-//   1. le projet appartient au GROUPE A — classification existante de
-//      `projectJourney` (`PROJECT_JOURNEY_GROUP_A`, `projectJourneyGroup`) ;
+//   1. le projet appartient aux GROUPES A ou B — classification centrale de
+//      `projectJourney` (`projectJourneyGroup`) ; l'étape est ABSENTE du
+//      parcours du groupe C (coût estimatif → mise en relation uniquement) ;
 //   2. le client dispose d'un abonnement CLIENT PRO actif, valide et NON
 //      expiré (instantané `getUserSubscriptionStatus`, source de vérité).
 //
@@ -15,10 +16,10 @@
 // d'abonnement parallèle n'est créé ici.
 //
 // Cas refusés (avec le message associé) :
-//   • projet du groupe B                → masqué / désactivé ;
-//   • compte gratuit (forfait Free)     → invitation à passer à Client Pro ;
-//   • abonnement expiré / suspendu      → blocage jusqu'à réactivation ;
-//   • utilisateur non connecté          → authentification demandée ;
+//   • projet du groupe C              → masqué / désactivé ;
+//   • compte gratuit (forfait Free)   → invitation à passer à Client Pro ;
+//   • abonnement expiré / suspendu    → blocage jusqu'à réactivation ;
+//   • utilisateur non connecté        → authentification demandée ;
 //   • essai gratuit / paiement en attente / profil incompatible → refus.
 //
 // Note : l'essai gratuit n'est PAS un abonnement Client Pro — il ne débloque
@@ -31,7 +32,7 @@ import { projectJourneyGroup, type ProjectJourneyGroup } from "./projectJourney"
 export type DecisionSupportDenyReason =
   | "not_authenticated"
   | "not_owner"
-  | "group_b"
+  | "group_c"
   | "free_plan"
   | "expired"
   | "pending"
@@ -43,7 +44,7 @@ export type DecisionSupportAccessReason = "ok" | DecisionSupportDenyReason;
 export interface DecisionSupportAccess {
   allowed: boolean;
   reason: DecisionSupportAccessReason;
-  /** Groupe du projet (A = accès possible, B = jamais). */
+  /** Groupe du projet (A et B = étape présente, C = absente). */
   group: ProjectJourneyGroup;
   /** Invitation à passer à l'abonnement Client Pro (compte gratuit / essai). */
   upgradeRequired: boolean;
@@ -69,7 +70,7 @@ export interface DecisionSupportAccessInput {
    * `false` → refus, aucune donnée du projet ne doit être exposée.
    */
   owned?: boolean;
-  /** Type de projet enregistré (détermine le groupe A / B existant). */
+  /** Type de projet enregistré (détermine le groupe A / B / C du parcours). */
   category: string | null | undefined;
   /** Instantané serveur — `null` si indisponible. */
   subscription: DecisionSupportSubscription | null;
@@ -94,9 +95,9 @@ function deny(
  * Décision d'accès à « Aide à la décision ».
  *
  * L'ordre des vérifications compte : l'authentification d'abord, puis
- * l'appartenance du projet, puis le groupe (masqué pour le groupe B), puis
- * l'abonnement. Les deux conditions obligatoires sont donc bien évaluées
- * ensemble, et un projet du groupe B est refusé même avec un Client Pro actif.
+ * l'appartenance du projet, puis le groupe (étape absente pour le groupe C),
+ * puis l'abonnement. Les deux conditions obligatoires sont donc bien évaluées
+ * ensemble, et un projet du groupe C est refusé même avec un Client Pro actif.
  */
 export function evaluateDecisionSupportAccess(
   input: DecisionSupportAccessInput,
@@ -109,8 +110,8 @@ export function evaluateDecisionSupportAccess(
   // 2. Projet absent ou appartenant à un autre utilisateur → jamais de données.
   if (input.owned === false) return deny("not_owner", group);
 
-  // 3. Groupe B → la fonctionnalité n'existe pas pour ces projets.
-  if (group === "B") return deny("group_b", group);
+  // 3. Groupe C → l'étape n'existe pas dans ce parcours.
+  if (group === "C") return deny("group_c", group);
 
   // 4. Admin / modérateur → accès toujours accordé (même règle que `access.ts`).
   if (input.isAdmin) {
@@ -156,10 +157,10 @@ export const DECISION_SUPPORT_DENY_COPY: Record<
     description: "Ce projet n'existe pas ou n'est pas accessible depuis votre compte.",
     cta: null,
   },
-  group_b: {
+  group_c: {
     title: "Aide à la décision indisponible pour ce type de projet",
     description:
-      "Cette fonctionnalité est réservée aux projets du groupe A (maison, appartement, villa, immeuble, local commercial, studio, duplex, bureau, entrepôt, résidence touristique, projet immobilier neuf, restaurant, café, rénovation complète). Les autres étapes de votre parcours restent accessibles.",
+      "Cette étape n'est pas incluse dans le parcours de ce type de projet : votre parcours se compose du coût estimatif puis de la mise en relation. Toutes les autres étapes restent accessibles.",
     cta: null,
   },
   free_plan: {

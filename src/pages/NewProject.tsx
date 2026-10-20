@@ -828,8 +828,14 @@ export default function NewProject() {
     // affichée puis que le calcul a finalement abouti.
     if (!projectId || !resultsReady) return;
     setCompletedSteps((prev) => new Set(prev).add("analyzing"));
-    navigate(`/dashboard/project/${projectId}`);
-  }, [navigate, resultsReady]);
+    // `replace` : le retour arrière ne réaffiche jamais l'écran de chargement
+    // ni ne relance une estimation. Le type est transmis pour que la page de
+    // résultats connaisse le groupe du parcours dès le premier rendu.
+    navigate(`/dashboard/project/${projectId}`, {
+      replace: true,
+      state: { fromEstimate: true, category: selectedCategory },
+    });
+  }, [navigate, resultsReady, selectedCategory]);
 
   // Bornes / pas / valeur recommandée de la barre de surface : recalculés à
   // chaque changement de type de projet.
@@ -1294,9 +1300,9 @@ export default function NewProject() {
               onRetry={handleRetryAnalysis}
               onComplete={handleAnalysisComplete}
               // Étapes du chargement de l'estimation, sélectionnées d'après le
-              // groupe du type choisi : 5 étapes pour le groupe A, 2 pour le
-              // groupe B (aucune étape non autorisée). Le design du composant
-              // n'est pas modifié.
+              // groupe du type choisi : 5 étapes pour le groupe A, 4 pour le
+              // groupe B, 2 pour le groupe C (aucune étape non autorisée). Le
+              // design du composant n'est pas modifié.
               steps={costEstimateLoadingSteps(selectedCategory)}
             />
           </motion.div>

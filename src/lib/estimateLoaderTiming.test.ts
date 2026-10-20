@@ -9,6 +9,8 @@ import {
   isEstimateProjectReady,
   isEstimateResultReady,
   resolveEstimateFlowPhase,
+  resolveEstimateResultsPhase,
+  shouldShowAnimatedEstimateLoader,
 } from "./estimateLoaderTiming";
 
 describe("estimateIntroState — animation de l'estimation", () => {
@@ -16,9 +18,8 @@ describe("estimateIntroState — animation de l'estimation", () => {
     expect(ESTIMATE_INTRO_MS).toBe(4000);
   });
 
-  it("affiche les 6 étapes du Journey dans l'ordre officiel", () => {
+  it("affiche les 5 étapes du parcours complet (groupe A) dans l'ordre officiel", () => {
     expect(ESTIMATE_JOURNEY_STEPS).toEqual([
-      "Type de projet",
       "Coût estimatif",
       "Aide à la décision",
       "Plans architecturaux AI",
@@ -36,18 +37,17 @@ describe("estimateIntroState — animation de l'estimation", () => {
     });
   });
 
-  it("répartit les 6 étapes sur les 4 secondes", () => {
-    // Chaque étape occupe 4 000 / 6 ≈ 666,7 ms.
+  it("répartit les 5 étapes sur les 4 secondes", () => {
+    // Chaque étape occupe 4 000 / 5 = 800 ms.
     const SEGMENT = ESTIMATE_INTRO_MS / ESTIMATE_JOURNEY_STEPS.length;
+    expect(SEGMENT).toBe(800);
     expect(estimateIntroState(1).activeIndex).toBe(0);
-    expect(estimateIntroState(Math.floor(SEGMENT) - 1).activeIndex).toBe(0);
-    expect(estimateIntroState(Math.ceil(SEGMENT) + 1).activeIndex).toBe(1);
-    expect(estimateIntroState(Math.ceil(SEGMENT * 2) + 1).activeIndex).toBe(2);
-    expect(estimateIntroState(Math.ceil(SEGMENT * 3) + 1).activeIndex).toBe(3);
-    expect(estimateIntroState(Math.ceil(SEGMENT * 4) + 1).activeIndex).toBe(4);
-    expect(estimateIntroState(Math.ceil(SEGMENT * 5) + 1).activeIndex).toBe(5);
-    expect(estimateIntroState(2400).activeIndex).toBe(3);
-    expect(estimateIntroState(3999).activeIndex).toBe(5);
+    expect(estimateIntroState(799).activeIndex).toBe(0);
+    expect(estimateIntroState(801).activeIndex).toBe(1);
+    expect(estimateIntroState(1601).activeIndex).toBe(2);
+    expect(estimateIntroState(2401).activeIndex).toBe(3);
+    expect(estimateIntroState(3201).activeIndex).toBe(4);
+    expect(estimateIntroState(3999).activeIndex).toBe(4);
   });
 
   it("n'affiche 100 % qu'à la fin exacte des 4 secondes", () => {
@@ -59,7 +59,7 @@ describe("estimateIntroState — animation de l'estimation", () => {
   it("atteint 100 % et toutes les étapes terminées à 4 000 ms", () => {
     expect(estimateIntroState(ESTIMATE_INTRO_MS)).toEqual({
       progress: 100,
-      completed: 6,
+      completed: 5,
       activeIndex: -1,
       done: true,
     });
@@ -150,7 +150,7 @@ describe("estimateIntroState — animation de l'estimation", () => {
     expect(describeEstimateError(undefined)).toMatch(/réessayez/i);
   });
 
-  it("termine le chargement à 4 000 ms avec les listes de 5 et 2 étapes de l'estimation", () => {
+  it("termine le chargement à 4 000 ms pour les 5, 4 et 2 étapes des trois groupes", () => {
     // Groupe A : 5 étapes, durée totale inchangée (4 000 ms).
     expect(estimateIntroState(ESTIMATE_INTRO_MS, ESTIMATE_INTRO_MS, 5)).toEqual({
       progress: 100,
@@ -158,7 +158,14 @@ describe("estimateIntroState — animation de l'estimation", () => {
       activeIndex: -1,
       done: true,
     });
-    // Groupe B : 2 étapes, même durée totale, aucune prolongation.
+    // Groupe B : 4 étapes, même durée totale.
+    expect(estimateIntroState(ESTIMATE_INTRO_MS, ESTIMATE_INTRO_MS, 4)).toEqual({
+      progress: 100,
+      completed: 4,
+      activeIndex: -1,
+      done: true,
+    });
+    // Groupe C : 2 étapes, même durée totale, aucune prolongation.
     expect(estimateIntroState(ESTIMATE_INTRO_MS, ESTIMATE_INTRO_MS, 2)).toEqual({
       progress: 100,
       completed: 2,
@@ -186,6 +193,55 @@ describe("estimateIntroState — animation de l'estimation", () => {
     });
     // Au-delà : figé, jamais prolongé.
     expect(estimateIntroState(9000, 3000, 6)).toEqual(estimateIntroState(3000, 3000, 6));
+  });
+
+  it("résultats : « introuvable » seulement après la réponse serveur, jamais pendant le chargement", () => {
+    // Requête en cours → chargement (aucun message d'erreur intermédiaire).
+    expect(resolveEstimateResultsPhase(undefined)).toBe("loading");
+    expect(resolveEstimateResultsPhase(undefined, true)).toBe("loading");
+    // Réponse serveur `null` → projet réellement introuvable.
+    expect(resolveEstimateResultsPhase(null)).toBe("not_found");
+    // Résultats prêts → affichage des résultats du projet demandé.
+    expect(resolveEstimateResultsPhase({ _id: "p1" })).toBe("ready");
+  });
+
+  it("résultats : l'écran animé n'apparaît que pendant une attente réelle venue de l'estimation", () => {
+    const loading = "loading" as const;
+    // Attente normale mais délai anti-clignotement non écoulé → squelette.
+    expect(
+      shouldShowAnimatedEstimateLoader({
+        phase: loading,
+        fromEstimate: true,
+        delayElapsed: false,
+      }),
+    ).toBe(false);
+    // Chargement lent depuis l'estimation → écran animé existant.
+    expect(
+      shouldShowAnimatedEstimateLoader({
+        phase: loading,
+        fromEstimate: true,
+        delayElapsed: true,
+      }),
+    ).toBe(true);
+    // Accès direct (rafraîchissement) → squelette, pas de faux parcours.
+    expect(
+      shouldShowAnimatedEstimateLoader({
+        phase: loading,
+        fromEstimate: false,
+        delayElapsed: true,
+      }),
+    ).toBe(false);
+    // Données prêtes ou erreur réelle → jamais l'écran de chargement.
+    for (const phase of ["ready", "not_found"] as const) {
+      expect(
+        shouldShowAnimatedEstimateLoader({
+          phase,
+          fromEstimate: true,
+          delayElapsed: true,
+        }),
+        phase,
+      ).toBe(false);
+    }
   });
 
   it("progresse de façon monotone (aucun retour en arrière)", () => {

@@ -32,8 +32,9 @@ import {
  *
  * Animation d'introduction de 4 secondes exactement (voir
  * `@/lib/estimateLoaderTiming`), parallèle au calcul réel : elle présente le
- * logo officiel BatiBuild et les 6 étapes du parcours Journey, puis rend la
- * main dès que l'animation ET le calcul sont terminés.
+ * logo officiel BatiBuild et les étapes du parcours Journey du projet (5 pour
+ * le groupe A, 4 pour le groupe B, 2 pour le groupe C), puis rend la main dès
+ * que l'animation ET le calcul sont terminés.
  *
  * Aucune donnée n'est inventée : si le calcul dépasse 4 s, l'animation se
  * termine à 4 s et un indicateur d'attente discret reste affiché jusqu'à la
@@ -45,14 +46,24 @@ import {
  * supprime les mouvements (pulsation, flottement, transitions).
  */
 
-const STEP_ICONS: LucideIcon[] = [
-  Calculator,
-  Boxes,
-  BrainCircuit,
-  Ruler,
-  Users,
-  HardHat,
-];
+/**
+ * Icône de chaque étape, associée à son LIBELLÉ : la liste d'étapes dépend du
+ * groupe du projet (5, 4 ou 2 étapes), l'icône reste donc toujours cohérente
+ * avec l'étape affichée.
+ */
+const STEP_ICONS_BY_LABEL: Record<string, LucideIcon> = {
+  "Coût estimatif": Calculator,
+  "Aide à la décision": BrainCircuit,
+  "Plans architecturaux AI": Ruler,
+  "Mise en relation": Users,
+  "Exécution & Suivi": HardHat,
+};
+
+const FALLBACK_STEP_ICONS: LucideIcon[] = [Calculator, Boxes, Ruler, Users, HardHat];
+
+function stepIcon(label: string, index: number): LucideIcon {
+  return STEP_ICONS_BY_LABEL[label] ?? FALLBACK_STEP_ICONS[index % FALLBACK_STEP_ICONS.length];
+}
 
 type StepVisual = "done" | "active" | "pending";
 
@@ -110,6 +121,19 @@ export function EstimateLoadingScreen({
   const stepLabels =
     steps && steps.length > 0 ? steps : ESTIMATE_JOURNEY_STEPS;
   const stepCount = stepLabels.length;
+  // Colonnes de la vue « tablette / ordinateur » : une colonne par étape, afin
+  // qu'aucune colonne vide ne subsiste selon le groupe (5, 4 ou 2 étapes).
+  const tabletColumns = stepCount <= 2 ? "md:grid-cols-2" : "md:grid-cols-3";
+  const desktopColumns =
+    stepCount <= 2
+      ? "xl:grid-cols-2"
+      : stepCount === 3
+        ? "xl:grid-cols-3"
+        : stepCount === 4
+          ? "xl:grid-cols-4"
+          : stepCount === 5
+            ? "xl:grid-cols-5"
+            : "xl:grid-cols-6";
   const duration =
     Number.isFinite(durationMs) && durationMs > 0
       ? durationMs
@@ -341,7 +365,13 @@ export function EstimateLoadingScreen({
                 reduceMotion ? { duration: 0 } : { duration: 0.25, ease: "linear" }
               }
             />
-            <ol className="relative grid grid-cols-3 gap-2 xl:grid-cols-6">
+            <ol
+              className={cn(
+                "relative grid grid-cols-3 gap-2",
+                tabletColumns,
+                desktopColumns,
+              )}
+            >
               {stepLabels.map((label, index) => {
                 const state = stateOf(index);
                 return (
@@ -358,7 +388,7 @@ export function EstimateLoadingScreen({
                   >
                     <StepNode
                       state={state}
-                      icon={STEP_ICONS[index % STEP_ICONS.length]}
+                      icon={stepIcon(label, index)}
                       reduceMotion={Boolean(reduceMotion)}
                     />
                     <span className="line-clamp-2 min-w-0 text-center text-[10.5px] font-medium leading-tight">
@@ -394,7 +424,7 @@ export function EstimateLoadingScreen({
               >
                 <StepNode
                   state={state}
-                  icon={STEP_ICONS[index % STEP_ICONS.length]}
+                  icon={stepIcon(label, index)}
                   reduceMotion={Boolean(reduceMotion)}
                 />
                 <span className="min-w-0 flex-1 text-left text-[11px] font-medium leading-tight">

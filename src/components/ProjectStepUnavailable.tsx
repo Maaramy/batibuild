@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 /**
  * ÉCRAN « ÉTAPE INDISPONIBLE POUR CE TYPE DE PROJET »
  *
- * Affiché quand un projet du Groupe B ouvre directement l'URL d'une étape
- * réservée au parcours complet (« Plans architecturaux AI », « Exécution &
- * suivi » — et, côté aide à la décision, par son propre écran de refus).
+ * Affiché quand un projet ouvre directement l'URL d'une étape absente de son
+ * parcours : « Plans architecturaux AI » pour les groupes B et C, « Exécution
+ * & Suivi » pour le groupe C (l'aide à la décision a son propre écran de
+ * refus).
  *
  * Aucune donnée du projet n'est recalculée ni supprimée : le projet, son
  * estimation, ses scénarios et son historique restent intacts. L'écran propose

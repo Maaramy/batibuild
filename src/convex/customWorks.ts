@@ -71,8 +71,8 @@ function projectContext(project: {
  * Même règle que l'interface (`isComplementaryWorkEligible`) : les SEPT types de
  * projet autorisés (résidentiel / immobilier neuf, surface couverte ≥ 120 m²).
  * C'est le contrôle d'API : un accès direct à une requête ne peut ni activer ni
- * chiffrer les travaux d'un projet non éligible (studio, local commercial,
- * bureau, entrepôt et tous les autres types du groupe B).
+ * chiffrer les travaux d'un projet non éligible (studio, local, local
+ * commercial, bureau, entrepôt et tous les autres types).
  *
  * Un projet devenu non éligible (changement de type) n'est plus chiffré ni
  * modifiable, mais sa sélection reste stockée : rien n'est effacé et rien n'est

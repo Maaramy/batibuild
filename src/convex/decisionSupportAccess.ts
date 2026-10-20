@@ -19,7 +19,8 @@ import {
 // l'interface (query réactive ci-dessous).
 //
 // Les deux conditions sont vérifiées SIMULTANÉMENT, à chaque appel :
-//   1. projet du GROUPE A — classification existante (`projectJourneyGroup`) ;
+//   1. projet des GROUPES A ou B — classification centrale (`projectJourneyGroup`) ;
+//      l'étape est absente du parcours du groupe C ;
 //   2. abonnement CLIENT PRO actif, valide et non expiré — instantané
 //      recalculé côté serveur par `getUserSubscriptionStatus` (aucune date ni
 //      forfait fournis par le navigateur).
@@ -35,8 +36,8 @@ const DENY_MESSAGES: Record<DecisionSupportAccessReason, string> = {
   ok: "",
   not_authenticated: "Connectez-vous pour accéder à « Aide à la décision ».",
   not_owner: "Ce projet n'existe pas ou n'est pas accessible depuis votre compte.",
-  group_b:
-    "« Aide à la décision » est réservée aux projets du groupe A (maison, appartement, villa, immeuble, local commercial, studio, duplex, bureau, entrepôt, résidence touristique, projet immobilier neuf, restaurant, café, rénovation complète).",
+  group_c:
+    "« Aide à la décision » n'est pas incluse dans le parcours de ce type de projet (coût estimatif puis mise en relation).",
   free_plan:
     "« Aide à la décision » nécessite un abonnement Client Pro actif : passez à Client Pro pour y accéder.",
   expired:
@@ -58,8 +59,8 @@ export function decisionSupportAccessError(reason: DecisionSupportAccessReason):
  * Charge le projet + l'utilisateur et calcule la décision d'accès.
  *
  * L'instantané d'abonnement n'est lu que lorsqu'il peut changer la décision
- * (utilisateur connecté, projet possédé, groupe A) : les refus évidents
- * (non connecté, projet d'autrui, groupe B) ne coûtent aucune lecture.
+ * (utilisateur connecté, projet possédé, groupes A ou B) : les refus évidents
+ * (non connecté, projet d'autrui, groupe C) ne coûtent aucune lecture.
  */
 export async function resolveDecisionSupport(
   ctx: QueryCtx | MutationCtx,
@@ -71,7 +72,7 @@ export async function resolveDecisionSupport(
   const owned = !!project && !!user && (project.userId === user._id || isAdmin);
 
   const snapshot =
-    user && owned && projectJourneyGroup(project.category) === "A"
+    user && owned && projectJourneyGroup(project.category) !== "C"
       ? await getUserSubscriptionStatus(ctx, user._id)
       : null;
 

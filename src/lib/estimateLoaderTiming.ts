@@ -1,19 +1,22 @@
 /**
  * TIMING DE L'ÉCRAN DE CHARGEMENT « ESTIMATION »
  *
- * Animation d'introduction de 4 000 ms exactement, répartie sur les 6 étapes
- * officielles du parcours complet (Groupe A), dans leur ordre obligatoire
- * (l'étape « Matériaux utilisés » a été supprimée de l'application). La logique
- * est pure (aucun timer) afin d'être testable et de garantir une durée totale
- * fixe, indépendante de la durée réelle du calcul.
+ * Animation d'introduction de 4 000 ms exactement, répartie sur les étapes du
+ * parcours réellement affiché. La répartition dépend du nombre d'étapes du
+ * groupe du projet (5 pour le groupe A, 4 pour le groupe B, 2 pour le groupe C)
+ * et la durée totale reste fixe, indépendante de la durée réelle du calcul.
+ * La logique est pure (aucun timer) afin d'être testable.
  */
 
 /** Durée totale de l'animation d'introduction (4 secondes exactement). */
 export const ESTIMATE_INTRO_MS = 4000;
 
-/** Étapes du parcours, dans l'ordre officiel du Journey (Groupe A). */
+/**
+ * Étapes du parcours complet, dans l'ordre officiel du Journey (Groupe A).
+ * Sert de repli lorsque le groupe du projet n'est pas encore connu ; les pages
+ * qui le connaissent passent la liste exacte (`costEstimateLoadingSteps`).
+ */
 export const ESTIMATE_JOURNEY_STEPS = [
-  "Type de projet",
   "Coût estimatif",
   "Aide à la décision",
   "Plans architecturaux AI",
@@ -69,6 +72,52 @@ export function isEstimateProjectReady(
 /** Phase réellement affichée par l'écran de chargement. */
 export type EstimateFlowPhase = "loading" | "waiting" | "error" | "complete";
 
+/* ---------------------------------------------------------------------------- *
+ * PAGE DE RÉSULTATS — état de chargement du projet
+ * ----------------------------------------------------------------------------
+ * La requête Convex du projet renvoie :
+ *   • `undefined` → les données ne sont pas encore arrivées ;
+ *   • `null`      → réponse du serveur : projet inexistant ou non accessible ;
+ *   • un document → résultats prêts, associés au projet demandé.
+ *
+ * Confondre `undefined` et `null` afficherait « Projet introuvable » avant
+ * même la réponse du serveur : c'est précisément ce que ces deux fonctions
+ * pures empêchent.
+ */
+export type EstimateResultsPhase = "loading" | "not_found" | "ready";
+
+/**
+ * État d'affichage de la page de résultats.
+ * `recovered` = le projet a finalement été relu après un `null` transitoire.
+ */
+export function resolveEstimateResultsPhase(
+  project: object | null | undefined,
+  recovered = false,
+): EstimateResultsPhase {
+  if (project) return "ready";
+  if (project === null && !recovered) return "not_found";
+  return "loading";
+}
+
+/**
+ * L'écran de chargement animé doit-il remplacer le squelette ?
+ * Uniquement pendant une attente RÉELLE :
+ *   • phase « loading » (jamais en erreur ni avec des résultats prêts) ;
+ *   • arrivée depuis l'estimation (un accès direct garde le squelette) ;
+ *   • délai anti-clignotement écoulé (réponse rapide ⇒ aucun flash d'animation).
+ */
+export function shouldShowAnimatedEstimateLoader({
+  phase,
+  fromEstimate,
+  delayElapsed,
+}: {
+  phase: EstimateResultsPhase;
+  fromEstimate: boolean;
+  delayElapsed: boolean;
+}): boolean {
+  return phase === "loading" && fromEstimate && delayElapsed;
+}
+
 /**
  * Machine à états explicite, sans dépendance circulaire :
  *   - `loading`  : animation initiale en cours ;
@@ -114,7 +163,7 @@ export function describeEstimateError(error: unknown): string {
 export interface EstimateIntroState {
   /** Progression affichée, de 0 à 100. */
   progress: number;
-  /** Nombre d'étapes terminées (0 à 6). */
+  /** Nombre d'étapes terminées (0 à `stepCount`). */
   completed: number;
   /** Index de l'étape active, `-1` lorsque l'introduction est terminée. */
   activeIndex: number;
@@ -126,8 +175,8 @@ export interface EstimateIntroState {
  * État de l'introduction pour un temps écoulé donné.
  *
  * - 0 ms → étape 1 active, progression 0 % ;
- * - chaque étape dure 4 000 / 6 ≈ 667 ms ;
- * - 4 000 ms → 100 %, 6 étapes terminées, aucune étape active ;
+ * - chaque étape dure 4 000 / nombre d'étapes (ex. 800 ms pour 5 étapes) ;
+ * - 4 000 ms → 100 %, toutes les étapes terminées, aucune étape active ;
  * - au-delà, l'état est figé (aucune prolongation de l'animation).
  */
 export function estimateIntroState(

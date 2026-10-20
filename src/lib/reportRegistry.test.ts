@@ -17,53 +17,66 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     expect(keys("villa")).toEqual(["cost", "plans", "materials", "execution"]);
   });
 
-  it("Groupe A — le studio, le restaurant, le café et la rénovation complète suivent le parcours complet", () => {
-    for (const type of ["studio", "restaurant", "cafe", "renovation_complete"]) {
+  it("Groupe A — le studio, le local et la rénovation complète suivent le parcours complet", () => {
+    for (const type of ["studio", "local", "renovation_complete"]) {
       expect(keys(type), type).toEqual(["cost", "plans", "materials", "execution"]);
     }
   });
 
-  it("Groupe B — seule la section « Coût estimatif » est présente", () => {
+  it("Groupe B — coût estimatif et exécution, sans plans architecturaux AI", () => {
     for (const type of [
       "extension_batiment",
       "piscine",
-      "plomberie_complete",
-      "cloture",
+      "restaurant",
+      "cafe",
+      "renovation_cuisine",
+      "local_commercial",
     ]) {
-      expect(keys(type), type).toEqual(["cost"]);
+      expect(keys(type), type).toEqual(["cost", "execution"]);
     }
   });
 
   it("Groupe B — les autres étapes ne réapparaissent jamais, même flags activés", () => {
     const modules = visibleReportModules(allEnabled, "piscine");
-    expect(modules).toHaveLength(1);
-    expect(modules[0].key).toBe("cost");
-    expect(modules[0].label).toBe("Coût estimatif");
+    expect(modules.map((m) => m.key)).toEqual(["cost", "execution"]);
+    expect(modules.map((m) => m.label)).toEqual([
+      "Coût estimatif",
+      "Exécution & suivi",
+    ]);
+  });
+
+  it("Groupe C — seule la section « Coût estimatif » est présente", () => {
+    for (const type of ["bureau", "peinture_interieure", "plomberie_complete", "cloture"]) {
+      expect(keys(type), type).toEqual(["cost"]);
+    }
   });
 
   it("le groupe est déduit du type, sans sélection manuelle", () => {
     expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(4);
-    expect(reportModuleKeysForGroup("B")).toEqual(["cost"]);
+    expect(REPORT_MODULE_KEYS_BY_GROUP.B).toHaveLength(2);
+    expect(REPORT_MODULE_KEYS_BY_GROUP.C).toHaveLength(1);
+    expect(reportModuleKeysForGroup("B")).toEqual(["cost", "execution"]);
+    expect(reportModuleKeysForGroup("C")).toEqual(["cost"]);
   });
 
-  it("un type inconnu reste en Groupe B (rapport d'estimation uniquement)", () => {
+  it("un type inconnu reste en Groupe C (rapport d'estimation uniquement)", () => {
     expect(keys("")).toEqual(["cost"]);
     expect(keys("type_inexistant")).toEqual(["cost"]);
   });
 
-  it("le feature flag reste prioritaire : Coût estimatif désactivé → aucune section (Groupe B)", () => {
+  it("le feature flag reste prioritaire : Coût estimatif désactivé → aucune section (Groupe C)", () => {
     expect(
       visibleReportModules(
         (flag) => flag !== "construction_cost_estimation",
-        "piscine",
+        "bureau",
       ),
     ).toEqual([]);
   });
 
-  it("le nombre de rapports disponibles d'un projet Groupe B ne dépasse jamais 1", () => {
+  it("le nombre de rapports disponibles d'un projet Groupe C ne dépasse jamais 1", () => {
     const project = {
       _id: "p1",
-      category: "piscine",
+      category: "bureau",
       surface: 120,
       costEstimate: {},
     };

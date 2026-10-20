@@ -11,7 +11,7 @@ const modules = import.meta.glob("./**/*.*s");
 
 // ============================================================================
 // « AIDE À LA DÉCISION » — accès vérifié CÔTÉ SERVEUR
-//   • projet du GROUPE A uniquement ;
+//   • projet des GROUPES A ou B (étape absente du parcours du groupe C) ;
 //   • abonnement CLIENT PRO actif, valide et non expiré.
 //
 // Les tests couvrent les 7 scénarios obligatoires : ils appellent directement
@@ -170,17 +170,37 @@ describe("getProjectDecisionSupportAccess — scénarios obligatoires", () => {
     ).resolves.not.toThrow();
   });
 
-  it("1 bis. Restaurant, café et rénovation complète appartiennent au Groupe A → accès Client Pro autorisé", async () => {
+  it("1 bis. Rénovation complète et local appartiennent au Groupe A → accès Client Pro autorisé", async () => {
     const userId = await createUser(t);
     const user = asUser(t, userId);
 
-    for (const category of ["restaurant", "cafe", "renovation_complete"]) {
+    for (const category of ["renovation_complete", "maison", "studio"]) {
       const projectId = await createProject(t, userId, category);
       const access = await user.query(
         api.decisionSupportAccess.getProjectDecisionSupportAccess,
         { projectId },
       );
       expect(access, category).toMatchObject({ allowed: true, reason: "ok", group: "A" });
+    }
+  });
+
+  it("1 ter. Restaurant, café, piscine et extension (Groupe B) → accès Client Pro autorisé", async () => {
+    const userId = await createUser(t);
+    const user = asUser(t, userId);
+
+    for (const category of [
+      "restaurant",
+      "cafe",
+      "piscine",
+      "extension_batiment",
+      "local_commercial",
+    ]) {
+      const projectId = await createProject(t, userId, category);
+      const access = await user.query(
+        api.decisionSupportAccess.getProjectDecisionSupportAccess,
+        { projectId },
+      );
+      expect(access, category).toMatchObject({ allowed: true, reason: "ok", group: "B" });
     }
   });
 
@@ -233,15 +253,15 @@ describe("getProjectDecisionSupportAccess — scénarios obligatoires", () => {
     ).toBeNull();
   });
 
-  it("4. Groupe B + Client Pro actif → accès refusé (aucune donnée)", async () => {
+  it("4. Groupe C + Client Pro actif → accès refusé (étape absente du parcours, aucune donnée)", async () => {
     const userId = await createUser(t);
-    const projectId = await createProject(t, userId, "extension_batiment");
+    const projectId = await createProject(t, userId, "bureau");
     const user = asUser(t, userId);
 
     const access = await user.query(api.decisionSupportAccess.getProjectDecisionSupportAccess, {
       projectId,
     });
-    expect(access).toMatchObject({ allowed: false, reason: "group_b", group: "B" });
+    expect(access).toMatchObject({ allowed: false, reason: "group_c", group: "C" });
     expect(
       await user.query(api.decisionSupport.getProjectBudgetContext, { projectId }),
     ).toBeNull();
@@ -250,7 +270,7 @@ describe("getProjectDecisionSupportAccess — scénarios obligatoires", () => {
     ).resolves.toBeNull();
   });
 
-  it("5. Groupe B + compte gratuit → accès refusé", async () => {
+  it("5. Groupe B + compte gratuit → accès refusé (Client Pro requis)", async () => {
     await configurePricing(t, true);
     const userId = await createUser(t, { plan: "free" });
     const projectId = await createProject(t, userId, "piscine");
@@ -260,7 +280,7 @@ describe("getProjectDecisionSupportAccess — scénarios obligatoires", () => {
       projectId,
     });
     expect(access.allowed).toBe(false);
-    expect(access.reason).toBe("group_b");
+    expect(access.reason).toBe("free_plan");
   });
 
   it("6. Accès direct sans autorisation → refusé côté backend", async () => {
@@ -363,10 +383,10 @@ describe("getProjectDecisionSupportAccess — cohérence de l'abonnement", () =>
     ).toBeNull();
   });
 
-  it("l'administrateur conserve l'accès (bypass de test), jamais pour le groupe B", async () => {
+  it("l'administrateur conserve l'accès (bypass de test), jamais pour le groupe C", async () => {
     const adminId = await createUser(t, { plan: null, role: "admin" });
     const projectA = await createProject(t, adminId, "villa");
-    const projectB = await createProject(t, adminId, "piscine");
+    const projectC = await createProject(t, adminId, "bureau");
     const admin = asUser(t, adminId);
 
     expect(
@@ -376,7 +396,7 @@ describe("getProjectDecisionSupportAccess — cohérence de l'abonnement", () =>
     ).toBe(true);
     expect(
       (await admin.query(api.decisionSupportAccess.getProjectDecisionSupportAccess, {
-        projectId: projectB,
+        projectId: projectC,
       })).allowed,
     ).toBe(false);
   });
