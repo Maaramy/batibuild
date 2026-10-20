@@ -152,7 +152,12 @@ export function DecisionSupportModule({
   complementaryWorksEnabled,
 }: DecisionSupportModuleProps) {
   const { hash } = useLocation();
-  const access = useQuery(api.access.checkClientProAccess);
+  // Même décision serveur que la page : GROUPE A + Client Pro actif. Aucune
+  // query du module n'est lancée si l'accès est refusé (le serveur refuserait
+  // de toute façon chaque lecture/écriture).
+  const access = useQuery(api.decisionSupportAccess.getProjectDecisionSupportAccess, {
+    projectId: projectId as Id<"projects">,
+  });
   const allowed = access?.allowed === true;
 
   const workspaceQuery = useQuery(

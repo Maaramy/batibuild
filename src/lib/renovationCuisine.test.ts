@@ -50,18 +50,18 @@ describe("« Rénovation Cuisine » — intégration plateforme", () => {
     expect(PROJECT_TYPE_LABELS[CATEGORY]).toBe("Rénovation Cuisine");
   });
 
-  it("suit le parcours rénovation : coût → matériaux → aide à la décision → mise en relation", () => {
+  it("suit le parcours rénovation : coût → matériaux → mise en relation (sans aide à la décision)", () => {
     expect(projectJourneyGroup(CATEGORY)).toBe("B");
     const steps = buildProjectJourney(CATEGORY, PROJECT_ID);
     expect(steps.map((s) => s.label)).toEqual([
       "Coût estimatif",
       "Matériaux utilisés",
-      "Aide à la décision",
       "Mise en relation",
     ]);
-    // Le lien des matériaux et de l'aide à la décision conserve le contexte.
+    // Le lien des matériaux conserve le contexte du projet.
     expect(steps[1].href).toBe(`/dashboard/materials-used/${PROJECT_ID}`);
-    expect(steps[2].href).toBe(`${DECISION_PAGE_PATH}/${PROJECT_ID}`);
+    // « Aide à la décision » est réservée au groupe A : aucun lien vers la page.
+    expect(steps.map((s) => s.href)).not.toContain(`${DECISION_PAGE_PATH}/${PROJECT_ID}`);
     // Aucune étape de construction neuve (plans, exécution) pour une rénovation
     expect(steps.map((s) => s.key)).not.toContain("plans");
     expect(steps.map((s) => s.key)).not.toContain("execution");

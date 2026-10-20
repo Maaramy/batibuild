@@ -20,9 +20,13 @@
  *       5. Mise en relation
  *       6. Exécution & suivi
  *   - **Groupe B** — tous les autres types (rénovation, extension, piscine,
- *     restaurant, café, travaux techniques…) : parcours simplifié en 4 étapes
- *     (coût estimatif → matériaux utilisés → aide à la décision → mise en
- *     relation).
+ *     restaurant, café, travaux techniques…) : parcours simplifié en 3 étapes
+ *     (coût estimatif → matériaux utilisés → mise en relation).
+ *
+ * « Aide à la décision » est RÉSERVÉE au groupe A : l'étape est absente du
+ * parcours du groupe B (elle n'est ni affichée, ni atteignable par « Suivant »,
+ * et l'accès direct à son URL est refusé côté page ET côté backend — voir
+ * `decisionSupportAccess`). Les autres étapes du groupe B restent inchangées.
  *
  * Une étape absente du groupe n'est jamais rendue : ni libellé, ni lien, ni
  * indicateur de progression — il n'y a donc aucun espace vide ni entrée
@@ -45,7 +49,7 @@
  * Fournisseur ».
  */
 
-import { resolveProjectType } from "@/convex/projectTypes";
+import { resolveProjectType } from "../convex/projectTypes";
 
 export type ProjectJourneyGroup = "A" | "B";
 
@@ -208,7 +212,8 @@ export function buildProjectJourney(
   // « Aide à la décision » est une page DÉDIÉE (`DECISION_PAGE_PATH`) qui
   // affiche uniquement le résultat déjà généré par l'Intelligence prédictive :
   // elle est retirée de la page de résultat « Coût estimatif ». Son lien
-  // conserve le contexte du projet (`/:id`). Étape commune aux DEUX groupes.
+  // conserve le contexte du projet (`/:id`). Étape EXCLUSIVE au groupe A :
+  // elle est absente du parcours du groupe B (accès refusé aussi côté serveur).
   const decision: ProjectJourneyStep = {
     key: "decision",
     label: "Aide à la décision",
@@ -238,11 +243,13 @@ export function buildProjectJourney(
   };
 
   // Groupe B — parcours simplifié : coût estimatif → matériaux utilisés →
-  // aide à la décision → mise en relation. Ni « Plans architecturaux AI », ni
-  // « Exécution & suivi » : les étapes absentes ne sont PAS rendues (aucun
-  // bouton, lien ou indicateur résiduel).
+  // mise en relation. Ni « Aide à la décision » (groupe A uniquement, et accès
+  // refusé côté backend), ni « Plans architecturaux AI », ni « Exécution &
+  // suivi » : les étapes absentes ne sont PAS rendues (aucun bouton, lien ou
+  // indicateur résiduel) et « Suivant » saute directement à l'étape autorisée
+  // suivante, sans blocage du reste du projet.
   if (group === "B") {
-    return filterDisabledSteps([cost, materialsUsed, decision, consult], flags);
+    return filterDisabledSteps([cost, materialsUsed, consult], flags);
   }
 
   // Groupe A — parcours complet (6 étapes) :

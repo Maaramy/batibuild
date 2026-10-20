@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import type { MutationCtx, QueryCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
-import { getCurrentUser } from './users'
+import { requireDecisionSupport, resolveDecisionSupport } from './decisionSupportAccess'
 import { scaleDqeLots } from './quantitatifCustomLogic'
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -13,19 +13,24 @@ import { scaleDqeLots } from './quantitatifCustomLogic'
 // et l'utilisateur est le seul à saisir son budget disponible.
 //
 // Sécurité : chaque lecture / écriture vérifie que le projet appartient bien à
-// l'utilisateur connecté (ou à un administrateur).
+// l'utilisateur connecté (ou à un administrateur) ET que la fonctionnalité est
+// autorisée pour ce projet : GROUPE A uniquement + abonnement CLIENT PRO actif
+// et non expiré (`resolveDecisionSupport` / `requireDecisionSupport`).
+// Masquer l'entrée dans l'interface ne suffit pas : un appel direct à ces
+// queries/mutations est refusé ici.
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Projet lisible ET fonctionnalité autorisée. `null` → la query renvoie `null`
+ * (aucune donnée du projet, du budget ou du quantitatif n'est exposée).
+ */
 async function loadOwnedProject(
   ctx: QueryCtx | MutationCtx,
   projectId: Id<'projects'>,
 ) {
-  const user = await getCurrentUser(ctx)
-  if (!user) return null
-  const project = await ctx.db.get(projectId)
-  if (!project) return null
-  if (project.userId !== user._id && user.role !== 'admin') return null
-  return { project, user }
+  const resolved = await resolveDecisionSupport(ctx, projectId)
+  if (!resolved.access.allowed || !resolved.project || !resolved.user) return null
+  return { project: resolved.project, user: resolved.user }
 }
 
 /**
@@ -186,8 +191,8 @@ export const saveBudgetAnalysis = mutation({
     result: v.any(),
   },
   handler: async (ctx, { projectId, budgetAvailable, result }) => {
-    const owned = await loadOwnedProject(ctx, projectId)
-    if (!owned) throw new Error('Accès refusé')
+    // Écriture protégée : groupe A + Client Pro actif, vérifiés côté serveur.
+    const owned = await requireDecisionSupport(ctx, projectId)
     const existing = await ctx.db
       .query('budgetAnalyses')
       .withIndex('by_project_user', (q) =>
@@ -210,6 +215,7 @@ export const saveBudgetAnalysis = mutation({
 export const clearBudgetAnalysis = mutation({
   args: { projectId: v.id('projects') },
   handler: async (ctx, { projectId }) => {
+    // Suppression protégée (aucune écriture si l'accès est refusé).
     const owned = await loadOwnedProject(ctx, projectId)
     if (!owned) return null
     const rec = await ctx.db

@@ -18,7 +18,7 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useQuery } from "convex/react";
-import { Building2, MapPin, Ruler, Wallet } from "lucide-react";
+import { ArrowRight, Building2, CreditCard, MapPin, Ruler, ShieldAlert, Wallet } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import { realBuiltArea } from "@/lib/buildingLevels";
@@ -27,6 +27,10 @@ import { DecisionSupportModule } from "@/components/decision/DecisionSupportModu
 import { Button } from "@/components/ui/button";
 import { EmptyState, LoadingState } from "@/components/ui/feedback";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import {
+  DECISION_SUPPORT_DENY_COPY,
+  type DecisionSupportAccess,
+} from "@/lib/decisionSupportAccess";
 import { normalizeLegacyCategory, projectTypeLabel } from "@/convex/projectTypes";
 import { isComplementaryWorkEligible } from "@/lib/customWorksCatalog";
 import { REGION_LABELS } from "@/lib/projectPdf";
@@ -55,6 +59,17 @@ export default function DecisionSupport() {
 
   const project = useQuery(
     api.projects.getProject,
+    id ? { projectId: id as Id<"projects"> } : "skip",
+  );
+
+  // ── Autorisation d'accès — décision calculée CÔTÉ SERVEUR ────────────────
+  // « Aide à la décision » = projets du GROUPE A + abonnement CLIENT PRO actif
+  // et non expiré. La même décision protège les queries/mutations du module :
+  // cette vérification couvre le rechargement, l'accès direct à l'URL et
+  // l'ouverture d'un projet existant. Aucune donnée du module n'est rendue
+  // avant que le serveur ait répondu.
+  const access = useQuery(
+    api.decisionSupportAccess.getProjectDecisionSupportAccess,
     id ? { projectId: id as Id<"projects"> } : "skip",
   );
 
@@ -144,12 +159,16 @@ export default function DecisionSupport() {
         projectId={id}
         category={project?.category}
         featureLabel="Aide à la décision"
+        // Accès refusé : aucun bouton « Suivant » vers une étape verrouillée —
+        // l'en-tête du projet reste affiché, le parcours reprend via « Continuer
+        // mon projet ».
+        steps={access && !access.allowed ? [] : undefined}
         maxWidthClassName="max-w-6xl"
       />
 
       <div className="mx-auto mt-4 max-w-6xl space-y-4 px-3 sm:px-6">
-        {project === undefined ? (
-          /* ── Chargement du projet ── */
+        {project === undefined || access === undefined ? (
+          /* ── Chargement du projet et de l'autorisation ── */
           <LoadingState message="Chargement du projet…" />
         ) : project === null ? (
           /* ── Projet introuvable ── */
@@ -161,6 +180,16 @@ export default function DecisionSupport() {
                 Retour au tableau de bord
               </Button>
             }
+          />
+        ) : !access.allowed ? (
+          /* ── Accès refusé : groupe B, compte gratuit, abonnement expiré… ──
+              Les autres étapes du projet restent accessibles (aucun blocage
+              injustifié) — seule cette fonctionnalité est verrouillée. */
+          <DecisionSupportBlocked
+            access={access}
+            onBack={() => navigate(`/dashboard/project/${id}`)}
+            onUpgrade={() => navigate("/dashboard/pricing")}
+            onLogin={() => navigate(`/auth?returnTo=/dashboard/decision/${id}`)}
           />
         ) : !budget.scenarios && !budget.personalized ? (
           /* ── Estimation non disponible : jamais de montant par défaut ── */
@@ -270,5 +299,66 @@ function SynthStat({
         {value}
       </p>
     </div>
+  );
+}
+
+/**
+ * Écran de refus — « Aide à la décision » verrouillée.
+ *
+ * Le motif vient du SERVEUR (`access.reason`) : aucun calcul local, donc aucun
+ * contournement possible. Le message est adapté au cas :
+ *   • groupe B            → fonctionnalité indisponible pour ce type de projet ;
+ *   • compte gratuit      → invitation à passer à Client Pro ;
+ *   • expiré / en attente → blocage jusqu'à réactivation ;
+ *   • non connecté        → authentification demandée.
+ * La sortie « Retour au projet » permet de poursuivre les autres étapes.
+ */
+function DecisionSupportBlocked({
+  access,
+  onBack,
+  onUpgrade,
+  onLogin,
+}: {
+  access: DecisionSupportAccess;
+  onBack: () => void;
+  onUpgrade: () => void;
+  onLogin: () => void;
+}) {
+  const reason = access.reason === "ok" ? "not_client_pro" : access.reason;
+  const copy = DECISION_SUPPORT_DENY_COPY[reason];
+  const cta = copy.cta;
+  const onPrimary = reason === "not_authenticated" ? onLogin : onUpgrade;
+
+  return (
+    <section
+      aria-label="Accès à l'aide à la décision"
+      className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elev-1"
+    >
+      <div className="flex flex-col items-center gap-3 px-4 py-10 text-center sm:px-6">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          {access.group === "B" ? (
+            <ShieldAlert className="h-6 w-6" />
+          ) : (
+            <CreditCard className="h-6 w-6" />
+          )}
+        </div>
+        <h2 className="text-base font-bold tracking-tight sm:text-lg">{copy.title}</h2>
+        <p className="max-w-xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
+          {copy.description}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+          {cta && (
+            <Button className="gap-1.5" onClick={onPrimary}>
+              <CreditCard className="h-4 w-4" />
+              {cta}
+            </Button>
+          )}
+          <Button variant="outline" className="gap-1.5" onClick={onBack}>
+            <ArrowRight className="h-4 w-4" />
+            Continuer mon projet
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
