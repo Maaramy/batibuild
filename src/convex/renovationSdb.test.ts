@@ -191,6 +191,27 @@ describe("prix administré — propagation au DQE et au coût global", () => {
   });
 });
 
+describe("taux de TVA administré — appliqué au DQE et au coût", () => {
+  it("le taux transmis au moteur s'applique ligne par ligne", () => {
+    const base = run(5);
+    const reduced = run(5, { sdbVatRate: 13 });
+    for (const line of lines(reduced)) {
+      expect(line.vatRate).toBe(13);
+      expect(line.vatAmount).toBeCloseTo((line.totalHT! * 13) / 100, 1);
+      expect(line.total).toBe(Math.round(line.totalHT! + line.vatAmount!));
+    }
+    // Le HT ne bouge pas : seule la TVA (et donc le TTC) change.
+    const ht = (dqe: DqeResult) => lines(dqe).reduce((s, l) => s + (l.totalHT ?? 0), 0);
+    expect(ht(reduced)).toBeCloseTo(ht(base), 1);
+    expect(reduced.totals.total).toBeLessThan(base.totals.total);
+  });
+
+  it("un taux invalide retombe sur 19 % au lieu d'être appliqué", () => {
+    const dqe = run(5, { sdbVatRate: 55 });
+    expect(lines(dqe).every((l) => l.vatRate === 19)).toBe(true);
+  });
+});
+
 describe("petite et grande salle de bain", () => {
   it("les quantités et le total suivent la surface réelle", () => {
     const small = run(4);

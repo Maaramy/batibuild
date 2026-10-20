@@ -34,6 +34,7 @@ import {
   computeLevelCost,
   type LevelCostConfig,
 } from "@/lib/buildingLevels";
+import { resolveSdbVatRate } from "@/lib/renovationSdbPricing";
 
 /** Champs éditables des coefficients multi-niveaux (RDC, étages, frais communs, toiture). */
 const LEVEL_FIELDS: {
@@ -85,6 +86,12 @@ export default function BIMSettings() {
   const [validFromDraft, setValidFromDraft] = useState<string | null>(null);
   const [validUntilDraft, setValidUntilDraft] = useState<string | null>(null);
   const [savingLevels, setSavingLevels] = useState(false);
+  // Taux de TVA du DQE de rénovation de salle de bain (0-30 %, défaut 19 %).
+  const [vatDraft, setVatDraft] = useState<string | null>(null);
+  const effectiveVatRate = resolveSdbVatRate(bimConfig?.sdbVatRate as number | undefined);
+  const vatValue = vatDraft ?? String(effectiveVatRate);
+  const vatNumber = Number(vatValue);
+  const vatInvalid = !Number.isFinite(vatNumber) || vatNumber < 0 || vatNumber > 30;
 
   const effectiveLevelCoeffs: LevelCostConfig =
     bimConfig?.parsedLevelCoefficients ?? DEFAULT_LEVEL_COST_CONFIG;
@@ -122,9 +129,11 @@ export default function BIMSettings() {
         levelCoefficients: JSON.stringify(levelCoeffsDraft),
         levelCoefficientsValidFrom: fromDateInput(validFromValue),
         levelCoefficientsValidUntil: fromDateInput(validUntilValue),
+        sdbVatRate: vatNumber,
       });
-      toast.success("Coefficients multi-niveaux enregistrés");
+      toast.success("Coefficients multi-niveaux et taux de TVA enregistrés");
       setLevelCoeffs(null);
+      setVatDraft(null);
     } catch (err: any) {
       toast.error(err?.message || "Erreur lors de l'enregistrement des coefficients");
     }
@@ -561,6 +570,29 @@ export default function BIMSettings() {
             })}
           </div>
 
+          {/* Taux de TVA du DQE salle de bain : réglé ici, appliqué ligne par ligne. */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className="text-[10px] font-semibold" htmlFor="sdb-vat-rate">
+                TVA — rénovation salle de bain (%)
+              </label>
+              <Input
+                id="sdb-vat-rate"
+                type="number"
+                step="0.1"
+                min={0}
+                max={30}
+                value={vatValue}
+                onChange={(e) => setVatDraft(e.target.value)}
+                className={cn("mt-1 h-8 text-xs", vatInvalid && "border-amber-500 text-amber-600")}
+              />
+              <p className="mt-1 text-[9px] leading-tight text-muted-foreground">
+                Appliqué à chaque ligne du Quantitatif détaillé salle de bain (fournitures et
+                main-d'œuvre). Taux de droit commun : 19 %.
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="text-[10px] font-semibold" htmlFor="level-valid-from">
@@ -591,14 +623,14 @@ export default function BIMSettings() {
                 size="sm"
                 className="h-8 gap-1.5 text-xs"
                 onClick={handleSaveLevels}
-                disabled={savingLevels || outOfRangeLevels.length > 0}
+                disabled={savingLevels || outOfRangeLevels.length > 0 || vatInvalid}
               >
                 {savingLevels ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Save className="h-3.5 w-3.5" />
                 )}
-                Enregistrer les coefficients
+                Enregistrer la configuration
               </Button>
               {levelCoeffs && (
                 <Button

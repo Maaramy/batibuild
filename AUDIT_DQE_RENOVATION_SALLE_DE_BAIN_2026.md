@@ -80,13 +80,13 @@ Géométrie (`sdbGeometry`) — la surface de sol n'est **jamais** réutilisée 
 | Gravats | 1 benne ≤ 8 m², 2 bennes au-delà |
 | Plomberie / électricité | 15 ml PER · 10 ml PVC · 3 siphons · 4 points électriques (quantités de chantier d'une pièce, **plus jamais** mises à l'échelle de 120 m²) |
 
-Exemple, salle de bain de 5 m² : sol carrelé **5,5 m²** (avec coupe), faïence **18,7 m²**, colle **~97 kg**, joint **~12 kg** — contre respectivement 0,25 m² / 0,92 m² / 0,02 kg / 0,003 kg avant correction (après mise à l'échelle) ou 6 / 22 m² avant calage.
+Exemple, salle de bain de 5 m² : périmètre **8,94 ml**, faïence nette **16,49 m²**, sol carrelé **5,5 m²** (avec coupe), faïence **18 m²** (avec coupe), colle **95 kg**, joint **12 kg**, pose **5 m² + 16 m²** — contre respectivement 0,25 m² / 0,92 m² / 0,02 kg / 0,003 kg avant correction (après mise à l'échelle) ou 6 / 22 m² avant calage.
 
 ---
 
 ## 4. Nouvelle base de prix (TND HT, pose comprise)
 
-Prix **standard** ; les colonnes Éco/Premium sont des grilles distinctes (voir §5). TVA **19 %** ajoutée par ligne (total TTC affiché).
+Prix **standard** ; les colonnes Éco/Premium sont des grilles distinctes (voir §5). TVA **19 %** par défaut, réglable de 0 à 30 % dans l'administration, ajoutée par ligne (total TTC affiché).
 
 | Poste | Éco | Standard | Premium |
 |---|---:|---:|---:|
@@ -145,16 +145,28 @@ Les totaux `Économique / Standard / Premium` exposés par le moteur BIM sont d�
 - `runBIMEstimation` pour ce type calcule le coût **depuis le même module** (standard pour le total, grilles Éco/Premium pour les scénarios) : plus de divergence grille / DQE.
 - Chaque ligne porte : `unitPrice` (TTC), `total`, `totalHT`, `vatRate = 19`, `vatAmount`, et la part main-d'œuvre (`labor`) lorsqu'elle existe.
 - Page projet : le quantitatif de salle de bain est reconstruit **pour le scénario affiché**, avec les dimensions réelles ; le devis PDF utilise ce même quantitatif.
-- **Action « Mettre à jour le quantitatif »** (bouton existant) + prix administrés : un prix saisi dans `materialPrices` (converti TTC → HT une seule fois) remplace le prix de référence et met à jour le total (test dédié).
-- **Date de mise à jour visible** : bandeau « Base BatiBuild — rénovation salle de bain (Tunisie 2026) · mise à jour du 15/01/2026 · prix indicatifs (aucun flux temps réel), à confirmer par devis » dans le Quantitatif détaillé.
+- **Prix administrés jusque dans l'affichage** : la page et le devis PDF résolvent chaque poste dans `materialPrices` (`buildSdbPriceResolver`) avant de chiffrer, avec la même conversion TTC → HT que le moteur. Un prix saisi dans l'administration change donc le prix de la ligne, le sous-total de sa catégorie, le graphique « Répartition », le total affiché et le coût au m² — sans attendre une réactualisation serveur, et sans rééchelonner les autres postes.
+- **Taux de TVA réglé par l'administrateur** (`bimConfig.sdbVatRate`, 0–30 %) : appliqué à chaque ligne (`vatRate`, `vatAmount`) puis au lot et au total ; le HT est inchangé par un changement de taux (test dédié).
+- **Action « Mettre à jour les prix »** (icône ↻ du Quantitatif détaillé, ex-« mettre à jour le quantitatif ») : relance le calcul serveur avec les prix administrés et le taux en vigueur, puis met à jour le DQE enregistré, le coût estimatif et les scénarios.
+- **Total au dinar près** : le sous-total d'un lot est la somme des montants affichés de ses lignes (arrondis à l'unité) et le total est la somme des sous-totaux. Vérifié sur 5 m² avec un prix administré et une TVA à 13 % : DQE enregistré = **10 244**, page = **10 244**, somme des lignes = **10 244** (écart 0). Auparavant l'arrondi par ligne puis par total produisait un écart de 2,28 TND entre le DQE et l'affichage.
+- **Date de mise à jour visible** : bandeau « Base BatiBuild — rénovation salle de bain (Tunisie 2026) · mise à jour du 15/01/2026 · TVA 19 % · N prix administrés (saisis le …) · prix indicatifs (aucun flux temps réel), à confirmer par devis » dans le Quantitatif détaillé.
+
+### Administration — ce que l'administrateur peut réellement régler
+
+| Réglage | Où | Effet vérifié |
+|---|---|---|
+| Prix unitaires, unités | Admin → Matériaux (édition en ligne) | Prix remplacé dans le DQE salle de bain, son total et le coût global ; l'ancien prix est conservé dans `priceHistory`. |
+| Région, source, date | Admin → Matériaux (colonnes **Région** et **Source** éditables, **Mise à jour** affichée) | `region` et `notes` (= source / référence du devis) enregistrés avec le prix ; `lastUpdated` est posé par le serveur à chaque modification. |
+| Taux de TVA | Admin → BIM → « TVA — rénovation salle de bain (%) » | Taux appliqué **ligne par ligne** (HT, TVA, TTC) sur tout le DQE salle de bain ; borné à 0–30 %, défaut 19 %, une saisie hors bornes est refusée. |
+| Variation régionale | Admin → BIM (multiplicateurs régionaux) + région du projet | Le coefficient régional s'applique une seule fois aux prix de la grille salle de bain. |
+| Actualisation | Bouton **« Mettre à jour les prix »** (icône ↻ du Quantitatif détaillé) | Relance le calcul serveur (`simulateAnalysis`) : DQE enregistré, coût estimatif et scénarios recalculés avec les prix administrés et le taux de TVA en vigueur. |
 
 ### Points non couverts (signalés)
 
 | Demande | État |
 |---|---|
-| Modifier le **taux de TVA** depuis l'administration | Non implémenté : taux légal unique de 19 % codé dans le module, affiché par ligne. |
-| Modifier **source / date / région** d'une ligne SDB depuis l'administration | Champs présents dans `materialPrices` (`notes`, `lastUpdated`, `region`) mais l'écran d'édition admin n'expose aujourd'hui que nom / unité / prix. |
 | Historique des DQE déjà enregistrés | Non réécrits (préservation des données) : la page recalcule l'affichage salle de bain ; les autres types utilisent toujours leur DQE enregistré. |
+| Vérification fournisseur ligne à ligne | **Non faite** : aucun fournisseur nommé n'a confirmé ces prix. La base est datée et présentée comme indicative (voir §4). |
 
 ---
 
@@ -166,20 +178,42 @@ Les totaux `Économique / Standard / Premium` exposés par le moteur BIM sont d�
 | 2. Cohérence quantités / unités / prix | ✅ quantités physiques (sol ≠ murs, marges de coupe, rendements colle/joint) |
 | 3. Comparaison des 4 scénarios sur la même salle de bain | ✅ Éco < Standard < Premium, quantités identiques, grilles distinctes |
 | 4. Options non comptées si non sélectionnées | ✅ italienne / baignoire / cloisons / WC / extracteur |
-| 5. Sous-totaux HT, TVA, TTC | ✅ par ligne (19 %) et par lot / total |
-| 6. Prix administré → DQE et coût global | ✅ `livePrices` : ligne, total, source « prix administré » |
+| 5. Sous-totaux HT, TVA, TTC | ✅ par ligne, par lot et au total ; 19 % par défaut, 13 % vérifié au niveau moteur (le serveur n'accepte que 0–30 %), taux invalide (55 %) refusé et remplacé par 19 % |
+| 6. Prix administré → DQE, affichage et coût global | ✅ moteur (`livePrices` : ligne, total, mention « prix administré ») **et** page/devis (`buildSdbPriceResolver`, 4 tests dédiés) |
 | 7. Petite et grande salle de bain | ✅ 4 m² vs 8 m² (quantités et total croissants, prix unitaires stables) |
 | 8. Autres types de projets inchangés | ✅ maison / appartement / bureau / cuisine conservent leur calage historique |
 
-Exécution : **118 fichiers, 1861 tests réussis** (`bun x vitest run`), typecheck Convex + frontend sans erreur.
+Exécution : **118 fichiers, 1870 tests réussis** (`bun x vitest run`), `convex dev --once` et `tsc -b --noEmit` sans erreur.
+
+### Répartition effectivement affichée — projet #49 (5 m², Standard)
+
+Valeurs produites par `sdbDqeLots` → `buildChartBreakdownFromLots` (source unique du graphique, du détail par catégorie et du quantitatif) :
+
+| Catégorie | Ancien affichage (capture) | Nouveau montant TTC | Part |
+|---|---:|---:|---:|
+| Dépose et démolition | 616 (8 %) | **990** | 10,1 % |
+| Maçonnerie et préparation | — (absent) | **652** | 6,7 % |
+| Étanchéité | 616 (8 %) | **664** | 6,8 % |
+| Revêtements (carrelage et faïence) | 1 694 (22 %) | **1 874** | 19,2 % |
+| Plomberie et évacuation | 1 155 (15 %) | **2 140** | 21,9 % |
+| Sanitaires et mobilier | 1 155 (15 %) | **2 148** | 22,0 % |
+| Électricité et ventilation | 308 (4 %) + 616 (8 %) | **890** | 9,1 % |
+| Finitions (peinture + joints) | 308 (4 %) + 616 (8 %) | **415** | 4,2 % |
+| **Total TTC** | ≈ 7 700 | **9 773** | 100 % |
+
+Plus aucune catégorie ne partage le même montant par construction ; les postes « Robinetterie », « Ventilation », « Équipements techniques » qui apparaissaient comme catégories distinctes sont désormais **des postes** rangés dans leur lot (plomberie / électricité / sanitaires), sans double comptage.
 
 ---
 
 ## 8. Fichiers modifiés
 
-- `src/lib/renovationSdbPricing.ts` — **nouveau** : grilles de prix, géométrie, lignes, TVA, totaux, export DQE.
-- `src/convex/dqeEngine.ts` — branche DQE au réel pour la salle de bain, champs TVA sur les lignes, prix administrés.
+- `src/lib/renovationSdbPricing.ts` — **nouveau** : grilles de prix, géométrie, lignes, TVA réglable, totaux, export DQE, résolveur de prix administrés.
+- `src/convex/dqeEngine.ts` — branche DQE au réel pour la salle de bain, champs TVA sur les lignes, prix administrés, taux de TVA transmis.
 - `src/convex/bimEngine.ts` — coût et scénarios issus du module (plus de coefficient global), répartition par nature réelle.
-- `src/pages/ProjectDetail.tsx` — quantitatif reconstruit par scénario, totaux synchronisés, devis PDF, bandeau de provenance des prix.
+- `src/convex/projects.ts` — DQE salle de bain recalculé avec les prix administrés et le taux de TVA de `bimConfig`.
+- `src/convex/bimConfig.ts`, `src/convex/schema.ts` — réglage `sdbVatRate` (0–30 %, défaut 19 %), lecture/écriture et validation.
+- `src/pages/ProjectDetail.tsx` — quantitatif reconstruit par scénario, prix administrés et TVA appliqués à l'affichage et au devis PDF, totaux synchronisés, bandeau de provenance des prix, action « Mettre à jour les prix ».
+- `src/pages/BIMSettings.tsx` — champ administratif du taux de TVA salle de bain.
+- `src/pages/AdminPanel.tsx` — édition de la région et de la source d'un prix, date de mise à jour affichée, message de propagation.
 - `src/lib/surfaceRangeSync.test.ts` — invariant adapté : la salle de bain n'est plus calibrée sur un pourcentage (comportement demandé).
-- `src/lib/renovationSdbPricing.test.ts`, `src/convex/renovationSdb.test.ts` — **nouveaux** tests.
+- `src/lib/renovationSdbPricing.test.ts`, `src/convex/renovationSdb.test.ts` — **nouveaux** tests (37 cas).

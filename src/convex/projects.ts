@@ -920,6 +920,9 @@ export const simulateAnalysis = mutation({
     // n'est nécessaire pour les ajuster.
     const levelConfig = await readLevelCostConfigFromDb(ctx);
     const levelSurfaces = normalizeLevelSurfacesInput(project);
+    // Taux de TVA du DQE de rénovation de salle de bain réglé par
+    // l'administrateur (absent → 19 %, taux de droit commun).
+    const sdbConfig = await ctx.db.query("bimConfig").order("desc").first();
 
     const result = withLivePrices(livePrices, () =>
       runBIMEstimation(category, surface, floors, region, finishLevel, {
@@ -989,6 +992,7 @@ export const simulateAnalysis = mutation({
       livePrices,
       levelSurfaces,
       regionFactor: technicalRegionFactor,
+      sdbVatRate: sdbConfig?.sdbVatRate,
       rooms: hasRoomsInfo
         ? {
             bathrooms: project.bathrooms,

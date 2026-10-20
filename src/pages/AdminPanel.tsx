@@ -535,14 +535,23 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
   const handleUpdateMaterial = async (id: string) => {
     const vals = editValues[id];
     if (!vals) return;
-    await updateMaterial({
-      id: id as any,
-      unitPrice: vals.unitPrice,
-      name: vals.name,
-      unit: vals.unit,
-    });
-    setEditingMaterial(null);
-    setEditValues({});
+    try {
+      await updateMaterial({
+        id: id as any,
+        unitPrice: vals.unitPrice,
+        name: vals.name,
+        unit: vals.unit,
+        // Provenance et variante régionale du prix : enregistrées avec la
+        // valeur saisie (jamais devinées), `lastUpdated` est posé par le serveur.
+        ...(vals.region !== undefined && { region: String(vals.region).trim() }),
+        ...(vals.notes !== undefined && { notes: String(vals.notes).trim() }),
+      });
+      toast.success("Prix mis à jour — Quantitatif et coût global recalculés");
+      setEditingMaterial(null);
+      setEditValues({});
+    } catch (err: any) {
+      toast.error(err?.message || "Erreur lors de la mise à jour du prix");
+    }
   };
 
   const filteredMaterials = materialPrices.filter((m: any) =>
@@ -2878,6 +2887,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                       <th className="text-left py-2.5 px-3 font-medium text-muted-foreground text-xs">Catégorie</th>
                       <th className="text-right py-2.5 px-3 font-medium text-muted-foreground text-xs">Unité</th>
                       <th className="text-right py-2.5 px-3 font-medium text-muted-foreground text-xs">Prix (TND)</th>
+                      <th className="text-left py-2.5 px-3 font-medium text-muted-foreground text-xs">Région</th>
+                      <th className="text-left py-2.5 px-3 font-medium text-muted-foreground text-xs">Source</th>
+                      <th className="text-left py-2.5 px-3 font-medium text-muted-foreground text-xs">Mise à jour</th>
                       <th className="text-right py-2.5 px-3 font-medium text-muted-foreground text-xs">Actions</th>
                     </tr>
                   </thead>
@@ -2922,6 +2934,39 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                           ) : (
                             `${material.unitPrice.toFixed(3)} TND`
                           )}
+                        </td>
+                        <td className="py-2.5 px-2">
+                          {editingMaterial === material._id ? (
+                            <Input
+                              placeholder="Tunis / Sousse…"
+                              value={editValues[material._id]?.region ?? material.region ?? ""}
+                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], region: e.target.value } })}
+                              className="h-8 text-sm w-28"
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground">{material.region || "—"}</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2">
+                          {editingMaterial === material._id ? (
+                            <Input
+                              placeholder="Fournisseur, devis, référence…"
+                              value={editValues[material._id]?.notes ?? material.notes ?? ""}
+                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], notes: e.target.value } })}
+                              className="h-8 text-sm w-40"
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground line-clamp-1">
+                              {material.notes || "—"}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2">
+                          <span className="text-[10px] text-muted-foreground">
+                            {material.lastUpdated
+                              ? new Date(material.lastUpdated).toLocaleDateString("fr-FR")
+                              : "—"}
+                          </span>
                         </td>
                         <td className="py-2.5 px-2 text-right">
                           {editingMaterial === material._id ? (

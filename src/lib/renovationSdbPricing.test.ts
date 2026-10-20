@@ -8,6 +8,7 @@ import {
   buildSdbPriceResolver,
   latestSdbAdminPriceUpdate,
   normalizeSdbPriceKey,
+  resolveSdbVatRate,
   sdbDqeLots,
   sdbGeometry,
   type SdbScenario,
@@ -103,6 +104,20 @@ describe("scénarios — grilles distinctes, sans pourcentage global", () => {
     expect(qty(pre, "Faïence murale (20×30 ou 25×40)")).toBe(
       qty(eco, "Faïence murale (20×30 ou 25×40)"),
     );
+  });
+
+  it("les écarts viennent des articles : plus de dix prix unitaires diffèrent", () => {
+    const eco = buildSdbEstimate({ surface: SMALL, scenario: "economique" });
+    const pre = buildSdbEstimate({ surface: SMALL, scenario: "premium" });
+    const ecoPrice = new Map(
+      eco.lots.flatMap((l) => l.lines).map((l) => [l.designation, l.unitPriceHT]),
+    );
+    const changed = pre.lots
+      .flatMap((l) => l.lines)
+      .filter(
+        (l) => Math.abs(l.unitPriceHT - (ecoPrice.get(l.designation) ?? l.unitPriceHT)) > 0.01,
+      );
+    expect(changed.length).toBeGreaterThan(10);
   });
 
   it("le montant de chaque scénario est la somme de ses lignes", () => {
@@ -270,6 +285,32 @@ describe("provenance des prix", () => {
     const est = buildSdbEstimate({ surface: SMALL, resolvePrice: buildSdbPriceResolver([]) });
     expect(est.adminPricedLines).toBe(0);
     expect(est.lots.flatMap((l) => l.lines).every((l) => l.source === "grille_2026")).toBe(true);
+  });
+
+  it("le taux de TVA administré s'applique à chaque ligne, sans changer le HT", () => {
+    const base = buildSdbEstimate({ surface: SMALL });
+    const reduced = buildSdbEstimate({ surface: SMALL, vatRate: 13 });
+    expect(reduced.vatRate).toBe(13);
+    expect(reduced.totals.totalHT).toBeCloseTo(base.totals.totalHT, 2);
+    for (const line of reduced.lots.flatMap((l) => l.lines)) {
+      expect(line.vatRate).toBe(13);
+      expect(line.vatAmount).toBeCloseTo((line.totalHT * 13) / 100, 1);
+      expect(line.totalTTC).toBeCloseTo(line.totalHT + line.vatAmount, 1);
+    }
+    expect(reduced.totals.totalTTC).toBeCloseTo(
+      reduced.totals.totalHT + reduced.totals.vatAmount,
+      1,
+    );
+    expect(reduced.totals.totalTTC).toBeLessThan(base.totals.totalTTC);
+  });
+
+  it("un taux de TVA hors 0-30 % retombe sur le taux de droit commun", () => {
+    expect(resolveSdbVatRate(undefined)).toBe(SDB_VAT_RATE);
+    expect(resolveSdbVatRate(0)).toBe(0);
+    expect(resolveSdbVatRate(30)).toBe(30);
+    expect(resolveSdbVatRate(-1)).toBe(SDB_VAT_RATE);
+    expect(resolveSdbVatRate(31)).toBe(SDB_VAT_RATE);
+    expect(resolveSdbVatRate(Number.NaN)).toBe(SDB_VAT_RATE);
   });
 
   it("la date de mise à jour retenue est la plus récente", () => {

@@ -1026,14 +1026,12 @@ export function sdbDqeLots(estimate: SdbEstimate): {
     vatAmount: number;
   }[];
 }[] {
-  const total = estimate.totals.totalTTC;
-  return estimate.lots.map((lot) => ({
-    id: lot.id,
-    name: lot.name,
-    nature: lot.nature,
-    percent: total > 0 ? Math.round((lot.subtotalTTC / total) * 1000) / 10 : 0,
-    subtotal: Math.round(lot.subtotalTTC),
-    lines: lot.lines.map((l) => ({
+  // Sous-total d'un lot = SOMME EXACTE des montants affichés de ses lignes
+  // (chaque montant est arrondi à l'unité pour l'affichage). Le total du DQE
+  // est la somme de ces sous-totaux : le quantitatif, le graphique, le devis
+  // PDF et le coût global affichent donc toujours le même nombre, au dinar.
+  const lots = estimate.lots.map((lot) => {
+    const lines = lot.lines.map((l) => ({
       designation: l.designation,
       description: l.description,
       unit: l.unit,
@@ -1044,7 +1042,20 @@ export function sdbDqeLots(estimate: SdbEstimate): {
       totalHT: l.totalHT,
       vatRate: l.vatRate,
       vatAmount: l.vatAmount,
-    })),
+    }));
+    return {
+      id: lot.id,
+      name: lot.name,
+      nature: lot.nature,
+      percent: 0,
+      subtotal: lines.reduce((s, l) => s + l.total, 0),
+      lines,
+    };
+  });
+  const total = lots.reduce((s, l) => s + l.subtotal, 0);
+  return lots.map((lot) => ({
+    ...lot,
+    percent: total > 0 ? Math.round((lot.subtotal / total) * 1000) / 10 : 0,
   }));
 }
 

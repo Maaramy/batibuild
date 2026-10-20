@@ -85,6 +85,7 @@ import {
   buildSdbPriceResolver,
   isRenovationSdb,
   latestSdbAdminPriceUpdate,
+  resolveSdbVatRate,
   sdbDqeLots,
   type SdbScenario,
 } from "@/lib/renovationSdbPricing";
@@ -139,6 +140,7 @@ const BIM_COLORS: Record<string, string> = {
   // décolorés. Chaque lot reçoit donc une teinte distincte et stable.
   frais_preliminaires: "#ef4444", amenagements_exterieurs: "#14b8a6", vrd: "#84cc16",
   depose_demolition: "#f97316", depose: "#f97316", terrassement: "#b45309",
+  maconnerie: "#c2410c", finitions: "#f472b6",
   preparation: "#ca8a04", structure: "#2563eb", cloisons: "#fbbf24",
   facade: "#0ea5e9", charpente: "#b45309", toiture: "#dc2626",
   etancheite: "#0d9488", carrelage: "#8b5cf6", revetements: "#a855f7",
@@ -541,6 +543,7 @@ export default function ProjectDetail() {
               surface: builtSurface,
               scenario: scenario as SdbScenario,
               regionFactor: regionCostFactor(REGION_COST_M2, project.region, scenario),
+              vatRate: sdbVatRate,
               resolvePrice: sdbPriceResolver,
             }),
           )
@@ -746,12 +749,18 @@ export default function ProjectDetail() {
     () => latestSdbAdminPriceUpdate(adminPriceRows),
     [adminPriceRows],
   );
+  // Taux de TVA réglé par l'administrateur (bimConfig.sdbVatRate, défaut 19 %).
+  const bimConfig = useQuery(api.bimConfig.getBIMConfig);
+  const sdbVatRate = resolveSdbVatRate(
+    bimConfig?.sdbVatRate as number | undefined,
+  );
   const sdbEstimateData = useMemo(() => {
     if (!isRenovationSdb(project?.category) || !builtSurface) return null;
     return buildSdbEstimate({
       surface: builtSurface,
       scenario: sdbScenario,
       regionFactor: regionCostFactor(REGION_COST_M2, project?.region, sdbScenario),
+      vatRate: sdbVatRate,
       resolvePrice: sdbPriceResolver,
     });
   }, [
@@ -760,6 +769,7 @@ export default function ProjectDetail() {
     builtSurface,
     sdbScenario,
     sdbPriceResolver,
+    sdbVatRate,
   ]);
 
   // ── Budget de l'estimation : SOURCE UNIQUE des montants ──────────────────
@@ -955,19 +965,37 @@ export default function ProjectDetail() {
     return sel?.costPerM2 || ce?.costPerSquareMeter || 0;
   }, [scenarios, effectiveScenario, ce?.costPerSquareMeter]);
 
+  // Lots salle de bain tels qu'affichés (montants arrondis au dinar) : le total
+  // est leur somme EXACTE, identique au DQE enregistré par le moteur et au
+  // devis PDF. Aucun écart d'arrondi entre le quantitatif et son total.
+  const sdbDisplayLots = useMemo<any[] | null>(
+    () => (sdbEstimateData ? sdbDqeLots(sdbEstimateData) : null),
+    [sdbEstimateData],
+  );
+  const sdbDisplayTotal = useMemo(
+    () =>
+      (sdbDisplayLots ?? []).reduce(
+        (s: number, l: any) => s + (Number(l?.subtotal) || 0),
+        0,
+      ),
+    [sdbDisplayLots],
+  );
+
   // Total et coût/m² réellement affichés : le scénario « Personnalisé » n'est
   // pris en compte que lorsqu'il est effectivement affiché.
   const displayTotal: number =
     personalized && isPersonalizedScenario
       ? Number(personalized.totals.total)
-      : sdbEstimateData
-        ? sdbEstimateData.totals.totalTTC
+      : sdbDisplayLots
+        ? sdbDisplayTotal
         : Number(estimationBudget.scenarios?.[effectiveScenario as BudgetScenarioKey]?.totalCost ?? currentTotal);
   const displayCostM2 =
     personalized && isPersonalizedScenario
       ? personalized.totals.costPerM2
-      : sdbEstimateData
-        ? sdbEstimateData.totals.costPerM2TTC
+      : sdbDisplayLots
+        ? builtSurface > 0
+          ? Math.round(sdbDisplayTotal / builtSurface)
+          : 0
         : Number(estimationBudget.scenarios?.[effectiveScenario as BudgetScenarioKey]?.costPerM2 ?? currentCostM2);
 
   // ── Catégories réellement affichées par le « Quantitatif détaillé » ────
@@ -980,8 +1008,8 @@ export default function ProjectDetail() {
     () =>
       isPersonalizedScenario && personalized
         ? personalized.lots
-        : sdbEstimateData
-          ? sdbDqeLots(sdbEstimateData)
+        : sdbDisplayLots
+          ? sdbDisplayLots
           : rawDqeLots.length
             ? scaleDqeLots(rawDqeLots, scaleFactor * realCostFactor)
             : [],
@@ -991,7 +1019,7 @@ export default function ProjectDetail() {
       personalized,
       scaleFactor,
       realCostFactor,
-      sdbEstimateData,
+      sdbDisplayLots,
     ],
   );
 
@@ -2038,6 +2066,7 @@ export default function ProjectDetail() {
                             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 px-3 py-2 text-[10px] text-muted-foreground">
                               <span className="font-semibold text-foreground/80">{SDB_PRICE_BASE.label}</span>
                               <span>· mise à jour du {new Date(SDB_PRICE_BASE.updatedAt).toLocaleDateString("fr-FR")}</span>
+                              <span>· TVA {sdbVatRate} %</span>
                               {sdbEstimateData.adminPricedLines > 0 && (
                                 <span className="text-emerald-700 dark:text-emerald-400">
                                   · {sdbEstimateData.adminPricedLines} prix administré

@@ -46,9 +46,9 @@ import {
   type TechnicalRooms,
 } from "../lib/dqeTechnicalLots";
 import {
-  SDB_VAT_RATE,
   buildSdbEstimate,
   isRenovationSdb,
+  resolveSdbVatRate,
   type SdbOptions,
   type SdbScenario,
 } from "../lib/renovationSdbPricing";
@@ -1192,6 +1192,8 @@ export function generateDqe(input: DqeInput): DqeResult {
   // de la pièce, et la TVA est calculée par ligne. Total du DQE = somme réelle
   // des postes.
   if (isRenovationSdb(category)) {
+    // Taux de TVA effectif : réglé par l'administrateur, sinon 19 %.
+    const sdbVatRate = resolveSdbVatRate(input.sdbVatRate);
     const adminPriceOf = (designation: string): number | undefined => {
       if (!input.livePrices) return undefined;
       const key = normKey(DQE_TO_CATALOG[designation] ?? designation);
@@ -1203,7 +1205,7 @@ export function generateDqe(input: DqeInput): DqeResult {
       scenario: input.scenario ?? "standard",
       options: input.sdbOptions,
       regionFactor,
-      vatRate: input.sdbVatRate,
+      vatRate: sdbVatRate,
       resolvePrice: (designation, fallbackHT) => {
         const adminTTC = adminPriceOf(designation);
         // Les prix administrés (`materialPrices`) sont saisis TTC, comme tous
@@ -1211,7 +1213,7 @@ export function generateDqe(input: DqeInput): DqeResult {
         // le calcul de la TVA de la ligne.
         return adminTTC != null
           ? {
-              price: round2(adminTTC / (1 + SDB_VAT_RATE / 100)),
+              price: round2(adminTTC / (1 + sdbVatRate / 100)),
               source: "prix_administre" as const,
             }
           : { price: fallbackHT, source: "grille_2026" as const };
