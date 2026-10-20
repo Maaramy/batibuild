@@ -1118,6 +1118,11 @@ export interface DqeInput {
    * un poste optionnel non sélectionné n'est jamais facturé.
    */
   sdbOptions?: Partial<SdbOptions>;
+  /**
+   * Taux de TVA du DQE de rénovation de salle de bain, réglé par
+   * l'administrateur (`bimConfig.sdbVatRate`). Absent → 19 %.
+   */
+  sdbVatRate?: number;
 }
 
 /**
@@ -1198,6 +1203,7 @@ export function generateDqe(input: DqeInput): DqeResult {
       scenario: input.scenario ?? "standard",
       options: input.sdbOptions,
       regionFactor,
+      vatRate: input.sdbVatRate,
       resolvePrice: (designation, fallbackHT) => {
         const adminTTC = adminPriceOf(designation);
         // Les prix administrés (`materialPrices`) sont saisis TTC, comme tous

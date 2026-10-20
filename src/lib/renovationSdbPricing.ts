@@ -60,6 +60,17 @@ export const SDB_PRICE_BASE = {
 /** Taux de TVA appliqué à chaque ligne (Tunisie, taux de droit commun). */
 export const SDB_VAT_RATE = 19;
 
+/**
+ * Taux de TVA effectif : celui réglé par l'administrateur (0-30 %) s'il est
+ * valide, sinon le taux de droit commun. Une valeur aberrante n'est jamais
+ * appliquée silencieusement : elle retombe sur 19 %.
+ */
+export function resolveSdbVatRate(value?: number | null): number {
+  const rate = Number(value);
+  if (!Number.isFinite(rate) || rate < 0 || rate > 30) return SDB_VAT_RATE;
+  return rate;
+}
+
 /** Options réellement sélectionnées par le client. */
 export interface SdbOptions {
   /** Équipement de douche retenu. */
@@ -843,6 +854,7 @@ function buildLine(
   options: SdbOptions,
   scenario: SdbScenario,
   regionFactor: number,
+  vatRate: number,
   resolvePrice?: SdbPriceResolver,
 ): SdbLine | null {
   const rawQty = item.quantity(geometry, options);
@@ -864,7 +876,7 @@ function buildLine(
   if (!(unitPriceHT > 0)) return null;
 
   const totalHT = round2(quantity * unitPriceHT);
-  const vatAmount = round2((totalHT * SDB_VAT_RATE) / 100);
+  const vatAmount = round2((totalHT * vatRate) / 100);
   const totalTTC = round2(totalHT + vatAmount);
 
   return {
@@ -876,7 +888,7 @@ function buildLine(
     unitPriceLaborHT: laborHT,
     totalHT,
     laborHT: round2(quantity * laborHT),
-    vatRate: SDB_VAT_RATE,
+    vatRate,
     vatAmount,
     totalTTC,
     // 4 décimales : sur de grandes quantités (colle, joint en kg), un prix
@@ -943,9 +955,12 @@ export function buildSdbEstimate(params: {
   scenario?: SdbScenario;
   options?: Partial<SdbOptions>;
   regionFactor?: number;
+  /** Taux de TVA réglé par l'administrateur (défaut : 19 %). */
+  vatRate?: number;
   resolvePrice?: SdbPriceResolver;
 }): SdbEstimate {
   const scenario = params.scenario ?? "standard";
+  const vatRate = resolveSdbVatRate(params.vatRate);
   const options: SdbOptions = { ...SDB_DEFAULT_OPTIONS, ...(params.options ?? {}) };
   const regionFactor =
     Number.isFinite(params.regionFactor) && (params.regionFactor ?? 0) > 0
@@ -956,7 +971,7 @@ export function buildSdbEstimate(params: {
   const lots: SdbLot[] = LOT_ORDER.map((id) => {
     const lines = SDB_ITEMS.filter((item) => item.lot === id)
       .map((item) =>
-        buildLine(item, geometry, options, scenario, regionFactor, params.resolvePrice),
+        buildLine(item, geometry, options, scenario, regionFactor, vatRate, params.resolvePrice),
       )
       .filter((line): line is SdbLine => line !== null);
     const subtotalHT = round2(lines.reduce((s, l) => s + l.totalHT, 0));
@@ -978,7 +993,7 @@ export function buildSdbEstimate(params: {
     geometry,
     scenario,
     options,
-    vatRate: SDB_VAT_RATE,
+    vatRate,
     priceBase: SDB_PRICE_BASE,
     adminPricedLines: lots.reduce(
       (n, l) => n + l.lines.filter((line) => line.source === "prix_administre").length,
