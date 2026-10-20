@@ -124,9 +124,45 @@ const BIM_COLORS: Record<string, string> = {
   main_oeuvre: "#22c55e", transport: "#84cc16", etudes_imprevus: "#ef4444",
   // Catégories du « Quantitatif détaillé » (lots du moteur DQE) : « Répartition »
   // et « Détail par catégorie » reprennent EXACTEMENT ces catégories, elles
-  // doivent donc porter une couleur elles aussi.
+  // doivent donc porter une couleur elles aussi. Sans entrée dédiée, un lot
+  // retombait sur un gris uniforme : le graphique et les jauges paraissaient
+  // décolorés. Chaque lot reçoit donc une teinte distincte et stable.
   frais_preliminaires: "#ef4444", amenagements_exterieurs: "#14b8a6", vrd: "#84cc16",
+  depose_demolition: "#f97316", depose: "#f97316", terrassement: "#b45309",
+  preparation: "#ca8a04", structure: "#2563eb", cloisons: "#fbbf24",
+  facade: "#0ea5e9", charpente: "#b45309", toiture: "#dc2626",
+  etancheite: "#0d9488", carrelage: "#8b5cf6", revetements: "#a855f7",
+  peinture: "#ec4899", menuiserie: "#14b8a6", portes: "#0891b2",
+  plomberie: "#0284c7", sanitaires: "#6366f1", robinetterie: "#06b6d4",
+  chauffe_eau: "#22d3ee", electricite: "#eab308", appareillage: "#f59e0b",
+  cablage: "#facc15", tableau: "#d97706", eclairage: "#fbbf24",
+  ventilation: "#84cc16", cvc: "#f43f5e", froid: "#0ea5e9",
+  cuisine_pro: "#d946ef", filtration: "#06b6d4", coque: "#38bdf8",
+  enseignes: "#a855f7", amenagement: "#10b981", amenagements: "#10b981",
+  finition: "#f472b6", nettoyage: "#34d399", nettoyage_finition: "#34d399",
+  essais: "#e11d48", terre: "#a16207", divers: "#64748b",
 };
+
+/**
+ * Palette de repli : une catégorie sans teinte dédiée (lot ajouté plus tard)
+ * reçoit une couleur vive et STABLE (même clé → même couleur), jamais un gris.
+ */
+const FALLBACK_COLORS = [
+  "#0ea5e9", "#f97316", "#8b5cf6", "#22c55e",
+  "#ec4899", "#eab308", "#14b8a6", "#ef4444",
+] as const;
+
+/** Couleur d'une catégorie, identique dans le graphique, la légende et les jauges. */
+function categoryColor(category: string | null | undefined): string {
+  const key = String(category ?? "");
+  const known = BIM_COLORS[key];
+  if (known) return known;
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 31 + key.charCodeAt(i)) % 104729;
+  }
+  return FALLBACK_COLORS[hash % FALLBACK_COLORS.length];
+}
 
 const BIM_ICONS: Record<string, any> = {
   gros_oeuvre: Building2, second_oeuvre: Paintbrush, equipements: Plug,
@@ -139,7 +175,7 @@ const BIM_ICONS: Record<string, any> = {
 // la couleur propre au travail complémentaire prime (scénario « Personnalisé »),
 // sinon la palette BIM de la catégorie.
 const chartColor = (item: { category?: string; color?: string }) =>
-  item.color ?? BIM_COLORS[String(item.category ?? "")] ?? "#888";
+  item.color ?? categoryColor(item.category);
 
 // Régions comparées dans la carte « Impact région » : mise en page et ordre
 // d'origine (inchangés). Les montants viennent du comparatif calculé pour le
@@ -2005,7 +2041,7 @@ export default function ProjectDetail() {
                                         <td colSpan={5} className="py-2 px-3">
                                           <button onClick={(e) => { e.stopPropagation(); setOpenCat(openCat === cat.label ? "__all" : cat.label); }}
                                             className="flex items-center gap-1.5 w-full text-left">
-                                            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: BIM_COLORS[cat.category] ?? "#888" }} />
+                                            <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: categoryColor(cat.category) }} />
                                             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">{cat.label}</span>
                                             <span className="text-[9px] text-muted-foreground/50 ml-auto">{cat.items.length} postes — {fmt(cat.estimatedCost)}</span>
                                             {openCat === cat.label || openCat === "__all_expanded" ? <ChevronUp className="h-3 w-3 text-muted-foreground/50" /> : <ChevronDown className="h-3 w-3 text-muted-foreground/50" />}
