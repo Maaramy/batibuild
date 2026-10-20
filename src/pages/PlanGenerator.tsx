@@ -69,7 +69,6 @@ import {
   resolvePlanPagePhase,
   resolvePlanPageView,
 } from "@/lib/planPageState";
-import { architecturalSpecFor } from "@/lib/architecturalSpecs";
 
 /**
  * Six étapes du parcours de préparation des plans : même nombre d'étapes que
@@ -227,12 +226,6 @@ export default function PlanGenerator() {
   }, [project, planWorks, worksEligible]);
 
   const variants = allVariants;
-  // Spécifications du type de projet : elles décrivent exactement le programme
-  // appliqué au moteur de plans (aucun texte générique « résidentiel »).
-  const architecturalSpec = useMemo(
-    () => architecturalSpecFor(project?.category as string | undefined),
-    [project?.category],
-  );
   const selectProjectPlan = useMutation(api.projects.selectProjectPlan);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
   const [savingPlanId, setSavingPlanId] = useState<string | null>(null);
@@ -380,11 +373,7 @@ export default function PlanGenerator() {
                   </div>
                 </div>
                 <SynthStat icon={Ruler} label="Surface" value={`${project.surface ?? 120} m²`} />
-                <SynthStat
-                  icon={Layers3}
-                  label="Niveaux"
-                  value={`${variants[0]?.floors.length ?? Math.max(1, project.floors ?? 1)}`}
-                />
+                <SynthStat icon={Layers3} label="Niveaux" value={`${Math.max(1, project.floors ?? 1)}`} />
                 <SynthStat icon={Compass} label="Variantes" value={`${variants.length}`} />
                 <SynthStat
                   icon={BadgeCheck}
@@ -394,91 +383,6 @@ export default function PlanGenerator() {
                 />
               </CardContent>
             </Card>
-
-            {/* ── Spécifications du type de projet ── */}
-            {architecturalSpec && (
-              <Card className="border-primary/15">
-                <CardHeader className="pb-2 pt-4 px-4 sm:px-5">
-                  <CardTitle className="text-sm font-bold tracking-tight flex items-center gap-2">
-                    <ScanLine className="h-4 w-4 text-primary" />
-                    Spécifications · {architecturalSpec.label}
-                  </CardTitle>
-                  <p className="text-[11px] text-muted-foreground leading-snug">
-                    Programme appliqué aux 10 variantes : agencement, circulations,
-                    équipements et plans techniques adaptés à ce type de bâtiment.
-                  </p>
-                </CardHeader>
-                <CardContent className="px-4 sm:px-5 space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-                    <SpecBlock title="Espaces" items={architecturalSpec.spaces} />
-                    <SpecBlock
-                      title="Circulation & extérieurs"
-                      items={[architecturalSpec.circulation, ...architecturalSpec.exterior]}
-                    />
-                    <SpecBlock
-                      title="Équipements"
-                      items={[...architecturalSpec.equipment, architecturalSpec.technical.ventilation ?? ""]}
-                    />
-                    <SpecBlock
-                      title="Plans techniques"
-                      items={[architecturalSpec.technical.plumbing, architecturalSpec.technical.electrical]}
-                    />
-                  </div>
-                  <div className="rounded-md border border-amber-500/25 bg-amber-500/[0.05] px-3 py-2">
-                    <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                      À vérifier avant travaux (jamais validé par l'IA)
-                    </p>
-                    <ul className="mt-1 list-disc pl-4 space-y-0.5 text-[10px] leading-relaxed text-amber-800/90 dark:text-amber-200/80">
-                      {architecturalSpec.regulation.map((r) => (
-                        <li key={r}>{r}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Paramètres spécifiques au type (hypothèses par défaut)
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-1.5 text-[10px]"
-                        onClick={() => navigate(`/dashboard/project/${project._id}`)}
-                      >
-                        Ajuster dans la fiche projet
-                      </Button>
-                    </div>
-                    <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-1">
-                      {architecturalSpec.questions.map((question) => (
-                        <div
-                          key={question.id}
-                          className="flex items-baseline justify-between gap-2 rounded-md border bg-background/60 px-2 py-1"
-                          title={question.hint}
-                        >
-                          <span className="text-[10px] text-muted-foreground truncate">
-                            {question.label}
-                          </span>
-                          <span className="text-[10px] font-medium tabular-nums shrink-0">
-                            {question.kind === "boolean"
-                              ? question.defaultValue
-                                ? "oui"
-                                : "non"
-                              : `${question.defaultValue}${question.unit ? ` ${question.unit}` : ""}`}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {architecturalSpec.assumptions.map((a) => (
-                      <Badge key={a} variant="outline" className="text-[9px] font-normal max-w-full whitespace-normal text-left">
-                        Hypothèse : {a}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             {/* ── Grille des variantes ── */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
@@ -607,17 +511,12 @@ function VariantCard({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
-  // Rénovation : bascule entre le plan de l'existant et le plan projeté.
-  const [showExisting, setShowExisting] = useState(false);
   // Téléchargement PDF : contrôle centralisé (réservé au forfait payant Client Pro).
   const pdfGate = usePdfGate();
   // Sélection partagée 2D ↔ 3D : cliquer une pièce dans l'une des vues la
   // met en surbrillance dans l'autre (même identifiant de pièce).
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
-  const floor: FloorPlan =
-    showExisting && variant.renovation
-      ? variant.renovation.existing
-      : variant.floors[Math.min(floorIdx, variant.floors.length - 1)];
+  const floor: FloorPlan = variant.floors[Math.min(floorIdx, variant.floors.length - 1)];
   // Tableau des surfaces INTÉRIEURES : le patio extérieur est présenté dans
   // le plan de masse et la catégorie « extérieure », jamais dans le bâti.
   const surfaces = useMemo(() => {
@@ -633,10 +532,7 @@ function VariantCard({
     [floor],
   );
   const analysis = useMemo(() => analyzeFloorPlan(floor), [floor]);
-  // Libellé du niveau fourni par le moteur (« État existant », « État projeté »,
-  // « Rez-de-chaussée », « Étage 1 ») : jamais réinventé par l'interface.
-  const floorLabel =
-    floor.label ?? (floor.level === 0 ? "Rez-de-chaussée" : `Niveau ${floor.level}`);
+  const floorLabel = floor.level === 0 ? "Rez-de-chaussée" : `Niveau ${floor.level}`;
   const v = variant.validation;
   const selectedRoom = selectedRoomId
     ? floor.rooms.find((r) => r.id === selectedRoomId) ?? null
@@ -712,43 +608,10 @@ function VariantCard({
               </span>
             </span>
             <span>
-              Surface utile{" "}
-              <span className="font-medium text-foreground tabular-nums">
-                {(variant.surfaces.useful ?? variant.surfaces.interior).toFixed(0)} m²
-              </span>
-            </span>
-            {(variant.surfaces.common ?? 0) > 0 && (
-              <span>
-                Parties communes{" "}
-                <span className="font-medium text-foreground tabular-nums">
-                  {variant.surfaces.common!.toFixed(0)} m²
-                </span>
-              </span>
-            )}
-            <span>
               Niveaux{" "}
               <span className="font-medium text-foreground tabular-nums">{variant.floors.length}</span>
             </span>
           </div>
-          {variant.renovation && (
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-amber-500/30 bg-amber-500/[0.05] px-2.5 py-1.5 text-[10px]">
-              <span className="font-semibold text-amber-700 dark:text-amber-300">
-                Existant → Projeté
-              </span>
-              <span className="tabular-nums">
-                {variant.renovation.surfaces.before.built.toFixed(0)} →{" "}
-                {variant.renovation.surfaces.after.built.toFixed(0)} m² bâtis
-              </span>
-              <span className="tabular-nums">
-                Utile {variant.renovation.surfaces.before.useful.toFixed(0)} →{" "}
-                {variant.renovation.surfaces.after.useful.toFixed(0)} m²
-              </span>
-              <span className="text-muted-foreground">
-                {variant.renovation.partitions.removed.length} supprimée(s) ·{" "}
-                {variant.renovation.partitions.created.length} créée(s)
-              </span>
-            </div>
-          )}
         </CardHeader>
 
         <CardContent className="px-4 space-y-3">
@@ -763,28 +626,7 @@ function VariantCard({
                 <TabsTrigger value="3d" className="text-[11px] h-6 px-2.5">Vue 3D</TabsTrigger>
               </TabsList>
             </Tabs>
-            {variant.renovation && (
-              <div className="flex items-center gap-1">
-                {[
-                  { key: false, label: "Projeté" },
-                  { key: true, label: "Existant" },
-                ].map((option) => (
-                  <button
-                    key={option.label}
-                    onClick={() => setShowExisting(option.key)}
-                    className={cn(
-                      "h-6 px-2 rounded-md text-[10px] font-medium border transition-colors cursor-pointer",
-                      showExisting === option.key
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background text-muted-foreground border-border hover:border-primary/40",
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            )}
-            {!variant.renovation && variant.floors.length > 1 && (
+            {variant.floors.length > 1 && (
               <div className="flex items-center gap-1">
                 {variant.floors.map((f) => (
                   <button
@@ -797,13 +639,7 @@ function VariantCard({
                         : "bg-background text-muted-foreground border-border hover:border-primary/40",
                     )}
                   >
-                    {f.label === "État existant"
-                      ? "Existant"
-                      : f.label === "État projeté"
-                        ? "Projeté"
-                        : f.level === 0
-                          ? "RDC"
-                          : `N${f.level}`}
+                    {f.level === 0 ? "RDC" : `N${f.level}`}
                   </button>
                 ))}
               </div>
@@ -1055,7 +891,7 @@ function VariantCard({
             <div className="px-3 py-1.5 bg-muted/50 flex items-center gap-1.5">
               <Ruler className="h-3 w-3 text-muted-foreground" />
               <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Tableau des surfaces · {floorLabel}
+                Tableau des surfaces · {floor.level === 0 ? "Rez-de-chaussée" : `Niveau ${floor.level}`}
               </span>
             </div>
             <table className="w-full text-[11px]">
@@ -1102,38 +938,6 @@ function VariantCard({
                 : `Parcelle de référence estimée (${variant.site.plot.area.toFixed(0)} m²) : à confirmer avant permis de bâtir.`}
             </span>
           </div>
-
-          {/* Rénovation : cloisons et travaux réellement chiffrés */}
-          {variant.renovation && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div className="rounded-lg border px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Cloisons & pièces
-                </p>
-                <ul className="mt-1 space-y-0.5 text-[10px] leading-relaxed">
-                  <li className="text-emerald-700 dark:text-emerald-400">
-                    Conservées : {variant.renovation.partitions.kept.length || "aucune"}
-                  </li>
-                  <li className="text-red-600">
-                    Supprimées : {variant.renovation.partitions.removed.slice(0, 4).join(", ") || "aucune"}
-                  </li>
-                  <li className="text-primary">
-                    Créées : {variant.renovation.partitions.created.slice(0, 4).join(", ") || "aucune"}
-                  </li>
-                </ul>
-              </div>
-              <div className="rounded-lg border px-3 py-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Travaux chiffrés (jamais du neuf)
-                </p>
-                <ul className="mt-1 list-disc pl-4 space-y-0.5 text-[10px] leading-relaxed text-muted-foreground">
-                  {variant.renovation.scope.map((s) => (
-                    <li key={s}>{s}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
 
           {/* Note conceptuelle */}
           <div className="rounded-lg border border-violet-500/20 bg-violet-500/[0.04] px-3 py-2.5">
@@ -1305,25 +1109,6 @@ function AnalysisPanel({
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function SpecBlock({ title, items }: { title: string; items: string[] }) {
-  const visible = items.filter((item) => item.trim().length > 0);
-  return (
-    <div className="rounded-md border bg-background/60 px-2.5 py-2">
-      <p className="text-[9px] font-semibold uppercase tracking-wide text-primary/80">
-        {title}
-      </p>
-      <ul className="mt-1 space-y-0.5 text-[10px] leading-relaxed text-muted-foreground">
-        {visible.map((item) => (
-          <li key={item} className="flex gap-1">
-            <span className="text-primary/60 shrink-0">•</span>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

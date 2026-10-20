@@ -44,8 +44,6 @@ export type RoomKind =
   | "patio"
   | "buanderie";
 
-import { architecturalSpecFor } from "./architecturalSpecs";
-
 export type WallSide = "N" | "S" | "E" | "W";
 
 export interface DoorSpec {
@@ -87,12 +85,6 @@ export interface PlanRoom {
 export interface FloorPlan {
   /** 0 = rez-de-chaussée */
   level: number;
-  /**
-   * Libellé du niveau tel qu'il doit être affiché (« Rez-de-chaussée »,
-   * « Étage 1 », « État existant », « État projeté »). Il vient du moteur :
-   * l'interface ne réinvente jamais le nom d'un niveau.
-   */
-  label?: string;
   /** Emprise X (longueur, m) */
   length: number;
   /** Emprise Y (largeur/profondeur, m) */
@@ -175,16 +167,6 @@ export interface SurfaceBreakdown {
   complementary: number;
   /** Surface bâtie totale = intérieure + complémentaire. */
   built: number;
-  /**
-   * Surface utile = surface intérieure hors circulations (couloirs, halls,
-   * escaliers). C'est la surface réellement affectée aux pièces.
-   */
-  useful?: number;
-  /**
-   * Parties communes (halls, paliers, escaliers) — sous-ensemble de la surface
-   * intérieure, jamais ajouté une seconde fois à la surface bâtie.
-   */
-  common?: number;
   /** Surface bâtie au sol (rez-de-chaussée hors patio extérieur). */
   groundBuilt: number;
   /** Emprise au sol du bâti (patio compris). */
@@ -225,47 +207,6 @@ export interface FloorPlanVariant {
   /** Note conceptuelle générée (description architecturale) */
   conceptNote: string;
   validation: PlanValidation;
-  /**
-   * Rénovation complète : comparaison existant / projeté. Absent pour les
-   * projets de construction neuve. Les quantités ne portent que sur les
-   * travaux listés dans `scope`.
-   */
-  renovation?: RenovationComparison;
-}
-
-/** Comparaison avant / après d'une rénovation complète. */
-export interface RenovationComparison {
-  /** Plan relevé de l'état existant (même emprise que le projeté). */
-  existing: FloorPlan;
-  /** Plan projeté après rénovation. */
-  projected: FloorPlan;
-  surfaces: {
-    before: RenovationSurfaces;
-    after: RenovationSurfaces;
-  };
-  /** Cloisons / pièces conservées, supprimées et créées. */
-  partitions: {
-    kept: string[];
-    removed: string[];
-    created: string[];
-  };
-  /** Éléments structurels à préserver (jamais déposés sans validation). */
-  structural: string[];
-  /** Travaux réellement pris en compte dans les quantités et le coût. */
-  scope: string[];
-  /** Base de calcul : travaux de rénovation, jamais une construction neuve. */
-  costBasis: "travaux";
-}
-
-export interface RenovationSurfaces {
-  /** Surface bâtie intérieure. */
-  built: number;
-  /** Surface utile hors circulations (couloirs, hall, escalier). */
-  useful: number;
-  /** Surface des pièces humides (cuisine, SdB, WC). */
-  wet: number;
-  /** Nombre de pièces fermées. */
-  rooms: number;
 }
 
 export interface FloorPlanInput {
@@ -379,7 +320,7 @@ export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
 
 // ── Familles de projets ─────────────────────────────────────────────────────
 
-type ProjectFamily = "residential" | "commercial" | "logistics" | "restoration" | "renovation";
+type ProjectFamily = "residential" | "commercial" | "logistics" | "restoration";
 
 function familyForCategory(category: string): ProjectFamily {
   switch (category) {
@@ -392,8 +333,6 @@ function familyForCategory(category: string): ProjectFamily {
     case "cafe":
     case "restaurant":
       return "restoration";
-    case "renovation_complete":
-      return "renovation";
     default:
       // maison, villa, appartement, studio, duplex, immeuble, projet_neuf…
       return "residential";
@@ -422,9 +361,7 @@ function residentialProgram(
   floorAreaPerLevel: number,
   levels: number,
   style?: StyleProfile,
-  kind: "maison" | "villa" = "maison",
 ): { level: number; items: ProgramItem[] }[] {
-  const isVilla = kind === "villa";
   const area = floorAreaPerLevel;
   const tune = style?.tuning ?? {};
   // Le nombre de chambres se déduit de la surface TOTALE du logement (et non
@@ -462,16 +399,10 @@ function residentialProgram(
 
   // Répartition des chambres sur les étages (RDC gardé pour les espaces de vie)
   const bedroomLevels: number[][] = Array.from({ length: levels }, () => []);
-  // Villa : la chambre principale reste au RDC (suite parentale) ; les autres
-  // chambres montent à l'étage. Une maison garde toutes ses chambres en zone
-  // nuit, à l'étage ou au RDC selon le nombre de niveaux.
-  const suiteDownstairs = isVilla && levels > 1 && bedrooms >= 1;
-  const bedroomStart = suiteDownstairs ? 1 : 0;
-  let bi = bedroomStart;
-  if (suiteDownstairs) bedroomLevels[0].push(0);
+  let bi = 0;
   // Remplir à partir du dernier niveau en remontant (les étages portent les chambres).
   // Niveau unique : la boucle est ignorée, le repli ci-dessous place tout au RDC.
-  for (let pass = 0; levels > 1 && pass < bedrooms - bedroomStart; pass++) {
+  for (let pass = 0; levels > 1 && pass < bedrooms; pass++) {
     const lvl = levels - 1 - (pass % Math.max(1, levels - 1));
     bedroomLevels[Math.max(1, Math.min(levels - 1, lvl))].push(bi++);
   }
@@ -528,69 +459,6 @@ function residentialProgram(
           habitable: true,
         });
       }
-      // Villa : réception d'apparat distincte du séjour familial, office
-      // adjacent à la cuisine et salle d'eau privative de la suite parentale.
-      // Ce sont des espaces réellement différents d'une maison standard.
-      if (isVilla) {
-        items.push({
-          kind: "reception",
-          label: "Réception",
-          target: Math.max(14, area * 0.14),
-          min: 10,
-          // La réception définit la villa : elle ne peut pas être retirée par
-          // l'ajustement des surfaces, même sur un niveau compact.
-          priority: 19,
-          habitable: true,
-        });
-        if (totalArea >= 150) {
-          items.push({
-            kind: "cuisine",
-            label: "Office",
-            target: 7,
-            min: 4.5,
-            priority: 11,
-            habitable: true,
-          });
-        }
-        if (suiteDownstairs) {
-          items.push({
-            kind: "sdb",
-            label: "Salle de bain privative",
-            target: 6.5,
-            min: 3.5,
-            // Elle fait partie de la suite parentale : protégée comme elle.
-            priority: 18,
-          });
-        }
-        // Chambre de service + salle d'eau : uniquement sur les grands
-        // programmes, jamais inventées sur une villa de 120 m².
-        if (levels > 1 && totalArea >= 200) {
-          items.push({
-            kind: "chambre",
-            label: "Chambre de service",
-            target: 10,
-            min: 8,
-            priority: 7,
-            habitable: true,
-          });
-          items.push({
-            kind: "sdb",
-            label: "Salle d'eau de service",
-            target: 3.5,
-            min: 2.5,
-            priority: 6,
-          });
-        }
-        if (!tune.addLaundry) {
-          items.push({
-            kind: "buanderie",
-            label: "Buanderie / linge",
-            target: 5,
-            min: 3,
-            priority: 7,
-          });
-        }
-      }
       items.push({
         kind: "wc",
         label: "WC invités",
@@ -613,9 +481,8 @@ function residentialProgram(
       }
       // Bureau / chambre d'appoint au RDC des maisons à étage suffisamment
       // grandes : usage courant (télétravail, invités) et absorbe l'espace
-      // restant sans créer de pièces de service surdimensionnées. La villa en
-      // dispose dès qu'elle a la surface, même de plain-pied.
-      if ((levels > 1 && area >= 85) || (isVilla && area >= 80)) {
+      // restant sans créer de pièces de service surdimensionnées.
+      if (levels > 1 && area >= 85) {
         items.push({
           kind: "bureau",
           label: "Bureau",
@@ -634,11 +501,6 @@ function residentialProgram(
           min: 3,
           priority: 14,
         });
-      }
-      // Villa à étage : la chambre principale reste au RDC (suite parentale),
-      // avec sa salle d'eau privative. Les autres chambres montent à l'étage.
-      if (suiteDownstairs) {
-        items.push(mkChambre(0));
       }
       // Buanderie / local linge : pièce de service fréquente en Tunisie.
       if (tune.addLaundry) {
@@ -666,10 +528,8 @@ function residentialProgram(
       // couvert intégré au bâti (surface bâtie complémentaire). La cuisine
       // extérieure, le jardin et la piscine sont traités EXCLUSIVEMENT dans le
       // plan de masse (`site`), jamais comme pièces de la maison.
-      // Le garage est une demande explicite du projet : il ne doit jamais être
-      // sacrifié par l'ajustement des surfaces (priorité protégée).
       if (works.includes("garage") || (input.garages ?? 0) > 0) {
-        items.push({ kind: "garage", label: "Garage", target: 18, min: 12, priority: 18 });
+        items.push({ kind: "garage", label: "Garage", target: 18, min: 12, priority: 8 });
       }
 
       // Sur un R+1 avec peu de chambres, quelques chambres peuvent monter au RDC
@@ -738,10 +598,25 @@ function residentialProgram(
   return result;
 }
 
+function commercialProgram(area: number): ProgramItem[] {
+  const offices = Math.max(1, Math.min(5, Math.floor(area / 38)));
+  const items: ProgramItem[] = [
+    { kind: "reception", label: "Accueil / Réception", target: Math.max(12, area * 0.12), min: 8, priority: 18, habitable: true, unique: true },
+    { kind: "openspace", label: "Espace de travail ouvert", target: Math.max(20, area * 0.34), min: 14, priority: 17, habitable: true, unique: true },
+  ];
+  for (let i = 0; i < offices; i++) {
+    items.push({ kind: "bureau", label: i === 0 ? "Bureau direction" : `Bureau ${i + 1}`, target: 13, min: 8, priority: 10, habitable: true });
+  }
+  items.push({ kind: "reunion", label: "Salle de réunion", target: 16, min: 9, priority: 11, habitable: true });
+  items.push({ kind: "sanitaire", label: "Sanitaires", target: 6, min: 3.5, priority: 6 });
+  items.push({ kind: "cuisine", label: "Cuisine personnel", target: 8, min: 5, priority: 5 });
+  return items;
+}
+
 function logisticsProgram(area: number): ProgramItem[] {
   const items: ProgramItem[] = [
     { kind: "stockage", label: "Hall de stockage principal", target: Math.max(40, area * 0.58), min: 30, priority: 20, unique: true },
-    { kind: "logistique", label: "Quai de chargement / logistique", target: Math.max(20, area * 0.18), min: 14, priority: 15 },
+    { kind: "logistique", label: "Zone chargement / logistique", target: Math.max(20, area * 0.18), min: 14, priority: 15 },
   ];
   const offices = Math.max(1, Math.min(3, Math.floor(area / 120)));
   for (let i = 0; i < offices; i++) {
@@ -749,7 +624,6 @@ function logisticsProgram(area: number): ProgramItem[] {
   }
   items.push({ kind: "vestiaire", label: "Vestiaires", target: 8, min: 5, priority: 6 });
   items.push({ kind: "sanitaire", label: "Sanitaires", target: 5, min: 3, priority: 6 });
-  items.push({ kind: "stockage", label: "Local technique", target: 4, min: 2.5, priority: 7 });
   return items;
 }
 
@@ -817,7 +691,7 @@ function restorationProgram(
   });
   items.push({
     kind: "chambre_froide",
-    label: "Chambre froide",
+    label: "Stockage / Frigos",
     target: serviceArea * 0.18,
     min: 5,
     priority: 12,
@@ -870,701 +744,6 @@ function restorationProgram(
   });
 
   return items;
-}
-
-// ── Programmes propres à chaque type de projet ─────────────────────────────
-//
-// Chaque type de projet possède SON programme : aucun modèle résidentiel
-// générique n'est appliqué à un appartement, un local, un bureau, un entrepôt
-// ou un projet collectif. Les parts de surface sont exprimées en ratio de la
-// surface du niveau ; `fitProgram` les ajuste ensuite à la géométrie réelle.
-
-const clampCount = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, Math.round(value)));
-
-function apartmentProgram(
-  input: FloorPlanInput,
-  area: number,
-  style?: StyleProfile,
-): ProgramItem[] {
-  const bedrooms = clampCount(input.bedrooms ?? area / 28, 1, 5);
-  const bathrooms = clampCount(input.bathrooms ?? (bedrooms >= 3 ? 2 : 1), 1, 3);
-  // Cuisine ouverte sur les partis qui recherchent la profondeur visuelle,
-  // fermée sur les partis qui protègent le séjour des odeurs.
-  const openKitchen = style?.layout === "garden" || style?.layout === "patio";
-  const items: ProgramItem[] = [
-    { kind: "hall", label: "Entrée", target: 4.5, min: 2.5, priority: 16 },
-    {
-      kind: "sejour",
-      label: openKitchen ? "Séjour avec cuisine ouverte" : "Séjour",
-      target: Math.max(18, area * 0.3),
-      min: 14,
-      priority: 20,
-      habitable: true,
-      unique: true,
-    },
-    {
-      kind: "cuisine",
-      label: openKitchen ? "Cuisine ouverte" : "Cuisine",
-      target: Math.max(7, Math.min(14, area * 0.11)),
-      min: 5.5,
-      priority: 15,
-      habitable: true,
-    },
-    { kind: "wc", label: "WC", target: 2.5, min: 1.5, priority: 8 },
-    {
-      kind: "stockage",
-      label: "Rangement intégré",
-      target: 3,
-      min: 1.5,
-      priority: 6,
-    },
-  ];
-  if (area >= 75) {
-    items.push({
-      kind: "sejour",
-      label: "Salle à manger",
-      target: 11,
-      min: 8,
-      priority: 13,
-      habitable: true,
-    });
-  }
-  for (let i = 0; i < bedrooms; i++) {
-    items.push({
-      kind: "chambre",
-      label: i === 0 ? "Chambre principale" : `Chambre ${i + 1}`,
-      target: i === 0 ? 14 : 11,
-      min: 8.5,
-      priority: 14 - i,
-      habitable: true,
-    });
-  }
-  for (let b = 0; b < bathrooms; b++) {
-    items.push({
-      kind: "sdb",
-      label: b === 0 ? "Salle de bain" : `Salle d'eau ${b + 1}`,
-      target: 5.5,
-      min: 3.5,
-      priority: 11 - b,
-    });
-  }
-  if (bedrooms >= 3) {
-    items.push({ kind: "couloir", label: "Dégagement", target: 4.5, min: 2.5, priority: 7 });
-  }
-  if (area >= 90) {
-    items.push({
-      kind: "buanderie",
-      label: "Buanderie / lave-linge",
-      target: 4,
-      min: 2.5,
-      priority: 6,
-    });
-  }
-  return items;
-}
-
-function studioProgram(input: FloorPlanInput, area: number): ProgramItem[] {
-  const items: ProgramItem[] = [
-    {
-      kind: "sejour",
-      label: "Espace de vie multifonctionnel",
-      target: Math.max(16, area * 0.42),
-      min: 12,
-      priority: 20,
-      habitable: true,
-      unique: true,
-    },
-    {
-      kind: "chambre",
-      label: "Zone de couchage",
-      target: Math.max(6, area * 0.18),
-      min: 4.5,
-      priority: 16,
-      habitable: true,
-    },
-    {
-      kind: "cuisine",
-      label: "Kitchenette",
-      target: Math.max(5, area * 0.12),
-      min: 3.5,
-      priority: 13,
-      habitable: true,
-    },
-    { kind: "sdb", label: "Salle d'eau", target: 4.5, min: 2.6, priority: 14 },
-    { kind: "stockage", label: "Rangement intégré", target: 2.5, min: 1.2, priority: 6 },
-  ];
-  if (area >= 30) {
-    items.push({ kind: "hall", label: "Entrée", target: 3, min: 2, priority: 10 });
-  }
-  if (input.wcs && input.wcs > 0 && area >= 32) {
-    items.push({ kind: "wc", label: "WC séparé", target: 2, min: 1.4, priority: 5 });
-  }
-  return items;
-}
-
-function duplexPrograms(
-  input: FloorPlanInput,
-  area: number,
-  levels: number,
-  style?: StyleProfile,
-): { level: number; items: ProgramItem[] }[] {
-  const bedrooms = clampCount(input.bedrooms ?? 3, 1, 5);
-  const bathrooms = clampCount(input.bathrooms ?? (bedrooms >= 3 ? 2 : 1), 1, 3);
-  const ground: ProgramItem[] = [
-    { kind: "hall", label: "Entrée", target: 5, min: 3, priority: 17 },
-    {
-      kind: "sejour",
-      label: "Séjour double",
-      target: Math.max(24, area * 0.28),
-      min: 18,
-      priority: 20,
-      habitable: true,
-      unique: true,
-    },
-    {
-      kind: "sejour",
-      label: "Salle à manger",
-      target: 13,
-      min: 9,
-      priority: 14,
-      habitable: true,
-    },
-    {
-      kind: "cuisine",
-      label: style?.layout === "patio" ? "Cuisine ouverte" : "Cuisine",
-      target: 13,
-      min: 7,
-      priority: 15,
-      habitable: true,
-    },
-    { kind: "bureau", label: "Coin bureau", target: 8, min: 5.5, priority: 10, habitable: true },
-    { kind: "wc", label: "WC invités", target: 2.5, min: 1.5, priority: 7 },
-    { kind: "stockage", label: "Rangement d'entrée", target: 3, min: 1.5, priority: 6 },
-    { kind: "couloir", label: "Dégagement", target: 4, min: 2.5, priority: 8 },
-    { kind: "buanderie", label: "Buanderie", target: 4, min: 3, priority: 6 },
-  ];
-  const upper: ProgramItem[] = [];
-  for (let i = 0; i < bedrooms; i++) {
-    upper.push({
-      kind: "chambre",
-      label: i === 0 ? "Chambre principale" : `Chambre ${i + 1}`,
-      target: i === 0 ? 16 : 12,
-      min: 8.5,
-      priority: 14 - i,
-      habitable: true,
-    });
-  }
-  for (let b = 0; b < bathrooms; b++) {
-    upper.push({
-      kind: "sdb",
-      label: b === 0 ? "Salle de bain" : `Salle d'eau ${b + 1}`,
-      target: 6,
-      min: 4,
-      priority: 12 - b,
-    });
-  }
-  upper.push(
-    { kind: "sejour", label: "Salle familiale", target: 13, min: 9, priority: 9, habitable: true },
-    { kind: "stockage", label: "Dressing", target: 4, min: 2, priority: 7 },
-    { kind: "couloir", label: "Couloir de nuit", target: 5, min: 3, priority: 8 },
-    { kind: "wc", label: "WC étage", target: 2.5, min: 1.5, priority: 6 },
-  );
-  const programs = [{ level: 0, items: ground }];
-  for (let lvl = 1; lvl < levels; lvl++) {
-    programs.push({ level: lvl, items: upper.map((i) => ({ ...i })) });
-  }
-  return programs;
-}
-
-type CollectiveKind = "immeuble" | "projet_neuf";
-
-function collectivePrograms(
-  kind: CollectiveKind,
-  input: FloorPlanInput,
-  area: number,
-  levels: number,
-): { level: number; items: ProgramItem[] }[] {
-  const units = kind === "immeuble"
-    ? clampCount(area / 55, 1, 3)
-    : clampCount(area / 65, 1, 3);
-  const unitArea = area / units;
-  const bedroomsPerUnit = clampCount(input.bedrooms ?? (unitArea >= 70 ? 3 : 2), 1, 4);
-  const prefix = kind === "immeuble" ? "Logement" : "Logement";
-  const programs: { level: number; items: ProgramItem[] }[] = [];
-
-  for (let lvl = 0; lvl < levels; lvl++) {
-    const items: ProgramItem[] = [
-      {
-        kind: "hall",
-        label:
-          lvl === 0
-            ? kind === "immeuble"
-              ? "Hall d'entrée commun"
-              : "Bâtiment type — Hall d'entrée"
-            : kind === "immeuble"
-              ? `Palier commun — étage ${lvl}`
-              : `Bâtiment type — Palier étage ${lvl}`,
-        target: Math.max(7, area * 0.08),
-        min: 5,
-        priority: 19,
-      },
-      {
-        kind: "stockage",
-        label: "Gaine technique",
-        target: 3,
-        min: 1.8,
-        priority: 8,
-      },
-    ];
-    if (kind === "projet_neuf") {
-      items.push({
-        kind: "stockage",
-        label: "Local vélos / poussettes",
-        target: 5,
-        min: 3,
-        priority: 6,
-      });
-    }
-    if (lvl === 0 && kind === "immeuble" && area >= 140) {
-      items.push({
-        kind: "reception",
-        label: "Local d'activité",
-        target: Math.max(14, area * 0.12),
-        min: 10,
-        priority: 9,
-        habitable: true,
-      });
-    }
-    for (let u = 0; u < units; u++) {
-      const label = (room: string) => `${prefix} ${u + 1} — ${room}`;
-      items.push(
-        {
-          kind: "sejour",
-          label: label("Séjour"),
-          target: Math.max(14, unitArea * 0.26),
-          min: 10,
-          priority: 14,
-          habitable: true,
-        },
-        {
-          kind: "cuisine",
-          label: label("Cuisine"),
-          target: Math.max(6, unitArea * 0.1),
-          min: 4,
-          priority: 13,
-          habitable: true,
-        },
-        {
-          kind: "sdb",
-          label: label("Salle de bain"),
-          target: 4.5,
-          min: 3,
-          priority: 11,
-        },
-        {
-          kind: "wc",
-          label: label("WC"),
-          target: 2.2,
-          min: 1.4,
-          priority: 9,
-        },
-      );
-      for (let b = 0; b < bedroomsPerUnit; b++) {
-        items.push({
-          kind: "chambre",
-          label: label(b === 0 ? "Chambre principale" : `Chambre ${b + 1}`),
-          target: b === 0 ? 12 : 9.5,
-          min: 7.5,
-          priority: 12 - b,
-          habitable: true,
-        });
-      }
-    }
-    programs.push({ level: lvl, items });
-  }
-  return programs;
-}
-
-function hospitalityPrograms(
-  input: FloorPlanInput,
-  area: number,
-  levels: number,
-): { level: number; items: ProgramItem[] }[] {
-  const units = clampCount(area / 22, 2, 7);
-  const programs: { level: number; items: ProgramItem[] }[] = [];
-  for (let lvl = 0; lvl < levels; lvl++) {
-    const items: ProgramItem[] = [];
-    for (let u = 0; u < units; u++) {
-      items.push(
-        {
-          kind: "chambre",
-          label: `Unité d'hébergement ${u + 1}`,
-          target: Math.max(10, area / units - 5),
-          min: 8,
-          priority: 14,
-          habitable: true,
-        },
-        {
-          kind: "sdb",
-          label: `Unité ${u + 1} — Salle d'eau`,
-          target: 4,
-          min: 2.8,
-          priority: 11,
-        },
-      );
-    }
-    if (lvl === 0) {
-      items.push(
-        {
-          kind: "reception",
-          label: "Accueil / Réception",
-          target: Math.max(12, area * 0.12),
-          min: 8,
-          priority: 20,
-          habitable: true,
-        },
-        {
-          kind: "sejour",
-          label: "Espace détente",
-          target: Math.max(12, area * 0.12),
-          min: 8,
-          priority: 15,
-          habitable: true,
-        },
-        { kind: "buanderie", label: "Lingerie", target: 6, min: 4, priority: 12 },
-        { kind: "stockage", label: "Stockage linge", target: 4, min: 2.5, priority: 8 },
-        { kind: "sanitaire", label: "Sanitaires communs", target: 4, min: 3, priority: 9 },
-      );
-    } else {
-      items.push(
-        {
-          kind: "hall",
-          label: `Palier visiteurs — étage ${lvl}`,
-          target: Math.max(6, area * 0.06),
-          min: 4,
-          priority: 16,
-        },
-        { kind: "buanderie", label: "Lingerie d'étage", target: 4, min: 2.5, priority: 9 },
-        { kind: "stockage", label: "Local de maintenance", target: 4, min: 2.5, priority: 7 },
-        { kind: "couloir", label: "Circulation visiteurs", target: 5, min: 3, priority: 8 },
-      );
-    }
-    programs.push({ level: lvl, items });
-  }
-  void input;
-  return programs;
-}
-
-function retailProgram(area: number, style?: StyleProfile): ProgramItem[] {
-  const items: ProgramItem[] = [
-    {
-      kind: "reception",
-      label: "Vitrine / accueil client",
-      target: Math.max(8, area * 0.09),
-      min: 6,
-      priority: 18,
-      habitable: true,
-    },
-    {
-      kind: "openspace",
-      label: "Espace de vente",
-      target: Math.max(30, area * 0.38),
-      min: 20,
-      priority: 20,
-      habitable: true,
-      unique: true,
-    },
-    {
-      kind: "comptoir",
-      label: "Comptoir / caisse",
-      target: Math.max(6, area * 0.07),
-      min: 4,
-      priority: 15,
-      habitable: true,
-    },
-    { kind: "stockage", label: "Réserve", target: Math.max(10, area * 0.12), min: 5, priority: 12 },
-    { kind: "stockage", label: "Local technique", target: 4, min: 2.5, priority: 7 },
-    { kind: "sanitaire", label: "Sanitaires clients", target: 4.5, min: 3, priority: 10 },
-    { kind: "sanitaire", label: "Sanitaire personnel", target: 2.8, min: 2, priority: 8 },
-    { kind: "couloir", label: "Couloir de service", target: 5, min: 3, priority: 9 },
-  ];
-  if (area >= 160) {
-    items.push({
-      kind: "bureau",
-      label: style?.layout === "patio" ? "Bureau gérant" : "Bureau gérant",
-      target: 8,
-      min: 5.5,
-      priority: 6,
-      habitable: true,
-    });
-  }
-  return items;
-}
-
-function officeProgram(area: number): ProgramItem[] {
-  const offices = clampCount(area / 42, 1, 4);
-  const items: ProgramItem[] = [
-    {
-      kind: "reception",
-      label: "Accueil et attente",
-      target: Math.max(10, area * 0.1),
-      min: 7,
-      priority: 18,
-      habitable: true,
-    },
-    {
-      kind: "openspace",
-      label: "Espace de travail ouvert",
-      target: Math.max(26, area * 0.32),
-      min: 18,
-      priority: 20,
-      habitable: true,
-      unique: true,
-    },
-    {
-      kind: "reunion",
-      label: "Salle de réunion",
-      target: Math.max(12, area * 0.12),
-      min: 9,
-      priority: 14,
-      habitable: true,
-    },
-    { kind: "sanitaire", label: "Sanitaires H/F", target: 6, min: 4, priority: 9 },
-    { kind: "cuisine", label: "Kitchenette", target: 6, min: 4, priority: 8 },
-    { kind: "stockage", label: "Local technique / serveur", target: 3.5, min: 2, priority: 7 },
-    { kind: "stockage", label: "Archives", target: 4, min: 2.5, priority: 6 },
-    { kind: "couloir", label: "Circulation", target: Math.max(5, area * 0.06), min: 3, priority: 11 },
-  ];
-  for (let i = 0; i < offices; i++) {
-    items.push({
-      kind: "bureau",
-      label: i === 0 ? "Bureau direction" : `Bureau ${i + 1}`,
-      target: 12,
-      min: 7.5,
-      priority: 12 - i,
-      habitable: true,
-    });
-  }
-  if (area >= 170) {
-    items.push({
-      kind: "reunion",
-      label: "Salle de réunion 2 / collaboratif",
-      target: 12,
-      min: 8,
-      priority: 8,
-      habitable: true,
-    });
-  }
-  return items;
-}
-
-function cafeProgram(area: number): ProgramItem[] {
-  const items: ProgramItem[] = [
-    {
-      kind: "salle_client",
-      label: "Salle café",
-      target: Math.max(18, area * 0.42),
-      min: 14,
-      priority: 20,
-      habitable: true,
-      unique: true,
-    },
-    {
-      kind: "comptoir",
-      label: "Comptoir café",
-      target: Math.max(6, area * 0.14),
-      min: 4.5,
-      priority: 18,
-      habitable: true,
-      unique: true,
-    },
-    {
-      kind: "comptoir",
-      label: "Préparation boissons",
-      target: Math.max(4, area * 0.07),
-      min: 3,
-      priority: 15,
-    },
-    { kind: "plonge", label: "Plonge / lavage", target: 4, min: 2.5, priority: 12 },
-    { kind: "stockage", label: "Réserve", target: Math.max(4, area * 0.08), min: 3, priority: 10 },
-    { kind: "stockage", label: "Zone déchets", target: 2.5, min: 1.5, priority: 6 },
-    { kind: "sanitaire", label: "Sanitaires clients", target: 4, min: 2.8, priority: 11 },
-    { kind: "vestiaire", label: "Vestiaire personnel", target: 3, min: 2, priority: 7 },
-    { kind: "couloir", label: "Couloir de service", target: 4, min: 2.5, priority: 8 },
-  ];
-  return items;
-}
-
-/** Programme de l'existant : cuisine fermée, couloir de distribution, 3 chambres. */
-function renovationExistingProgram(area: number): ProgramItem[] {
-  const bedrooms = clampCount(area / 32, 2, 4);
-  const items: ProgramItem[] = [
-    { kind: "hall", label: "Entrée existante", target: 4, min: 2.5, priority: 16 },
-    { kind: "sejour", label: "Séjour existant", target: Math.max(18, area * 0.24), min: 14, priority: 20, habitable: true },
-    { kind: "cuisine", label: "Cuisine fermée", target: 9, min: 6, priority: 15, habitable: true },
-    { kind: "sdb", label: "Salle de bain existante", target: 5, min: 3.5, priority: 12 },
-    { kind: "wc", label: "WC existant", target: 2.2, min: 1.4, priority: 8 },
-    { kind: "couloir", label: "Couloir existant", target: Math.max(6, area * 0.09), min: 3, priority: 13 },
-    { kind: "stockage", label: "Rangement existant", target: 3, min: 1.5, priority: 6 },
-  ];
-  for (let i = 0; i < bedrooms; i++) {
-    items.push({
-      kind: "chambre",
-      label: i === 0 ? "Chambre 1" : `Chambre ${i + 1}`,
-      target: i === 0 ? 13 : 11,
-      min: 8.5,
-      priority: 14 - i,
-      habitable: true,
-    });
-  }
-  return items;
-}
-
-/** Programme projeté : cuisine ouverte, suite parentale, circulations optimisées. */
-function renovationProjectedProgram(input: FloorPlanInput, area: number): ProgramItem[] {
-  const bedrooms = clampCount(input.bedrooms ?? area / 35, 1, 4);
-  const items: ProgramItem[] = [
-    { kind: "hall", label: "Entrée rénovée", target: 4.5, min: 2.5, priority: 16 },
-    {
-      kind: "sejour",
-      label: "Séjour traversant",
-      target: Math.max(24, area * 0.32),
-      min: 18,
-      priority: 20,
-      habitable: true,
-      unique: true,
-    },
-    {
-      kind: "cuisine",
-      label: "Cuisine ouverte",
-      target: Math.max(9, area * 0.11),
-      min: 6.5,
-      priority: 15,
-      habitable: true,
-    },
-    { kind: "sdb", label: "Salle de bain rénovée", target: 6, min: 4, priority: 13 },
-    { kind: "wc", label: "WC séparé", target: 2.2, min: 1.4, priority: 9 },
-    { kind: "couloir", label: "Dégagement optimisé", target: Math.max(3.5, area * 0.045), min: 2.2, priority: 10 },
-    { kind: "stockage", label: "Rangements intégrés", target: 4, min: 2, priority: 7 },
-  ];
-  for (let i = 0; i < bedrooms; i++) {
-    items.push({
-      kind: "chambre",
-      label: i === 0 ? "Suite parentale" : `Chambre ${i + 1}`,
-      target: i === 0 ? 15 : 11,
-      min: 8.5,
-      priority: 14 - i,
-      habitable: true,
-    });
-  }
-  if (area >= 90) {
-    items.push({ kind: "bureau", label: "Bureau / télétravail", target: 8, min: 5.5, priority: 8, habitable: true });
-  }
-  return items;
-}
-
-/** Programme de chaque niveau, selon le type de projet enregistré. */
-function programsForCategory(
-  category: string,
-  input: FloorPlanInput,
-  area: number,
-  levels: number,
-  style: StyleProfile,
-): { level: number; items: ProgramItem[] }[] {
-  switch (category) {
-    case "villa":
-      return residentialProgram(input, area, levels, style, "villa");
-    case "appartement":
-      return [{ level: 0, items: apartmentProgram(input, area, style) }];
-    case "studio":
-      return [{ level: 0, items: studioProgram(input, area) }];
-    case "duplex":
-      return duplexPrograms(input, area, Math.max(2, levels), style);
-    case "immeuble":
-      return collectivePrograms("immeuble", input, area, levels);
-    case "projet_neuf":
-      return collectivePrograms("projet_neuf", input, area, levels);
-    case "residence_touristique":
-      return hospitalityPrograms(input, area, levels);
-    case "local_commercial":
-      return [{ level: 0, items: retailProgram(area, style) }];
-    case "bureau":
-      return [{ level: 0, items: officeProgram(area) }];
-    case "cafe":
-      return [{ level: 0, items: cafeProgram(area) }];
-    case "entrepot":
-      return [{ level: 0, items: logisticsProgram(area) }];
-    case "restaurant":
-      return [{ level: 0, items: restorationProgram(area, "restaurant") }];
-    case "renovation_complete":
-      return [{ level: 0, items: renovationProjectedProgram(input, area) }];
-    default:
-      return residentialProgram(input, area, levels, style, "maison");
-  }
-}
-
-// ── Rénovation complète : existant / projeté ────────────────────────────────
-
-/** Surface utile = bâtie hors circulations (couloirs, hall, escalier). */
-const CIRCULATION_SURFACE_KINDS = new Set<RoomKind>(["couloir", "hall", "escalier"]);
-const WET_SURFACE_KINDS = new Set<RoomKind>([
-  "sdb",
-  "wc",
-  "cuisine",
-  "cuisine_pro",
-  "plonge",
-  "sanitaire",
-]);
-
-function renovationSurfaces(plan: FloorPlan): RenovationSurfaces {
-  let built = 0;
-  let useful = 0;
-  let wet = 0;
-  let rooms = 0;
-  for (const room of plan.rooms) {
-    if (room.exterior) continue;
-    built += room.area;
-    if (CIRCULATION_SURFACE_KINDS.has(room.kind)) continue;
-    useful += room.area;
-    rooms++;
-    if (WET_SURFACE_KINDS.has(room.kind)) wet += room.area;
-  }
-  const round = (n: number) => Math.round(n * 10) / 10;
-  return { built: round(built), useful: round(useful), wet: round(wet), rooms };
-}
-
-function buildRenovationComparison(
-  existing: FloorPlan,
-  projected: FloorPlan,
-): RenovationComparison {
-  const labelSet = (plan: FloorPlan) =>
-    plan.rooms.filter((r) => !r.exterior).map((r) => r.label);
-  const before = labelSet(existing);
-  const after = labelSet(projected);
-  const kept = before.filter((label) => after.includes(label));
-  const removed = before.filter((label) => !after.includes(label));
-  const created = after.filter((label) => !before.includes(label));
-  return {
-    existing,
-    projected,
-    surfaces: { before: renovationSurfaces(existing), after: renovationSurfaces(projected) },
-    partitions: { kept, removed, created },
-    structural: [
-      "Murs porteurs, façades et planchers existants conservés",
-      "Toute ouverture dans un mur porteur reste soumise à validation de l'ingénieur structure",
-      "Gaines et évacuations existantes réutilisées lorsqu'elles sont en état",
-    ],
-    scope: [
-      "Dépose des cloisons non porteuses et création des nouvelles",
-      "Rénovation de la cuisine et des salles de bains",
-      "Reprise des réseaux d'alimentation et d'évacuation",
-      "Mise en sécurité électrique et remplacement des circuits vétustes",
-      "Revêtements de sol, murs et plafonds des pièces rénovées",
-      "Menuiseries intérieures et quincaillerie",
-    ],
-    costBasis: "travaux",
-  };
 }
 
 // ── Découpage BSP (aucun chevauchement par construction) ────────────────────
@@ -2217,51 +1396,6 @@ function carveDayNight(zone: Rect, dayRatio: number): Rect[] {
 
 // ── Construction d'un niveau ────────────────────────────────────────────────
 
-/** Plafonds de surface des pièces de service (m²). */
-const SERVICE_ROOM_CAPS: Partial<Record<RoomKind, number>> = {
-  wc: 4,
-  sdb: 7.5,
-  buanderie: 6.5,
-  sanitaire: 9,
-  vestiaire: 8,
-  plonge: 6,
-};
-
-/**
- * Le découpage binaire peut accoler une petite pièce d'eau sur toute la
- * profondeur d'une zone (WC de 1,10 × 6,40 m). La surface excédentaire est
- * transférée à un rangement technique adjacent : aucune surface n'est perdue
- * et la somme des pièces reste exactement celle du niveau.
- */
-function splitOversizedServiceRooms(plan: FloorPlan, rid: () => string): void {
-  const additions: PlanRoom[] = [];
-  for (const room of [...plan.rooms]) {
-    const cap = SERVICE_ROOM_CAPS[room.kind];
-    if (!cap || room.exterior || room.area <= cap + 0.6) continue;
-    const alongWidth = room.w >= room.h;
-    const span = alongWidth ? room.w : room.h;
-    const depth = alongWidth ? room.h : room.w;
-    if (depth < 0.8) continue;
-    const first = round3(Math.min(span - 0.85, Math.max(0.85, cap / depth)));
-    if (first >= span - 0.85) continue;
-    const rest = round3(span - first);
-    if (alongWidth) {
-      room.w = round3(first);
-      room.area = round3(room.w * room.h);
-      additions.push(
-        makeRoom(rid(), "stockage", "Rangement technique", round3(room.x + first), room.y, rest, room.h),
-      );
-    } else {
-      room.h = round3(first);
-      room.area = round3(room.w * room.h);
-      additions.push(
-        makeRoom(rid(), "stockage", "Rangement technique", room.x, round3(room.y + first), room.w, rest),
-      );
-    }
-  }
-  plan.rooms.push(...additions);
-}
-
 function buildLevel(
   levelIdx: number,
   levels: number,
@@ -2375,12 +1509,6 @@ function buildLevel(
       makeRoom(rid(), s.kind, s.label, s.rect.x, s.rect.y, s.rect.w, s.rect.h, false, s.exterior),
     );
   }
-
-  // Pièces de service trop grandes : le découpage binaire peut transformer un
-  // WC en bande de 1,10 m sur toute la profondeur (7 m²). La surface excédentaire
-  // devient un rangement technique adjacent : la surface du niveau reste
-  // exactement occupée et les pièces d'eau gardent des proportions réalistes.
-  splitOversizedServiceRooms(plan, rid);
 
   // Cohérence du programme : la chambre principale doit être la plus grande
   // chambre du niveau. Le découpage BSP peut inverser deux rectangles voisins ;
@@ -2669,10 +1797,8 @@ function conceptNote(
         ? "un volume rectangulaire efficace aux circulations resserrées"
         : "un volume quasi carré qui limite les déperditions et rationalise la structure";
   const isResto = input.category === "cafe" || input.category === "restaurant";
-  const spec = architecturalSpecFor(input.category);
-  const org = spec
-    ? spec.organization
-    : fam === "residential"
+  const org =
+    fam === "residential"
       ? "Le rez-de-chaussée regroupe les espaces de vie, la cuisine et un hall qui filtre l'entrée ; les chambres sont regroupées à l'étage ou dans une zone nuit clairement séparée. Les circulations desservent chaque pièce sans traversée d'une chambre."
       : fam === "commercial"
         ? "L'accueil filtre naturellement les flux vers l'espace de travail ouvert et les bureaux fermés, avec les salles de réunion en profondeur."
@@ -2723,11 +1849,8 @@ function conceptNote(
     variant.site.constraints.length > 0
       ? ` Plan de masse : ${variant.site.constraints.join(" ")}`
       : "";
-  const renoTxt = variant.renovation
-    ? ` Rénovation : ${variant.renovation.surfaces.before.built.toFixed(0)} m² existants → ${variant.renovation.surfaces.after.built.toFixed(0)} m² après travaux, surface utile ${variant.renovation.surfaces.before.useful.toFixed(0)} → ${variant.renovation.surfaces.after.useful.toFixed(0)} m². ${variant.renovation.partitions.removed.length} cloison(s) / pièce(s) supprimée(s), ${variant.renovation.partitions.created.length} créée(s), éléments structurels préservés.`
-    : "";
 
-  return `Variante « ${profile.style} » : ${profile.tagline}. ${levelsTxt}. ${form.charAt(0).toUpperCase() + form.slice(1)}. ${org} ${orientationTxt(profile.mainFacade)}. Protection solaire par débords de toit, brise-soleil et végétation ; ventilation naturelle favorisée par les ouvertures traversantes. ${profile.description} Points forts : ${s}.${constraintsTxt}${siteTxt}${renoTxt}`;
+  return `Variante « ${profile.style} » : ${profile.tagline}. ${levelsTxt}. ${form.charAt(0).toUpperCase() + form.slice(1)}. ${org} ${orientationTxt(profile.mainFacade)}. Protection solaire par débords de toit, brise-soleil et végétation ; ventilation naturelle favorisée par les ouvertures traversantes. ${profile.description} Points forts : ${s}.${constraintsTxt}${siteTxt}`;
 }
 
 function orientationTxt(side: WallSide): string {
@@ -3135,32 +2258,11 @@ function buildSitePlan(params: {
   const { length: L, width: W, profile, input, groundFloor, family } = params;
   const footprint = round3(L * W);
   const works = input.works ?? [];
-  const category = input.category;
-  // Un appartement, un studio ou un bureau n'a pas de jardin privatif : le
-  // plan de masse ne doit pas inventer d'aménagement extérieur qui n'existe
-  // pas. Une rénovation conserve l'emprise existante (aucun jardin créé).
-  const noPrivateExterior =
-    category === "appartement" || category === "studio" || category === "bureau";
-  const isRenovation = family === "renovation";
-  const wantsPool =
-    !noPrivateExterior &&
-    !isRenovation &&
-    (works.includes("piscine") || (input.pools ?? 0) > 0);
-  const wantsKitchen = !noPrivateExterior && !isRenovation && works.includes("cuisine_exterieure");
-  const wantsGarden =
-    !noPrivateExterior && !isRenovation && (works.includes("jardin") || family === "residential");
+  const wantsPool = works.includes("piscine") || (input.pools ?? 0) > 0;
+  const wantsKitchen = works.includes("cuisine_exterieure");
+  const wantsGarden = works.includes("jardin") || family === "residential";
   const wantsGarage = works.includes("garage") || (input.garages ?? 0) > 0;
   const constraints: string[] = [];
-  if (noPrivateExterior) {
-    constraints.push(
-      "Aucun espace extérieur privatif : l'unité est desservie par les parties communes. Le plan de masse situe le bâti dans son emprise, sans jardin inventé.",
-    );
-  }
-  if (isRenovation) {
-    constraints.push(
-      "Rénovation : l'emprise et les limites de parcelle sont celles du bâtiment existant, à confirmer par un relevé sur site.",
-    );
-  }
 
   // ── 1. Dimensions de la parcelle ────────────────────────────────────────
   const minL = round3(L + 2.2);
@@ -3236,7 +2338,7 @@ function buildSitePlan(params: {
   // Quand une piscine est demandée, la terrasse n'occupe qu'une partie de la
   // façade : le bassin s'implante à côté, jamais dans le prolongement du bâti.
   const terraceDepth = Math.min(3.6, Math.max(2.2, frontDepth - 1.5));
-  if (frontDepth >= 2.2 && !noPrivateExterior && !isRenovation) {
+  if (frontDepth >= 2.2) {
     const tw = wantsPool
       ? Math.min(5.0, Math.max(3.2, L * 0.45))
       : Math.min(L * 0.85, plotL - 1.0);
@@ -3401,11 +2503,7 @@ function buildSitePlan(params: {
     occupied.push({ ...alley, kind: "allee" });
   }
 
-  if (
-    (family === "residential" || family === "commercial" || family === "restoration") &&
-    !noPrivateExterior &&
-    !isRenovation
-  ) {
+  if (family === "residential" || family === "commercial" || family === "restoration") {
     const parkW = 5;
     const parkH = 2.5;
     const candidates = [
@@ -3446,9 +2544,7 @@ function buildSitePlan(params: {
 
   // ── 7. Surfaces extérieures ─────────────────────────────────────────────
   const hardscape = elements.reduce((s, e) => s + e.area, 0);
-  const gardenArea = noPrivateExterior
-    ? 0
-    : round3(Math.max(0, actualPlotArea - footprint - hardscape));
+  const gardenArea = round3(Math.max(0, actualPlotArea - footprint - hardscape));
   const exteriorArea = round3(Math.max(0, actualPlotArea - (footprint - params.patioArea)));
 
   const patios = groundFloor.rooms
@@ -3479,31 +2575,19 @@ function computeSurfaces(
   floors: FloorPlan[],
   site: SitePlan,
   totalBuilt: number,
-  category: string,
 ): SurfaceBreakdown {
   const COMPLEMENTARY = new Set<RoomKind>(["garage", "stockage", "logistique"]);
-  const isCollective = category === "immeuble" || category === "projet_neuf";
   let interior = 0;
   let complementary = 0;
-  let circulation = 0;
-  let common = 0;
   for (const floor of floors) {
     for (const room of floor.rooms) {
       if (room.exterior) continue;
       if (COMPLEMENTARY.has(room.kind)) complementary += room.area;
       else interior += room.area;
-      if (room.kind === "couloir" || room.kind === "hall" || room.kind === "escalier") {
-        circulation += room.area;
-      }
-      if (isCollective && (room.kind === "hall" || room.kind === "escalier")) {
-        common += room.area;
-      }
     }
   }
   interior = round3(interior);
   complementary = round3(complementary);
-  const useful = round3(Math.max(0, interior - circulation));
-  common = round3(common);
   const built = round3(interior + complementary);
   const groundBuilt = round3(
     (floors[0]?.rooms ?? [])
@@ -3514,14 +2598,10 @@ function computeSurfaces(
   const details = site.elements
     .filter((e) => e.kind !== "allee")
     .map((e) => ({ kind: e.kind, label: e.label, area: e.area }));
-  if (site.gardenArea > 0) {
-    details.push({ kind: "jardin", label: "Jardin", area: site.gardenArea });
-  }
+  details.push({ kind: "jardin", label: "Jardin", area: site.gardenArea });
   void totalBuilt;
   return {
     interior,
-    useful,
-    common,
     complementary,
     built,
     groundBuilt,
@@ -3540,34 +2620,12 @@ function computeSurfaces(
  * Déterministe : le même projet produit toujours les mêmes plans.
  */
 export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
-  const spec = architecturalSpecFor(input.category);
-  // Le type officiel (slug legacy résolu) pilote tout le programme.
-  const category = spec?.category ?? input.category;
   const surface = Math.max(18, input.surface || 90);
-  // Niveaux : le type impose un minimum structurel (duplex, immeuble, projet
-  // neuf) ; l'utilisateur ne peut pas descendre en dessous.
-  const minLevels =
-    category === "duplex" || category === "immeuble" || category === "projet_neuf" ? 2 : 1;
-  // Types dont le plan est un niveau unique (logement, local, bureau, café,
-  // restauration, entrepôt, rénovation) : le niveau supplémentaire ne doit
-  // jamais être simulé sur une demi-surface.
-  const singleLevel =
-    category === "appartement" ||
-    category === "studio" ||
-    category === "local_commercial" ||
-    category === "bureau" ||
-    category === "cafe" ||
-    category === "entrepot" ||
-    category === "restaurant" ||
-    category === "renovation_complete";
-  const levels = singleLevel
-    ? 1
-    : Math.max(minLevels, Math.min(4, Math.round(input.floors || 1)));
-  const family = familyForCategory(category);
+  const levels = Math.max(1, Math.min(4, Math.round(input.floors || 1)));
+  const family = familyForCategory(input.category);
   const areaPerLevel = surface / levels;
-  const baseSeed =
-    1337 +
-    category.length * 31 +
+  const baseSeed = 1337 +
+    input.category.length * 31 +
     Math.round(surface) * 17 +
     levels * 101;
 
@@ -3585,57 +2643,58 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
     W = round3(W);
 
     const floors: FloorPlan[] = [];
-    let renovation: RenovationComparison | undefined;
-    const programs = programsForCategory(category, input, areaPerLevel, levels, profile);
-    for (const prog of programs) {
-      floors.push(
-        buildLevel(prog.level, levels, L, W, prog.items, baseSeed + v * 977, profile),
-      );
-    }
-    for (const f of floors) {
-      if (f.label) continue;
-      f.label = f.level === 0 ? "Rez-de-chaussée" : `Étage ${f.level}`;
-    }
-    // Rénovation complète : le plan projeté est accompagné du plan de
-    // l'existant, sur la même emprise, pour comparer les surfaces et les
-    // cloisons. Aucun plan de construction neuve n'est présenté.
-    if (family === "renovation" && floors[0]) {
-      const projected = floors[0];
-      projected.label = "État projeté";
-      const existingProfile: StyleProfile = {
-        ...profile,
-        layout: "linear",
-      };
-      const existing = buildLevel(
-        0,
-        1,
-        L,
-        W,
-        renovationExistingProgram(areaPerLevel),
-        baseSeed + v * 977 + 41,
-        existingProfile,
-      );
-      existing.label = "État existant";
-      renovation = buildRenovationComparison(existing, projected);
+    if (family === "residential") {
+      const programs = residentialProgram(input, areaPerLevel, levels, profile);
+      for (const prog of programs) {
+        floors.push(
+          buildLevel(prog.level, levels, L, W, prog.items, baseSeed + v * 977, profile),
+        );
+      }
+    } else if (family === "restoration") {
+      const isRestaurant = input.category === "restaurant";
+      const items = restorationProgram(areaPerLevel, isRestaurant ? "restaurant" : "cafe");
+      // Les restaurant/café sont généralement mono-niveau, mais on supporte R+1
+      for (let lvl = 0; lvl < levels; lvl++) {
+        floors.push(
+          buildLevel(
+            lvl,
+            levels,
+            L,
+            W,
+            items.map((i) => ({ ...i })),
+            baseSeed + v * 977,
+            profile,
+          ),
+        );
+      }
+    } else {
+      const items =
+        family === "commercial" ? commercialProgram(areaPerLevel) : logisticsProgram(areaPerLevel);
+      for (let lvl = 0; lvl < levels; lvl++) {
+        floors.push(
+          buildLevel(
+            lvl,
+            levels,
+            L,
+            W,
+            items.map((i) => ({ ...i })),
+            baseSeed + v * 977,
+            profile,
+          ),
+        );
+      }
     }
 
     // Cohérence inter-niveaux : la chambre principale est la plus grande
     // chambre de TOUT le logement, pas seulement du niveau où elle est née.
-    const chambres = floors.flatMap((f) => f.rooms.filter((r) => r.kind === "chambre"));
-    // Studio : la « chambre » est une zone de couchage, pas une chambre à
-    // labelliser « principale ». Rénovation : la suite parentale garde son nom.
-    if (chambres.length > 0 && category !== "studio" && category !== "renovation_complete") {
+    if (family === "residential") {
+      const chambres = floors.flatMap((f) => f.rooms.filter((r) => r.kind === "chambre"));
       const master = chambres.find((r) => r.label === "Chambre principale");
-      const biggest = chambres.reduce<PlanRoom>(
-        (best, r) => (r.area > best.area ? r : best),
-        chambres[0],
+      const biggest = chambres.reduce<PlanRoom | null>(
+        (best, r) => (!best || r.area > best.area ? r : best),
+        null,
       );
-      if (!master) {
-        // Le programme a dû retirer la chambre prévue comme principale (petite
-        // surface, patio) : la plus grande chambre du logement en prend le rôle
-        // plutôt que de laisser un logement sans chambre principale.
-        biggest.label = "Chambre principale";
-      } else if (biggest !== master && biggest.area > master.area + 0.5) {
+      if (master && biggest && biggest !== master && biggest.area > master.area + 0.5) {
         const label = master.label;
         master.label = biggest.label;
         biggest.label = label;
@@ -3661,7 +2720,7 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
       groundFloor: floors[0],
       patioArea,
     });
-    const surfaces = computeSurfaces(floors, site, totalBuilt, category);
+    const surfaces = computeSurfaces(floors, site, totalBuilt);
 
     const variant: FloorPlanVariant = {
       id: `plan-v${v + 1}`,
@@ -3689,7 +2748,6 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
         score: 100,
         issues: [],
       },
-      ...(renovation ? { renovation } : {}),
     };
     variant.conceptNote = conceptNote(profile, input, variant, rng);
     variant.validation = validatePlan(variant, { ...input, surface, floors: levels });
