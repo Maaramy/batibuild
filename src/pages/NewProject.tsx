@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
+import { projectJourneyStepLabels } from "@/lib/projectJourney";
 import {
   ESTIMATE_ANALYSIS_TIMEOUT_MS,
   describeEstimateError,
@@ -30,9 +31,9 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BIM_CATEGORIES, BIM_CATEGORY_LABELS } from "@/convex/bimEngine";
-import { projectJourneyGroup } from "@/lib/projectJourney";
 import {
   inferFloorsFromCategory,
+  isMultiLevelCategory,
   normalizeSurface,
   surfaceForCategoryChange,
   surfaceRuleForCategory,
@@ -1171,10 +1172,12 @@ export default function NewProject() {
                   )}
                 </div>
 
-                {/* Nombre de niveaux : affiché pour le groupe A (parcours complet,
-                    studio compris), masqué pour le groupe B (rénovation, travaux…)
-                    — le champ et les données restent gérés par le backend. */}
-                {projectJourneyGroup(selectedCategory) === "A" && (
+                {/* Nombre de niveaux : affiché uniquement pour les types qui
+                    autorisent plusieurs niveaux (studio compris), masqué pour
+                    les projets de plain-pied (restaurant, café, rénovation
+                    complète, travaux…) — les données restent gérées par le
+                    backend et aucun type de projet n'est modifié. */}
+                {isMultiLevelCategory(selectedCategory) && (
                 <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
                   <Label htmlFor="floors" className="text-xs sm:text-sm font-semibold">
                     Nombre de niveaux
@@ -1290,6 +1293,10 @@ export default function NewProject() {
               error={analysisError}
               onRetry={handleRetryAnalysis}
               onComplete={handleAnalysisComplete}
+              // Parcours réellement applicable au type choisi : un projet du
+              // groupe B ne voit jamais les étapes Plans IA / Aide à la décision
+              // / Exécution dans la progression de chargement.
+              steps={projectJourneyStepLabels(selectedCategory)}
             />
           </motion.div>
         )}

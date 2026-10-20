@@ -6,66 +6,76 @@ import {
   SUPPLIERS_DIRECTORY_PATH,
   buildAiMaterialsResultJourney,
   buildProjectJourney,
+  canAccessJourneyStep,
   projectJourneyGroup,
+  projectJourneyStepLabels,
 } from "./projectJourney";
 
-// Ordre officiel du parcours groupe A : plans → coût → aide à la décision →
-// mise en relation → exécution & suivi. L'étape « Matériaux utilisés » a été
-// supprimée de l'application : elle n'apparaît nulle part.
+// Ordre officiel du parcours groupe A (6 étapes) : type → coût → aide à la
+// décision → plans IA → mise en relation → exécution & suivi. L'étape
+// « Matériaux utilisés » a été supprimée : elle n'apparaît nulle part.
 const GROUP_A_LABELS = [
-  "Plans architecturaux AI",
+  "Type de projet",
   "Coût estimatif",
   "Aide à la décision",
+  "Plans architecturaux AI",
   "Mise en relation",
   "Exécution & suivi",
 ];
 
-const GROUP_A_KEYS = ["plans", "cost", "decision", "consult", "execution"];
+const GROUP_A_KEYS = ["type", "cost", "decision", "plans", "consult", "execution"];
 
-// Ordre officiel du parcours groupe B : coût → mise en relation (aucun plans,
-// aucune exécution, ET AUCUNE « Aide à la décision » : cette fonctionnalité est
-// réservée au groupe A — voir `decisionSupportAccess`).
-const GROUP_B_LABELS = ["Coût estimatif", "Mise en relation"];
+// Ordre officiel du parcours groupe B (3 étapes) : type → coût → mise en
+// relation. Ni « Aide à la décision », ni « Plans architecturaux AI », ni
+// « Exécution & suivi ».
+const GROUP_B_LABELS = ["Type de projet", "Coût estimatif", "Mise en relation"];
 
-const GROUP_B_KEYS = ["cost", "consult"];
+const GROUP_B_KEYS = ["type", "cost", "consult"];
 
 const PID = "proj_1";
 const SUPPLIER_HREF = `${SUPPLIERS_DIRECTORY_PATH}?from=materials&region=Tunis`;
 
 describe("projectJourneyGroup — groupe déduit du type de projet", () => {
-  it("classe en groupe A les 11 types du parcours complet", () => {
+  it("classe en groupe A les 14 types du parcours complet", () => {
     for (const type of [
       "maison",
-      "villa",
       "appartement",
-      "studio",
-      "duplex",
+      "villa",
       "immeuble",
       "local_commercial",
+      "studio",
+      "duplex",
       "bureau",
       "entrepot",
       "residence_touristique",
       "projet_neuf",
+      "restaurant",
+      "cafe",
+      "renovation_complete",
     ]) {
       expect(projectJourneyGroup(type), type).toBe("A");
       expect(buildProjectJourney(type, PID).map((s) => s.key), type).toEqual(GROUP_A_KEYS);
     }
   });
 
-  it("classe en groupe B la rénovation, les équipements et les travaux techniques", () => {
+  it("classe en groupe B tous les autres types (piscine, clôture, jardin, extension, cuisine…)", () => {
     for (const type of [
-      "renovation_complete",
       "extension_batiment",
       "renovation_cuisine",
       "renovation_salle_de_bain",
       "peinture_interieure",
       "piscine",
-      "restaurant",
-      "cafe",
       "electricite_complete",
       "plomberie_complete",
+      "cloture",
+      "jardin",
+      "amenagement_paysager",
+      "terrasse",
+      "pergola",
+      "demolition",
     ]) {
       expect(projectJourneyGroup(type), type).toBe("B");
+      expect(buildProjectJourney(type, PID).map((s) => s.key), type).toEqual(GROUP_B_KEYS);
     }
   });
 
@@ -75,6 +85,15 @@ describe("projectJourneyGroup — groupe déduit du type de projet", () => {
     expect(projectJourneyGroup("atelier")).toBe("A");
   });
 
+  it("reconnaît les libellés libres du groupe A (restaurant, café, rénovation complète)", () => {
+    expect(projectJourneyGroup("Restaurant")).toBe("A");
+    expect(projectJourneyGroup("Café")).toBe("A");
+    expect(projectJourneyGroup("Rénovation complète")).toBe("A");
+    expect(projectJourneyGroup("Projet immobilier neuf")).toBe("A");
+    expect(projectJourneyGroup("Local commercial")).toBe("A");
+    expect(projectJourneyGroup("Résidence touristique")).toBe("A");
+  });
+
   it("retombe sur le groupe B pour un type absent ou inconnu", () => {
     expect(projectJourneyGroup(null)).toBe("B");
     expect(projectJourneyGroup(undefined)).toBe("B");
@@ -82,14 +101,25 @@ describe("projectJourneyGroup — groupe déduit du type de projet", () => {
     expect(projectJourneyGroup("type_inexistant")).toBe("B");
   });
 
-  it("le groupe A correspond aux 11 types du parcours complet", () => {
-    const groupA = PROJECT_TYPES.filter((t) => PROJECT_JOURNEY_GROUP_A.includes(t));
-    expect(groupA).toHaveLength(11);
-    expect(groupA).toContain("studio");
-    // Chaque type officiel obtient bien un parcours non vide.
-    for (const type of PROJECT_TYPES) {
-      expect(buildProjectJourney(type, PID).length).toBeGreaterThanOrEqual(2);
-    }
+  it("la liste officielle du groupe A contient exactement les 14 types demandés", () => {
+    const expected = [
+      "maison",
+      "appartement",
+      "villa",
+      "immeuble",
+      "local_commercial",
+      "studio",
+      "duplex",
+      "bureau",
+      "entrepot",
+      "residence_touristique",
+      "projet_neuf",
+      "restaurant",
+      "cafe",
+      "renovation_complete",
+    ];
+    expect(PROJECT_JOURNEY_GROUP_A.slice().sort()).toEqual(expected.slice().sort());
+    expect(PROJECT_JOURNEY_GROUP_A).toHaveLength(14);
   });
 
   it("chaque type du catalogue obtient exactement le parcours de son groupe", () => {
@@ -100,67 +130,54 @@ describe("projectJourneyGroup — groupe déduit du type de projet", () => {
       );
     }
   });
-
-  it("classification officielle des 11 types du Groupe A et de tous les autres en Groupe B", () => {
-    const EXPECTED_GROUP_A = [
-      "maison",
-      "villa",
-      "appartement",
-      "studio",
-      "duplex",
-      "immeuble",
-      "local_commercial",
-      "bureau",
-      "entrepot",
-      "residence_touristique",
-      "projet_neuf",
-    ];
-    // Groupe A : exactement les 11 types demandés, dans l'ordre du catalogue.
-    expect(PROJECT_JOURNEY_GROUP_A.slice().sort()).toEqual(EXPECTED_GROUP_A.slice().sort());
-    expect(PROJECT_TYPES.filter((t) => projectJourneyGroup(t) === "A")).toEqual(
-      PROJECT_TYPES.filter((t) => EXPECTED_GROUP_A.includes(t)),
-    );
-
-    // Groupe B : TOUS les autres types du catalogue (aucun oubli, aucun doublon).
-    const groupB = PROJECT_TYPES.filter((t) => projectJourneyGroup(t) === "B");
-    expect(groupB.length).toBeGreaterThan(0);
-    for (const type of groupB) {
-      expect(EXPECTED_GROUP_A, type).not.toContain(type);
-      expect(buildProjectJourney(type, PID).map((s) => s.key), type).toEqual(GROUP_B_KEYS);
-    }
-    expect(groupB).toContain("renovation_complete");
-    expect(groupB).toContain("piscine");
-    expect(groupB).toContain("restaurant");
-    // Types explicitement hors Groupe A.
-    for (const type of ["studio", "local_commercial", "bureau", "entrepot"]) {
-      expect(PROJECT_TYPES, type).toContain(type);
-    }
-  });
 });
 
-describe("buildProjectJourney — ordre des étapes", () => {
-  it("Maison : 5 étapes dans l'ordre officiel", () => {
+describe("buildProjectJourney — ordre obligatoire des étapes", () => {
+  it("Maison : 6 étapes du groupe A dans le bon ordre", () => {
     expect(buildProjectJourney("maison", PID).map((s) => s.label)).toEqual(GROUP_A_LABELS);
   });
 
-  it("Villa : même structure que Maison", () => {
-    expect(buildProjectJourney("villa", PID).map((s) => s.label)).toEqual(GROUP_A_LABELS);
+  it("Appartement : 6 étapes du groupe A dans le bon ordre", () => {
+    expect(buildProjectJourney("appartement", PID).map((s) => s.label)).toEqual(
+      GROUP_A_LABELS,
+    );
   });
 
-  it("Appartement : même structure que Maison", () => {
-    expect(buildProjectJourney("appartement", PID).map((s) => s.label)).toEqual(GROUP_A_LABELS);
+  it("Restaurant : 6 étapes du groupe A dans le bon ordre", () => {
+    expect(buildProjectJourney("restaurant", PID).map((s) => s.label)).toEqual(
+      GROUP_A_LABELS,
+    );
   });
 
-  it("le parcours commence par les plans IA puis le coût estimatif", () => {
+  it("Café : 6 étapes du groupe A dans le bon ordre", () => {
+    expect(buildProjectJourney("cafe", PID).map((s) => s.label)).toEqual(GROUP_A_LABELS);
+  });
+
+  it("Rénovation complète : 6 étapes du groupe A dans le bon ordre", () => {
+    expect(buildProjectJourney("renovation_complete", PID).map((s) => s.label)).toEqual(
+      GROUP_A_LABELS,
+    );
+  });
+
+  it("Villa et Studio : même structure que Maison", () => {
+    for (const type of ["villa", "studio", "duplex", "immeuble", "bureau", "entrepot"]) {
+      expect(buildProjectJourney(type, PID).map((s) => s.label), type).toEqual(
+        GROUP_A_LABELS,
+      );
+    }
+  });
+
+  it("le parcours commence par le type de projet puis le coût estimatif", () => {
     const steps = buildProjectJourney("maison", PID);
-    expect(steps[0].key).toBe("plans");
-    expect(steps[0].href).toBe(`/dashboard/plans/${PID}`);
+    expect(steps[0].key).toBe("type");
+    expect(steps[0].href).toBe(`/dashboard/project/${PID}#type-de-projet`);
     expect(steps[1].key).toBe("cost");
     expect(steps[1].href).toBe(`/dashboard/project/${PID}`);
-    // « Aide à la décision » reste entre le coût et la mise en relation.
+    // « Aide à la décision » suit le coût ; les plans viennent après.
     const keys = steps.map((s) => s.key);
     expect(keys.indexOf("decision")).toBe(keys.indexOf("cost") + 1);
-    expect(keys.indexOf("consult")).toBe(keys.indexOf("decision") + 1);
+    expect(keys.indexOf("plans")).toBe(keys.indexOf("decision") + 1);
+    expect(keys.indexOf("consult")).toBe(keys.indexOf("plans") + 1);
   });
 
   it("le parcours du groupe A se termine par mise en relation puis exécution & suivi", () => {
@@ -181,32 +198,16 @@ describe("buildProjectJourney — ordre des étapes", () => {
     }
   });
 
-  it("Rénovation : coût → mise en relation (sans matériaux ni aide à la décision)", () => {
-    expect(buildProjectJourney("renovation_complete", PID).map((s) => s.label)).toEqual(
-      GROUP_B_LABELS,
-    );
-  });
-
-  it("Cuisine : coût → mise en relation (sans matériaux ni aide à la décision)", () => {
-    expect(buildProjectJourney("renovation_cuisine", PID).map((s) => s.label)).toEqual(
-      GROUP_B_LABELS,
-    );
-  });
-
-  it("Salle de bain : coût → mise en relation (sans matériaux ni aide à la décision)", () => {
-    expect(buildProjectJourney("renovation_salle_de_bain", PID).map((s) => s.label)).toEqual(
-      GROUP_B_LABELS,
-    );
-  });
-
-  it("le parcours du groupe B démarre au coût, sans étape « Aide à la décision »", () => {
-    const steps = buildProjectJourney("piscine", PID);
-    const keys = steps.map((s) => s.key);
-    expect(keys).toEqual(GROUP_B_KEYS);
-    expect(steps[0].key).toBe("cost");
-    // « Aide à la décision » est réservée au groupe A : ni étape, ni lien direct.
-    expect(keys).not.toContain("decision");
-    expect(keys[keys.length - 1]).toBe("consult");
+  it("Piscine, clôture, jardin : uniquement Type de projet, Coût estimatif et Mise en relation", () => {
+    for (const type of ["piscine", "cloture", "jardin", "extension_batiment"]) {
+      expect(buildProjectJourney(type, PID).map((s) => s.label), type).toEqual(
+        GROUP_B_LABELS,
+      );
+      const keys = buildProjectJourney(type, PID).map((s) => s.key);
+      expect(keys, type).not.toContain("decision");
+      expect(keys, type).not.toContain("plans");
+      expect(keys, type).not.toContain("execution");
+    }
   });
 
   it("groupe B : aucune étape « Aide à la décision », « Plans », « Exécution » ni « Fournisseurs »", () => {
@@ -222,9 +223,10 @@ describe("buildProjectJourney — ordre des étapes", () => {
 
   it("chaque étape du groupe B porte la clé du rapport PDF associé", () => {
     const byKey = Object.fromEntries(
-      buildProjectJourney("renovation_complete", PID).map((s) => [s.key, s.reportKey ?? null]),
+      buildProjectJourney("piscine", PID).map((s) => [s.key, s.reportKey ?? null]),
     );
     expect(byKey).toMatchObject({
+      type: null,
       cost: "cost",
       consult: null,
     });
@@ -239,35 +241,38 @@ describe("buildProjectJourney — ordre des étapes", () => {
 });
 
 describe("buildProjectJourney — liens, rapports et contexte du projet", () => {
-  it("chaque étape pointe vers le module correspondant (exécution en dernière position)", () => {
+  it("chaque étape du groupe A pointe vers le module correspondant", () => {
     const steps = buildProjectJourney("villa", PID);
     expect(steps.map((s) => s.key)).toEqual(GROUP_A_KEYS);
     expect(steps.map((s) => s.href)).toEqual([
-      "/dashboard/plans/proj_1",
-      "/dashboard/project/proj_1",
-      "/dashboard/decision/proj_1",
-      "/dashboard/professionals-directory?project=proj_1",
-      "/dashboard/guide?project=proj_1",
+      `/dashboard/project/${PID}#type-de-projet`,
+      `/dashboard/project/${PID}`,
+      `/dashboard/decision/${PID}`,
+      `/dashboard/plans/${PID}`,
+      `/dashboard/professionals-directory?project=${PID}`,
+      `/dashboard/guide?project=${PID}`,
     ]);
   });
 
-  it("chaque étape du groupe A porte la clé du rapport PDF associé (mise en relation sans rapport)", () => {
+  it("chaque étape du groupe A porte la clé du rapport PDF associé (type, décision et mise en relation sans rapport)", () => {
     const byKey = Object.fromEntries(
       buildProjectJourney("maison", PID).map((s) => [s.key, s.reportKey ?? null]),
     );
     expect(byKey).toMatchObject({
-      plans: "plans",
+      type: null,
       cost: "cost",
       decision: null,
+      plans: "plans",
       consult: null,
       execution: "execution",
     });
   });
 
   it("groupe B : chaque étape conserve le contexte du projet", () => {
-    const steps = buildProjectJourney("renovation_complete", PID);
+    const steps = buildProjectJourney("piscine", PID);
     expect(steps.map((s) => s.key)).toEqual(GROUP_B_KEYS);
     expect(steps.map((s) => s.href)).toEqual([
+      `/dashboard/project/${PID}#type-de-projet`,
       `/dashboard/project/${PID}`,
       `/dashboard/professionals-directory?project=${PID}`,
     ]);
@@ -281,16 +286,53 @@ describe("buildProjectJourney — liens, rapports et contexte du projet", () => 
     }
   });
 
-  it("les liens du parcours sont uniques (aucune destination dupliquée)", () => {
+  it("les liens et repères du parcours sont uniques (aucune destination dupliquée)", () => {
     const steps = buildProjectJourney("maison", PID);
-    // « Aide à la décision » dispose de sa propre page dédiée : chaque étape a
-    // une route de repérage et un lien distincts.
     expect(new Set(steps.map((s) => s.href)).size).toBe(steps.length);
     expect(new Set(steps.map((s) => s.path)).size).toBe(steps.length);
     expect(steps.filter((s) => s.path === `/dashboard/project/${PID}`)).toHaveLength(1);
-    expect(
-      steps.find((s) => s.key === "decision")?.href,
-    ).toBe(`/dashboard/decision/${PID}`);
+  });
+});
+
+describe("canAccessJourneyStep — accès direct aux étapes réservées au groupe A", () => {
+  it("groupe A : les six étapes sont autorisées", () => {
+    for (const step of GROUP_A_KEYS) {
+      expect(canAccessJourneyStep("maison", step as any), step).toBe(true);
+      expect(canAccessJourneyStep("restaurant", step as any), step).toBe(true);
+      expect(canAccessJourneyStep("renovation_complete", step as any), step).toBe(true);
+    }
+  });
+
+  it("groupe B : plans, aide à la décision et exécution sont refusés", () => {
+    for (const type of ["piscine", "cloture", "jardin", "extension_batiment", "cafe_inexistant"]) {
+      expect(canAccessJourneyStep(type, "plans"), type).toBe(false);
+      expect(canAccessJourneyStep(type, "decision"), type).toBe(false);
+      expect(canAccessJourneyStep(type, "execution"), type).toBe(false);
+      // Les étapes autorisées restent accessibles.
+      expect(canAccessJourneyStep(type, "type"), type).toBe(true);
+      expect(canAccessJourneyStep(type, "cost"), type).toBe(true);
+      expect(canAccessJourneyStep(type, "consult"), type).toBe(true);
+    }
+  });
+
+  it("un type inconnu ou absent est traité comme groupe B", () => {
+    expect(canAccessJourneyStep(null, "plans")).toBe(false);
+    expect(canAccessJourneyStep(undefined, "execution")).toBe(false);
+    expect(canAccessJourneyStep("type_inexistant", "decision")).toBe(false);
+  });
+
+  it("les indicateurs de progression (chargement) suivent le groupe du type choisi", () => {
+    // Groupe A : les 6 étapes officielles.
+    expect(projectJourneyStepLabels("maison")).toEqual(GROUP_A_LABELS);
+    expect(projectJourneyStepLabels("restaurant")).toEqual(GROUP_A_LABELS);
+    expect(projectJourneyStepLabels("renovation_complete")).toEqual(GROUP_A_LABELS);
+    // Groupe B : uniquement les 3 étapes autorisées, aucun vestige interdit.
+    for (const type of ["piscine", "cloture", "jardin", "extension_batiment"]) {
+      expect(projectJourneyStepLabels(type), type).toEqual(GROUP_B_LABELS);
+      expect(projectJourneyStepLabels(type), type).not.toContain("Aide à la décision");
+      expect(projectJourneyStepLabels(type), type).not.toContain("Plans architecturaux AI");
+      expect(projectJourneyStepLabels(type), type).not.toContain("Exécution & suivi");
+    }
   });
 });
 
@@ -299,12 +341,13 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
     expect(buildProjectJourney("maison", PID, undefined).map((s) => s.key)).toEqual(
       GROUP_A_KEYS,
     );
-    expect(buildProjectJourney("maison", PID, null).map((s) => s.key)).toHaveLength(5);
+    expect(buildProjectJourney("maison", PID, null).map((s) => s.key)).toHaveLength(6);
   });
 
   it("« Plans » disparaît quand architectural_plans est désactivé (ordre conservé)", () => {
     const flags = { architectural_plans: false };
     expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
+      "type",
       "cost",
       "decision",
       "consult",
@@ -321,11 +364,13 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
   it("« Coût estimatif » et « Aide à la décision » disparaissent quand construction_cost_estimation est désactivé (groupe A et B)", () => {
     const flags = { construction_cost_estimation: false };
     expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
+      "type",
       "plans",
       "consult",
       "execution",
     ]);
-    expect(buildProjectJourney("renovation_complete", PID, flags).map((s) => s.key)).toEqual([
+    expect(buildProjectJourney("piscine", PID, flags).map((s) => s.key)).toEqual([
+      "type",
       "consult",
     ]);
   });
@@ -338,24 +383,27 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
 
   it("toutes les étapes gérées par un flag disparaissent ensemble (groupe B)", () => {
     const flags = { construction_cost_estimation: false, architectural_plans: false };
-    expect(buildProjectJourney("piscine", PID, flags).map((s) => s.key)).toEqual(["consult"]);
+    expect(buildProjectJourney("piscine", PID, flags).map((s) => s.key)).toEqual([
+      "type",
+      "consult",
+    ]);
   });
 
   it("« Exécution & suivi » disparaît quand construction_guide est désactivé", () => {
     const flags = { construction_guide: false };
     const steps = buildProjectJourney("maison", PID, flags);
     expect(steps.map((s) => s.key)).toEqual([
-      "plans",
+      "type",
       "cost",
       "decision",
+      "plans",
       "consult",
     ]);
-    // Aucun vestige : ni libellé, ni lien vers le guide.
     expect(steps.some((s) => /ex[ée]cution/i.test(s.label))).toBe(false);
     expect(steps.some((s) => s.href.includes("/dashboard/guide"))).toBe(false);
   });
 
-  it("les étapes non pilotées par un flag (mise en relation) restent toujours affichées", () => {
+  it("les étapes non pilotées par un flag (type de projet, mise en relation) restent toujours affichées", () => {
     const flags = {
       construction_cost_estimation: false,
       architectural_plans: false,
@@ -363,6 +411,7 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
       construction_guide: false,
     };
     expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
+      "type",
       "consult",
     ]);
   });
@@ -374,24 +423,9 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
     expect(back.map((s) => s.key)).toEqual(GROUP_A_KEYS);
   });
 
-  it("groupe A : « Exécution & suivi » referme le parcours", () => {
-    const steps = buildProjectJourney("villa", PID);
-    expect(steps.map((s) => s.key)).toEqual(GROUP_A_KEYS);
-    expect(steps[steps.length - 1].href).toBe(`/dashboard/guide?project=${PID}`);
-  });
-
-  it("groupe B : seules les 2 étapes officielles apparaissent", () => {
-    const steps = buildProjectJourney("renovation_complete", PID);
-    expect(steps.map((s) => s.key)).toEqual(GROUP_B_KEYS);
-  });
-
-  it("le contexte projet reste conservé après filtrage", () => {
+  it("le contexte projet reste conservé après filtrage et les liens restent uniques", () => {
     const steps = buildProjectJourney("maison", PID, { architectural_plans: false });
     expect(steps.every((s) => s.href.includes(PID))).toBe(true);
-  });
-
-  it("les liens restent uniques après filtrage", () => {
-    const steps = buildProjectJourney("maison", PID, { ai_materials: false });
     expect(new Set(steps.map((s) => s.href)).size).toBe(steps.length);
   });
 
@@ -402,34 +436,10 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
       ai_materials: false,
       construction_guide: false,
     };
-    // Mise en relation / Fournisseurs ne dépendent d'aucun flag.
     for (const type of PROJECT_TYPES) {
-      expect(buildProjectJourney(type, PID, allOff).length, type).toBeGreaterThanOrEqual(1);
+      expect(buildProjectJourney(type, PID, allOff).length, type).toBeGreaterThanOrEqual(2);
     }
-    // Parcours dédié « Résultat IA » : seule l'étape Fournisseur subsiste.
     expect(buildAiMaterialsResultJourney(PID, SUPPLIER_HREF, allOff).map((s) => s.key)).toEqual([
-      "supplier",
-    ]);
-  });
-});
-
-describe("buildAiMaterialsResultJourney — filtrage par feature flags", () => {
-  it("« Liste prix » disparaît quand ai_materials est désactivé (« Fournisseur » reste)", () => {
-    const off = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF, { ai_materials: false });
-    expect(off.map((s) => s.key)).toEqual(["cost", "supplier"]);
-  });
-
-  it("« Coût estimatif » disparaît quand construction_cost_estimation est désactivé", () => {
-    const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF, {
-      construction_cost_estimation: false,
-    });
-    expect(steps.map((s) => s.key)).toEqual(["priceList", "supplier"]);
-  });
-
-  it("sans flags fournis, l'ordre complet est conservé", () => {
-    expect(buildAiMaterialsResultJourney(PID, SUPPLIER_HREF).map((s) => s.key)).toEqual([
-      "cost",
-      "priceList",
       "supplier",
     ]);
   });
@@ -453,7 +463,6 @@ describe("buildAiMaterialsResultJourney — page « Résultat de l'analyse IA »
     expect(steps[1].path).toBe(MATERIALS_PAGE_PATH);
     expect(steps[2].href).toBe(SUPPLIER_HREF);
     expect(steps[2].path).toBe(SUPPLIERS_DIRECTORY_PATH);
-    // Le contexte du projet est conservé sur les deux premières étapes.
     expect(steps.slice(0, 2).every((s) => s.href.includes(PID))).toBe(true);
   });
 
@@ -468,11 +477,6 @@ describe("buildAiMaterialsResultJourney — page « Résultat de l'analyse IA »
       const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF);
       expect(steps.map((s) => s.label), type).toEqual(labels);
     }
-  });
-
-  it("les routes de repérage de l'étape active restent uniques", () => {
-    const steps = buildAiMaterialsResultJourney(PID, SUPPLIER_HREF);
-    expect(new Set(steps.map((s) => s.path)).size).toBe(steps.length);
   });
 
   it("Journey masqué sans identifiant de projet (aucune étape)", () => {

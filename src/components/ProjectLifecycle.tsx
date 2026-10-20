@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useQuery } from "convex/react";
 import {
   BrainCircuit,
+  Building2,
   Calculator,
   Check,
   HardHat,
@@ -20,11 +21,11 @@ import { ResultPlaceholder, StepResultPanel } from "@/components/LifecycleStepRe
 /**
  * CYCLE DE VIE COMPLET D'UN PROJET — parcours animé de la page d'accueil.
  *
- * Représente les 5 étapes du projet, dans l'ordre officiel de « Projet Journey »
+ * Représente les 6 étapes du projet, dans l'ordre officiel de « Projet Journey »
  * (`src/lib/projectJourney.ts`) :
  *
- *   01 Plan IA → 02 Coût estimatif → 03 Aide à la décision →
- *   04 Consultations → 05 Exécution & suivi
+ *   01 Type de projet → 02 Coût estimatif → 03 Aide à la décision →
+ *   04 Plans architecturaux AI → 05 Mise en relation → 06 Exécution & suivi
  *
  * L'étape « Matériaux utilisés » a été supprimée : elle n'apparaît plus dans
  * le parcours (données et calculs conservés ailleurs).
@@ -61,18 +62,19 @@ interface LifecycleStep {
 
 const LIFECYCLE_STEPS: LifecycleStep[] = [
   {
-    key: "plans",
-    label: "Plan IA",
+    key: "type",
+    label: "Type de projet",
     description:
-      "Obtenir des plans architecturaux en 2D/3D pour votre projet avec l'intelligence artificielle.",
-    icon: Ruler,
-    flag: JOURNEY_FLAG_KEYS.plans,
+      "Choisissez le type de projet et renseignez les informations nécessaires : surface, niveaux, région et composition.",
+    icon: Building2,
+    // Étape de création : toujours disponible (aucun feature flag).
+    flag: null,
     accents: {
-      gradient: "from-sky-500 to-cyan-500",
-      text: "text-sky-600 dark:text-sky-400",
-      ring: "ring-sky-500/20",
-      shadow: "shadow-sky-500/30",
-      chip: "bg-sky-500/10",
+      gradient: "from-slate-500 to-zinc-500",
+      text: "text-slate-600 dark:text-slate-300",
+      ring: "ring-slate-500/20",
+      shadow: "shadow-slate-500/30",
+      chip: "bg-slate-500/10",
     },
   },
   {
@@ -106,8 +108,23 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
     },
   },
   {
+    key: "plans",
+    label: "Plans architecturaux AI",
+    description:
+      "Générez des plans architecturaux en 2D/3D, avec les plans techniques de plomberie et d'électricité.",
+    icon: Ruler,
+    flag: JOURNEY_FLAG_KEYS.plans,
+    accents: {
+      gradient: "from-sky-500 to-cyan-500",
+      text: "text-sky-600 dark:text-sky-400",
+      ring: "ring-sky-500/20",
+      shadow: "shadow-sky-500/30",
+      chip: "bg-sky-500/10",
+    },
+  },
+  {
     key: "consult",
-    label: "Consultations",
+    label: "Mise en relation",
     description: "Trouvez des experts et prestataires adaptés à vos besoins.",
     icon: Users,
     // Étape de consultation : pas de feature flag dédié (toujours disponible).
@@ -138,13 +155,13 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
 
 /**
  * Durée EXACTE d'une étape (ms) : 4 secondes fixes par étape, soit une
- * séquence complète de 20 secondes pour les 5 étapes. Aucune durée aléatoire,
+ * séquence complète de 24 secondes pour les 6 étapes. Aucune durée aléatoire,
  * aucune accélération liée au chargement des données.
  */
 const STEP_DURATION_MS = 4000;
 /**
- * Courte pause, une fois les 5 étapes terminées, avant la reprise de la boucle
- * (durée fixe elle aussi). À la fin, les 5 résultats restent affichés, puis la
+ * Courte pause, une fois les 6 étapes terminées, avant la reprise de la boucle
+ * (durée fixe elle aussi). À la fin, les 6 résultats restent affichés, puis la
  * séquence repart en douceur de l'étape 1.
  */
 const LOOP_HOLD_MS = 1500;
@@ -157,9 +174,9 @@ function pad(n: number): string {
 
 /**
  * Séquence animée du cycle de vie, EN BOUCLE : une étape se termine exactement
- * toutes les 4 secondes (0–4 s étape 1 … 16–20 s étape 5). Dès qu'une étape
+ * toutes les 4 secondes (0–4 s étape 1 … 20–24 s étape 6). Dès qu'une étape
  * passe à « Terminé », son résultat réel s'affiche sous elle et reste visible.
- * À la fin des 20 secondes, les 5 étapes et leurs résultats sont affichés, puis
+ * À la fin des 24 secondes, les 6 étapes et leurs résultats sont affichés, puis
  * la boucle repart de l'étape 1 — sans rechargement, de façon fluide. Seul
  * « réduire les animations » court-circuite le parcours (tout affiché d'emblée).
  */
@@ -212,8 +229,8 @@ export function ProjectLifecycle({ className }: { className?: string }) {
   }, [inView, reduceMotion, total]);
 
   // Séquençage à durée fixe, EN BOUCLE : une étape passe à « Terminé » toutes
-  // les 4 s exactement (0–4 s étape 1, 4–8 s étape 2, … 16–20 s étape 5). Les
-  // 5 étapes tiennent alors toutes « Terminé » avec leurs résultats, puis la
+  // les 4 s exactement (0–4 s étape 1, 4–8 s étape 2, … 20–24 s étape 6). Les
+  // 6 étapes tiennent alors toutes « Terminé » avec leurs résultats, puis la
   // boucle repart de l'étape 1. Aucun chevauchement entre deux étapes.
   useEffect(() => {
     if (!started || total === 0) return;

@@ -50,12 +50,16 @@ describe("« Rénovation Cuisine » — intégration plateforme", () => {
     expect(PROJECT_TYPE_LABELS[CATEGORY]).toBe("Rénovation Cuisine");
   });
 
-  it("suit le parcours rénovation : coût → mise en relation (sans aide à la décision)", () => {
+  it("suit le parcours simplifié : type → coût → mise en relation (sans aide à la décision)", () => {
     expect(projectJourneyGroup(CATEGORY)).toBe("B");
     const steps = buildProjectJourney(CATEGORY, PROJECT_ID);
-    expect(steps.map((s) => s.label)).toEqual(["Coût estimatif", "Mise en relation"]);
+    expect(steps.map((s) => s.label)).toEqual([
+      "Type de projet",
+      "Coût estimatif",
+      "Mise en relation",
+    ]);
     // Le lien de la mise en relation conserve le contexte du projet.
-    expect(steps[1].href).toBe(`/dashboard/professionals-directory?project=${PROJECT_ID}`);
+    expect(steps[2].href).toBe(`/dashboard/professionals-directory?project=${PROJECT_ID}`);
     // « Matériaux utilisés » a été supprimée : aucune étape ne pointe vers elle.
     expect(steps.some((s) => s.href.includes("/dashboard/materials-used"))).toBe(false);
     // « Aide à la décision » est réservée au groupe A : aucun lien vers la page.

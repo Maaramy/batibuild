@@ -12,14 +12,13 @@ import {
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { useQuery, useMutation, useAction } from "convex/react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useLocation } from "react-router";
 import { useState, useMemo, Fragment, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
-import { projectJourneyGroup } from "@/lib/projectJourney";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
@@ -90,6 +89,7 @@ import {
 
 import {
   inferFloorsFromCategory,
+  isMultiLevelCategory,
   normalizeLegacyCategory,
 } from "@/convex/projectTypes";
 import {
@@ -212,6 +212,7 @@ function SectionCard({ icon: Icon, title, badge, children, defaultOpen = true }:
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { hash } = useLocation();
   const project = useQuery(api.projects.getProject, { projectId: id as any });
   usePageSEO({
     title: project ? `Devis ${project.name} - batibuild` : "Détail du projet - batibuild",
@@ -282,6 +283,15 @@ export default function ProjectDetail() {
       setSelectedScenario(stored);
     }
   }, [project]);
+  // Étape 1 « Type de projet » du parcours : le lien pointe vers la fiche
+  // d'informations du projet (ancre #type-de-projet). On la fait défiler en
+  // vue lorsque l'on revient à cette étape, sans recharger ni recréer le projet.
+  useEffect(() => {
+    if (hash !== "#type-de-projet") return;
+    const node = document.getElementById("type-de-projet");
+    node?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [hash]);
+
   const [editingLine, setEditingLine] = useState<{
     lotId: string;
     lotName: string;
@@ -2125,15 +2135,17 @@ export default function ProjectDetail() {
 
             {/* ═══ Project Info ═══ */}
 
+            <div id="type-de-projet" className="scroll-mt-24">
             <SectionCard icon={Info} title="Informations projet">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                 {[
                   { label: "Catégorie", value: ai.category, icon: Building2 },
                   { label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", icon: MapPin },
                   { label: "Surface couverte", value: project.surface ? `${project.surface} m²` : "Non définie", icon: Ruler },
-                  // « Étages » masqué pour le groupe B (rénovation, travaux…) :
-                  // aucune case vide ni espace réservé — données backend intactes.
-                  ...(projectJourneyGroup(project.category) === "A"
+                  // « Étages » masqué pour les projets de plain-pied (restaurant,
+                  // café, rénovation complète, travaux…) : aucune case vide ni
+                  // espace réservé — données backend intactes.
+                  ...(isMultiLevelCategory(project.category)
                     ? [{ label: "Étages", value: String(project.floors ?? 1), icon: Building2 }]
                     : []),
 
@@ -2155,6 +2167,7 @@ export default function ProjectDetail() {
                 <p className="text-[10px] sm:text-xs text-muted-foreground/70 mt-3 pt-3 border-t border-border/10">{project.description}</p>
               )}
             </SectionCard>
+            </div>
 
           </motion.div>
         )}

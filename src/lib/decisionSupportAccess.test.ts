@@ -81,7 +81,7 @@ describe("evaluateDecisionSupportAccess — scénarios obligatoires", () => {
   });
 
   it("4. Groupe B + Client Pro actif → refusé (le type de projet prime)", () => {
-    const res = access("renovation_complete", ACTIVE_PRO);
+    const res = access("extension_batiment", ACTIVE_PRO);
     expect(res.allowed).toBe(false);
     expect(res.reason).toBe("group_b");
     expect(res.group).toBe("B");
@@ -110,19 +110,22 @@ describe("evaluateDecisionSupportAccess — scénarios obligatoires", () => {
 });
 
 describe("evaluateDecisionSupportAccess — cas limites", () => {
-  it("les 11 types du groupe A sont éligibles avec un Client Pro actif", () => {
+  it("les 14 types du groupe A sont éligibles avec un Client Pro actif", () => {
     for (const type of [
       "maison",
-      "villa",
       "appartement",
-      "studio",
-      "duplex",
+      "villa",
       "immeuble",
       "local_commercial",
+      "studio",
+      "duplex",
       "bureau",
       "entrepot",
       "residence_touristique",
       "projet_neuf",
+      "restaurant",
+      "cafe",
+      "renovation_complete",
     ]) {
       expect(access(type, ACTIVE_PRO).allowed, type).toBe(true);
     }
@@ -130,14 +133,13 @@ describe("evaluateDecisionSupportAccess — cas limites", () => {
 
   it("aucun autre type du catalogue n'est éligible, même avec un Client Pro actif", () => {
     for (const type of [
-      "renovation_complete",
       "extension_batiment",
       "renovation_cuisine",
       "renovation_salle_de_bain",
       "peinture_interieure",
       "piscine",
-      "restaurant",
-      "cafe",
+      "cloture",
+      "jardin",
       "electricite_complete",
       "plomberie_complete",
     ]) {

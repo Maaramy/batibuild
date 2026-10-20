@@ -17,24 +17,25 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     expect(keys("villa")).toEqual(["cost", "plans", "materials", "execution"]);
   });
 
-  it("Groupe A — le studio suit le parcours complet", () => {
-    // Le studio appartient au groupe A (parcours complet).
-    expect(keys("studio")).toEqual(["cost", "plans", "materials", "execution"]);
+  it("Groupe A — le studio, le restaurant, le café et la rénovation complète suivent le parcours complet", () => {
+    for (const type of ["studio", "restaurant", "cafe", "renovation_complete"]) {
+      expect(keys(type), type).toEqual(["cost", "plans", "materials", "execution"]);
+    }
   });
 
   it("Groupe B — seule la section « Coût estimatif » est présente", () => {
     for (const type of [
-      "renovation_complete",
       "extension_batiment",
       "piscine",
       "plomberie_complete",
+      "cloture",
     ]) {
       expect(keys(type), type).toEqual(["cost"]);
     }
   });
 
   it("Groupe B — les autres étapes ne réapparaissent jamais, même flags activés", () => {
-    const modules = visibleReportModules(allEnabled, "renovation_complete");
+    const modules = visibleReportModules(allEnabled, "piscine");
     expect(modules).toHaveLength(1);
     expect(modules[0].key).toBe("cost");
     expect(modules[0].label).toBe("Coût estimatif");
@@ -54,7 +55,7 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     expect(
       visibleReportModules(
         (flag) => flag !== "construction_cost_estimation",
-        "renovation_complete",
+        "piscine",
       ),
     ).toEqual([]);
   });
@@ -62,7 +63,7 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
   it("le nombre de rapports disponibles d'un projet Groupe B ne dépasse jamais 1", () => {
     const project = {
       _id: "p1",
-      category: "renovation_complete",
+      category: "piscine",
       surface: 120,
       costEstimate: {},
     };

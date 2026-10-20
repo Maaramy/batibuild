@@ -396,6 +396,7 @@ function Plan3DView({ plan }: { plan: FloorPlan }) {
 // ============================================================================
 
 const STEP_TONES: Record<string, { accent: string; icon: LucideIcon }> = {
+  type: { accent: "text-slate-600", icon: Building2 },
   cost: { accent: "text-emerald-600", icon: Wallet },
   decision: { accent: "text-violet-600", icon: BrainCircuit },
   plans: { accent: "text-sky-600", icon: Ruler },
@@ -440,6 +441,7 @@ export function StepResultPanel({
         </div>
 
         <div className="p-3">
+          {stepKey === "type" && <TypeResult data={data} />}
           {stepKey === "cost" && <CostResult data={data} />}
           {stepKey === "decision" && <DecisionResult data={data} />}
           {stepKey === "plans" && <PlanResult data={data} />}
@@ -451,7 +453,47 @@ export function StepResultPanel({
   );
 }
 
-// ── 1. Coût estimatif ───────────────────────────────────────────────────────
+// ── 1. Type de projet — informations réelles du projet de référence ────────
+
+function TypeResult({ data }: { data: LifecycleShowcase }) {
+  const { project, plan } = data;
+  return (
+    <div className="space-y-3">
+      <Grid>
+        <Metric
+          icon={Building2}
+          label="Type de projet"
+          value={<span className="text-[12px]">{project.categoryLabel}</span>}
+          sub="Informations du projet"
+          tone="text-slate-600"
+        />
+        <Metric
+          icon={Ruler}
+          label="Surface"
+          value={<AnimatedNumber value={project.surface} suffix=" m²" />}
+          sub="Surface couverte"
+          tone="text-slate-600"
+        />
+        <Metric
+          icon={Layers}
+          label="Niveaux"
+          value={<AnimatedNumber value={project.floors} />}
+          sub={`${plan.roomsTotal} pièces`}
+          tone="text-slate-600"
+        />
+        <Metric
+          icon={MapPin}
+          label="Région"
+          value={<span className="text-[12px]">{project.regionLabel || "—"}</span>}
+          sub="Localisation du projet"
+          tone="text-slate-600"
+        />
+      </Grid>
+    </div>
+  );
+}
+
+// ── 2. Coût estimatif ───────────────────────────────────────────────────────
 
 function CostResult({ data }: { data: LifecycleShowcase }) {
   const { cost } = data;

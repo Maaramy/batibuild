@@ -30,6 +30,8 @@ import {
   ESTIMATE_LOADING_DURATION_MS,
 } from "@/components/EstimateLoadingScreen";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import { ProjectStepUnavailable } from "@/components/ProjectStepUnavailable";
+import { canAccessJourneyStep } from "@/lib/projectJourney";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
 import {
   projectTypeLabel,
@@ -271,14 +273,32 @@ export default function PlanGenerator() {
     [variants],
   );
 
+  // Étape réservée au Groupe A : un projet du parcours simplifié ne peut pas
+  // ouvrir cette page, même via une URL directe ou enregistrée. Aucune donnée
+  // n'est supprimée ni recalculée : l'écran renvoie vers la fiche du projet.
+  if (project && !canAccessJourneyStep(project.category as string, "plans")) {
+    return (
+      <main className="min-h-screen bg-background pb-12">
+        <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+          <ProjectStepUnavailable
+            stepLabel="Plans architecturaux AI"
+            projectName={project.name}
+            backHref={`/dashboard/project/${project._id}`}
+            consultHref={`/dashboard/professionals-directory?project=${project._id}`}
+          />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
         <ClientProPaywall>
-      {/* Parcours du projet — l'étape « Plans architecturaux AI » ouvre le
-          parcours du groupe A : cette page affiche donc son étape dédiée, avec
-          « Suivant → : Coût estimatif » pour enchaîner sans perdre les données
-          du projet. `featureLabel` sert de repli tant que le projet n'est pas
-          encore chargé. */}
+      {/* Parcours du projet — étape n°4 du groupe A : cette page affiche son
+          étape dédiée, avec « Étape précédente : Aide à la décision » et
+          « Suivant → : Mise en relation » pour enchaîner sans perdre les
+          données du projet. `featureLabel` sert de repli tant que le projet
+          n'est pas encore chargé. */}
       <ProjectJourneyNav
         projectId={projectId || undefined}
         category={project?.category}

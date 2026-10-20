@@ -9,18 +9,24 @@
  * Le groupe est déterminé automatiquement à partir du type de projet enregistré
  * (`resolveProjectType` gère aussi les anciens slugs et les libellés libres) :
  *
- *   - **Groupe A** — projets neufs / immobiliers (maison, villa, appartement,
- *     studio, duplex, immeuble, local commercial, bureau, entrepôt,
- *     résidence touristique, projet immobilier neuf) : parcours complet en 5
- *     étapes :
- *       1. Plans architecturaux AI
+ *   - **Groupe A** — parcours complet en 6 étapes, exclusivement pour :
+ *     Maison, Appartement, Villa, Immeuble, Local commercial, Studio, Duplex,
+ *     Bureau, Entrepôt, Résidence touristique, Projet immobilier neuf,
+ *     Restaurant, Café, Rénovation complète. Ordre obligatoire :
+ *       1. Type de projet
  *       2. Coût estimatif
  *       3. Aide à la décision
- *       4. Mise en relation
- *       5. Exécution & suivi
- *   - **Groupe B** — tous les autres types (rénovation, extension, piscine,
- *     restaurant, café, travaux techniques…) : parcours simplifié en 2 étapes
- *     (coût estimatif → mise en relation).
+ *       4. Plans architecturaux AI
+ *       5. Mise en relation
+ *       6. Exécution & suivi
+ *   - **Groupe B** — TOUS les autres types (piscine, clôture, jardin, extension,
+ *     cuisine, salle de bain, peinture, travaux techniques…) : parcours
+ *     simplifié en 3 étapes :
+ *       1. Type de projet
+ *       2. Coût estimatif
+ *       3. Mise en relation
+ *     « Aide à la décision », « Plans architecturaux AI » et « Exécution &
+ *     suivi » sont totalement absentes de ce parcours.
  *
  * L'étape « Matériaux utilisés » a été SUPPRIMÉE de l'application : elle
  * n'existe plus ni comme page, ni comme route, ni comme étape du parcours. Les
@@ -28,16 +34,20 @@
  * TTC) restent intactes et continuent d'alimenter le coût estimatif, l'aide à
  * la décision et la mise en relation avec les fournisseurs.
  *
- * « Aide à la décision » est RÉSERVÉE au groupe A : l'étape est absente du
- * parcours du groupe B (elle n'est ni affichée, ni atteignable par « Suivant »,
- * et l'accès direct à son URL est refusé côté page ET côté backend — voir
- * `decisionSupportAccess`). Les autres étapes du groupe B restent inchangées.
+ * Les étapes « Aide à la décision », « Plans architecturaux AI » et
+ * « Exécution & suivi » sont RÉSERVÉES au groupe A : elles ne sont ni
+ * affichées, ni atteignables par « Suivant » pour un projet du groupe B.
+ * L'accès direct à leurs URL est également refusé (voir
+ * `canAccessJourneyStep`, utilisé par les pages Plans et Exécution, et
+ * `decisionSupportAccess` pour l'aide à la décision, contrôlée aussi côté
+ * serveur).
  *
  * Une étape absente du groupe n'est jamais rendue : ni libellé, ni lien, ni
  * indicateur de progression — il n'y a donc aucun espace vide ni entrée
  * désactivée. La classification ne dépend que du type de projet enregistré
  * (aucune intervention de l'administrateur) et se recalcule à chaque changement
- * de catégorie.
+ * de catégorie : modifier le type d'un projet met immédiatement à jour son
+ * parcours, sans recréer le projet ni réinitialiser ses données.
  *
  * Chaque lien conserve le contexte du projet (`?project=…` ou `/:id`) : la
  * navigation ne recrée jamais de projet et ne perd aucune donnée.
@@ -106,6 +116,7 @@ function filterDisabledSteps(
 }
 
 export type ProjectJourneyStepKey =
+  | "type"
   | "cost"
   | "decision"
   | "plans"
@@ -136,7 +147,7 @@ export interface ProjectJourneyStep {
 }
 
 /**
- * Groupe A : types de projet au parcours complet (5 étapes).
+ * Groupe A : les 14 types de projet au parcours complet (6 étapes).
  *
  * Liste fermée, distincte des autres éligibilités de la plateforme : elle
  * appartient EXCLUSIVEMENT au Project Journey. Toute catégorie absente de cette
@@ -144,22 +155,61 @@ export interface ProjectJourneyStep {
  */
 export const PROJECT_JOURNEY_GROUP_A: readonly string[] = [
   "maison",
-  "villa",
   "appartement",
-  "studio",
-  "duplex",
+  "villa",
   "immeuble",
   "local_commercial",
+  "studio",
+  "duplex",
   "bureau",
   "entrepot",
   "residence_touristique",
   "projet_neuf",
+  "restaurant",
+  "cafe",
+  "renovation_complete",
 ];
 
 /** Groupe du projet déduit de son type enregistré (jamais choisi par l'utilisateur). */
 export function projectJourneyGroup(category: string | null | undefined): ProjectJourneyGroup {
   const resolved = resolveProjectType((category ?? "").trim());
   return resolved && PROJECT_JOURNEY_GROUP_A.includes(resolved) ? "A" : "B";
+}
+
+/** Étapes réservées au parcours complet (groupe A). */
+export const GROUP_A_ONLY_STEPS = ["decision", "plans", "execution"] as const;
+
+/**
+ * Une étape est-elle autorisée pour ce projet ?
+ *
+ * Source unique utilisée par la navigation ET par les pages cibles : les
+ * étapes « Aide à la décision », « Plans architecturaux AI » et « Exécution &
+ * suivi » sont réservées au groupe A. Un projet du groupe B ne peut donc jamais
+ * les atteindre, même par une URL enregistrée ou un lien direct.
+ */
+export function canAccessJourneyStep(
+  category: string | null | undefined,
+  step: ProjectJourneyStepKey,
+): boolean {
+  if (!(GROUP_A_ONLY_STEPS as readonly string[]).includes(step)) return true;
+  return projectJourneyGroup(category) === "A";
+}
+
+/**
+ * Libellés des étapes du parcours pour un type de projet, SANS contexte de
+ * projet.
+ *
+ * Utilisé par les indicateurs de progression affichés avant que le projet
+ * n'existe ou ne soit chargé (écran de chargement de la création) : un projet
+ * du groupe B n'y voit jamais apparaître « Aide à la décision », « Plans
+ * architecturaux AI » ni « Exécution & suivi ». L'ordre provient du même
+ * constructeur que le Journey, donc aucune duplication de règle.
+ */
+export function projectJourneyStepLabels(
+  category: string | null | undefined,
+): string[] {
+  // Identifiant de repère uniquement : seuls les libellés sont conservés.
+  return buildProjectJourney(category, "projet").map((step) => step.label);
 }
 
 /**
@@ -181,23 +231,35 @@ export function buildProjectJourney(
   const pid = encodeURIComponent(raw);
   const group = projectJourneyGroup(category);
 
-  // Étape exclusive du groupe A : la génération des plans d'architecte IA
-  // s'appuie uniquement sur les données déjà enregistrées du projet. Elle
-  // ouvre le parcours.
-  const plans: ProjectJourneyStep = {
-    key: "plans",
-    label: "Plans architecturaux AI",
-    path: `/dashboard/plans/${pid}`,
-    href: `/dashboard/plans/${pid}`,
-    reportKey: "plans",
+  // Étape 1 — type de projet et informations générales. Elle ouvre le parcours
+  // pour les deux groupes. L'ancre `#type-de-projet` pointe vers la fiche
+  // d'informations du projet (le type y est affiché), sans recréer de projet.
+  const type: ProjectJourneyStep = {
+    key: "type",
+    label: "Type de projet",
+    path: `/dashboard/project/${pid}#type-de-projet`,
+    href: `/dashboard/project/${pid}#type-de-projet`,
+    reportKey: null,
   };
 
+  // Étape 2 — estimation détaillée du coût. Le chemin sans ancre sert de
+  // repère d'étape active sur la page projet.
   const cost: ProjectJourneyStep = {
     key: "cost",
     label: "Coût estimatif",
     path: `/dashboard/project/${pid}`,
     href: `/dashboard/project/${pid}`,
     reportKey: "cost",
+  };
+
+  // Étape 4 (groupe A) — plans architecturaux + plans techniques. Réservée au
+  // groupe A : la page refuse l'accès direct pour les autres types.
+  const plans: ProjectJourneyStep = {
+    key: "plans",
+    label: "Plans architecturaux AI",
+    path: `/dashboard/plans/${pid}`,
+    href: `/dashboard/plans/${pid}`,
+    reportKey: "plans",
   };
 
   // « Aide à la décision » est une page DÉDIÉE (`DECISION_PAGE_PATH`) qui
@@ -225,7 +287,8 @@ export function buildProjectJourney(
     reportKey: null,
   };
 
-  // Étape exclusive du groupe A.
+  // Étape 6 (groupe A) — suivi de l'avancement, du budget et de l'exécution.
+  // Réservée au groupe A : la page refuse l'accès direct pour les autres types.
   const execution: ProjectJourneyStep = {
     key: "execution",
     label: "Exécution & suivi",
@@ -234,20 +297,19 @@ export function buildProjectJourney(
     reportKey: "execution",
   };
 
-  // Groupe B — parcours simplifié : coût estimatif → mise en relation. Ni
-  // « Plans architecturaux AI », ni « Aide à la décision » (groupe A
-  // uniquement, et accès refusé côté backend), ni « Exécution & suivi » : les
-  // étapes absentes ne sont PAS rendues (aucun bouton, lien ou indicateur
-  // résiduel) et « Suivant » saute directement à l'étape autorisée suivante,
-  // sans blocage du reste du projet.
+  // Groupe B — parcours simplifié : Type de projet → Coût estimatif → Mise en
+  // relation. Ni « Aide à la décision », ni « Plans architecturaux AI », ni
+  // « Exécution & suivi » : les étapes absentes ne sont PAS rendues (aucun
+  // bouton, lien ou indicateur résiduel) et « Suivant » saute directement à
+  // l'étape autorisée suivante, sans blocage du reste du projet.
   if (group === "B") {
-    return filterDisabledSteps([cost, consult], flags);
+    return filterDisabledSteps([type, cost, consult], flags);
   }
 
-  // Groupe A — parcours complet (5 étapes) :
-  //   1. Plans architecturaux AI → 2. Coût estimatif → 3. Aide à la décision
-  //   → 4. Mise en relation → 5. Exécution & suivi.
-  return filterDisabledSteps([plans, cost, decision, consult, execution], flags);
+  // Groupe A — parcours complet (6 étapes), dans l'ordre obligatoire :
+  //   1. Type de projet → 2. Coût estimatif → 3. Aide à la décision
+  //   → 4. Plans architecturaux AI → 5. Mise en relation → 6. Exécution & suivi.
+  return filterDisabledSteps([type, cost, decision, plans, consult, execution], flags);
 }
 
 /** Route de l'annuaire des fournisseurs (page des fournisseurs trouvés). */

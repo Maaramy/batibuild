@@ -36,7 +36,7 @@ const DENY_MESSAGES: Record<DecisionSupportAccessReason, string> = {
   not_authenticated: "Connectez-vous pour accéder à « Aide à la décision ».",
   not_owner: "Ce projet n'existe pas ou n'est pas accessible depuis votre compte.",
   group_b:
-    "« Aide à la décision » est réservée aux projets du groupe A (projets neufs / immobiliers).",
+    "« Aide à la décision » est réservée aux projets du groupe A (maison, appartement, villa, immeuble, local commercial, studio, duplex, bureau, entrepôt, résidence touristique, projet immobilier neuf, restaurant, café, rénovation complète).",
   free_plan:
     "« Aide à la décision » nécessite un abonnement Client Pro actif : passez à Client Pro pour y accéder.",
   expired:

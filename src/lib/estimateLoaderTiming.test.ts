@@ -16,11 +16,12 @@ describe("estimateIntroState — animation de l'estimation", () => {
     expect(ESTIMATE_INTRO_MS).toBe(4000);
   });
 
-  it("affiche les 5 étapes du Journey dans l'ordre officiel", () => {
+  it("affiche les 6 étapes du Journey dans l'ordre officiel", () => {
     expect(ESTIMATE_JOURNEY_STEPS).toEqual([
-      "Plans architecturaux AI",
+      "Type de projet",
       "Coût estimatif",
       "Aide à la décision",
+      "Plans architecturaux AI",
       "Mise en relation",
       "Exécution & Suivi",
     ]);
@@ -35,16 +36,18 @@ describe("estimateIntroState — animation de l'estimation", () => {
     });
   });
 
-  it("répartit les 5 étapes sur les 4 secondes", () => {
-    // Chaque étape occupe 800 ms : l'étape active avance au bon moment.
+  it("répartit les 6 étapes sur les 4 secondes", () => {
+    // Chaque étape occupe 4 000 / 6 ≈ 666,7 ms.
+    const SEGMENT = ESTIMATE_INTRO_MS / ESTIMATE_JOURNEY_STEPS.length;
     expect(estimateIntroState(1).activeIndex).toBe(0);
-    expect(estimateIntroState(799).activeIndex).toBe(0);
-    expect(estimateIntroState(800).activeIndex).toBe(1);
-    expect(estimateIntroState(1599).activeIndex).toBe(1);
-    expect(estimateIntroState(1600).activeIndex).toBe(2);
+    expect(estimateIntroState(Math.floor(SEGMENT) - 1).activeIndex).toBe(0);
+    expect(estimateIntroState(Math.ceil(SEGMENT) + 1).activeIndex).toBe(1);
+    expect(estimateIntroState(Math.ceil(SEGMENT * 2) + 1).activeIndex).toBe(2);
+    expect(estimateIntroState(Math.ceil(SEGMENT * 3) + 1).activeIndex).toBe(3);
+    expect(estimateIntroState(Math.ceil(SEGMENT * 4) + 1).activeIndex).toBe(4);
+    expect(estimateIntroState(Math.ceil(SEGMENT * 5) + 1).activeIndex).toBe(5);
     expect(estimateIntroState(2400).activeIndex).toBe(3);
-    expect(estimateIntroState(3200).activeIndex).toBe(4);
-    expect(estimateIntroState(3999).activeIndex).toBe(4);
+    expect(estimateIntroState(3999).activeIndex).toBe(5);
   });
 
   it("n'affiche 100 % qu'à la fin exacte des 4 secondes", () => {
@@ -56,7 +59,7 @@ describe("estimateIntroState — animation de l'estimation", () => {
   it("atteint 100 % et toutes les étapes terminées à 4 000 ms", () => {
     expect(estimateIntroState(ESTIMATE_INTRO_MS)).toEqual({
       progress: 100,
-      completed: 5,
+      completed: 6,
       activeIndex: -1,
       done: true,
     });

@@ -1,14 +1,18 @@
 // ============================================================================
 // CATALOGUE OFFICIEL DES TYPES DE PROJET (21 types)
 //
-// 11 types immobiliers (parcours complet) :
+// 11 types immobiliers :
 //   maison, villa, appartement, studio, duplex, immeuble,
 //   local_commercial, bureau, entrepot, residence_touristique, projet_neuf
 //
-// 10 types rénovation / travaux techniques (parcours simplifié) :
+// 10 types rénovation / travaux techniques :
 //   renovation_complete, extension_batiment, renovation_cuisine,
 //   renovation_salle_de_bain, peinture_interieure, piscine,
 //   restaurant, cafe, electricite_complete, plomberie_complete
+//
+// Le parcours du projet (groupe A / groupe B) est défini séparément dans
+// `src/lib/projectJourney.ts` : le groupe A regroupe 14 types (les 11 types
+// immobiliers + restaurant + cafe + renovation_complete).
 //
 // Chaque type dispose d'un gabarit DQE spécifique dans dqeEngine.ts.
 // ============================================================================
@@ -170,6 +174,19 @@ export const CATEGORY_DEFAULT_FLOORS: Record<string, number> = {
   maison_r_plus_2: 3,
   duplex: 2,
 };
+
+/**
+ * Le type de projet autorise-t-il plusieurs niveaux ?
+ *
+ * Indépendant du GROUPE du parcours (groupe A / groupe B) : un restaurant, un
+ * café ou une rénovation complète appartiennent au parcours complet mais sont
+ * des projets de plain-pied. Le champ « Nombre de niveaux » reste donc masqué
+ * pour les types listés dans `SINGLE_LEVEL_TYPES`, sans changer le parcours.
+ */
+export function isMultiLevelCategory(category: string | null | undefined): boolean {
+  const resolved = resolveProjectType((category ?? "").trim());
+  return !!resolved && !SINGLE_LEVEL_TYPES.includes(resolved);
+}
 
 /**
  * Nombre de niveaux effectif pour le calcul de coût : valeur saisie par
@@ -553,7 +570,14 @@ const LABEL_ALIASES: Record<string, ProjectType> = {
   maisondhotes: "residence_touristique",
   maisonhote: "residence_touristique",
   projetneuf: "projet_neuf",
+  projetimmobilierneuf: "projet_neuf",
   neuf: "projet_neuf",
   construction: "projet_neuf",
+  // Restaurant / café / rénovation complète (parcours complet) : reconnaissance
+  // des libellés libres, sans quoi un projet enregistré sous son libellé
+  // retomberait à tort dans le parcours simplifié.
+  restaurant: "restaurant",
+  cafe: "cafe",
+  renovationcomplete: "renovation_complete",
 };
 

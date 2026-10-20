@@ -160,11 +160,12 @@ export function ProjectCard({ project }: { project: any }) {
         </div>
 
         {/* ─── Accès rapides : modules du projet (Groupe A uniquement) ───
-          * Maison, villa, appartement, studio, duplex, immeuble, local
-          * commercial, bureau, entrepôt, résidence touristique, projet
-          * immobilier neuf. Les projets du Groupe B (rénovation, cuisine,
-          * salle de bain, piscine…) n'affichent pas cette section : leur
-          * parcours passe par la barre d'étapes de la page projet.
+          * Maison, appartement, villa, immeuble, local commercial, studio,
+          * duplex, bureau, entrepôt, résidence touristique, projet immobilier
+          * neuf, restaurant, café, rénovation complète. Les projets du Groupe B
+          * (piscine, clôture, jardin, extension, cuisine, salle de bain,
+          * peinture, travaux techniques…) n'affichent pas cette section : les
+          * étapes Plans IA et Exécution ne leur sont pas accessibles.
           */}
         {projectJourneyGroup(project.category) === "A" && (
         <div className="pt-2 border-t border-border/20">

@@ -170,6 +170,20 @@ describe("getProjectDecisionSupportAccess — scénarios obligatoires", () => {
     ).resolves.not.toThrow();
   });
 
+  it("1 bis. Restaurant, café et rénovation complète appartiennent au Groupe A → accès Client Pro autorisé", async () => {
+    const userId = await createUser(t);
+    const user = asUser(t, userId);
+
+    for (const category of ["restaurant", "cafe", "renovation_complete"]) {
+      const projectId = await createProject(t, userId, category);
+      const access = await user.query(
+        api.decisionSupportAccess.getProjectDecisionSupportAccess,
+        { projectId },
+      );
+      expect(access, category).toMatchObject({ allowed: true, reason: "ok", group: "A" });
+    }
+  });
+
   it("2. Groupe A + compte gratuit → accès refusé (frontend ET backend)", async () => {
     await configurePricing(t, true);
     const userId = await createUser(t, { plan: "free" });
@@ -221,7 +235,7 @@ describe("getProjectDecisionSupportAccess — scénarios obligatoires", () => {
 
   it("4. Groupe B + Client Pro actif → accès refusé (aucune donnée)", async () => {
     const userId = await createUser(t);
-    const projectId = await createProject(t, userId, "renovation_complete");
+    const projectId = await createProject(t, userId, "extension_batiment");
     const user = asUser(t, userId);
 
     const access = await user.query(api.decisionSupportAccess.getProjectDecisionSupportAccess, {

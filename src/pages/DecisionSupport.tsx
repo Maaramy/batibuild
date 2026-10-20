@@ -154,7 +154,7 @@ export default function DecisionSupport() {
     <main className="min-h-screen bg-background pb-12">
       {/* Parcours du projet — l'étape « Aide à la décision » est mise en avant
           (route dédiée), avec « Étape précédente : Coût estimatif » et
-          « Suivant → : Mise en relation ». */}
+          « Suivant → : Plans architecturaux AI » (groupe A uniquement). */}
       <ProjectJourneyNav
         projectId={id}
         category={project?.category}

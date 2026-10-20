@@ -159,7 +159,7 @@ export const DECISION_SUPPORT_DENY_COPY: Record<
   group_b: {
     title: "Aide à la décision indisponible pour ce type de projet",
     description:
-      "Cette fonctionnalité est réservée aux projets du groupe A (maison, villa, appartement, studio, duplex, immeuble, local commercial, bureau, entrepôt, résidence touristique, projet immobilier neuf). Les autres étapes de votre parcours restent accessibles.",
+      "Cette fonctionnalité est réservée aux projets du groupe A (maison, appartement, villa, immeuble, local commercial, studio, duplex, bureau, entrepôt, résidence touristique, projet immobilier neuf, restaurant, café, rénovation complète). Les autres étapes de votre parcours restent accessibles.",
     cta: null,
   },
   free_plan: {

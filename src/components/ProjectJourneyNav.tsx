@@ -38,9 +38,10 @@ import { cn } from "@/lib/utils";
  * revient à l'étape précédente ; le parcours complet n'est jamais déroulé en
  * même temps.
  *
- *   - les étapes viennent de `@/lib/projectJourney` (groupe A : 5 étapes,
- *     groupe B : 2 étapes, sans « Aide à la décision ») et sont filtrées par
- *     les feature flags de
+ *   - les étapes viennent de `@/lib/projectJourney` (groupe A : 6 étapes —
+ *     type de projet → coût → aide à la décision → plans IA → mise en relation
+ *     → exécution & suivi ; groupe B : 3 étapes, sans aide à la décision, sans
+ *     plans IA et sans exécution) et sont filtrées par les feature flags de
  *     l'administration — une étape désactivée disparaît et le total est
  *     recalculé automatiquement ;
  *   - l'icône PDF de chaque étape télécharge le rapport DÉJÀ GÉNÉRÉ à partir des

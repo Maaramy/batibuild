@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import SiteDiagnostic from "@/components/SiteDiagnostic";
 import BudgetAllocation from "@/components/BudgetAllocation";
@@ -8,6 +8,8 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import { ProjectStepUnavailable } from "@/components/ProjectStepUnavailable";
+import { canAccessJourneyStep } from "@/lib/projectJourney";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
@@ -92,9 +94,29 @@ export default function ProjectGuide() {
   const [params] = useSearchParams();
   const paramProject = params.get("project");
 
-  const projects = useQuery(api.projects.getUserProjects, {}) ?? [];
+  const projectsQuery = useQuery(api.projects.getUserProjects, {});
+  // Tableau stable : évite de recalculer le filtre (et de relancer l'effet de
+  // sélection) à chaque rendu pendant le chargement de la liste.
+  const allProjects = useMemo(() => projectsQuery ?? [], [projectsQuery]);
   const [projectId, setProjectId] = useState<string | null>(paramProject);
-  const roadmapData = useQuery(api.roadmap.getRoadmap, projectId ? { projectId: projectId as any } : "skip");
+
+  // « Exécution & suivi » est réservée au parcours complet (groupe A) : seuls
+  // ces projets sont proposés ici. Un projet du groupe B conserve toutes ses
+  // données, mais ne peut pas ouvrir cette étape, même par une URL directe.
+  const projects = useMemo(
+    () => allProjects.filter((p) => canAccessJourneyStep(p.category, "execution")),
+    [allProjects],
+  );
+  const requestedProject = allProjects.find((p) => p._id === projectId) ?? null;
+  const executionAllowed =
+    !!requestedProject && canAccessJourneyStep(requestedProject.category, "execution");
+  const blockedByGroup = !!requestedProject && !executionAllowed;
+
+  // Aucune lecture de feuille de route pour une étape non autorisée.
+  const roadmapData = useQuery(
+    api.roadmap.getRoadmap,
+    projectId && executionAllowed ? { projectId: projectId as any } : "skip",
+  );
 
   const generate = useMutation(api.roadmap.generateRoadmapForProject);
   const toggleItem = useMutation(api.roadmap.togglePhaseItem);
@@ -192,6 +214,26 @@ export default function ProjectGuide() {
     }
   };
 
+  // ── Écran : étape réservée au parcours complet (accès direct refusé) ────
+  if (blockedByGroup) {
+    return (
+      <main className="min-h-screen bg-background pb-10">
+        <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+          <ProjectStepUnavailable
+            stepLabel="Exécution & suivi"
+            projectName={requestedProject?.name}
+            backHref={`/dashboard/project/${requestedProject?._id ?? ""}`}
+            consultHref={
+              requestedProject
+                ? `/dashboard/professionals-directory?project=${requestedProject._id}`
+                : null
+            }
+          />
+        </div>
+      </main>
+    );
+  }
+
   // ── Écran : aucun projet ────────────────────────────────────────────────
   if (projects.length === 0) {
     return (
@@ -205,15 +247,27 @@ export default function ProjectGuide() {
               <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-500/10 text-cyan-600 dark:text-cyan-400">
                 <Rocket className="h-7 w-7" />
               </div>
-              <CardTitle className="text-lg">Créez d'abord un projet de construction</CardTitle>
+              <CardTitle className="text-lg">
+                {allProjects.length > 0
+                  ? "Exécution & suivi indisponible pour vos projets"
+                  : "Créez d'abord un projet de construction"}
+              </CardTitle>
               <CardDescription className="text-xs max-w-md mx-auto">
-                Le Guide A-Z s'appuie sur les résultats de votre estimation. Lancez un premier projet pour générer votre feuille de route complète avec l'IA.
+                {allProjects.length > 0
+                  ? "Cette étape est réservée aux projets du parcours complet (maison, appartement, villa, immeuble, local commercial, studio, duplex, bureau, entrepôt, résidence touristique, projet immobilier neuf, restaurant, café, rénovation complète). Vos projets du parcours simplifié restent disponibles pour l'estimation et la mise en relation."
+                  : "Le Guide A-Z s'appuie sur les résultats de votre estimation. Lancez un premier projet pour générer votre feuille de route complète avec l'IA."}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex justify-center pb-6">
-              <Button className="gap-2" onClick={() => navigate("/dashboard/new")}>
-                <Plus className="h-4 w-4" /> Créer un projet de construction
-              </Button>
+              {allProjects.length > 0 ? (
+                <Button className="gap-2" onClick={() => navigate("/dashboard")}>
+                  <ArrowLeft className="h-4 w-4" /> Retour au tableau de bord
+                </Button>
+              ) : (
+                <Button className="gap-2" onClick={() => navigate("/dashboard/new")}>
+                  <Plus className="h-4 w-4" /> Créer un projet de construction
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
