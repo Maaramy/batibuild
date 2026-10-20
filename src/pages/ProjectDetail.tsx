@@ -741,10 +741,6 @@ export default function ProjectDetail() {
   // total et dans le devis PDF — la même règle que le moteur (`generateDqe`).
   // Sans prix administré, la base datée de la grille reste utilisée.
   const adminPriceRows = useQuery(api.materials.getMaterialPrices, {});
-  const sdbPriceResolver = useMemo(
-    () => buildSdbPriceResolver(adminPriceRows),
-    [adminPriceRows],
-  );
   const adminPriceUpdatedAt = useMemo(
     () => latestSdbAdminPriceUpdate(adminPriceRows),
     [adminPriceRows],
@@ -753,6 +749,12 @@ export default function ProjectDetail() {
   const bimConfig = useQuery(api.bimConfig.getBIMConfig);
   const sdbVatRate = resolveSdbVatRate(
     bimConfig?.sdbVatRate as number | undefined,
+  );
+  // Le résolveur ramène les prix administrés (TTC) en HT avec le taux effectif :
+  // sans cela, un taux ≠ 19 % produirait un HT différent de celui du moteur.
+  const sdbPriceResolver = useMemo(
+    () => buildSdbPriceResolver(adminPriceRows, sdbVatRate),
+    [adminPriceRows, sdbVatRate],
   );
   const sdbEstimateData = useMemo(() => {
     if (!isRenovationSdb(project?.category) || !builtSurface) return null;

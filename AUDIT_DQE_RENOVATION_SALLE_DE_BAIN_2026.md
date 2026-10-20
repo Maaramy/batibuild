@@ -145,7 +145,7 @@ Les totaux `Économique / Standard / Premium` exposés par le moteur BIM sont d�
 - `runBIMEstimation` pour ce type calcule le coût **depuis le même module** (standard pour le total, grilles Éco/Premium pour les scénarios) : plus de divergence grille / DQE.
 - Chaque ligne porte : `unitPrice` (TTC), `total`, `totalHT`, `vatRate = 19`, `vatAmount`, et la part main-d'œuvre (`labor`) lorsqu'elle existe.
 - Page projet : le quantitatif de salle de bain est reconstruit **pour le scénario affiché**, avec les dimensions réelles ; le devis PDF utilise ce même quantitatif.
-- **Prix administrés jusque dans l'affichage** : la page et le devis PDF résolvent chaque poste dans `materialPrices` (`buildSdbPriceResolver`) avant de chiffrer, avec la même conversion TTC → HT que le moteur. Un prix saisi dans l'administration change donc le prix de la ligne, le sous-total de sa catégorie, le graphique « Répartition », le total affiché et le coût au m² — sans attendre une réactualisation serveur, et sans rééchelonner les autres postes.
+- **Prix administrés jusque dans l'affichage** : la page et le devis PDF résolvent chaque poste dans `materialPrices` (`buildSdbPriceResolver`) avant de chiffrer, avec la **même conversion TTC → HT que le moteur, au taux de TVA effectif** (`buildSdbPriceResolver(rows, sdbVatRate)`). Un prix saisi dans l'administration change donc le prix de la ligne, le sous-total de sa catégorie, le graphique « Répartition », le total affiché et le coût au m² — sans attendre une réactualisation serveur, et sans rééchelonner les autres postes. Un taux ≠ 19 % ne crée plus d'écart page / DQE (test de parité sur 19 %, 13 % et 7 %).
 - **Taux de TVA réglé par l'administrateur** (`bimConfig.sdbVatRate`, 0–30 %) : appliqué à chaque ligne (`vatRate`, `vatAmount`) puis au lot et au total ; le HT est inchangé par un changement de taux (test dédié).
 - **Action « Mettre à jour les prix »** (icône ↻ du Quantitatif détaillé, ex-« mettre à jour le quantitatif ») : relance le calcul serveur avec les prix administrés et le taux en vigueur, puis met à jour le DQE enregistré, le coût estimatif et les scénarios.
 - **Total au dinar près** : le sous-total d'un lot est la somme des montants affichés de ses lignes (arrondis à l'unité) et le total est la somme des sous-totaux. Vérifié sur 5 m² avec un prix administré et une TVA à 13 % : DQE enregistré = **10 244**, page = **10 244**, somme des lignes = **10 244** (écart 0). Auparavant l'arrondi par ligne puis par total produisait un écart de 2,28 TND entre le DQE et l'affichage.
@@ -178,12 +178,14 @@ Les totaux `Économique / Standard / Premium` exposés par le moteur BIM sont d�
 | 2. Cohérence quantités / unités / prix | ✅ quantités physiques (sol ≠ murs, marges de coupe, rendements colle/joint) |
 | 3. Comparaison des 4 scénarios sur la même salle de bain | ✅ Éco < Standard < Premium, quantités identiques, grilles distinctes |
 | 4. Options non comptées si non sélectionnées | ✅ italienne / baignoire / cloisons / WC / extracteur |
-| 5. Sous-totaux HT, TVA, TTC | ✅ par ligne, par lot et au total ; 19 % par défaut, 13 % vérifié au niveau moteur (le serveur n'accepte que 0–30 %), taux invalide (55 %) refusé et remplacé par 19 % |
-| 6. Prix administré → DQE, affichage et coût global | ✅ moteur (`livePrices` : ligne, total, mention « prix administré ») **et** page/devis (`buildSdbPriceResolver`, 4 tests dédiés) |
+| 5. Sous-totaux HT, TVA, TTC | ✅ par ligne, par lot et au total ; 19 % par défaut, 13 % et 7 % vérifiés moteur **et** page (le serveur n'accepte que 0–30 %), taux invalide (55 %) refusé et remplacé par 19 % |
+| 6. Prix administré → DQE, affichage et coût global | ✅ moteur (`livePrices` : ligne, total, mention « prix administré ») **et** page/devis (`buildSdbPriceResolver`, conversion au taux effectif) + test de parité page = DQE à 19 / 13 / 7 % |
 | 7. Petite et grande salle de bain | ✅ 4 m² vs 8 m² (quantités et total croissants, prix unitaires stables) |
 | 8. Autres types de projets inchangés | ✅ maison / appartement / bureau / cuisine conservent leur calage historique |
 
-Exécution : **118 fichiers, 1870 tests réussis** (`bun x vitest run`), `convex dev --once` et `tsc -b --noEmit` sans erreur.
+Exécution : **119 fichiers, 1892 tests réussis** (`bun x vitest run`), `convex dev --once` et `tsc -b --noEmit` sans erreur.
+
+Parité verrouillée par un test permanent (`renovationSdb.test.ts` → « parité affichage ↔ DQE enregistré ») : pour 5 m² standard avec trois prix administrés et une TVA de 19 %, 13 % puis 7 %, le total du DQE enregistré, le total de la page et la somme des lignes affichées sont **identiques au dinar**, et le TTC d'un poste administré est le même des deux côtés.
 
 ### Répartition effectivement affichée — projet #49 (5 m², Standard)
 
@@ -216,4 +218,4 @@ Plus aucune catégorie ne partage le même montant par construction ; les postes
 - `src/pages/BIMSettings.tsx` — champ administratif du taux de TVA salle de bain.
 - `src/pages/AdminPanel.tsx` — édition de la région et de la source d'un prix, date de mise à jour affichée, message de propagation.
 - `src/lib/surfaceRangeSync.test.ts` — invariant adapté : la salle de bain n'est plus calibrée sur un pourcentage (comportement demandé).
-- `src/lib/renovationSdbPricing.test.ts`, `src/convex/renovationSdb.test.ts` — **nouveaux** tests (37 cas).
+- `src/lib/renovationSdbPricing.test.ts`, `src/convex/renovationSdb.test.ts` — **nouveaux** tests (40 cas, dont la parité affichage ↔ DQE enregistré à plusieurs taux de TVA).

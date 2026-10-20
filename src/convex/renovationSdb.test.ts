@@ -2,7 +2,11 @@ import { describe, it, expect } from "vitest";
 
 import { generateDqe, type DqeResult } from "./dqeEngine";
 import { REGION_COST_M2, runBIMEstimation } from "./bimEngine";
-import { buildSdbEstimate } from "../lib/renovationSdbPricing";
+import {
+  buildSdbEstimate,
+  buildSdbPriceResolver,
+  sdbDqeLots,
+} from "../lib/renovationSdbPricing";
 import { regionCostFactor } from "../lib/regionImpact";
 
 // ============================================================================
@@ -223,6 +227,62 @@ describe("petite et grande salle de bain", () => {
       lineOf(small, "Faïence murale (20×30 ou 25×40)").quantity,
     );
     expect(large.totals.total).toBeGreaterThan(small.totals.total);
+  });
+});
+
+describe("parité affichage ↔ DQE enregistré (prix administrés + TVA)", () => {
+  const ADMIN_ROWS = [
+    { name: "Carrelage de sol antidérapant (grès cérame)", unitPrice: 57, lastUpdated: 1_780_000_000_000 },
+    { name: "Mitigeur de lavabo", unitPrice: 260 },
+    { name: "WC (à poser ou suspendu)", unitPrice: 420 },
+  ];
+
+  /** Résultat affiché par la page : quantitatif réel du scénario, sous-total par ligne arrondie. */
+  const pageTotal = (surface: number, vatRate: number) => {
+    const lots = sdbDqeLots(
+      buildSdbEstimate({
+        surface,
+        scenario: "standard",
+        vatRate,
+        resolvePrice: buildSdbPriceResolver(ADMIN_ROWS, vatRate),
+      }),
+    );
+    return {
+      lots,
+      total: lots.reduce((s, l) => s + l.subtotal, 0),
+      sumLines: lots.reduce((s, l) => s + l.lines.reduce((n, line) => n + line.total, 0), 0),
+    };
+  };
+
+  it("le total de la page est exactement celui du DQE enregistré, au dinar", () => {
+    for (const vatRate of [19, 13, 7]) {
+      const livePrices = new Map(
+        ADMIN_ROWS.map((r) => [norm(r.name), { unit: "u", unitPrice: r.unitPrice }] as const),
+      );
+      const registry = run(5, { livePrices, sdbVatRate: vatRate });
+      const page = pageTotal(5, vatRate);
+      const stored = registry.lots.reduce((s, l) => s + l.subtotal, 0);
+
+      expect(stored).toBe(registry.totals.total);
+      expect(page.total).toBe(page.sumLines);
+      expect(page.total).toBe(stored);
+    }
+  });
+
+  it("un prix administré arrive au même TTC des deux côtés, même à TVA ≠ 19 %", () => {
+    const livePrices = new Map(
+      ADMIN_ROWS.map((r) => [norm(r.name), { unit: "u", unitPrice: r.unitPrice }] as const),
+    );
+    const registry = run(5, { livePrices, sdbVatRate: 13 });
+    const page = pageTotal(5, 13);
+    const pa = lineOf(registry, "Mitigeur de lavabo");
+    const pageLine = page.lots.flatMap((l) => l.lines).find(
+      (l) => l.designation === "Mitigeur de lavabo",
+    )!;
+    expect(pa.unitPrice).toBeCloseTo(260, 1);
+    expect(pageLine.unitPrice).toBeCloseTo(260, 1);
+    expect(pageLine.total).toBe(pa.total);
+    expect(pageLine.vatRate).toBe(pa.vatRate);
   });
 });
 

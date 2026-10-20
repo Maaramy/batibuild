@@ -269,6 +269,37 @@ describe("provenance des prix", () => {
     expect(after.totals.totalTTC).toBeGreaterThan(before.totals.totalTTC);
   });
 
+  it("un prix administré est ramené en HT avec le taux de TVA effectif", () => {
+    const rows = [{ name: "Mitigeur de lavabo", unitPrice: 260 }];
+    // Taux par défaut : TTC / 1,19.
+    expect(buildSdbPriceResolver(rows)!("Mitigeur de lavabo", 40).price).toBeCloseTo(
+      260 / 1.19,
+      2,
+    );
+    // Taux réglé par l'administrateur : c'est ce même taux qui doit servir à
+    // la conversion, sinon page et DQE enregistré divergent dès que TVA ≠ 19 %.
+    expect(buildSdbPriceResolver(rows, 13)!("Mitigeur de lavabo", 40).price).toBeCloseTo(
+      260 / 1.13,
+      2,
+    );
+    // Taux invalide → taux de droit commun (19 %), jamais une division absurde.
+    expect(buildSdbPriceResolver(rows, 55)!("Mitigeur de lavabo", 40).price).toBeCloseTo(
+      260 / 1.19,
+      2,
+    );
+    const est = buildSdbEstimate({
+      surface: SMALL,
+      vatRate: 13,
+      resolvePrice: buildSdbPriceResolver(rows, 13),
+    });
+    const line = est.lots
+      .flatMap((l) => l.lines)
+      .find((l) => l.designation === "Mitigeur de lavabo")!;
+    expect(line.vatRate).toBe(13);
+    // Le TTC affiché reste le prix administré saisi (aux arrondis près).
+    expect(line.unitPriceTTC).toBeCloseTo(260, 1);
+  });
+
   it("le rapprochement des libellés ignore accents, casse et symbole ×", () => {
     expect(normalizeSdbPriceKey("Faïence murale (20×30 ou 25×40)")).toBe(
       normalizeSdbPriceKey("faience murale 20x30 ou 25x40"),

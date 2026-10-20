@@ -277,11 +277,17 @@ export interface SdbAdminPriceRow {
  * base `materialPrices` prend ce prix, les autres conservent la grille 2026.
  * Les prix administrés sont saisis TTC (convention de la plateforme) et
  * ramenés HT une seule fois, avant le calcul de la TVA de la ligne.
+ *
+ * `vatRate` doit être le taux effectif du DQE (réglage `bimConfig.sdbVatRate`) :
+ * c'est le même taux que celui utilisé par le moteur, sinon un prix administré
+ * donnerait un HT différent entre la page et le DQE enregistré.
  * `undefined` si aucun prix administré n'est disponible.
  */
 export function buildSdbPriceResolver(
   rows: readonly SdbAdminPriceRow[] | null | undefined,
+  vatRate: number = SDB_VAT_RATE,
 ): SdbPriceResolver | undefined {
+  const effectiveVatRate = resolveSdbVatRate(vatRate);
   const byKey = new globalThis.Map<string, number>();
   for (const row of rows ?? []) {
     const price = Number(row?.unitPrice);
@@ -292,7 +298,10 @@ export function buildSdbPriceResolver(
   return (designation, fallbackHT) => {
     const adminTTC = byKey.get(normalizeSdbPriceKey(designation));
     return adminTTC != null
-      ? { price: round2(adminTTC / (1 + SDB_VAT_RATE / 100)), source: "prix_administre" }
+      ? {
+          price: round2(adminTTC / (1 + effectiveVatRate / 100)),
+          source: "prix_administre",
+        }
       : { price: fallbackHT, source: "grille_2026" };
   };
 }
