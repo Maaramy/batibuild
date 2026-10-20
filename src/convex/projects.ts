@@ -973,6 +973,14 @@ export const simulateAnalysis = mutation({
       region,
       "standard",
     );
+    // Équipements sanitaires réellement déclarés sur le projet : ils adaptent
+    // les quantités de plomberie / électricité du Quantitatif détaillé (règle
+    // partagée `lib/dqeTechnicalLots`). Aucun champ renseigné → aucune
+    // majoration : la quantité reste la surface construite.
+    const hasRoomsInfo =
+      project.bathrooms !== undefined ||
+      project.kitchens !== undefined ||
+      project.wcs !== undefined;
     const dqe = generateDqe({
       category,
       surface,
@@ -981,6 +989,13 @@ export const simulateAnalysis = mutation({
       livePrices,
       levelSurfaces,
       regionFactor: technicalRegionFactor,
+      rooms: hasRoomsInfo
+        ? {
+            bathrooms: project.bathrooms,
+            kitchens: project.kitchens,
+            wcs: project.wcs,
+          }
+        : undefined,
     });
 
     // ── Coût global TTC : le lot « Second œuvre et finitions » est facturé à la

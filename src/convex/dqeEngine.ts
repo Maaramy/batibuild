@@ -38,6 +38,13 @@ import {
   paintAllInPerBucket,
   type PaintKind,
 } from "../lib/technicalBareme";
+import {
+  technicalObservation,
+  technicalProfileFor,
+  technicalQuantity,
+  type TechnicalInstallation,
+  type TechnicalRooms,
+} from "../lib/dqeTechnicalLots";
 
 export type DqeNature =
   | "materiaux"
@@ -130,6 +137,13 @@ interface LineTpl {
    * affichée, jamais recomptée.
    */
   labor?: { label: string; q: number; u: string; up: number };
+  /**
+   * Poste technique (plomberie / électricité) : sa quantité n'est jamais une
+   * quantité de référence figée, elle est calculée par les règles partagées de
+   * `lib/dqeTechnicalLots` (surface réellement construite + équipements
+   * déclarés), pour TOUS les types de projet concernés.
+   */
+  technical?: TechnicalInstallation;
 }
 
 interface LotTpl {
@@ -378,8 +392,9 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
       q: REF_SURFACE,
       up: PLUMBING_BAREME_M2.standard,
       fixedPrice: true,
+      technical: "plomberie",
       n: "equipements",
-      obs: `Barème national ${PLUMBING_BAREME_M2.standard} DT/m² · installation commune (colonne montante, conduite principale) comptée une seule fois`,
+      obs: `Barème national ${PLUMBING_BAREME_M2.standard} DT/m²`,
       labor: {
         label: "Main-d'œuvre — Plomberie complète",
         q: REF_SURFACE,
@@ -394,8 +409,9 @@ function secondOeuvreLot(percent: number, floors?: number): LotTpl {
       q: REF_SURFACE,
       up: ELECTRICITY_BAREME_M2.standard,
       fixedPrice: true,
+      technical: "electricite",
       n: "equipements",
-      obs: `Barème national ${ELECTRICITY_BAREME_M2.standard} DT/m² · tableau électrique général commun compté une seule fois`,
+      obs: `Barème national ${ELECTRICITY_BAREME_M2.standard} DT/m²`,
       labor: {
         label: "Main-d'œuvre — Électricité complète",
         q: REF_SURFACE,
@@ -498,8 +514,8 @@ function renovationCompleteLots(): LotTpl[] {
       { d: "Menuiserie intérieure (portes)", desc: "Blocs-portes neufs.", u: "unité", q: 6, qMode: "fixed", up: 450, n: "materiaux" },
       { d: "Peinture intérieure (3 couches)", desc: "Sous-couche + finition.", u: "m²", q: 300, up: 8, n: "materiaux" },
       { d: "Faux plafonds (plaque de plâtre)", desc: "Ossature + BA13.", u: "m²", q: 50, up: 45, n: "materiaux" },
-      { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau.", u: "lot", q: 1, qMode: "fixed", up: 9000, n: "equipements" },
-      { d: "Électricité", desc: "Mise aux normes, tableaux, points lumineux.", u: "lot", q: 1, qMode: "fixed", up: 11000, n: "equipements" },
+      { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau — reprise sur réseaux existants.", u: "m²", q: REF_SURFACE, up: 75, technical: "plomberie", n: "equipements" },
+      { d: "Électricité", desc: "Mise aux normes, tableaux, points lumineux — reprise sur installation existante.", u: "m²", q: REF_SURFACE, up: 91.67, technical: "electricite", n: "equipements" },
     ]),
     lot("equipements", "Équipements techniques", "equipements", 20, [
       { d: "Cuisine équipée", desc: "Meubles hauts et bas, plan de travail, évier.", u: "lot", q: 1, qMode: "fixed", up: 8000, n: "equipements" },
@@ -593,8 +609,12 @@ function renovationSdbLots(): LotTpl[] {
       { d: "Évacuation des gravats", desc: "Benne et transport.", u: "bennes", q: 2, up: 200, n: "transport" },
     ]),
     lot("plomberie", "Plomberie", "equipements", 15, [
-      { d: "Alimentation eau (PER)", desc: "Réseau neuf vers douche, lavabo, WC.", u: "ml", q: 15, up: 8, n: "equipements" },
-      { d: "Évacuation (PVC Ø50/Ø100)", desc: "Évacuation douche, lavabo, WC.", u: "ml", q: 10, up: 14, n: "equipements" },
+      // Rénovation d'UNE salle de bain : les quantités sont celles du réseau
+      // complet de la pièce (douche + lavabo + WC), pas celles d'un logement de
+      // 120 m² ramenées à la surface d'une SdB — sinon 15 ml deviendraient
+      // 0,75 ml, ce qui ne correspond à aucun chantier réel.
+      { d: "Alimentation eau (PER)", desc: "Réseau neuf vers douche, lavabo, WC.", u: "ml", q: 15, qMode: "fixed", up: 8, n: "equipements", obs: "Quantité par salle de bain rénovée" },
+      { d: "Évacuation (PVC Ø50/Ø100)", desc: "Évacuation douche, lavabo, WC.", u: "ml", q: 10, qMode: "fixed", up: 14, n: "equipements", obs: "Quantité par salle de bain rénovée" },
       { d: "Collecteur et robinets d'arrêt", desc: "Collecteur simple + arrêts.", u: "lot", q: 1, qMode: "fixed", up: 250, n: "equipements" },
     ]),
     lot("etancheite", "Étanchéité", "materiaux", 8, [
@@ -616,7 +636,8 @@ function renovationSdbLots(): LotTpl[] {
       { d: "Accessoires SDB", desc: "Porte-serviettes, porte-savon, miroir.", u: "lot", q: 1, qMode: "fixed", up: 200, n: "equipements" },
     ]),
     lot("electricite", "Électricité", "equipements", 8, [
-      { d: "Points électriques SDB", desc: "Éclairage, prise rasoir, VMC.", u: "points", q: 4, up: 90, n: "equipements" },
+      // 4 points par salle de bain (éclairage, prise rasoir, VMC, sèche-serviettes)…
+      { d: "Points électriques SDB", desc: "Éclairage, prise rasoir, VMC.", u: "points", q: 4, qMode: "fixed", up: 90, n: "equipements", obs: "Quantité par salle de bain rénovée" },
     ]),
     lot("ventilation", "Ventilation", "equipements", 4, [
       { d: "VMC simple flux", desc: "Extracteur + gaine.", u: "unité", q: 1, qMode: "fixed", up: 250, n: "equipements" },
@@ -749,7 +770,7 @@ function garageLots(): LotTpl[] {
       { d: "Portillon piéton", desc: "Accès piéton intégré ou séparé.", u: "unité", q: 1, qMode: "fixed", up: 600, n: "materiaux" },
     ]),
     lot("electricite", "Électricité", "equipements", 8, [
-      { d: "Installation électrique", desc: "Éclairage, prises, tableau dédié.", u: "lot", q: 1, qMode: "fixed", up: 1500, n: "equipements" },
+      { d: "Installation électrique", desc: "Éclairage, prises, tableau dédié — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: 12.5, technical: "electricite", n: "equipements" },
     ]),
     lot("finition", "Finitions", "materiaux", 8, [
       { d: "Enduit et peinture", desc: "Enduit ciment + peinture.", u: "m²", q: 150, up: 18, n: "materiaux" },
@@ -783,10 +804,10 @@ function commercialLots(cat: string): LotTpl[] {
         { d: "Équipement de service", desc: "Comptoir, caisses, mobilier.", u: "lot", q: 1, qMode: "fixed", up: 3000, n: "equipements" },
       ]),
       lot("electricite", "Électricité", "equipements", 8, [
-        { d: "Installation électrique complète", desc: "Tableau, éclairage, prises 16A/32A.", u: "lot", q: 1, qMode: "fixed", up: 5000, n: "equipements" },
+        { d: "Installation électrique complète", desc: "Tableau, éclairage, prises 16A/32A — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: 41.67, technical: "electricite", n: "equipements" },
       ]),
       lot("plomberie", "Plomberie", "equipements", 7, [
-        { d: "Réseau eau et évacuation", desc: "Alimentation + évacuation cuisine et WC.", u: "lot", q: 1, qMode: "fixed", up: 3000, n: "equipements" },
+        { d: "Réseau eau et évacuation", desc: "Alimentation + évacuation cuisine et WC — dimensionné sur la surface construite.", u: "m²", q: REF_SURFACE, up: 25, technical: "plomberie", n: "equipements" },
       ]),
       lot("cvc", "CVC et ventilation", "equipements", 5, [
         { d: "Climatisation", desc: "Splits ou centralisée.", u: "lot", q: 1, qMode: "fixed", up: 3500, n: "equipements" },
@@ -813,10 +834,10 @@ function commercialLots(cat: string): LotTpl[] {
         { d: "Peinture intérieure", desc: "2 couches finition.", u: "m²", q: 200, up: 8, n: "materiaux" },
       ]),
       lot("electricite", "Électricité", "equipements", 10, [
-        { d: "Installation électrique complète", desc: "Tableau, éclairage, prises.", u: "lot", q: 1, qMode: "fixed", up: 4500, n: "equipements" },
+        { d: "Installation électrique complète", desc: "Tableau, éclairage, prises — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: 37.5, technical: "electricite", n: "equipements" },
       ]),
       lot("plomberie", "Plomberie", "equipements", 8, [
-        { d: "Réseau eau et évacuation", desc: "WC clientèle + local.", u: "lot", q: 1, qMode: "fixed", up: 2500, n: "equipements" },
+        { d: "Réseau eau et évacuation", desc: "WC clientèle + local — dimensionné sur la surface construite.", u: "m²", q: REF_SURFACE, up: 20.83, technical: "plomberie", n: "equipements" },
       ]),
       lot("enseignes", "Enseignes et équipements", "equipements", 7, [
         { d: "Enseigne lumineuse", desc: "Enseigne façade.", u: "lot", q: 1, qMode: "fixed", up: 1500, n: "equipements" },
@@ -844,8 +865,13 @@ function commercialLots(cat: string): LotTpl[] {
       { d: "Portes intérieures", desc: "Blocs-portes.", u: "unités", q: 4, up: 450, n: "materiaux" },
       { d: "Porte d'entrée sécurisée", desc: "Porte métallique + contrôle d'accès.", u: "unité", q: 1, qMode: "fixed", up: 1200, n: "materiaux" },
     ]),
-    lot("electricite", "Électricité et réseaux", "equipements", 10, [
-      { d: "Installation électrique complète", desc: "Tableau, éclairage, prises, data.", u: "lot", q: 1, qMode: "fixed", up: 5000, n: "equipements" },
+    // Lot technique unique du bureau : l'électricité ET la plomberie sanitaire
+    // (bloc sanitaire, alimentation, évacuation) sont dimensionnées sur la
+    // surface construite. L'enveloppe du lot reste celle validée pour ce type
+    // de projet : les autres catégories de travaux ne bougent pas.
+    lot("electricite", "Plomberie et électricité", "equipements", 10, [
+      { d: "Installation électrique complète", desc: "Tableau, éclairage, prises, data — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: 41.67, technical: "electricite", n: "equipements" },
+      { d: "Plomberie sanitaire", desc: "Bloc sanitaire, alimentation eau et évacuation — dimensionné sur la surface construite.", u: "m²", q: REF_SURFACE, up: 41.67, technical: "plomberie", n: "equipements" },
       { d: "Réseau informatique / VDI", desc: "Prises RJ45, baie de brassage.", u: "lot", q: 1, qMode: "fixed", up: 2000, n: "equipements" },
     ]),
     lot("cvc", "CVC", "equipements", 8, [
@@ -877,7 +903,7 @@ function industrielLots(cat: string): LotTpl[] {
       { d: "Étanchéité et faîtage", desc: "Étanchéité des rives et faîtage.", u: "m²", q: 120, up: 12, n: "materiaux" },
     ]),
     lot("electricite", "Électricité", "equipements", isAgri ? 10 : 12, [
-      { d: "Installation électrique industrielle", desc: "Tableau, éclairage haute baie, prises triphasées.", u: "lot", q: 1, qMode: "fixed", up: 6000, n: "equipements" },
+      { d: "Installation électrique industrielle", desc: "Tableau, éclairage haute baie, prises triphasées — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: 50, technical: "electricite", n: "equipements" },
     ]),
     lot("portes", "Portes et sécurité", "materiaux", isAgri ? 8 : 8, [
       { d: "Porte sectionnelle industrielle", desc: "Porte 3×3 m motorisée.", u: "unité", q: 1, qMode: "fixed", up: 1800, n: "materiaux" },
@@ -1060,6 +1086,13 @@ export interface DqeInput {
    * déjà budgétés depuis la grille régionale. Absent → 1 (base nationale).
    */
   regionFactor?: number;
+  /**
+   * Équipements sanitaires déclarés par le projet (salles de bain, cuisines,
+   * WC). Ils majorent la quantité des postes de plomberie / électricité par un
+   * « équivalent m² » : plus d'équipements réels = plus de réseaux à poser.
+   * Absent = quantité = surface construite, sans majoration.
+   */
+  rooms?: TechnicalRooms;
 }
 
 /**
@@ -1106,6 +1139,10 @@ export function generateDqe(input: DqeInput): DqeResult {
   );
   const lotTpls = buildDqeLots(category, floors);
   const totalPct = lotTpls.reduce((s, l) => s + l.percent, 0);
+  // Équipements sanitaires déclarés : ils majorent la quantité des postes
+  // techniques par un équivalent m² (règle partagée `lib/dqeTechnicalLots`).
+  const rooms = input.rooms;
+  const technicalProfile = technicalProfileFor(category);
 
   // ── Impact régional des postes à barème absolu ──────────────────────────
   // Le barème peinture / plomberie / électricité est national (base Médenine
@@ -1136,8 +1173,12 @@ export function generateDqe(input: DqeInput): DqeResult {
     const lotBudget = lotBudgets[lotIndex];
     // 1. Quantités & prix de référence
     const lines: DqeLine[] = lt.lines.map((tpl) => {
-      const quantity =
-        tpl.qMode === "fixed"
+      // Poste technique : quantité calculée par les règles partagées (surface
+      // réellement construite de CE projet + équipements déclarés). Aucun poste
+      // de plomberie / électricité ne reprend une quantité de référence figée.
+      const quantity = tpl.technical
+        ? technicalQuantity(tpl.technical, { builtArea: tb, rooms })
+        : tpl.qMode === "fixed"
           ? tpl.q
           : roundQty(tpl.q * (tpl.qMode === "footprint" ? footprintScale : scale));
       // Prix imposé par le barème (peinture au seau de 20 L, plomberie /
@@ -1150,7 +1191,9 @@ export function generateDqe(input: DqeInput): DqeResult {
       // régional compris), incluse dans son prix. Elle est affichée sous le
       // poste mais jamais recomptée.
       const laborQuantity = tpl.labor
-        ? tpl.labor.q * (tpl.qMode === "footprint" ? footprintScale : scale)
+        ? tpl.technical
+          ? quantity
+          : tpl.labor.q * (tpl.qMode === "footprint" ? footprintScale : scale)
         : 0;
       const laborUnitPrice = tpl.labor ? round2(tpl.labor.up * regionFactor) : 0;
       const labor = tpl.labor
@@ -1171,7 +1214,19 @@ export function generateDqe(input: DqeInput): DqeResult {
         unitPrice: resolved.up,
         total: Math.round(quantity * resolved.up),
         nature: tpl.n,
-        observations: tpl.obs,
+        observations: tpl.technical
+          ? [
+              technicalObservation(tpl.technical, {
+                builtArea: tb,
+                quantity,
+                rooms,
+                profile: technicalProfile,
+              }),
+              tpl.obs,
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : tpl.obs,
         ...(labor ? { labor } : {}),
       };
     });
