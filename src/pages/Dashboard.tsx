@@ -33,7 +33,6 @@ import {
   LogOut,
   TrendingUp,
   Clock,
-  CheckCircle2,
   Star,
   Heart,
   BarChart3,
@@ -72,7 +71,6 @@ import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import {
   MiniStat,
   ProjectCard,
-  StatsCard,
 } from "@/pages/dashboard-parts";
 
 
@@ -997,18 +995,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </div>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
-            <StatsCard icon={HardHat} label="Projets constr." value={stats.totalProjects}
-              gradient="from-blue-500/20 to-cyan-500/20" iconColor="text-blue-600 dark:text-blue-400" />
-            <StatsCard icon={CheckCircle2} label="Terminés" value={stats.completedProjects}
-              gradient="from-emerald-500/20 to-teal-500/20" iconColor="text-emerald-600 dark:text-emerald-400" />
-            <StatsCard icon={TrendingUp} label="Coût total" value={formatter.format(stats.totalEstimatedCost)}
-              gradient="from-teal-500/20 to-emerald-500/20" iconColor="text-teal-600 dark:text-teal-400" />
-            <StatsCard icon={BarChart3} label="Moyenne" value={formatter.format(stats.averageCostPerProject)}
-              gradient="from-amber-500/20 to-orange-500/20" iconColor="text-amber-600 dark:text-amber-400" />
           </div>
 
           {/* ── Période d'essai / abonnement (source de vérité serveur) ── */}

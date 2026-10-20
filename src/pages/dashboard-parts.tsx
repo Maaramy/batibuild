@@ -260,25 +260,3 @@ export function MiniStat({ icon: Icon, label, value, tone }: any) {
     </div>
   );
 }
-
-// ============================================================================
-// Stats Card (compact mobile version)
-// ============================================================================
-
-export function StatsCard({ icon: Icon, label, value, gradient, iconColor }: any) {
-  return (
-    <Card className="group border border-border/40 bg-card/60 shadow-soft transition-all duration-200 hover:border-primary/25 hover:shadow-soft-lg">
-      <CardContent className="p-3.5 sm:p-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="label-overline truncate">{label}</p>
-            <p className="text-base sm:text-lg lg:text-2xl font-black mt-1 truncate tabular-nums">{value}</p>
-          </div>
-          <div className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${gradient} ${iconColor} transition-transform duration-200 group-hover:scale-105`}>
-            <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
