@@ -134,18 +134,16 @@ export function reportStatuses(
  *   • **Groupe A** — rapport PDF complet : toutes les fonctionnalités du
  *     parcours réellement activées et compatibles avec le type de projet
  *     (Coût estimatif, Plan IA, Matériaux AI, Exécution).
- *   • **Groupe B** — Coût estimatif + Exécution & suivi : le parcours du groupe
- *     ne comporte pas de plans architecturaux AI.
- *   • **Groupe C** — rapport d'estimation uniquement : seule la section
- *     « Coût estimatif » est présente (le parcours s'arrête à la mise en
- *     relation).
+ *   • **Groupes B et C** — rapport d'estimation uniquement : seule la section
+ *     « Coût estimatif » est présente. Leur parcours se limite au coût
+ *     estimatif puis à la mise en relation : ni Plan IA, ni Exécution & suivi.
  *
  * L'ordre du tableau suit celui du registre : le filtre retire les sections,
  * il n'en crée jamais.
  */
 export const REPORT_MODULE_KEYS_BY_GROUP: Record<ProjectJourneyGroup, readonly ReportModuleKey[]> = {
   A: ["cost", "plans", "materials", "execution"],
-  B: ["cost", "execution"],
+  B: ["cost"],
   C: ["cost"],
 };
 
@@ -159,7 +157,7 @@ export function reportModuleKeysForGroup(
 /**
  * Modules réellement affichables pour un projet :
  *   - masqués si leur section n'est pas autorisée pour le groupe du projet
- *     (Groupe C → Coût estimatif uniquement) ;
+ *     (groupes B et C → Coût estimatif uniquement) ;
  *   - masqués si leur feature flag est désactivé par l'administration ;
  *   - masqués s'ils ne s'appliquent pas au type de projet.
  */

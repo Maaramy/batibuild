@@ -4,8 +4,8 @@
 // Complète `src/convex/renovationCuisine.test.ts` (moteurs BIM / DQE /
 // quantitatif, non importables depuis `src/lib` côté Convex) :
 //
-//   • nom exact du type et classement dans le parcours (groupe B, sans plans
-//     architecturaux AI mais avec aide à la décision et exécution) ;
+//   • nom exact du type et classement dans le parcours (groupe B : coût
+//     estimatif puis mise en relation, sans étape intermédiaire) ;
 //   • rapport PDF : sections exportées et scénario « Personnalisé » ;
 //   • helper fiscal partagé (TTC → HT + TVA) appliqué au total du projet.
 //
@@ -24,11 +24,7 @@ import {
   scaleDqeLots,
   type QuantitatifCustomizationEntry,
 } from "@/convex/quantitatifCustomLogic";
-import {
-  DECISION_PAGE_PATH,
-  buildProjectJourney,
-  projectJourneyGroup,
-} from "@/lib/projectJourney";
+import { buildProjectJourney, projectJourneyGroup } from "@/lib/projectJourney";
 import { reportModuleKeysForGroup, visibleReportModules } from "@/lib/reportRegistry";
 import { resolvePdfScenarioValues } from "@/lib/projectPdfScenario";
 import { computeInvoiceTax } from "@/lib/invoiceStatus";
@@ -51,36 +47,26 @@ describe("« Rénovation Cuisine » — intégration plateforme", () => {
     expect(PROJECT_TYPE_LABELS[CATEGORY]).toBe("Rénovation Cuisine");
   });
 
-  it("suit le parcours groupe B : coût → aide à la décision → mise en relation → exécution (sans plans AI)", () => {
+  it("suit le parcours simplifié du groupe B : coût estimatif puis mise en relation", () => {
     expect(projectJourneyGroup(CATEGORY)).toBe("B");
     const steps = buildProjectJourney(CATEGORY, PROJECT_ID);
-    expect(steps.map((s) => s.label)).toEqual([
-      "Coût estimatif",
-      "Aide à la décision",
-      "Mise en relation",
-      "Exécution & Suivi",
-    ]);
+    expect(steps.map((s) => s.label)).toEqual(["Coût estimatif", "Mise en relation"]);
     // Le lien de la mise en relation conserve le contexte du projet.
-    expect(steps[2].href).toBe(`/dashboard/professionals-directory?project=${PROJECT_ID}`);
+    expect(steps[1].href).toBe(`/dashboard/professionals-directory?project=${PROJECT_ID}`);
     // « Matériaux utilisés » a été supprimée : aucune étape ne pointe vers elle.
     expect(steps.some((s) => s.href.includes("/dashboard/materials-used"))).toBe(false);
-    // « Aide à la décision » fait partie du parcours du groupe B.
-    expect(steps.map((s) => s.href)).toContain(`${DECISION_PAGE_PATH}/${PROJECT_ID}`);
-    // Aucun plan architectural AI : une rénovation ciblée n'en produit pas.
-    expect(steps.map((s) => s.key)).not.toContain("plans");
+    // Étapes intermédiaires absentes du parcours : aide à la décision, plans
+    // architecturaux AI et exécution & suivi.
+    expect(steps.map((s) => s.key)).toEqual(["cost", "consult"]);
+    expect(steps.map((s) => s.href).some((h) => h.includes("/dashboard/decision"))).toBe(false);
     expect(steps.map((s) => s.href).some((h) => h.includes("/dashboard/plans"))).toBe(false);
-    // L'exécution & suivi reste accessible (groupe B).
-    expect(steps.map((s) => s.key)).toContain("execution");
+    expect(steps.map((s) => s.href).some((h) => h.includes("/dashboard/guide"))).toBe(false);
   });
 
-  it("expose les rapports « Coût estimatif » et « Exécution & suivi » (sans Plan IA)", () => {
-    expect(reportModuleKeysForGroup(projectJourneyGroup(CATEGORY))).toEqual([
-      "cost",
-      "execution",
-    ]);
+  it("expose uniquement le rapport « Coût estimatif »", () => {
+    expect(reportModuleKeysForGroup(projectJourneyGroup(CATEGORY))).toEqual(["cost"]);
     expect(visibleReportModules(() => true, CATEGORY).map((m) => m.key)).toEqual([
       "cost",
-      "execution",
     ]);
   });
 

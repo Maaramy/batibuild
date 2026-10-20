@@ -3,8 +3,8 @@
  *
  * Animation d'introduction de 4 000 ms exactement, répartie sur les étapes du
  * parcours réellement affiché. La répartition dépend du nombre d'étapes du
- * groupe du projet (5 pour le groupe A, 4 pour le groupe B, 2 pour le groupe C)
- * et la durée totale reste fixe, indépendante de la durée réelle du calcul.
+ * groupe du projet (5 pour le groupe A, 2 pour les groupes B et C) et la durée
+ * totale reste fixe, indépendante de la durée réelle du calcul.
  * La logique est pure (aucun timer) afin d'être testable.
  */
 

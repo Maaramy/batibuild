@@ -7,8 +7,8 @@ import {
 
 // ============================================================================
 // « AIDE À LA DÉCISION » — règle d'accès (deux conditions simultanées)
-//   • projet des GROUPES A ou B (classification centrale du Project Journey) ;
-//     l'étape est absente du parcours du groupe C ;
+//   • projet du GROUPE A (classification centrale du Project Journey) ;
+//     l'étape est absente des parcours des groupes B et C ;
 //   • abonnement CLIENT PRO actif, valide et non expiré.
 // ============================================================================
 
@@ -81,22 +81,26 @@ describe("evaluateDecisionSupportAccess — scénarios obligatoires", () => {
     expect(res.renewalRequired).toBe(true);
   });
 
-  it("4. Groupe B + Client Pro actif → autorisé (l'étape existe pour ce groupe)", () => {
+  it("4. Groupe B + Client Pro actif → refusé (étape absente du parcours)", () => {
     const res = access("extension_batiment", ACTIVE_PRO);
-    expect(res).toMatchObject({ allowed: true, reason: "ok", group: "B" });
+    expect(res).toMatchObject({
+      allowed: false,
+      reason: "group_not_eligible",
+      group: "B",
+    });
   });
 
-  it("5. Groupe B + compte gratuit → refusé (Client Pro requis)", () => {
+  it("5. Groupe B + compte gratuit → refusé (étape absente du parcours)", () => {
     const res = access("piscine", FREE_PLAN);
     expect(res.allowed).toBe(false);
-    expect(res.reason).toBe("free_plan");
+    expect(res.reason).toBe("group_not_eligible");
     expect(res.group).toBe("B");
   });
 
   it("5 bis. Groupe C + Client Pro actif → refusé (étape absente du parcours)", () => {
     const res = access("bureau", ACTIVE_PRO);
     expect(res.allowed).toBe(false);
-    expect(res.reason).toBe("group_c");
+    expect(res.reason).toBe("group_not_eligible");
     expect(res.group).toBe("C");
   });
 
@@ -133,7 +137,7 @@ describe("evaluateDecisionSupportAccess — cas limites", () => {
     }
   });
 
-  it("les 8 types du groupe B sont éligibles avec un Client Pro actif", () => {
+  it("les 8 types du groupe B ne sont pas éligibles, même avec un Client Pro actif", () => {
     for (const type of [
       "local_commercial",
       "entrepot",
@@ -144,7 +148,7 @@ describe("evaluateDecisionSupportAccess — cas limites", () => {
       "piscine",
       "extension_batiment",
     ]) {
-      expect(access(type, ACTIVE_PRO).allowed, type).toBe(true);
+      expect(access(type, ACTIVE_PRO).allowed, type).toBe(false);
     }
   });
 
@@ -164,14 +168,15 @@ describe("evaluateDecisionSupportAccess — cas limites", () => {
   it("reconnaît les anciens slugs de projet (maison_r_plus_1 → groupe A, atelier → groupe B)", () => {
     expect(access("maison_r_plus_1", ACTIVE_PRO).allowed).toBe(true);
     expect(access("maison_r_plus_2", ACTIVE_PRO).allowed).toBe(true);
-    expect(access("atelier", ACTIVE_PRO).allowed).toBe(true);
+    // « atelier » reste classé groupe B : parcours simplifié, étape absente.
+    expect(access("atelier", ACTIVE_PRO).allowed).toBe(false);
   });
 
   it("type absent ou inconnu → groupe C, donc refusé", () => {
     for (const category of [null, undefined, "", "type_inexistant"]) {
       const res = access(category, ACTIVE_PRO);
       expect(res.allowed).toBe(false);
-      expect(res.reason).toBe("group_c");
+      expect(res.reason).toBe("group_not_eligible");
     }
   });
 
@@ -225,7 +230,7 @@ describe("DECISION_SUPPORT_DENY_COPY — messages utilisateur", () => {
     for (const reason of [
       "not_authenticated",
       "not_owner",
-      "group_c",
+      "group_not_eligible",
       "free_plan",
       "expired",
       "pending",
@@ -235,7 +240,7 @@ describe("DECISION_SUPPORT_DENY_COPY — messages utilisateur", () => {
       const copy = DECISION_SUPPORT_DENY_COPY[reason];
       expect(copy.title.length, reason).toBeGreaterThan(0);
       expect(copy.description.length, reason).toBeGreaterThan(0);
-      if (reason !== "group_c" && reason !== "not_owner") {
+      if (reason !== "group_not_eligible" && reason !== "not_owner") {
         expect(copy.cta, reason).toBeTruthy();
       }
     }

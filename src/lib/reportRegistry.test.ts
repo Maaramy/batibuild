@@ -23,7 +23,7 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     }
   });
 
-  it("Groupe B — coût estimatif et exécution, sans plans architecturaux AI", () => {
+  it("Groupes B et C — seule la section « Coût estimatif » est présente", () => {
     for (const type of [
       "extension_batiment",
       "piscine",
@@ -31,31 +31,28 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
       "cafe",
       "renovation_cuisine",
       "local_commercial",
+      "bureau",
+      "peinture_interieure",
+      "plomberie_complete",
+      "cloture",
     ]) {
-      expect(keys(type), type).toEqual(["cost", "execution"]);
+      expect(keys(type), type).toEqual(["cost"]);
     }
   });
 
-  it("Groupe B — les autres étapes ne réapparaissent jamais, même flags activés", () => {
-    const modules = visibleReportModules(allEnabled, "piscine");
-    expect(modules.map((m) => m.key)).toEqual(["cost", "execution"]);
-    expect(modules.map((m) => m.label)).toEqual([
-      "Coût estimatif",
-      "Exécution & suivi",
-    ]);
-  });
-
-  it("Groupe C — seule la section « Coût estimatif » est présente", () => {
-    for (const type of ["bureau", "peinture_interieure", "plomberie_complete", "cloture"]) {
-      expect(keys(type), type).toEqual(["cost"]);
+  it("Groupes B et C — les autres étapes ne réapparaissent jamais, même flags activés", () => {
+    for (const type of ["piscine", "bureau"]) {
+      const modules = visibleReportModules(allEnabled, type);
+      expect(modules.map((m) => m.key), type).toEqual(["cost"]);
+      expect(modules.map((m) => m.label), type).toEqual(["Coût estimatif"]);
     }
   });
 
   it("le groupe est déduit du type, sans sélection manuelle", () => {
     expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(4);
-    expect(REPORT_MODULE_KEYS_BY_GROUP.B).toHaveLength(2);
+    expect(REPORT_MODULE_KEYS_BY_GROUP.B).toHaveLength(1);
     expect(REPORT_MODULE_KEYS_BY_GROUP.C).toHaveLength(1);
-    expect(reportModuleKeysForGroup("B")).toEqual(["cost", "execution"]);
+    expect(reportModuleKeysForGroup("B")).toEqual(["cost"]);
     expect(reportModuleKeysForGroup("C")).toEqual(["cost"]);
   });
 

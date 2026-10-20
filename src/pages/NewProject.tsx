@@ -1300,9 +1300,9 @@ export default function NewProject() {
               onRetry={handleRetryAnalysis}
               onComplete={handleAnalysisComplete}
               // Étapes du chargement de l'estimation, sélectionnées d'après le
-              // groupe du type choisi : 5 étapes pour le groupe A, 4 pour le
-              // groupe B, 2 pour le groupe C (aucune étape non autorisée). Le
-              // design du composant n'est pas modifié.
+              // groupe du type choisi : 5 étapes pour le groupe A, 2 pour les
+              // groupes B et C (aucune étape non autorisée). Le design du
+              // composant n'est pas modifié.
               steps={costEstimateLoadingSteps(selectedCategory)}
             />
           </motion.div>

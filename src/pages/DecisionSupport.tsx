@@ -1,7 +1,7 @@
 // ============================================================================
 // AIDE À LA DÉCISION — page dédiée (copilote budget & achats)
 // ----------------------------------------------------------------------------
-// Page individuelle du parcours du projet (groupes A et B, étape n°2). Elle affiche
+// Page individuelle du parcours du projet (groupe A, étape n°2). Elle affiche
 // le module de budget (« Capacité de construction ») sur les données déjà
 // enregistrées du projet — aucune analyse n'est relancée ici.
 //
@@ -153,14 +153,13 @@ export default function DecisionSupport() {
   return (
     <main className="min-h-screen bg-background pb-12">
       {/* Parcours du projet — l'étape « Aide à la décision » est mise en avant
-          (route dédiée), avec « Étape précédente : Coût estimatif » et, selon
-          le groupe, « Suivant → : Plans architecturaux AI » (groupe A) ou
-          « Mise en relation » (groupe B). */}
+          (route dédiée), avec « Étape précédente : Coût estimatif » et
+          « Suivant → : Plans architecturaux AI » (parcours du groupe A). */}
       <ProjectJourneyNav
         projectId={id}
         category={project?.category}
         featureLabel="Aide à la décision"
-        // Accès refusé (groupe C, compte gratuit, abonnement expiré…) : aucun
+        // Accès refusé (groupes B et C, compte gratuit, abonnement expiré…) : aucun
         // bouton « Suivant » vers une étape verrouillée — l'en-tête du projet
         // reste affiché, le parcours reprend via « Continuer mon projet ».
         steps={access && !access.allowed ? [] : undefined}
@@ -183,9 +182,9 @@ export default function DecisionSupport() {
             }
           />
         ) : !access.allowed ? (
-          /* ── Accès refusé : groupe C, compte gratuit, abonnement expiré… ──
-              Les autres étapes du projet restent accessibles (aucun blocage
-              injustifié) — seule cette fonctionnalité est verrouillée. */
+          /* ── Accès refusé : groupes B et C, compte gratuit, abonnement
+              expiré… Les autres étapes du projet restent accessibles (aucun
+              blocage injustifié) — seule cette fonctionnalité est verrouillée. */
           <DecisionSupportBlocked
             access={access}
             onBack={() => navigate(`/dashboard/project/${id}`)}
@@ -308,7 +307,7 @@ function SynthStat({
  *
  * Le motif vient du SERVEUR (`access.reason`) : aucun calcul local, donc aucun
  * contournement possible. Le message est adapté au cas :
- *   • groupe C            → fonctionnalité absente du parcours ;
+ *   • groupes B et C      → fonctionnalité absente du parcours ;
  *   • compte gratuit      → invitation à passer à Client Pro ;
  *   • expiré / en attente → blocage jusqu'à réactivation ;
  *   • non connecté        → authentification demandée.

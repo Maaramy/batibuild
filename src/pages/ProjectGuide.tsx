@@ -100,8 +100,8 @@ export default function ProjectGuide() {
   const allProjects = useMemo(() => projectsQuery ?? [], [projectsQuery]);
   const [projectId, setProjectId] = useState<string | null>(paramProject);
 
-  // « Exécution & Suivi » fait partie des parcours des groupes A et B : seuls
-  // ces projets sont proposés ici. Un projet du groupe C (coût estimatif →
+  // « Exécution & Suivi » n'appartient qu'au parcours du groupe A : seuls ces
+  // projets sont proposés ici. Un projet des groupes B ou C (coût estimatif →
   // mise en relation) conserve toutes ses données, mais ne peut pas ouvrir
   // cette étape, même par une URL directe.
   const projects = useMemo(
@@ -255,7 +255,7 @@ export default function ProjectGuide() {
               </CardTitle>
               <CardDescription className="text-xs max-w-md mx-auto">
                 {allProjects.length > 0
-                  ? "Cette étape est réservée aux projets du parcours complet (maison, appartement, villa, immeuble, local commercial, studio, duplex, bureau, entrepôt, résidence touristique, projet immobilier neuf, restaurant, café, rénovation complète). Vos projets du parcours simplifié restent disponibles pour l'estimation et la mise en relation."
+                  ? "Cette étape est réservée aux projets du parcours complet (maison, appartement, villa, immeuble, local, studio, duplex, résidence touristique, projet immobilier neuf, rénovation complète). Vos projets du parcours simplifié restent disponibles pour l'estimation et la mise en relation."
                   : "Le Guide A-Z s'appuie sur les résultats de votre estimation. Lancez un premier projet pour générer votre feuille de route complète avec l'IA."}
               </CardDescription>
             </CardHeader>

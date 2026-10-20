@@ -60,15 +60,16 @@ export function ProjectCard({ project }: { project: any }) {
   // ACCÈS RAPIDES — modules liés au projet (routes + contexte du projet).
   // Voir `@/lib/projectQuickActions` (construction des liens, testée).
   const { isEnabled: isFeatureEnabled } = useFeatureFlags();
-  // Groupe réel du projet (classification centrale) : le groupe C n'a que le
-  // coût estimatif et la mise en relation, le groupe B n'a pas de plans AI.
+  // Groupe réel du projet (classification centrale) : seuls les projets du
+  // groupe A disposent des plans AI et de l'exécution & suivi ; les groupes B
+  // et C n'ont que le coût estimatif puis la mise en relation.
   const journeyGroup = projectJourneyGroup(project.category);
   const quickActions = buildProjectQuickActions(project).filter((a) => {
-    // « Plan AI » n'existe que pour le groupe A (projets avec plans
-    // architecturaux AI) : aucun lien résiduel vers une étape non autorisée.
-    if (a.key === "plan" && journeyGroup !== "A") return false;
-    // « Démarche » (Exécution & Suivi) est absente du parcours du groupe C.
-    if (a.key === "guide" && journeyGroup === "C") return false;
+    // « Plan AI » et « Démarche » (Exécution & Suivi) n'existent que pour le
+    // groupe A : aucun lien résiduel vers une étape absente du parcours.
+    if ((a.key === "plan" || a.key === "guide") && journeyGroup !== "A") {
+      return false;
+    }
     // Feature flags : les modules désactivés par l'admin disparaissent des
     // cartes (aucun accès visuel résiduel). Même configuration centrale que
     // les gardes de routes et le parcours du projet — aucun lien résiduel
@@ -168,10 +169,10 @@ export function ProjectCard({ project }: { project: any }) {
         </div>
 
         {/* ─── Accès rapides : modules réellement accessibles au projet ───
-          * « Plan AI » réservé au groupe A, « Démarche » (Exécution & Suivi)
-          * aux groupes A et B : le groupe C ne conserve que les modules de son
-          * parcours (coût estimatif → mise en relation). Aucun lien direct vers
-          * une étape absente du parcours.
+          * « Plan AI » et « Démarche » (Exécution & Suivi) réservés au groupe A :
+          * les groupes B et C ne conservent que les modules de leur parcours
+          * (coût estimatif → mise en relation). Aucun lien direct vers une étape
+          * absente du parcours.
           */}
         {quickActions.length > 0 && (
         <div className="pt-2 border-t border-border/20">

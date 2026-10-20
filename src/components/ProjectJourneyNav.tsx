@@ -39,11 +39,10 @@ import { cn } from "@/lib/utils";
  * même temps.
  *
  *   - les étapes viennent de `@/lib/projectJourney` (groupe A : coût → aide à
- *     la décision → plans IA → mise en relation → exécution & suivi ; groupe B :
- *     coût → aide à la décision → mise en relation → exécution & suivi, sans
- *     plans IA ; groupe C : coût → mise en relation uniquement) et sont
- *     filtrées par les feature flags de l'administration — une étape désactivée
- *     disparaît et le total est recalculé automatiquement ;
+ *     la décision → plans IA → mise en relation → exécution & suivi ; groupes
+ *     B et C : coût → mise en relation uniquement) et sont filtrées par les
+ *     feature flags de l'administration — une étape désactivée disparaît et le
+ *     total est recalculé automatiquement ;
  *   - l'icône PDF de chaque étape télécharge le rapport DÉJÀ GÉNÉRÉ à partir des
  *     données enregistrées (aucun recalcul d'analyse). Elle réutilise le système
  *     PDF existant (`reportDownloads`, logo BatiBuild) et respecte les

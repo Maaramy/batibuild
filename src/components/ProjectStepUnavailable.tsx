@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button";
  * ÉCRAN « ÉTAPE INDISPONIBLE POUR CE TYPE DE PROJET »
  *
  * Affiché quand un projet ouvre directement l'URL d'une étape absente de son
- * parcours : « Plans architecturaux AI » pour les groupes B et C, « Exécution
- * & Suivi » pour le groupe C (l'aide à la décision a son propre écran de
- * refus).
+ * parcours : « Plans architecturaux AI » et « Exécution & Suivi » pour les
+ * groupes B et C (l'aide à la décision a son propre écran de refus).
  *
  * Aucune donnée du projet n'est recalculée ni supprimée : le projet, son
  * estimation, ses scénarios et son historique restent intacts. L'écran propose
@@ -58,10 +57,9 @@ export function ProjectStepUnavailable({
             </>
           ) : null}
           Cette étape est réservée aux projets du parcours complet (maison,
-          appartement, villa, immeuble, local commercial, studio, duplex, bureau,
-          entrepôt, résidence touristique, projet immobilier neuf, restaurant,
-          café, rénovation complète). Vos données, votre estimation et votre
-          historique sont conservés.
+          appartement, villa, immeuble, local, studio, duplex, résidence
+          touristique, projet immobilier neuf, rénovation complète). Vos données,
+          votre estimation et votre historique sont conservés.
         </p>
         <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
           <Button className="gap-1.5" onClick={() => navigate(backHref)}>
