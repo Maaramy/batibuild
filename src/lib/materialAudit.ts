@@ -1,7 +1,7 @@
 // ============================================================================
 // AUDIT MATÉRIAUX — MAISON RDC 100 m² (TUNIS, STANDARD)
 // ----------------------------------------------------------------------------
-// Recalcul physique des 23 articles de « Matériaux utilisés » à partir de la
+// Recalcul physique des 23 articles matériaux du projet à partir de la
 // surface construite, des ouvrages standard et des rendements techniques.
 //
 // Le module est PUR (aucune dépendance Convex / React) et ne modifie aucune

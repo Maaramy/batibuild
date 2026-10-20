@@ -9,32 +9,25 @@ import {
   projectJourneyGroup,
 } from "./projectJourney";
 
-// Ordre officiel du parcours groupe A : coût → matériaux utilisés → aide à la
-// décision → plans → mise en relation → exécution & suivi.
+// Ordre officiel du parcours groupe A : plans → coût → aide à la décision →
+// mise en relation → exécution & suivi. L'étape « Matériaux utilisés » a été
+// supprimée de l'application : elle n'apparaît nulle part.
 const GROUP_A_LABELS = [
-  "Coût estimatif",
-  "Matériaux utilisés",
-  "Aide à la décision",
   "Plans architecturaux AI",
+  "Coût estimatif",
+  "Aide à la décision",
   "Mise en relation",
   "Exécution & suivi",
 ];
 
-const GROUP_A_KEYS = [
-  "cost",
-  "materialsUsed",
-  "decision",
-  "plans",
-  "consult",
-  "execution",
-];
+const GROUP_A_KEYS = ["plans", "cost", "decision", "consult", "execution"];
 
-// Ordre officiel du parcours groupe B : coût → matériaux utilisés → mise en
-// relation (aucun plans, aucune exécution, ET AUCUNE « Aide à la décision » :
-// cette fonctionnalité est réservée au groupe A — voir `decisionSupportAccess`).
-const GROUP_B_LABELS = ["Coût estimatif", "Matériaux utilisés", "Mise en relation"];
+// Ordre officiel du parcours groupe B : coût → mise en relation (aucun plans,
+// aucune exécution, ET AUCUNE « Aide à la décision » : cette fonctionnalité est
+// réservée au groupe A — voir `decisionSupportAccess`).
+const GROUP_B_LABELS = ["Coût estimatif", "Mise en relation"];
 
-const GROUP_B_KEYS = ["cost", "materialsUsed", "consult"];
+const GROUP_B_KEYS = ["cost", "consult"];
 
 const PID = "proj_1";
 const SUPPLIER_HREF = `${SUPPLIERS_DIRECTORY_PATH}?from=materials&region=Tunis`;
@@ -146,7 +139,7 @@ describe("projectJourneyGroup — groupe déduit du type de projet", () => {
 });
 
 describe("buildProjectJourney — ordre des étapes", () => {
-  it("Maison : 6 étapes dans l'ordre officiel", () => {
+  it("Maison : 5 étapes dans l'ordre officiel", () => {
     expect(buildProjectJourney("maison", PID).map((s) => s.label)).toEqual(GROUP_A_LABELS);
   });
 
@@ -158,11 +151,16 @@ describe("buildProjectJourney — ordre des étapes", () => {
     expect(buildProjectJourney("appartement", PID).map((s) => s.label)).toEqual(GROUP_A_LABELS);
   });
 
-  it("place « Matériaux utilisés » juste après le coût, puis « Aide à la décision » avant le plan IA", () => {
-    const keys = buildProjectJourney("maison", PID).map((s) => s.key);
-    expect(keys.indexOf("materialsUsed")).toBe(keys.indexOf("cost") + 1);
-    expect(keys.indexOf("decision")).toBe(keys.indexOf("materialsUsed") + 1);
-    expect(keys.indexOf("decision")).toBeLessThan(keys.indexOf("plans"));
+  it("le parcours commence par les plans IA puis le coût estimatif", () => {
+    const steps = buildProjectJourney("maison", PID);
+    expect(steps[0].key).toBe("plans");
+    expect(steps[0].href).toBe(`/dashboard/plans/${PID}`);
+    expect(steps[1].key).toBe("cost");
+    expect(steps[1].href).toBe(`/dashboard/project/${PID}`);
+    // « Aide à la décision » reste entre le coût et la mise en relation.
+    const keys = steps.map((s) => s.key);
+    expect(keys.indexOf("decision")).toBe(keys.indexOf("cost") + 1);
+    expect(keys.indexOf("consult")).toBe(keys.indexOf("decision") + 1);
   });
 
   it("le parcours du groupe A se termine par mise en relation puis exécution & suivi", () => {
@@ -171,38 +169,41 @@ describe("buildProjectJourney — ordre des étapes", () => {
     expect(keys[keys.length - 1]).toBe("execution");
   });
 
-  it("l'étape « Matériaux utilisés » ouvre sa propre page, jamais l'ancien module IA", () => {
-    for (const type of ["maison", "villa", "appartement"]) {
+  it("l'étape « Matériaux utilisés » n'existe plus : aucune entrée, aucun lien", () => {
+    for (const type of ["maison", "villa", "appartement", "renovation_complete"]) {
       const steps = buildProjectJourney(type, PID);
-      const step = steps.find((s) => s.key === "materialsUsed");
-      expect(step?.label).toBe("Matériaux utilisés");
-      expect(step?.href).toBe(`/dashboard/materials-used/${PID}`);
-      expect(steps.some((s) => s.href.includes("/dashboard/ai-materials"))).toBe(false);
+      expect(steps.map((s) => s.key), type).not.toContain("materialsUsed");
+      expect(steps.some((s) => /mat[ée]riaux utilis/i.test(s.label)), type).toBe(false);
+      expect(
+        steps.some((s) => s.href.includes("/dashboard/materials-used")),
+        type,
+      ).toBe(false);
     }
   });
 
-  it("Rénovation : coût → matériaux → mise en relation (sans aide à la décision)", () => {
+  it("Rénovation : coût → mise en relation (sans matériaux ni aide à la décision)", () => {
     expect(buildProjectJourney("renovation_complete", PID).map((s) => s.label)).toEqual(
       GROUP_B_LABELS,
     );
   });
 
-  it("Cuisine : coût → matériaux → mise en relation (sans aide à la décision)", () => {
+  it("Cuisine : coût → mise en relation (sans matériaux ni aide à la décision)", () => {
     expect(buildProjectJourney("renovation_cuisine", PID).map((s) => s.label)).toEqual(
       GROUP_B_LABELS,
     );
   });
 
-  it("Salle de bain : coût → matériaux → mise en relation (sans aide à la décision)", () => {
+  it("Salle de bain : coût → mise en relation (sans matériaux ni aide à la décision)", () => {
     expect(buildProjectJourney("renovation_salle_de_bain", PID).map((s) => s.label)).toEqual(
       GROUP_B_LABELS,
     );
   });
 
-  it("le parcours du groupe B place les matériaux après le coût, sans étape « Aide à la décision »", () => {
-    const keys = buildProjectJourney("piscine", PID).map((s) => s.key);
+  it("le parcours du groupe B démarre au coût, sans étape « Aide à la décision »", () => {
+    const steps = buildProjectJourney("piscine", PID);
+    const keys = steps.map((s) => s.key);
     expect(keys).toEqual(GROUP_B_KEYS);
-    expect(keys.indexOf("materialsUsed")).toBe(keys.indexOf("cost") + 1);
+    expect(steps[0].key).toBe("cost");
     // « Aide à la décision » est réservée au groupe A : ni étape, ni lien direct.
     expect(keys).not.toContain("decision");
     expect(keys[keys.length - 1]).toBe("consult");
@@ -225,7 +226,6 @@ describe("buildProjectJourney — ordre des étapes", () => {
     );
     expect(byKey).toMatchObject({
       cost: "cost",
-      materialsUsed: null,
       consult: null,
     });
     expect(byKey.decision).toBeUndefined();
@@ -243,10 +243,9 @@ describe("buildProjectJourney — liens, rapports et contexte du projet", () => 
     const steps = buildProjectJourney("villa", PID);
     expect(steps.map((s) => s.key)).toEqual(GROUP_A_KEYS);
     expect(steps.map((s) => s.href)).toEqual([
-      "/dashboard/project/proj_1",
-      "/dashboard/materials-used/proj_1",
-      "/dashboard/decision/proj_1",
       "/dashboard/plans/proj_1",
+      "/dashboard/project/proj_1",
+      "/dashboard/decision/proj_1",
       "/dashboard/professionals-directory?project=proj_1",
       "/dashboard/guide?project=proj_1",
     ]);
@@ -257,10 +256,9 @@ describe("buildProjectJourney — liens, rapports et contexte du projet", () => 
       buildProjectJourney("maison", PID).map((s) => [s.key, s.reportKey ?? null]),
     );
     expect(byKey).toMatchObject({
-      cost: "cost",
-      materialsUsed: null,
-      decision: null,
       plans: "plans",
+      cost: "cost",
+      decision: null,
       consult: null,
       execution: "execution",
     });
@@ -271,7 +269,6 @@ describe("buildProjectJourney — liens, rapports et contexte du projet", () => 
     expect(steps.map((s) => s.key)).toEqual(GROUP_B_KEYS);
     expect(steps.map((s) => s.href)).toEqual([
       `/dashboard/project/${PID}`,
-      `/dashboard/materials-used/${PID}`,
       `/dashboard/professionals-directory?project=${PID}`,
     ]);
   });
@@ -302,21 +299,20 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
     expect(buildProjectJourney("maison", PID, undefined).map((s) => s.key)).toEqual(
       GROUP_A_KEYS,
     );
-    expect(buildProjectJourney("maison", PID, null).map((s) => s.key)).toHaveLength(6);
+    expect(buildProjectJourney("maison", PID, null).map((s) => s.key)).toHaveLength(5);
   });
 
   it("« Plans » disparaît quand architectural_plans est désactivé (ordre conservé)", () => {
     const flags = { architectural_plans: false };
     expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
       "cost",
-      "materialsUsed",
       "decision",
       "consult",
       "execution",
     ]);
   });
 
-  it("ai_materials n'influence pas l'étape « Matériaux utilisés » (elle dépend du module de coût)", () => {
+  it("ai_materials n'influence pas les étapes du parcours principal", () => {
     expect(buildProjectJourney("maison", PID, { ai_materials: false }).map((s) => s.key)).toEqual(
       GROUP_A_KEYS,
     );
@@ -349,10 +345,9 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
     const flags = { construction_guide: false };
     const steps = buildProjectJourney("maison", PID, flags);
     expect(steps.map((s) => s.key)).toEqual([
-      "cost",
-      "materialsUsed",
-      "decision",
       "plans",
+      "cost",
+      "decision",
       "consult",
     ]);
     // Aucun vestige : ni libellé, ni lien vers le guide.
@@ -385,7 +380,7 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
     expect(steps[steps.length - 1].href).toBe(`/dashboard/guide?project=${PID}`);
   });
 
-  it("groupe B : seules les 3 étapes officielles apparaissent", () => {
+  it("groupe B : seules les 2 étapes officielles apparaissent", () => {
     const steps = buildProjectJourney("renovation_complete", PID);
     expect(steps.map((s) => s.key)).toEqual(GROUP_B_KEYS);
   });

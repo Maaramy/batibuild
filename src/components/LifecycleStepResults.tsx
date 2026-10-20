@@ -38,7 +38,6 @@ import {
   MapPin,
   Percent,
   Ruler,
-  Store,
   Users,
   Wand2,
   Wallet,
@@ -47,7 +46,6 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { formatTnd, cn } from "@/lib/utils";
-import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
 import {
   generateFloorPlans,
   PLAN_ROOM_COLORS,
@@ -401,7 +399,6 @@ const STEP_TONES: Record<string, { accent: string; icon: LucideIcon }> = {
   cost: { accent: "text-emerald-600", icon: Wallet },
   decision: { accent: "text-violet-600", icon: BrainCircuit },
   plans: { accent: "text-sky-600", icon: Ruler },
-  materials: { accent: "text-violet-600", icon: Layers },
   consult: { accent: "text-amber-600", icon: Users },
   execution: { accent: "text-teal-600", icon: HardHat },
 };
@@ -446,7 +443,6 @@ export function StepResultPanel({
           {stepKey === "cost" && <CostResult data={data} />}
           {stepKey === "decision" && <DecisionResult data={data} />}
           {stepKey === "plans" && <PlanResult data={data} />}
-          {stepKey === "materials" && <MaterialsResult data={data} />}
           {stepKey === "consult" && <ConsultResult data={data} />}
           {stepKey === "execution" && <ExecutionResult data={data} />}
         </div>
@@ -690,66 +686,7 @@ function DecisionResult({ data }: { data: LifecycleShowcase }) {
   );
 }
 
-// ── 3. Choix des matériaux ──────────────────────────────────────────────────
-
-function MaterialsResult({ data }: { data: LifecycleShowcase }) {
-  const { materials } = data;
-  return (
-    <div className="space-y-3">
-      <Grid>
-        <Metric icon={Layers} label="Matériaux analysés" value={<AnimatedNumber value={materials.analyzed} />} tone="text-violet-600" />
-        <Metric icon={CheckCircle2} label="Sélectionnés" value={<AnimatedNumber value={materials.selected} />} tone="text-emerald-600" />
-        <Metric
-          icon={Banknote}
-          label="Économie possible"
-          value={<AnimatedNumber value={materials.potentialSaving} format={(n) => formatTnd(n)} />}
-          sub="standard → économique"
-          tone="text-emerald-600"
-        />
-        <Metric icon={Percent} label="Prix unitaires" value={<AnimatedNumber value={materials.unitPrices.length} />} sub="matériaux suivis" tone="text-violet-600" />
-      </Grid>
-
-      <div className="grid gap-2 sm:grid-cols-2">
-        {materials.unitPrices.length > 0 && (
-          <div className="min-w-0 rounded-lg border border-border/50 bg-background/70 p-2.5">
-            <p className="mb-1.5 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Prix unitaires
-            </p>
-            <ul className="space-y-1">
-              {materials.unitPrices.map((m) => (
-                <li key={m.name} className="flex items-baseline justify-between gap-2 text-[10.5px]">
-                  <span className="min-w-0 break-words leading-snug text-muted-foreground">{m.name}</span>
-                  <span className="shrink-0 font-semibold tabular-nums">
-                    {m.unitPrice.toLocaleString("fr-FR")}{" "}
-                    <span className="text-[9px] font-normal text-muted-foreground">
-                      TND{m.unit ? `/${m.unit}` : ""}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {materials.supplier && (
-          <ProfileMiniCard
-            title="Carte fournisseur"
-            name={materials.supplier.name}
-            region={materials.supplier.regionLabel}
-            specialty={materials.supplier.specialties
-              .map((s) => SUPPLIER_SPECIALTIES_LABELS[s] ?? s)
-              .slice(0, 2)
-              .join(" · ")}
-            icon={Store}
-            tone="bg-violet-500/10 text-violet-600"
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── 4. Consultations / experts ──────────────────────────────────────────────
+// ── 3. Consultations / experts ──────────────────────────────────────────────
 
 function ConsultResult({ data }: { data: LifecycleShowcase }) {
   const { consultations } = data;

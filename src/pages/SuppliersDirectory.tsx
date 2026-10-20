@@ -16,7 +16,7 @@ import { QUOTE_MOTIF_OTHER } from "@/lib/quoteMotifs";
 import { StarRating } from "@/components/StarRating";
 import {
   Store, MapPin, Phone, Mail, Briefcase, Star,
-  FileText, Loader2, Send, Layers, CheckCircle2, AlertTriangle, Info, ArrowRight,
+  FileText, Loader2, Send, Layers, CheckCircle2, AlertTriangle, Info,
   Banknote,
 } from "lucide-react";
 import {
@@ -79,9 +79,11 @@ export default function SuppliersDirectory() {
   // Parcours du projet — contexte conservé dans l'URL lorsque l'annuaire est
   // ouvert depuis un projet (?project=…), comme sur les autres étapes.
   const projectIdParam = searchParams.get("project") ?? null;
-  // « Mise en relation » depuis l'étape « Matériaux utilisés » : les articles,
-  // quantités, unités, région et scénario sont reconstruits depuis le projet
-  // (même calcul que le tableau) — aucun contexte n'est saisi à la main.
+  // « Mise en relation » avec les matériaux du projet (`?from=materials`) :
+  // les articles, quantités, unités, région et scénario sont reconstruits
+  // depuis le projet — aucun contexte n'est saisi à la main. La page
+  // « Matériaux utilisés » ayant été supprimée, ce mode reste un lien profond
+  // (annuaire pré-filtré) et ne dépend d'aucune page dédiée.
   const fromMaterials = searchParams.get("from") === "materials";
   const materialContext = useProjectMaterialUsage(
     fromMaterials ? projectIdParam : null,
@@ -193,8 +195,8 @@ export default function SuppliersDirectory() {
     // est transmis explicitement lors d'une bascule de type d'annuaire).
     next.delete("q");
     // Dès qu'il ne reste plus de filtre issu de l'analyse, on retire la mention
-    // — sauf depuis « Matériaux utilisés », où le contexte projet/matériaux
-    // doit survivre à l'élargissement de la région.
+    // — sauf en mode matériaux du projet, où le contexte projet doit survivre
+    // à l'élargissement de la région.
     if (!fromMaterials && !next.get("specialty") && !next.get("region")) {
       next.delete("from");
     }
@@ -205,7 +207,7 @@ export default function SuppliersDirectory() {
   const filtered = useMemo(() => {
     if (!suppliers) return [];
 
-    // Depuis « Matériaux utilisés » : seuls les fournisseurs qui déclarent une
+    // En mode matériaux du projet : seuls les fournisseurs qui déclarent une
     // spécialité correspondant à au moins un article sont retenus, classés par
     // couverture puis par région. Aucun fournisseur sans correspondance n'est
     // affiché ; les correspondances partielles sont conservées et signalées.
@@ -270,7 +272,7 @@ export default function SuppliersDirectory() {
   /** Réinitialise tous les critères de recherche. */
   const resetFilters = () => {
     setSearch("");
-    // Depuis « Matériaux utilisés », le contexte projet/matériaux est conservé :
+    // En mode matériaux du projet, le contexte projet/matériaux est conservé :
     // seuls les critères choisis par l'utilisateur sont retirés.
     setFilters({
       specialty: [],
@@ -324,7 +326,7 @@ export default function SuppliersDirectory() {
           specialty: autoSpecialties.includes(v)
             ? autoSpecialties.filter((sp) => sp !== v)
             : [...autoSpecialties, v],
-          // En mode « Matériaux utilisés », le contexte projet est conservé.
+          // En mode matériaux du projet, le contexte projet est conservé.
           from: fromMaterials ? "materials" : null,
         }),
     },
@@ -394,8 +396,8 @@ export default function SuppliersDirectory() {
       await createQuoteRequest({
         supplierId: devisSupplier._id as any,
         category: devisSupplier.specialties?.[0] ?? "général",
-        // Depuis « Matériaux utilisés », la liste complète des articles du
-        // projet (nom, quantité, unité) accompagne automatiquement le devis.
+        // En mode matériaux du projet, la liste complète des articles (nom,
+        // quantité, unité) accompagne automatiquement la demande de devis.
         materials: fromMaterials ? materialContext.materials : [],
         projectId: (projectIdParam as any) ?? undefined,
         projectName: materialContext.project?.name ?? undefined,
@@ -435,7 +437,7 @@ export default function SuppliersDirectory() {
       {/* Contenu : espace réservé sous la barre sticky (scroll-mt) pour que la
           recherche et son panneau ne passent jamais sous Projet Journey. */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4 space-y-4 scroll-mt-28">
-        {/* ── Contexte « Matériaux utilisés » ── */}
+        {/* ── Contexte matériaux du projet (mise en relation) ── */}
         {fromMaterials && materialContext.project && (
           <section
             aria-label="Contexte matériaux du projet"
@@ -468,24 +470,6 @@ export default function SuppliersDirectory() {
                     TND
                   </span>
                 </p>
-              </div>
-              <div className="flex shrink-0 flex-wrap gap-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1 text-[11px]"
-                  onClick={() => {
-                    const scenarioParam = searchParams.get("scenario");
-                    navigate(
-                      `/dashboard/materials-used/${projectIdParam}${
-                        scenarioParam ? `?scenario=${encodeURIComponent(scenarioParam)}` : ""
-                      }`,
-                    );
-                  }}
-                >
-                  <ArrowRight className="h-3 w-3 rotate-180" />
-                  Voir mes matériaux
-                </Button>
               </div>
             </div>
             <p className="flex items-start gap-1.5 border-t border-emerald-500/20 px-3.5 py-2 text-[10.5px] leading-relaxed text-muted-foreground sm:px-4">

@@ -1,7 +1,7 @@
 // ============================================================================
 // AIDE À LA DÉCISION — page dédiée (copilote budget & achats)
 // ----------------------------------------------------------------------------
-// Page individuelle du parcours du projet (groupe A, étape n°2). Elle affiche
+// Page individuelle du parcours du projet (groupe A, étape n°3). Elle affiche
 // le module de budget (« Capacité de construction ») sur les données déjà
 // enregistrées du projet — aucune analyse n'est relancée ici.
 //
@@ -154,7 +154,7 @@ export default function DecisionSupport() {
     <main className="min-h-screen bg-background pb-12">
       {/* Parcours du projet — l'étape « Aide à la décision » est mise en avant
           (route dédiée), avec « Étape précédente : Coût estimatif » et
-          « Suivant → : Plans architecturaux AI ». */}
+          « Suivant → : Mise en relation ». */}
       <ProjectJourneyNav
         projectId={id}
         category={project?.category}

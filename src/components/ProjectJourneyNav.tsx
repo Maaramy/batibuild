@@ -38,8 +38,8 @@ import { cn } from "@/lib/utils";
  * revient à l'étape précédente ; le parcours complet n'est jamais déroulé en
  * même temps.
  *
- *   - les étapes viennent de `@/lib/projectJourney` (groupe A : 6 étapes,
- *     groupe B : 3 étapes, sans « Aide à la décision ») et sont filtrées par
+ *   - les étapes viennent de `@/lib/projectJourney` (groupe A : 5 étapes,
+ *     groupe B : 2 étapes, sans « Aide à la décision ») et sont filtrées par
  *     les feature flags de
  *     l'administration — une étape désactivée disparaît et le total est
  *     recalculé automatiquement ;

@@ -1053,9 +1053,6 @@ export function TechnicalPlansPanel({
             <Button asChild size="sm" variant="outline" className="h-8 text-[11px]">
               <Link to={`/dashboard/project/${projectId}`}>Ouvrir le Quantitatif détaillé</Link>
             </Button>
-            <Button asChild size="sm" variant="outline" className="h-8 text-[11px]">
-              <Link to={`/dashboard/materials-used/${projectId}`}>Voir les matériaux utilisés</Link>
-            </Button>
           </div>
 
           <p className="rounded-md border border-border/60 bg-muted/30 px-2.5 py-1.5 text-[9px] leading-snug text-muted-foreground">

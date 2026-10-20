@@ -1,10 +1,11 @@
 // ============================================================================
-// MATÉRIAUX UTILISÉS — contexte partagé de la page et de la mise en relation
+// MATÉRIAUX DU PROJET — contexte partagé de la mise en relation
 // ----------------------------------------------------------------------------
-// UN SEUL calcul, réutilisé par :
-//   • la page « Matériaux utilisés » (tableau, total, CTA fournisseur) ;
-//   • la page « Mise en relation » (classement des fournisseurs), qui repart
-//     des mêmes articles dès qu'elle reçoit `?from=materials&project=…`.
+// UN SEUL calcul, utilisé par la page « Mise en relation » (classement des
+// fournisseurs), qui repart des articles réels du projet dès qu'elle reçoit
+// `?from=materials&project=…`. La page « Matériaux utilisés » a été supprimée :
+// ce hook ne sert plus qu'à la mise en relation, sans changer les quantités ni
+// les prix du moteur d'estimation.
 //
 // Le hook ne crée aucune donnée : il lit le projet, le quantitatif, la
 // personnalisation et les travaux complémentaires via les requêtes Convex

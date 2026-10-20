@@ -1,10 +1,11 @@
 /**
  * TIMING DE L'ÉCRAN DE CHARGEMENT « ESTIMATION »
  *
- * Animation d'introduction de 4 000 ms exactement, répartie sur les 6 étapes
- * officielles du parcours Journey. La logique est pure (aucun timer) afin
- * d'être testable et de garantir une durée totale fixe, indépendante de la
- * durée réelle du calcul.
+ * Animation d'introduction de 4 000 ms exactement, répartie sur les 5 étapes
+ * officielles du parcours Journey (l'étape « Matériaux utilisés » a été
+ * supprimée de l'application). La logique est pure (aucun timer) afin d'être
+ * testable et de garantir une durée totale fixe, indépendante de la durée
+ * réelle du calcul.
  */
 
 /** Durée totale de l'animation d'introduction (4 secondes exactement). */
@@ -12,10 +13,9 @@ export const ESTIMATE_INTRO_MS = 4000;
 
 /** Étapes du parcours, dans l'ordre officiel du Journey. */
 export const ESTIMATE_JOURNEY_STEPS = [
-  "Coût estimatif",
-  "Matériaux utilisés",
-  "Aide à la décision",
   "Plans architecturaux AI",
+  "Coût estimatif",
+  "Aide à la décision",
   "Mise en relation",
   "Exécution & Suivi",
 ] as const;
@@ -113,7 +113,7 @@ export function describeEstimateError(error: unknown): string {
 export interface EstimateIntroState {
   /** Progression affichée, de 0 à 100. */
   progress: number;
-  /** Nombre d'étapes terminées (0 à 6). */
+  /** Nombre d'étapes terminées (0 à 5). */
   completed: number;
   /** Index de l'étape active, `-1` lorsque l'introduction est terminée. */
   activeIndex: number;
@@ -125,8 +125,8 @@ export interface EstimateIntroState {
  * État de l'introduction pour un temps écoulé donné.
  *
  * - 0 ms → étape 1 active, progression 0 % ;
- * - chaque étape dure 4 000 / 6 ≈ 666,7 ms ;
- * - 4 000 ms → 100 %, 6 étapes terminées, aucune étape active ;
+ * - chaque étape dure 4 000 / 5 = 800 ms ;
+ * - 4 000 ms → 100 %, 5 étapes terminées, aucune étape active ;
  * - au-delà, l'état est figé (aucune prolongation de l'animation).
  */
 export function estimateIntroState(

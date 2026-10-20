@@ -1,6 +1,9 @@
 // ============================================================================
-// MATÉRIAUX UTILISÉS — articles réellement nécessaires au projet.
+// MATÉRIAUX DU PROJET — articles réellement nécessaires au projet.
 // ----------------------------------------------------------------------------
+// Module partagé (mise en relation avec les fournisseurs) : la page dédiée
+// « Matériaux utilisés » a été supprimée, le calcul et les données restent
+// inchangés pour les autres modules.
 // Module PUR (aucune dépendance Convex / React) : il transforme le quantitatif
 // du projet en tableau d'articles. Deux sources, JAMAIS additionnées :
 //   • le DQE lorsqu'il liste lui-même les articles (rénovation, garage,
@@ -189,7 +192,7 @@ interface Accumulator {
 }
 
 /**
- * Construit le tableau « Matériaux utilisés » à partir des données réelles du
+ * Construit la liste des matériaux du projet à partir des données réelles du
  * projet. Aucun montant fictif : si aucune donnée exploitable n'existe, le
  * résultat est vide (l'interface affiche alors un message explicite).
  */

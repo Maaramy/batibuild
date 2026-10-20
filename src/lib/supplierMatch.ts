@@ -70,7 +70,7 @@ export function categorySpecialties(categoryIds: string[]): string[] {
   return out;
 }
 
-// ── Mise en relation « Matériaux utilisés » ↔ fournisseurs ─────────────────
+// ── Mise en relation « matériaux du projet » ↔ fournisseurs ────────────────
 // Les fournisseurs inscrits déclarent des SPÉCIALITÉS (et non un catalogue
 // produit) : on ne peut donc jamais affirmer qu'un article précis est « en
 // stock ». On mesure uniquement la CORRESPONDANCE entre le libellé réel de
@@ -125,7 +125,7 @@ export function articleSupplierSpecialties(article: string): string[] {
   return out;
 }
 
-/** Article recherché (nom réel, quantité, unité du tableau Matériaux utilisés). */
+/** Article recherché (nom réel, quantité, unité issus du projet). */
 export interface MaterialRequest {
   name: string;
   quantity: number;

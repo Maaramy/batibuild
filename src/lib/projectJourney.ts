@@ -11,17 +11,22 @@
  *
  *   - **Groupe A** — projets neufs / immobiliers (maison, villa, appartement,
  *     studio, duplex, immeuble, local commercial, bureau, entrepôt,
- *     résidence touristique, projet immobilier neuf) : parcours complet en 6
+ *     résidence touristique, projet immobilier neuf) : parcours complet en 5
  *     étapes :
- *       1. Coût estimatif
- *       2. Matériaux utilisés
+ *       1. Plans architecturaux AI
+ *       2. Coût estimatif
  *       3. Aide à la décision
- *       4. Plans architecturaux AI
- *       5. Mise en relation
- *       6. Exécution & suivi
+ *       4. Mise en relation
+ *       5. Exécution & suivi
  *   - **Groupe B** — tous les autres types (rénovation, extension, piscine,
- *     restaurant, café, travaux techniques…) : parcours simplifié en 3 étapes
- *     (coût estimatif → matériaux utilisés → mise en relation).
+ *     restaurant, café, travaux techniques…) : parcours simplifié en 2 étapes
+ *     (coût estimatif → mise en relation).
+ *
+ * L'étape « Matériaux utilisés » a été SUPPRIMÉE de l'application : elle
+ * n'existe plus ni comme page, ni comme route, ni comme étape du parcours. Les
+ * données qui l'alimentaient (quantitatif détaillé, articles, quantités, prix
+ * TTC) restent intactes et continuent d'alimenter le coût estimatif, l'aide à
+ * la décision et la mise en relation avec les fournisseurs.
  *
  * « Aide à la décision » est RÉSERVÉE au groupe A : l'étape est absente du
  * parcours du groupe B (elle n'est ni affichée, ni atteignable par « Suivant »,
@@ -70,9 +75,6 @@ export type ProjectJourneyFlags = Record<string, boolean> | null | undefined;
 /** Clés de feature flags qui pilotent les étapes du parcours. */
 export const JOURNEY_FLAG_KEYS = {
   cost: "construction_cost_estimation",
-  // « Matériaux utilisés » est dérivée du Quantitatif détaillé (DQE) et du
-  // résultat d'estimation : elle suit donc l'activation du module de coût.
-  materialsUsed: "construction_cost_estimation",
   // « Aide à la décision » est une page dédiée qui exploite le résultat déjà
   // calculé du « Coût estimatif » (Intelligence prédictive IA) : elle suit donc
   // l'activation du module de coût.
@@ -105,7 +107,6 @@ function filterDisabledSteps(
 
 export type ProjectJourneyStepKey =
   | "cost"
-  | "materialsUsed"
   | "decision"
   | "plans"
   | "materials"
@@ -135,7 +136,7 @@ export interface ProjectJourneyStep {
 }
 
 /**
- * Groupe A : types de projet au parcours complet (6 étapes).
+ * Groupe A : types de projet au parcours complet (5 étapes).
  *
  * Liste fermée, distincte des autres éligibilités de la plateforme : elle
  * appartient EXCLUSIVEMENT au Project Journey. Toute catégorie absente de cette
@@ -180,6 +181,17 @@ export function buildProjectJourney(
   const pid = encodeURIComponent(raw);
   const group = projectJourneyGroup(category);
 
+  // Étape exclusive du groupe A : la génération des plans d'architecte IA
+  // s'appuie uniquement sur les données déjà enregistrées du projet. Elle
+  // ouvre le parcours.
+  const plans: ProjectJourneyStep = {
+    key: "plans",
+    label: "Plans architecturaux AI",
+    path: `/dashboard/plans/${pid}`,
+    href: `/dashboard/plans/${pid}`,
+    reportKey: "plans",
+  };
+
   const cost: ProjectJourneyStep = {
     key: "cost",
     label: "Coût estimatif",
@@ -188,16 +200,20 @@ export function buildProjectJourney(
     reportKey: "cost",
   };
 
-  // « Matériaux utilisés » — articles, quantités et prix réels du projet
-  // (DQE / BIM + scénario actif). Le lien conserve le contexte du projet ; le
-  // bouton « Trouver le bon fournisseur » transmet ensuite ce contexte à
-  // l'annuaire des fournisseurs.
-  const materialsUsed: ProjectJourneyStep = {
-    key: "materialsUsed",
-    label: "Matériaux utilisés",
-    path: `${MATERIALS_USED_PAGE_PATH}/${pid}`,
-    href: `${MATERIALS_USED_PAGE_PATH}/${pid}`,
-    // Aucun rapport PDF propre : le tableau est dérivé de l'estimation.
+  // « Aide à la décision » est une page DÉDIÉE (`DECISION_PAGE_PATH`) qui
+  // affiche uniquement le résultat déjà généré par l'Intelligence prédictive :
+  // elle est retirée de la page de résultat « Coût estimatif ». Son lien
+  // conserve le contexte du projet (`/:id`). Étape EXCLUSIVE au groupe A :
+  // elle est absente du parcours du groupe B (accès refusé aussi côté serveur).
+  // Les projets du groupe B comme les comptes sans Client Pro actif ne sont
+  // jamais bloqués : le parcours saute directement à l'étape autorisée
+  // suivante (« Mise en relation »).
+  const decision: ProjectJourneyStep = {
+    key: "decision",
+    label: "Aide à la décision",
+    path: `/dashboard/decision/${pid}`,
+    href: `/dashboard/decision/${pid}`,
+    // Aucun rapport PDF propre : l'étape affiche un résultat déjà calculé.
     reportKey: null,
   };
 
@@ -209,30 +225,6 @@ export function buildProjectJourney(
     reportKey: null,
   };
 
-  // « Aide à la décision » est une page DÉDIÉE (`DECISION_PAGE_PATH`) qui
-  // affiche uniquement le résultat déjà généré par l'Intelligence prédictive :
-  // elle est retirée de la page de résultat « Coût estimatif ». Son lien
-  // conserve le contexte du projet (`/:id`). Étape EXCLUSIVE au groupe A :
-  // elle est absente du parcours du groupe B (accès refusé aussi côté serveur).
-  const decision: ProjectJourneyStep = {
-    key: "decision",
-    label: "Aide à la décision",
-    path: `/dashboard/decision/${pid}`,
-    href: `/dashboard/decision/${pid}`,
-    // Aucun rapport PDF propre : l'étape affiche un résultat déjà calculé.
-    reportKey: null,
-  };
-
-  // Étape exclusive du groupe A : la génération des plans d'architecte IA
-  // s'appuie uniquement sur les données déjà enregistrées du projet.
-  const plans: ProjectJourneyStep = {
-    key: "plans",
-    label: "Plans architecturaux AI",
-    path: `/dashboard/plans/${pid}`,
-    href: `/dashboard/plans/${pid}`,
-    reportKey: "plans",
-  };
-
   // Étape exclusive du groupe A.
   const execution: ProjectJourneyStep = {
     key: "execution",
@@ -242,24 +234,20 @@ export function buildProjectJourney(
     reportKey: "execution",
   };
 
-  // Groupe B — parcours simplifié : coût estimatif → matériaux utilisés →
-  // mise en relation. Ni « Aide à la décision » (groupe A uniquement, et accès
-  // refusé côté backend), ni « Plans architecturaux AI », ni « Exécution &
-  // suivi » : les étapes absentes ne sont PAS rendues (aucun bouton, lien ou
-  // indicateur résiduel) et « Suivant » saute directement à l'étape autorisée
-  // suivante, sans blocage du reste du projet.
+  // Groupe B — parcours simplifié : coût estimatif → mise en relation. Ni
+  // « Plans architecturaux AI », ni « Aide à la décision » (groupe A
+  // uniquement, et accès refusé côté backend), ni « Exécution & suivi » : les
+  // étapes absentes ne sont PAS rendues (aucun bouton, lien ou indicateur
+  // résiduel) et « Suivant » saute directement à l'étape autorisée suivante,
+  // sans blocage du reste du projet.
   if (group === "B") {
-    return filterDisabledSteps([cost, materialsUsed, consult], flags);
+    return filterDisabledSteps([cost, consult], flags);
   }
 
-  // Groupe A — parcours complet (6 étapes) :
-  //   1. Coût estimatif → 2. Matériaux utilisés → 3. Aide à la décision →
-  //   4. Plans architecturaux AI → 5. Mise en relation →
-  //   6. Exécution & suivi.
-  return filterDisabledSteps(
-    [cost, materialsUsed, decision, plans, consult, execution],
-    flags,
-  );
+  // Groupe A — parcours complet (5 étapes) :
+  //   1. Plans architecturaux AI → 2. Coût estimatif → 3. Aide à la décision
+  //   → 4. Mise en relation → 5. Exécution & suivi.
+  return filterDisabledSteps([plans, cost, decision, consult, execution], flags);
 }
 
 /** Route de l'annuaire des fournisseurs (page des fournisseurs trouvés). */
@@ -267,13 +255,6 @@ export const SUPPLIERS_DIRECTORY_PATH = "/dashboard/suppliers-directory";
 
 /** Route de la page dédiée « Aide à la décision » (Intelligence prédictive IA). */
 export const DECISION_PAGE_PATH = "/dashboard/decision";
-
-/**
- * Route de la page « Matériaux utilisés » — tableau des articles réellement
- * nécessaires au projet (DQE / BIM + scénario actif). Le contexte projet est
- * ajouté en suffixe (`/:id`).
- */
-export const MATERIALS_USED_PAGE_PATH = "/dashboard/materials-used";
 
 /** Route de la liste des prix — page « Matériaux de construction ». */
 export const MATERIALS_PAGE_PATH = "/dashboard/materials";

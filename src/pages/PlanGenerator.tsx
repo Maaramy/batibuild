@@ -274,11 +274,11 @@ export default function PlanGenerator() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
         <ClientProPaywall>
-      {/* Parcours du projet — l'étape « Plans architecturaux AI » fait partie
-          du parcours (groupes A et B) : cette page affiche donc son étape
-          dédiée, avec « Étape précédente : Coût estimatif » et « Suivant → »
-          pour enchaîner sans perdre les données du projet. `featureLabel` sert
-          de repli tant que le projet n'est pas encore chargé. */}
+      {/* Parcours du projet — l'étape « Plans architecturaux AI » ouvre le
+          parcours du groupe A : cette page affiche donc son étape dédiée, avec
+          « Suivant → : Coût estimatif » pour enchaîner sans perdre les données
+          du projet. `featureLabel` sert de repli tant que le projet n'est pas
+          encore chargé. */}
       <ProjectJourneyNav
         projectId={projectId || undefined}
         category={project?.category}

@@ -1,7 +1,7 @@
 // ============================================================================
 // PROJET #23 « Ma maison » — RELEVÉ INITIAL DES 23 ARTICLES
 // ----------------------------------------------------------------------------
-// Valeurs telles qu'affichées dans « Matériaux utilisés » avant audit
+// Valeurs de référence des articles matériaux du projet avant audit
 // (maison 100 m², Tunis, scénario Standard). Total initial : 110 182,44 TND.
 // Ce fichier sert de référence au rapport et aux tests de non-régression.
 // ============================================================================

@@ -13,7 +13,7 @@
 //
 // Le prix unitaire affiché est TOUJOURS le prix du seau, jamais un prix au kg
 // appliqué à une quantité en kg (ou l'inverse). Le module est pur et partagé
-// par le moteur BIM, le DQE et la page « Matériaux utilisés ».
+// par le moteur BIM, le DQE et la mise en relation fournisseurs.
 // ============================================================================
 
 /** Poids d'un seau d'enduit de lissage (kg). */
