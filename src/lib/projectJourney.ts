@@ -196,20 +196,39 @@ export function canAccessJourneyStep(
 }
 
 /**
- * Libellés des étapes du parcours pour un type de projet, SANS contexte de
- * projet.
+ * ÉTAPES DE CHARGEMENT DU CALCUL « COÛT ESTIMATIF »
  *
- * Utilisé par les indicateurs de progression affichés avant que le projet
- * n'existe ou ne soit chargé (écran de chargement de la création) : un projet
- * du groupe B n'y voit jamais apparaître « Aide à la décision », « Plans
- * architecturaux AI » ni « Exécution & suivi ». L'ordre provient du même
- * constructeur que le Journey, donc aucune duplication de règle.
+ * Liste affichée par l'écran de chargement animé pendant le calcul et la
+ * génération des résultats de l'estimation (création du projet). Elle reprend
+ * les étapes du parcours RÉEL du projet, sans l'étape de création « Type de
+ * projet » (déjà effectuée) :
+ *
+ *   • Groupe A : Coût estimatif → Aide à la décision → Plans architecturaux AI
+ *     → Mise en relation → Exécution & Suivi ;
+ *   • Groupe B : Coût estimatif → Mise en relation uniquement.
+ *
+ * Le composant de chargement et son design ne sont pas modifiés : seule cette
+ * liste, sélectionnée d'après le type de projet, change.
  */
-export function projectJourneyStepLabels(
+export const COST_ESTIMATE_LOADING_STEPS: Record<
+  ProjectJourneyGroup,
+  readonly string[]
+> = {
+  A: [
+    "Coût estimatif",
+    "Aide à la décision",
+    "Plans architecturaux AI",
+    "Mise en relation",
+    "Exécution & Suivi",
+  ],
+  B: ["Coût estimatif", "Mise en relation"],
+};
+
+/** Étapes de chargement de l'estimation pour un type de projet donné. */
+export function costEstimateLoadingSteps(
   category: string | null | undefined,
 ): string[] {
-  // Identifiant de repère uniquement : seuls les libellés sont conservés.
-  return buildProjectJourney(category, "projet").map((step) => step.label);
+  return [...COST_ESTIMATE_LOADING_STEPS[projectJourneyGroup(category)]];
 }
 
 /**

@@ -8,7 +8,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
-import { projectJourneyStepLabels } from "@/lib/projectJourney";
+import { costEstimateLoadingSteps } from "@/lib/projectJourney";
 import {
   ESTIMATE_ANALYSIS_TIMEOUT_MS,
   describeEstimateError,
@@ -1293,10 +1293,11 @@ export default function NewProject() {
               error={analysisError}
               onRetry={handleRetryAnalysis}
               onComplete={handleAnalysisComplete}
-              // Parcours réellement applicable au type choisi : un projet du
-              // groupe B ne voit jamais les étapes Plans IA / Aide à la décision
-              // / Exécution dans la progression de chargement.
-              steps={projectJourneyStepLabels(selectedCategory)}
+              // Étapes du chargement de l'estimation, sélectionnées d'après le
+              // groupe du type choisi : 5 étapes pour le groupe A, 2 pour le
+              // groupe B (aucune étape non autorisée). Le design du composant
+              // n'est pas modifié.
+              steps={costEstimateLoadingSteps(selectedCategory)}
             />
           </motion.div>
         )}

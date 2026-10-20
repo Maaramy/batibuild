@@ -150,6 +150,24 @@ describe("estimateIntroState — animation de l'estimation", () => {
     expect(describeEstimateError(undefined)).toMatch(/réessayez/i);
   });
 
+  it("termine le chargement à 4 000 ms avec les listes de 5 et 2 étapes de l'estimation", () => {
+    // Groupe A : 5 étapes, durée totale inchangée (4 000 ms).
+    expect(estimateIntroState(ESTIMATE_INTRO_MS, ESTIMATE_INTRO_MS, 5)).toEqual({
+      progress: 100,
+      completed: 5,
+      activeIndex: -1,
+      done: true,
+    });
+    // Groupe B : 2 étapes, même durée totale, aucune prolongation.
+    expect(estimateIntroState(ESTIMATE_INTRO_MS, ESTIMATE_INTRO_MS, 2)).toEqual({
+      progress: 100,
+      completed: 2,
+      activeIndex: -1,
+      done: true,
+    });
+    expect(estimateIntroState(ESTIMATE_INTRO_MS - 1, ESTIMATE_INTRO_MS, 2).done).toBe(false);
+  });
+
   it("supporte une durée de 3 000 ms et un nombre d'étapes configurable", () => {
     // 6 étapes × 500 ms pour l'analyse budgétaire.
     expect(estimateIntroState(0, 3000, 6)).toMatchObject({

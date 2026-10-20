@@ -7,8 +7,8 @@ import {
   buildAiMaterialsResultJourney,
   buildProjectJourney,
   canAccessJourneyStep,
+  costEstimateLoadingSteps,
   projectJourneyGroup,
-  projectJourneyStepLabels,
 } from "./projectJourney";
 
 // Ordre officiel du parcours groupe A (6 étapes) : type → coût → aide à la
@@ -321,17 +321,27 @@ describe("canAccessJourneyStep — accès direct aux étapes réservées au grou
     expect(canAccessJourneyStep("type_inexistant", "decision")).toBe(false);
   });
 
-  it("les indicateurs de progression (chargement) suivent le groupe du type choisi", () => {
-    // Groupe A : les 6 étapes officielles.
-    expect(projectJourneyStepLabels("maison")).toEqual(GROUP_A_LABELS);
-    expect(projectJourneyStepLabels("restaurant")).toEqual(GROUP_A_LABELS);
-    expect(projectJourneyStepLabels("renovation_complete")).toEqual(GROUP_A_LABELS);
-    // Groupe B : uniquement les 3 étapes autorisées, aucun vestige interdit.
+  it("les étapes de chargement de l'estimation suivent le groupe du type choisi", () => {
+    // Groupe A : les 5 étapes officielles du chargement, dans le bon ordre.
+    const GROUP_A_LOADING = [
+      "Coût estimatif",
+      "Aide à la décision",
+      "Plans architecturaux AI",
+      "Mise en relation",
+      "Exécution & Suivi",
+    ];
+    for (const type of ["maison", "restaurant", "cafe", "renovation_complete"]) {
+      expect(costEstimateLoadingSteps(type), type).toEqual(GROUP_A_LOADING);
+    }
+    // Groupe B : uniquement les 2 étapes autorisées, aucun vestige interdit.
     for (const type of ["piscine", "cloture", "jardin", "extension_batiment"]) {
-      expect(projectJourneyStepLabels(type), type).toEqual(GROUP_B_LABELS);
-      expect(projectJourneyStepLabels(type), type).not.toContain("Aide à la décision");
-      expect(projectJourneyStepLabels(type), type).not.toContain("Plans architecturaux AI");
-      expect(projectJourneyStepLabels(type), type).not.toContain("Exécution & suivi");
+      expect(costEstimateLoadingSteps(type), type).toEqual([
+        "Coût estimatif",
+        "Mise en relation",
+      ]);
+      expect(costEstimateLoadingSteps(type), type).not.toContain("Aide à la décision");
+      expect(costEstimateLoadingSteps(type), type).not.toContain("Plans architecturaux AI");
+      expect(costEstimateLoadingSteps(type), type).not.toContain("Exécution & Suivi");
     }
   });
 });
