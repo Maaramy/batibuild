@@ -19,7 +19,7 @@
 import {
   PERSONALIZED_SCENARIO_KEY,
   PERSONALIZED_SCENARIO_LABEL,
-} from "@/convex/quantitatifCustomLogic";
+} from "../convex/quantitatifCustomLogic";
 
 /** Scénario « Personnalisé » préparé par la page projet (articles modifiés). */
 export interface PersonalizedScenarioData {

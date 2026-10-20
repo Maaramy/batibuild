@@ -131,7 +131,13 @@ const LOT_KEYWORDS: Array<{ match: RegExp; category: string }> = [
   { match: /(depose|main_oeuvre|essai)/i, category: "main_oeuvre" },
 ];
 
-function categoryForLot(lotId: string): string | null {
+/**
+ * Catégorie de coût (« Estimation du coût de construction ») d'un lot du
+ * Quantitatif détaillé. Exportée pour que les écarts de lots (postes au
+ * barème technique, second œuvre au réel) soient imputés à la bonne catégorie
+ * de la répartition du coût global.
+ */
+export function categoryForLot(lotId: string): string | null {
   const key = String(lotId ?? "").toLowerCase();
   const direct = LOT_TO_CATEGORY[key];
   if (direct) return direct;

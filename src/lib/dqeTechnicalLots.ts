@@ -180,6 +180,69 @@ export function technicalLaborUnitPrice(
     : ELECTRICITY_LABOR_M2[scenario];
 }
 
+/**
+ * CALCUL UNIQUE D'UN LOT TECHNIQUE COMPLET (plomberie / électricité).
+ *
+ * C'est la seule fonction qui produit le montant d'une prestation complète de
+ * référence ; tous les moteurs (Quantitatif détaillé, coût de construction,
+ * scénarios) l'utilisent, directement ou via le gabarit du DQE. Elle garantit :
+ *
+ *   • quantité = surface RÉELLEMENT construite (+ équivalents équipements) ;
+ *   • prix unitaire = barème national du scénario (94 / 72 DT/m² en Standard),
+ *     ajusté UNE seule fois du coefficient régional ;
+ *   • montant = quantité × prix unitaire, TTC, main-d'œuvre incluse (la part
+ *     main-d'œuvre est exposée mais jamais recomptée).
+ */
+export interface TechnicalLotCostInput {
+  /** Surface réellement construite du projet (tous niveaux), en m². */
+  builtArea: number;
+  /** Scénario de finition (défaut : Standard). */
+  scenario?: TechnicalScenario;
+  /** Équipements sanitaires déclarés (facultatifs). */
+  rooms?: TechnicalRooms;
+  /** Coefficient régional (prix région / région de référence), appliqué une fois. */
+  regionFactor?: number;
+}
+
+export interface TechnicalLotCost {
+  installation: TechnicalInstallation;
+  scenario: TechnicalScenario;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  laborUnitPrice: number;
+  laborTotal: number;
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+export function technicalLotCost(
+  installation: TechnicalInstallation,
+  input: TechnicalLotCostInput,
+): TechnicalLotCost {
+  const scenario: TechnicalScenario = input.scenario ?? "standard";
+  const rawRegion = Number(input.regionFactor);
+  const regionFactor =
+    Number.isFinite(rawRegion) && rawRegion > 0 ? rawRegion : 1;
+  const quantity = technicalQuantity(installation, {
+    builtArea: input.builtArea,
+    rooms: input.rooms,
+  });
+  const unitPrice = round2(technicalUnitPrice(installation, scenario) * regionFactor);
+  const laborUnitPrice = round2(
+    technicalLaborUnitPrice(installation, scenario) * regionFactor,
+  );
+  return {
+    installation,
+    scenario,
+    quantity,
+    unitPrice,
+    total: Math.round(quantity * unitPrice),
+    laborUnitPrice,
+    laborTotal: Math.round(quantity * laborUnitPrice),
+  };
+}
+
 /** Libellé de la part « main-d'œuvre » affichée sous le poste. */
 export function technicalLaborLabel(
   installation: TechnicalInstallation,

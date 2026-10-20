@@ -19,6 +19,12 @@
 // que chaque lot tombe exactement sur son sous-total (méthode identique au
 // finalisateur du moteur BIM). Les prix en direct de la base materialPrices
 // (lorsqu'un index est fourni) écrasent les prix de référence internes.
+//
+// EXCEPTION : les postes de plomberie et d'électricité complètes ne sont JAMAIS
+// calés sur un budget de lot. Leur montant est produit par la fonction unique
+// `technicalLotCost` (barème national 94 / 72 DT/m² en Standard, surface
+// réellement construite, coefficient régional appliqué une seule fois). Leur
+// écart éventuel avec l'allocation du lot est explicite et remonte au total.
 // ============================================================================
 
 import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
@@ -39,9 +45,10 @@ import {
   type PaintKind,
 } from "../lib/technicalBareme";
 import {
+  technicalLotCost,
   technicalObservation,
   technicalProfileFor,
-  technicalQuantity,
+  technicalUnitPrice,
   type TechnicalInstallation,
   type TechnicalRooms,
 } from "../lib/dqeTechnicalLots";
@@ -91,6 +98,13 @@ export interface DqeLine {
    * dans son montant : elle n'est jamais ajoutée une seconde fois au lot.
    */
   labor?: DqeLaborDetail;
+  /**
+   * Poste à barème technique (plomberie / électricité complète) : quantité =
+   * surface construite, prix = référence du marché au m². Ce marqueur permet
+   * aux écrans et aux contrôles de distinguer un tarif de référence d'un prix
+   * calé sur un budget de lot.
+   */
+  technicalInstallation?: TechnicalInstallation;
 }
 
 export interface DqeLot {
@@ -529,8 +543,8 @@ function renovationCompleteLots(): LotTpl[] {
       { d: "Menuiserie intérieure (portes)", desc: "Blocs-portes neufs.", u: "unité", q: 6, qMode: "fixed", up: 450, n: "materiaux" },
       { d: "Peinture intérieure (3 couches)", desc: "Sous-couche + finition.", u: "m²", q: 300, up: 8, n: "materiaux" },
       { d: "Faux plafonds (plaque de plâtre)", desc: "Ossature + BA13.", u: "m²", q: 50, up: 45, n: "materiaux" },
-      { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau — reprise sur réseaux existants.", u: "m²", q: REF_SURFACE, up: 75, technical: "plomberie", n: "equipements" },
-      { d: "Électricité", desc: "Mise aux normes, tableaux, points lumineux — reprise sur installation existante.", u: "m²", q: REF_SURFACE, up: 91.67, technical: "electricite", n: "equipements" },
+      { d: "Plomberie sanitaire", desc: "Alimentation, évacuation, chauffe-eau — reprise sur réseaux existants.", u: "m²", q: REF_SURFACE, up: technicalUnitPrice("plomberie"), fixedPrice: true, technical: "plomberie", n: "equipements" },
+      { d: "Électricité", desc: "Mise aux normes, tableaux, points lumineux — reprise sur installation existante.", u: "m²", q: REF_SURFACE, up: technicalUnitPrice("electricite"), fixedPrice: true, technical: "electricite", n: "equipements" },
     ]),
     lot("equipements", "Équipements techniques", "equipements", 20, [
       { d: "Cuisine équipée", desc: "Meubles hauts et bas, plan de travail, évier.", u: "lot", q: 1, qMode: "fixed", up: 8000, n: "equipements" },
@@ -785,7 +799,7 @@ function garageLots(): LotTpl[] {
       { d: "Portillon piéton", desc: "Accès piéton intégré ou séparé.", u: "unité", q: 1, qMode: "fixed", up: 600, n: "materiaux" },
     ]),
     lot("electricite", "Électricité", "equipements", 8, [
-      { d: "Installation électrique", desc: "Éclairage, prises, tableau dédié — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: 12.5, technical: "electricite", n: "equipements" },
+      { d: "Installation électrique", desc: "Éclairage, prises, tableau dédié — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: technicalUnitPrice("electricite"), fixedPrice: true, technical: "electricite", n: "equipements" },
     ]),
     lot("finition", "Finitions", "materiaux", 8, [
       { d: "Enduit et peinture", desc: "Enduit ciment + peinture.", u: "m²", q: 150, up: 18, n: "materiaux" },
@@ -819,10 +833,10 @@ function commercialLots(cat: string): LotTpl[] {
         { d: "Équipement de service", desc: "Comptoir, caisses, mobilier.", u: "lot", q: 1, qMode: "fixed", up: 3000, n: "equipements" },
       ]),
       lot("electricite", "Électricité", "equipements", 8, [
-        { d: "Installation électrique complète", desc: "Tableau, éclairage, prises 16A/32A — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: 41.67, technical: "electricite", n: "equipements" },
+        { d: "Installation électrique complète", desc: "Tableau, éclairage, prises 16A/32A — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: technicalUnitPrice("electricite"), fixedPrice: true, technical: "electricite", n: "equipements" },
       ]),
       lot("plomberie", "Plomberie", "equipements", 7, [
-        { d: "Réseau eau et évacuation", desc: "Alimentation + évacuation cuisine et WC — dimensionné sur la surface construite.", u: "m²", q: REF_SURFACE, up: 25, technical: "plomberie", n: "equipements" },
+        { d: "Réseau eau et évacuation", desc: "Alimentation + évacuation cuisine et WC — dimensionné sur la surface construite.", u: "m²", q: REF_SURFACE, up: technicalUnitPrice("plomberie"), fixedPrice: true, technical: "plomberie", n: "equipements" },
       ]),
       lot("cvc", "CVC et ventilation", "equipements", 5, [
         { d: "Climatisation", desc: "Splits ou centralisée.", u: "lot", q: 1, qMode: "fixed", up: 3500, n: "equipements" },
@@ -849,10 +863,10 @@ function commercialLots(cat: string): LotTpl[] {
         { d: "Peinture intérieure", desc: "2 couches finition.", u: "m²", q: 200, up: 8, n: "materiaux" },
       ]),
       lot("electricite", "Électricité", "equipements", 10, [
-        { d: "Installation électrique complète", desc: "Tableau, éclairage, prises — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: 37.5, technical: "electricite", n: "equipements" },
+        { d: "Installation électrique complète", desc: "Tableau, éclairage, prises — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: technicalUnitPrice("electricite"), fixedPrice: true, technical: "electricite", n: "equipements" },
       ]),
       lot("plomberie", "Plomberie", "equipements", 8, [
-        { d: "Réseau eau et évacuation", desc: "WC clientèle + local — dimensionné sur la surface construite.", u: "m²", q: REF_SURFACE, up: 20.83, technical: "plomberie", n: "equipements" },
+        { d: "Réseau eau et évacuation", desc: "WC clientèle + local — dimensionné sur la surface construite.", u: "m²", q: REF_SURFACE, up: technicalUnitPrice("plomberie"), fixedPrice: true, technical: "plomberie", n: "equipements" },
       ]),
       lot("enseignes", "Enseignes et équipements", "equipements", 7, [
         { d: "Enseigne lumineuse", desc: "Enseigne façade.", u: "lot", q: 1, qMode: "fixed", up: 1500, n: "equipements" },
@@ -885,8 +899,8 @@ function commercialLots(cat: string): LotTpl[] {
     // surface construite. L'enveloppe du lot reste celle validée pour ce type
     // de projet : les autres catégories de travaux ne bougent pas.
     lot("electricite", "Plomberie et électricité", "equipements", 10, [
-      { d: "Installation électrique complète", desc: "Tableau, éclairage, prises, data — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: 41.67, technical: "electricite", n: "equipements" },
-      { d: "Plomberie sanitaire", desc: "Bloc sanitaire, alimentation eau et évacuation — dimensionné sur la surface construite.", u: "m²", q: REF_SURFACE, up: 41.67, technical: "plomberie", n: "equipements" },
+      { d: "Installation électrique complète", desc: "Tableau, éclairage, prises, data — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: technicalUnitPrice("electricite"), fixedPrice: true, technical: "electricite", n: "equipements" },
+      { d: "Plomberie sanitaire", desc: "Bloc sanitaire, alimentation eau et évacuation — dimensionné sur la surface construite.", u: "m²", q: REF_SURFACE, up: technicalUnitPrice("plomberie"), fixedPrice: true, technical: "plomberie", n: "equipements" },
       { d: "Réseau informatique / VDI", desc: "Prises RJ45, baie de brassage.", u: "lot", q: 1, qMode: "fixed", up: 2000, n: "equipements" },
     ]),
     lot("cvc", "CVC", "equipements", 8, [
@@ -918,7 +932,7 @@ function industrielLots(cat: string): LotTpl[] {
       { d: "Étanchéité et faîtage", desc: "Étanchéité des rives et faîtage.", u: "m²", q: 120, up: 12, n: "materiaux" },
     ]),
     lot("electricite", "Électricité", "equipements", isAgri ? 10 : 12, [
-      { d: "Installation électrique industrielle", desc: "Tableau, éclairage haute baie, prises triphasées — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: 50, technical: "electricite", n: "equipements" },
+      { d: "Installation électrique industrielle", desc: "Tableau, éclairage haute baie, prises triphasées — dimensionnée sur la surface construite.", u: "m²", q: REF_SURFACE, up: technicalUnitPrice("electricite"), fixedPrice: true, technical: "electricite", n: "equipements" },
     ]),
     lot("portes", "Portes et sécurité", "materiaux", isAgri ? 8 : 8, [
       { d: "Porte sectionnelle industrielle", desc: "Porte 3×3 m motorisée.", u: "unité", q: 1, qMode: "fixed", up: 1800, n: "materiaux" },
@@ -1325,20 +1339,31 @@ export function generateDqe(input: DqeInput): DqeResult {
     const lotBudget = lotBudgets[lotIndex];
     // 1. Quantités & prix de référence
     const lines: DqeLine[] = lt.lines.map((tpl) => {
-      // Poste technique : quantité calculée par les règles partagées (surface
-      // réellement construite de CE projet + équipements déclarés). Aucun poste
-      // de plomberie / électricité ne reprend une quantité de référence figée.
-      const quantity = tpl.technical
-        ? technicalQuantity(tpl.technical, { builtArea: tb, rooms })
+      // Poste technique (plomberie / électricité complète) : montant produit
+      // par la fonction UNIQUE de calcul du lot (surface réellement construite
+      // de CE projet + équipements déclarés, barème national du scénario,
+      // coefficient régional appliqué une seule fois). Aucun gabarit ne porte
+      // de prix technique codé en dur.
+      const technicalCost = tpl.technical
+        ? technicalLotCost(tpl.technical, {
+            builtArea: tb,
+            rooms,
+            regionFactor,
+          })
+        : null;
+      const quantity = technicalCost
+        ? technicalCost.quantity
         : tpl.qMode === "fixed"
           ? tpl.q
           : roundQty(tpl.q * (tpl.qMode === "footprint" ? footprintScale : scale));
       // Prix imposé par le barème (peinture au seau de 20 L, plomberie /
       // électricité au m²) : jamais écrasé par un prix « marché ». Les autres
       // postes continuent de suivre la base materialPrices / le catalogue.
-      const resolved = tpl.fixedPrice
-        ? { up: round2(tpl.up * regionFactor), unit: tpl.u }
-        : resolveUnitPrice(tpl.d, tpl.up, input.livePrices);
+      const resolved = technicalCost
+        ? { up: technicalCost.unitPrice, unit: tpl.u }
+        : tpl.fixedPrice
+          ? { up: round2(tpl.up * regionFactor), unit: tpl.u }
+          : resolveUnitPrice(tpl.d, tpl.up, input.livePrices);
       // Part main-d'œuvre : même mise à l'échelle que le poste (coefficient
       // régional compris), incluse dans son prix. Elle est affichée sous le
       // poste mais jamais recomptée.
@@ -1347,14 +1372,21 @@ export function generateDqe(input: DqeInput): DqeResult {
           ? quantity
           : tpl.labor.q * (tpl.qMode === "footprint" ? footprintScale : scale)
         : 0;
-      const laborUnitPrice = tpl.labor ? round2(tpl.labor.up * regionFactor) : 0;
+      const laborUnitPrice = technicalCost && tpl.labor
+        ? technicalCost.laborUnitPrice
+        : tpl.labor
+          ? round2(tpl.labor.up * regionFactor)
+          : 0;
       const labor = tpl.labor
         ? {
             label: tpl.labor.label,
             quantity: roundQty(laborQuantity),
             unit: tpl.labor.u,
             unitPrice: laborUnitPrice,
-            total: Math.round(roundQty(laborQuantity) * laborUnitPrice),
+            total:
+              technicalCost && tpl.labor
+                ? technicalCost.laborTotal
+                : Math.round(roundQty(laborQuantity) * laborUnitPrice),
           }
         : undefined;
       return {
@@ -1364,8 +1396,9 @@ export function generateDqe(input: DqeInput): DqeResult {
         unit: resolved.unit ?? tpl.u,
         quantity,
         unitPrice: resolved.up,
-        total: Math.round(quantity * resolved.up),
+        total: technicalCost ? technicalCost.total : Math.round(quantity * resolved.up),
         nature: tpl.n,
+        ...(technicalCost ? { technicalInstallation: tpl.technical } : {}),
         observations: tpl.technical
           ? [
               technicalObservation(tpl.technical, {
@@ -1395,11 +1428,29 @@ export function generateDqe(input: DqeInput): DqeResult {
         lines,
       };
     }
-    // 2 bis. Autres lots : calage des prix pour tomber exactement sur le
-    //    sous-total alloué (comportement historique inchangé).
+    // 2 bis. Autres lots : calage des prix pour tomber sur le sous-total
+    //    alloué. Les postes à barème technique (plomberie / électricité
+    //    complète) en sont EXCLUS : leur prix de référence (94 / 72 DT/m²,
+    //    coefficient régional compris) est facturé tel quel — sinon le
+    //    tarif affiché ne serait plus la référence du marché tunisien.
+    const technicalIndexes = new Set<number>();
+    lines.forEach((_, i) => {
+      if (lt.lines[i]?.technical) technicalIndexes.add(i);
+    });
     const rawTotal = lines.reduce((s, l) => s + l.total, 0);
-    const factor = rawTotal > 0 ? lotBudget / rawTotal : 1;
-    const scaledLines = lines.map((l) => {
+    const rawOthers = lines.reduce(
+      (s, l, i) => s + (technicalIndexes.has(i) ? 0 : l.total),
+      0,
+    );
+    // Part du budget du lot revenant aux postes non techniques : calculée au
+    // prorata des montants de référence du gabarit (aucune autre catégorie
+    // n'est touchée).
+    const othersBudget = technicalIndexes.size
+      ? Math.round(lotBudget * (rawTotal > 0 ? rawOthers / rawTotal : 1))
+      : lotBudget;
+    const factor = rawOthers > 0 ? othersBudget / rawOthers : 1;
+    const scaledLines = lines.map((l, i) => {
+      if (technicalIndexes.has(i)) return l;
       const total = Math.round(l.total * factor);
       const quantity = l.quantity > 0 ? l.quantity : 1;
       return {
@@ -1408,17 +1459,28 @@ export function generateDqe(input: DqeInput): DqeResult {
         total,
       };
     });
-    // Calage exact sur le sous-total du lot : l'écart d'arrondi est absorbé
-    // par la dernière ligne pour que le lot tombe exactement sur son budget
-    // (méthode identique au finalisateur du moteur BIM).
-    let subtotal = scaledLines.reduce((s, l) => s + l.total, 0);
-    const delta = lotBudget - subtotal;
-    if (delta !== 0 && scaledLines.length > 0) {
-      const last = scaledLines[scaledLines.length - 1];
-      last.total += delta;
-      last.unitPrice = Math.round((last.total / (last.quantity || 1)) * 100) / 100;
-      subtotal += delta;
+    // Calage de l'arrondi sur la dernière ligne NON technique (un poste au
+    // barème ne doit jamais être réajusté de quelques centimes).
+    let lastScalable = -1;
+    for (let i = scaledLines.length - 1; i >= 0; i--) {
+      if (!technicalIndexes.has(i)) {
+        lastScalable = i;
+        break;
+      }
     }
+    if (lastScalable >= 0) {
+      const othersSum = scaledLines.reduce(
+        (s, l, i) => s + (technicalIndexes.has(i) ? 0 : l.total),
+        0,
+      );
+      const rounding = othersBudget - othersSum;
+      if (rounding !== 0) {
+        const line = scaledLines[lastScalable];
+        line.total += rounding;
+        line.unitPrice = Math.round((line.total / (line.quantity || 1)) * 100) / 100;
+      }
+    }
+    const subtotal = scaledLines.reduce((s, l) => s + l.total, 0);
     return {
       id: lt.id,
       name: lt.name,

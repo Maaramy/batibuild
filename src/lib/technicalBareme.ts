@@ -87,12 +87,39 @@ export function paintLaborPerBucket(kind: PaintKind): number {
 }
 
 /**
+ * Surface de référence des deux lots techniques complets (m² de surface
+ * construite) : les prix du marché tunisien sont donnés pour 100 m².
+ */
+export const TECHNICAL_REFERENCE_SURFACE_M2 = 100;
+
+/**
+ * Références TTC du scénario Standard pour 100 m² construits — valeurs du
+ * marché tunisien des types de travaux « Plomberie complète » et « Électricité
+ * complète » :
+ *   • Plomberie complète : 9 400 TND TTC / 100 m² ;
+ *   • Électricité complète : 7 200 TND TTC / 100 m².
+ *
+ * Ces montants sont DÉJÀ TTC : la TVA ne leur est jamais ajoutée une seconde
+ * fois. Les tarifs au m² en découlent par division, jamais par saisie séparée,
+ * pour qu'aucun barème ne puisse diverger de ces références.
+ */
+export const PLUMBING_REFERENCE_TTC = 9_400;
+export const ELECTRICITY_REFERENCE_TTC = 7_200;
+
+/** Tarif de référence au m² (TTC) du scénario Standard : 94 et 72 DT/m². */
+export const PLUMBING_REFERENCE_M2 =
+  PLUMBING_REFERENCE_TTC / TECHNICAL_REFERENCE_SURFACE_M2;
+export const ELECTRICITY_REFERENCE_M2 =
+  ELECTRICITY_REFERENCE_TTC / TECHNICAL_REFERENCE_SURFACE_M2;
+
+/**
  * Barème plomberie complète — DT/m² de surface construite (TTC, main-d'œuvre
- * incluse) : Économique 60 · Standard 85 · Premium 115.
+ * incluse) : Économique 60 · Standard 94 (9 400 TTC / 100 m²) · Premium 115.
+ * Les scénarios Économique et Premium conservent leur barème.
  */
 export const PLUMBING_BAREME_M2: Record<TechnicalScenario, number> = {
   economique: 60,
-  standard: 85,
+  standard: PLUMBING_REFERENCE_M2,
   premium: 115,
 };
 
@@ -105,11 +132,12 @@ export const PLUMBING_LABOR_M2: Record<TechnicalScenario, number> = {
 
 /**
  * Barème électricité complète — DT/m² de surface construite (TTC,
- * main-d'œuvre incluse) : Économique 35 · Standard 65 · Premium 100.
+ * main-d'œuvre incluse) : Économique 35 · Standard 72 (7 200 TTC / 100 m²) ·
+ * Premium 100. Les scénarios Économique et Premium conservent leur barème.
  */
 export const ELECTRICITY_BAREME_M2: Record<TechnicalScenario, number> = {
   economique: 35,
-  standard: 65,
+  standard: ELECTRICITY_REFERENCE_M2,
   premium: 100,
 };
 

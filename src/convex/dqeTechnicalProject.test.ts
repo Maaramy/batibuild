@@ -134,10 +134,10 @@ describe("Quantitatif détaillé : plomberie et électricité adaptées au proje
       expect(plumbing.quantity).toBeGreaterThan(100);
       expect(electricity.quantity).toBeGreaterThan(100);
       // Prix unitaire = barème national (Médenine = base 100 %).
-      expect(plumbing.unitPrice).toBe(85);
-      expect(electricity.unitPrice).toBe(65);
-      expect(plumbing.total).toBe(Math.round(plumbing.quantity * 85));
-      expect(electricity.total).toBe(Math.round(electricity.quantity * 65));
+      expect(plumbing.unitPrice).toBe(94);
+      expect(electricity.unitPrice).toBe(72);
+      expect(plumbing.total).toBe(Math.round(plumbing.quantity * 94));
+      expect(electricity.total).toBe(Math.round(electricity.quantity * 72));
       // La main-d'œuvre du barème est incluse, jamais recomptée.
       expect(plumbing.labor!.total).toBe(Math.round(plumbing.quantity * 35));
       expect(electricity.labor!.total).toBe(Math.round(electricity.quantity * 25));

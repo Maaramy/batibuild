@@ -149,18 +149,18 @@ describe("technicalQuantity — surface construite, jamais 100 m² de référenc
 });
 
 describe("prix unitaires — barème national, main-d'œuvre incluse", () => {
-  it("plomberie : 60 / 85 / 115 DT/m² (Éco / Standard / Premium)", () => {
+  it("plomberie : 60 / 94 / 115 DT/m² (Éco / Standard / Premium)", () => {
     expect(technicalUnitPrice("plomberie", "economique")).toBe(PLUMBING_BAREME_M2.economique);
     expect(technicalUnitPrice("plomberie", "standard")).toBe(PLUMBING_BAREME_M2.standard);
     expect(technicalUnitPrice("plomberie", "premium")).toBe(PLUMBING_BAREME_M2.premium);
-    expect(technicalUnitPrice("plomberie")).toBe(85);
+    expect(technicalUnitPrice("plomberie")).toBe(94);
   });
 
-  it("électricité : 35 / 65 / 100 DT/m² (Éco / Standard / Premium)", () => {
+  it("électricité : 35 / 72 / 100 DT/m² (Éco / Standard / Premium)", () => {
     expect(technicalUnitPrice("electricite", "economique")).toBe(ELECTRICITY_BAREME_M2.economique);
     expect(technicalUnitPrice("electricite", "standard")).toBe(ELECTRICITY_BAREME_M2.standard);
     expect(technicalUnitPrice("electricite", "premium")).toBe(ELECTRICITY_BAREME_M2.premium);
-    expect(technicalUnitPrice("electricite")).toBe(65);
+    expect(technicalUnitPrice("electricite")).toBe(72);
   });
 
   it("la part main-d'œuvre reste inférieure au prix du poste (jamais recomptée)", () => {

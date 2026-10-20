@@ -141,13 +141,13 @@ describe("Estimation enregistrée d'un projet à étages (createProject → simu
     const paintExt = line("Peinture extérieure");
     expect(paintExt.quantity).toBe(12);
     expect(paintExt.labor.unitPrice).toBe(5.5);
-    // Plomberie 93,50 DT/m² et électricité 71,50 DT/m² de surface construite
-    // (barème national 85 / 65 DT/m² × 1,10 pour Tunis).
+    // Plomberie 103,40 DT/m² et électricité 79,20 DT/m² de surface construite
+    // (barème national 94 / 72 DT/m² × 1,10 pour Tunis).
     const plumbing = line("Plomberie");
-    expect(plumbing.unitPrice).toBe(93.5);
+    expect(plumbing.unitPrice).toBe(103.4);
     expect(plumbing.labor.unitPrice).toBe(38.5);
     const electricity = line("Électricité");
-    expect(electricity.unitPrice).toBe(71.5);
+    expect(electricity.unitPrice).toBe(79.2);
     expect(electricity.labor.unitPrice).toBe(27.5);
     // Total du lot = somme de ses postes, comptés une seule fois.
     expect(so.subtotal).toBe(
@@ -195,9 +195,9 @@ describe("Estimation enregistrée d'un projet à étages (createProject → simu
     const lineOf = (p: any, prefix: string) =>
       second(p).lines.find((l: any) => l.designation.startsWith(prefix));
 
-    // Médenine = base 100 % du barème national : 85 / 65 DT/m², seau inchangé.
-    expect(lineOf(medenine.project, "Plomberie").unitPrice).toBe(85);
-    expect(lineOf(medenine.project, "Électricité").unitPrice).toBe(65);
+    // Médenine = base 100 % du barème national : 94 / 72 DT/m², seau inchangé.
+    expect(lineOf(medenine.project, "Plomberie").unitPrice).toBe(94);
+    expect(lineOf(medenine.project, "Électricité").unitPrice).toBe(72);
     expect(lineOf(medenine.project, "Peinture intérieure").unitPrice).toBe(162.56);
 
     for (const prefix of ["Peinture intérieure", "Peinture extérieure", "Plomberie", "Électricité"]) {

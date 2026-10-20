@@ -2,8 +2,9 @@
 // TESTS CROISÉS — BIM Engine ↔ DQE Engine ↔ Feuille « Couts_24_gouv » 2026
 // ============================================================================
 // Garantit que :
-//   1. le DQE généré depuis le budget BIM retombe exactement sur ce budget
-//      (somme des sous-totaux de lots = total DQE = budget BIM clé en main) ;
+//   1. le DQE généré depuis le budget BIM retombe sur ce budget, complété des
+//      seuls écarts explicites des lots facturés au réel (second œuvre et
+//      postes au barème plomberie / électricité : 94 / 72 DT/m²) ;
 //   2. chaque lot tombe exactement sur son sous-total déclaré ;
 //   3. la ventilation régionale (niveaux, phases, facteurs) est conforme à
 //      la feuille n°2 du classeur « Cout_construction_Tunisie_2026 » ;
@@ -26,6 +27,10 @@ import {
   runBIMEstimation,
 } from "./bimEngine";
 import { generateDqe } from "./dqeEngine";
+import {
+  ELECTRICITY_BAREME_M2,
+  PLUMBING_BAREME_M2,
+} from "../lib/technicalBareme";
 
 const GOVERNORATES = Object.keys(GOVERNORATE_STD_M2);
 expect(GOVERNORATES.length).toBe(24);
@@ -164,19 +169,36 @@ describe("Cohérence croisée BIM → DQE", () => {
 
           const dqe = generateDqe({ category, surface, floors, totalBudget: budget });
 
-          // Le budget BIM reste la référence de chaque lot. Seul le lot
-          // « Second œuvre et finitions » est facturé à la somme réelle de ses
-          // postes : son écart est explicite et ne touche aucun autre lot.
+          // Le budget BIM reste la référence de chaque lot. Sont facturés à
+          // la somme réelle de leurs postes : le lot « Second œuvre et
+          // finitions » et les lots portant un poste au barème technique
+          // (plomberie 94 DT/m² · électricité 72 DT/m²). Leur écart est
+          // explicite et ne touche aucun autre lot.
           const allocated = dqe.lots.reduce(
             (s, l) => s + (l.allocatedSubtotal ?? l.subtotal),
             0,
           );
           expect(allocated).toBe(budget);
+          const hasTechnicalLine = (lot: any) =>
+            lot.lines.some((line: any) => Boolean(line.technicalInstallation));
           for (const lot of dqe.lots) {
             if (lot.id === "second_oeuvre") continue;
+            if (hasTechnicalLine(lot)) continue;
             expect(lot.subtotal, `${category} / ${lot.name}`).toBe(
               lot.allocatedSubtotal ?? lot.subtotal,
             );
+          }
+          // Les postes techniques portent bien la référence au m² de surface.
+          for (const lot of dqe.lots) {
+            for (const line of lot.lines as any[]) {
+              if (!line.technicalInstallation) continue;
+              expect(line.unit, `${category} / ${line.designation}`).toBe("m²");
+              expect(line.quantity, `${category} / ${line.designation}`).toBeGreaterThan(0);
+              expect(
+                [PLUMBING_BAREME_M2.standard, ELECTRICITY_BAREME_M2.standard],
+                `${category} / ${line.designation}`,
+              ).toContain(line.unitPrice);
+            }
           }
           const realDelta = dqe.lots.reduce(
             (s, l) => s + (l.subtotal - (l.allocatedSubtotal ?? l.subtotal)),

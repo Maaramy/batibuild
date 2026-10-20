@@ -551,7 +551,13 @@ const RELATIVE_PRICE_M2: Record<string, { eco: number, std: number, premium: num
 
   // Démolition
   demolition:                { eco: 86, std: 125, premium: 211 },
-  installations_sanitaires:  { eco: 960, std: 1536, premium: 2880 },
+  // Alias legacy de « Plomberie complète » : mêmes références, jamais un
+  // barème parallèle (9 400 TTC / 100 m² en Standard).
+  installations_sanitaires:  {
+    eco: PLUMBING_BAREME_M2.economique,
+    std: PLUMBING_BAREME_M2.standard,
+    premium: PLUMBING_BAREME_M2.premium,
+  },
   // Barème 2026 des lots techniques (DT/m² de surface construite) — SOURCE
   // UNIQUE : `lib/technicalBareme`, reprise à l'identique par le « Quantitatif
   // détaillé » (lot Second œuvre et finitions).
@@ -560,7 +566,13 @@ const RELATIVE_PRICE_M2: Record<string, { eco: number, std: number, premium: num
     std: PLUMBING_BAREME_M2.standard,
     premium: PLUMBING_BAREME_M2.premium,
   },
-  installations_electricite: { eco: 300, std: 520, premium: 880 },
+  // Alias legacy de « Électricité complète » : mêmes références (7 200 TTC /
+  // 100 m² en Standard).
+  installations_electricite: {
+    eco: ELECTRICITY_BAREME_M2.economique,
+    std: ELECTRICITY_BAREME_M2.standard,
+    premium: ELECTRICITY_BAREME_M2.premium,
+  },
   electricite_complete:      {
     eco: ELECTRICITY_BAREME_M2.economique,
     std: ELECTRICITY_BAREME_M2.standard,

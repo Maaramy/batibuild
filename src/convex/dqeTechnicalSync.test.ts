@@ -154,7 +154,7 @@ describe("plomberie / électricité — tous les types de projet utilisent la m�
     });
     const factor = regionCostFactor(REGION_COST_M2, "tunis", "standard");
     expect(lineOf(tunis, "Plomberie sanitaire").unitPrice).toBeCloseTo(
-      85 * factor,
+      PLUMBING_BAREME_M2.standard * factor,
       2,
     );
     // La quantité ne dépend jamais de la région : seul le prix suit la grille.

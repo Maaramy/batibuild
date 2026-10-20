@@ -19,7 +19,8 @@ import { REFERENCE_REGION, regionCostFactor } from "../lib/regionImpact";
 // TTC 198 000 TND (grille Tunis standard 2026).
 // Vérifie que :
 //   • la peinture intérieure consomme 18 seaux de 20 L / 100 m², l'extérieure 12 ;
-//   • plomberie 85 DT/m² et électricité 65 DT/m² (Standard) ;
+//   • plomberie 94 DT/m² et électricité 72 DT/m² (Standard), soit 9 400 et
+//     7 200 TND TTC pour 100 m² construits ;
 //   • la main-d'œuvre correspondante est portée par chaque poste, affichée mais
 //     comptée UNE seule fois ;
 //   • le total du Second œuvre = somme réelle de ses postes ;
@@ -90,12 +91,12 @@ describe("barème peinture — seaux de 20 L (100 m² construits)", () => {
 });
 
 describe("barème plomberie et électricité — DT/m² de surface construite", () => {
-  it("plomberie complète : 85 DT/m² (Standard) et main-d'œuvre de 35 DT/m²", () => {
+  it("plomberie complète : 94 DT/m² (Standard) et main-d'œuvre de 35 DT/m²", () => {
     const plumbing = line("Plomberie sanitaire");
     expect(plumbing.unit).toBe("m²");
     expect(plumbing.quantity).toBe(100);
     expect(plumbing.unitPrice).toBe(PLUMBING_BAREME_M2.standard);
-    expect(plumbing.total).toBe(8_500);
+    expect(plumbing.total).toBe(9_400);
     expect(plumbing.labor).toBeDefined();
     expect(plumbing.labor!.quantity).toBe(100);
     expect(plumbing.labor!.unitPrice).toBe(PLUMBING_LABOR_M2.standard);
@@ -103,12 +104,12 @@ describe("barème plomberie et électricité — DT/m² de surface construite", 
     expect(plumbing.labor!.total).toBeLessThan(plumbing.total);
   });
 
-  it("électricité complète : 65 DT/m² (Standard) et main-d'œuvre de 25 DT/m²", () => {
+  it("électricité complète : 72 DT/m² (Standard) et main-d'œuvre de 25 DT/m²", () => {
     const electricity = line("Électricité");
     expect(electricity.unit).toBe("m²");
     expect(electricity.quantity).toBe(100);
     expect(electricity.unitPrice).toBe(ELECTRICITY_BAREME_M2.standard);
-    expect(electricity.total).toBe(6_500);
+    expect(electricity.total).toBe(7_200);
     expect(electricity.labor).toBeDefined();
     expect(electricity.labor!.unitPrice).toBe(ELECTRICITY_LABOR_M2.standard);
     expect(electricity.labor!.total).toBe(2_500);
@@ -126,8 +127,8 @@ describe("barème plomberie et électricité — DT/m² de surface construite", 
       std: ELECTRICITY_BAREME_M2.standard,
       premium: ELECTRICITY_BAREME_M2.premium,
     });
-    expect(PLUMBING_BAREME_M2).toEqual({ economique: 60, standard: 85, premium: 115 });
-    expect(ELECTRICITY_BAREME_M2).toEqual({ economique: 35, standard: 65, premium: 100 });
+    expect(PLUMBING_BAREME_M2).toEqual({ economique: 60, standard: 94, premium: 115 });
+    expect(ELECTRICITY_BAREME_M2).toEqual({ economique: 35, standard: 72, premium: 100 });
   });
 });
 
@@ -192,18 +193,18 @@ describe("impact régional du barème dans le Quantitatif détaillé", () => {
     expect(paintInt.description).not.toContain("Coefficient régional");
   });
 
-  it("Tunis ×1,10 : plomberie 85 → 93,50 et électricité 65 → 71,50 DT/m²", () => {
+  it("Tunis ×1,10 : plomberie 94 → 103,40 et électricité 72 → 79,20 DT/m²", () => {
     const plumbing = tunisLine("Plomberie sanitaire");
     expect(plumbing.quantity).toBe(100);
-    expect(plumbing.unitPrice).toBe(93.5);
-    expect(plumbing.total).toBe(9_350);
+    expect(plumbing.unitPrice).toBe(103.4);
+    expect(plumbing.total).toBe(10_340);
     expect(plumbing.labor!.unitPrice).toBe(38.5);
     expect(plumbing.labor!.total).toBe(3_850);
 
     const electricity = tunisLine("Électricité");
     expect(electricity.quantity).toBe(100);
-    expect(electricity.unitPrice).toBe(71.5);
-    expect(electricity.total).toBe(7_150);
+    expect(electricity.unitPrice).toBe(79.2);
+    expect(electricity.total).toBe(7_920);
     expect(electricity.labor!.unitPrice).toBe(27.5);
     expect(electricity.labor!.total).toBe(2_750);
 
