@@ -203,7 +203,7 @@ function estimateSolarPanels(
     transport: byNature.transport,
     studies: byNature.etudes,
     total,
-    // Main-d'œuvre facturée au lot (quantité « Lot N », montant inchangé).
+    // Main-d'œuvre facturée au lot (quantité « N lot(s) », montant inchangé).
     lines: lines.map(normalizeLaborLine),
   };
 }
@@ -288,7 +288,7 @@ export function estimateCustomWork(
     transport: byNature.transport,
     studies: byNature.etudes,
     total,
-    // Main-d'œuvre facturée au lot (quantité « Lot N », montant inchangé).
+    // Main-d'œuvre facturée au lot (quantité « N lot(s) », montant inchangé).
     lines: lines.map(normalizeLaborLine),
   };
 }

@@ -38,16 +38,19 @@ function lotsFromQuantity(quantity: unknown, unit: unknown): number {
   return Number.isFinite(n) && n >= 1 ? Math.max(1, Math.round(n)) : 1;
 }
 
-/** Libellé de quantité d'un lot : « Lot 1 », « Lot 2 », … */
+/**
+ * Libellé de quantité d'un lot : « 1 lot », « 2 lots », « 3 lots » — quantité
+ * numérique puis unité, comme pour tout autre poste du quantitatif.
+ */
 export function formatLaborLot(quantity: unknown): string {
   const n = Number(quantity);
   const lots = Number.isFinite(n) && n >= 1 ? Math.max(1, Math.round(n)) : 1;
-  return `Lot ${lots}`;
+  return `${lots} lot${lots > 1 ? "s" : ""}`;
 }
 
 /**
  * Quantité affichée dans le Quantitatif détaillé :
- *   • main-d'œuvre → « Lot N » ;
+ *   • main-d'œuvre → « N lot(s) » ;
  *   • tout autre poste → « quantité unité » (inchangé).
  */
 export function formatQuantitatifQuantity(
@@ -55,7 +58,12 @@ export function formatQuantitatifQuantity(
   unit: unknown,
   nature?: unknown,
 ): string {
-  if (isLaborNature(nature)) return formatLaborLot(quantity);
+  if (isLaborNature(nature)) {
+    // Une quantité historique en m² / jour n'est jamais affichée « 120 lots » :
+    // sans unité « lot », le poste vaut 1 lot (le montant reste inchangé).
+    const isLot = String(unit ?? "").trim() === LABOR_LOT_UNIT;
+    return formatLaborLot(isLot ? quantity : 1);
+  }
   const q = Number(quantity);
   return `${Number.isFinite(q) ? q : 0} ${String(unit ?? "")}`.trim();
 }

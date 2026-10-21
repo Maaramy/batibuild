@@ -425,7 +425,7 @@ export function ArticleEditDialog({
               </p>
               <Row label="Nom" value={designation} />
               <Row label="Catégorie" value={lotName} />
-              <Row label="Unité" value={laborLine ? "Lot" : unit} />
+              <Row label="Unité" value={laborLine ? "lot" : unit} />
               {/* Quantité et prix unitaire : lecture seule stricte — aucun champ
                   éditable, aucun bouton +/−, donc aucune saisie possible (ni au
                   clavier, ni via le DOM). */}

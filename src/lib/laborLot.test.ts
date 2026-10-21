@@ -9,6 +9,7 @@ import {
 } from "./laborLot";
 import { generateDqe } from "../convex/dqeEngine";
 import { PROJECT_TYPES } from "../convex/projectTypes";
+import { scaleDqeLots } from "../convex/quantitatifCustomLogic";
 import { buildSdbEstimate, sdbDqeLots } from "./renovationSdbPricing";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -87,11 +88,18 @@ describe("main-d'œuvre en lots — helpers partagés", () => {
     expect(normalizeLaborLine(once)).toEqual(once);
   });
 
-  it("affichage : « Lot N » pour la main-d'œuvre, « quantité unité » sinon", () => {
-    expect(formatLaborLot(1)).toBe("Lot 1");
-    expect(formatLaborLot(3)).toBe("Lot 3");
-    expect(formatQuantitatifQuantity(1, "lot", "main_oeuvre")).toBe("Lot 1");
-    expect(formatQuantitatifQuantity(2, "lot", "main_oeuvre")).toBe("Lot 2");
+  it("affichage : « N lot(s) » pour la main-d'œuvre, « quantité unité » sinon", () => {
+    expect(formatLaborLot(1)).toBe("1 lot");
+    expect(formatLaborLot(2)).toBe("2 lots");
+    expect(formatLaborLot(3)).toBe("3 lots");
+    expect(formatQuantitatifQuantity(1, "lot", "main_oeuvre")).toBe("1 lot");
+    expect(formatQuantitatifQuantity(2, "lot", "main_oeuvre")).toBe("2 lots");
+    // Quantité invalide : jamais « 0 lot » ni « NaN lot ».
+    expect(formatLaborLot(0)).toBe("1 lot");
+    expect(formatLaborLot(Number.NaN)).toBe("1 lot");
+    // Ligne historique non convertie (quantité en m² / jour) : jamais « 120 lots ».
+    expect(formatQuantitatifQuantity(120, "m²", "main_oeuvre")).toBe("1 lot");
+    expect(formatQuantitatifQuantity(15, "jours", "main_oeuvre")).toBe("1 lot");
     // Un matériel vendu au lot conserve son affichage habituel.
     expect(formatQuantitatifQuantity(1, "lot", "materiaux")).toBe("1 lot");
     expect(formatQuantitatifQuantity(21.6, "seau 20 L", "materiaux")).toBe(
@@ -134,6 +142,43 @@ describe("générateur DQE — tous les projets et scénarios", () => {
       expect(t.materiaux + t.mainOeuvre + t.equipements + t.transport + t.etudes).toBe(
         t.total,
       );
+    }
+  });
+
+  it("tous les scénarios (éco, standard, premium) gardent 1 lot par poste", () => {
+    for (const category of PROJECT_TYPES) {
+      const dqe = run(category);
+      for (const [factor, label] of [
+        [0.8, "economique"],
+        [1, "standard"],
+        [1.25, "premium"],
+      ] as const) {
+        const scaled = scaleDqeLots(dqe.lots, factor);
+        const lines = scaled.flatMap((l: any) => l.lines);
+        for (const line of lines) {
+          if (line.nature !== "main_oeuvre") continue;
+          // La mise à l'échelle du scénario ne transforme jamais un lot en
+          // 0,8 lot : la quantité reste un entier ≥ 1, l'unité reste « lot ».
+          expect(line.unit, `${label} / ${category} / ${line.designation}`).toBe("lot");
+          expect(line.quantity, `${label} / ${category} / ${line.designation}`).toBe(1);
+          expect(
+            Math.abs(line.total - line.quantity * line.unitPrice),
+            `${label} / ${category} / ${line.designation}`,
+          ).toBeLessThanOrEqual(0.01);
+        }
+        for (const line of lines) {
+          if (!line.labor) continue;
+          expect(line.labor.unit, `${label} / ${category} / ${line.labor.label}`).toBe("lot");
+          expect(line.labor.quantity, `${label} / ${category} / ${line.labor.label}`).toBe(1);
+        }
+        // Aucun montant perdu : la somme des lots suit le facteur du scénario
+        // (à l'arrondi de chaque sous-total près).
+        const sum = scaled.reduce((s: number, l: any) => s + l.subtotal, 0);
+        expect(
+          Math.abs(sum - Math.round(dqe.totals.total * factor)),
+          `${label} / ${category}`,
+        ).toBeLessThanOrEqual(scaled.length);
+      }
     }
   });
 

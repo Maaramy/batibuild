@@ -1295,7 +1295,7 @@ export function generateDqe(input: DqeInput): DqeResult {
       ...l,
       percent: sdbTotal > 0 ? Math.round((l.subtotal / sdbTotal) * 1000) / 10 : 0,
     }));
-    // Main-d'œuvre facturée au lot : quantité « Lot N », montants inchangés.
+    // Main-d'œuvre facturée au lot : quantité « N lot(s) », montants inchangés.
     const normalizedLots = normalizeLaborLots(lotsWithPercent);
 
     // Totaux par nature : la part main-d'œuvre d'un poste est comptée dans la
@@ -1546,7 +1546,7 @@ export function generateDqe(input: DqeInput): DqeResult {
   };
 
   return {
-    // Main-d'œuvre facturée au lot : quantité « Lot N », montants inchangés.
+    // Main-d'œuvre facturée au lot : quantité « N lot(s) », montants inchangés.
     lots: normalizeLaborLots(lotsWithPercent),
     totals: {
       materiaux: rollup("materiaux"),

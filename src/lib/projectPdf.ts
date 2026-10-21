@@ -488,7 +488,7 @@ export async function generateProjectPdf({
 
     // ── DQE data: lots déjà résolus pour le scénario exporté ──
     // (mis à l'échelle du scénario, ou articles personnalisés superposés)
-    // Main-d'œuvre en lots : le devis PDF affiche « Lot N » et conserve les
+    // Main-d'œuvre en lots : le devis PDF affiche « N lot(s) » et conserve les
     // montants des lignes (y compris pour un quantitatif ancien).
     const dqeLots: any[] = normalizeLaborLots(values.dqeLots);
 

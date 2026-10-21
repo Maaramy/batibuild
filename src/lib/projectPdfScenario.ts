@@ -148,7 +148,7 @@ function scaleDqeLotsForPdf(lots: any[] | undefined, factor: number): any[] {
       };
     }),
   }));
-  // Main-d'œuvre en lots : « Lot N », montants des lignes inchangés.
+  // Main-d'œuvre en lots : « N lot(s) », montants des lignes inchangés.
   return normalizeLaborLots(scaled);
 }
 

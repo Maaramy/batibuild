@@ -49,7 +49,7 @@ const findLine = (dqe: DqeResult, designation: string) =>
 
 /** Poste de référence clairement proportionnel à la surface, par type. */
 // Poste MATÉRIEL proportionnel à la surface : la main-d'œuvre est désormais
-// facturée au lot (quantité fixe « Lot 1 »), elle ne peut donc plus servir de
+// facturée au lot (quantité fixe « 1 lot »), elle ne peut donc plus servir de
 // témoin de croissance surfacique.
 const AREA_LINE: Record<string, string> = {
   renovation_cuisine: "Revêtement de sol (carrelage grès cérame)",

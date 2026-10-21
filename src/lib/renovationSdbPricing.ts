@@ -1043,7 +1043,7 @@ export function sdbDqeLots(estimate: SdbEstimate): {
   // PDF et le coût global affichent donc toujours le même nombre, au dinar.
   const lots = estimate.lots.map((lot) => {
     const lines = lot.lines.map((l) =>
-      // Main-d'œuvre facturée au lot : « Lot 1 » et montant du lot conservé
+      // Main-d'œuvre facturée au lot : « 1 lot » et montant du lot conservé
       // à l'identique (le total TTC, la TVA et le total du lot ne bougent pas).
       normalizeLaborLine({
         designation: l.designation,

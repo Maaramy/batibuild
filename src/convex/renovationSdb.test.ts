@@ -110,7 +110,7 @@ describe("prix réels, plus de montants identiques par défaut", () => {
     const floor = lineOf(dqe, "Carrelage de sol antidérapant (grès cérame)").quantity;
     const wall = lineOf(dqe, "Faïence murale (20×30 ou 25×40)").quantity;
     expect(wall).toBeGreaterThan(floor);
-    // La démolition est de la main-d'œuvre : quantité affichée « Lot 1 », mais
+    // La démolition est de la main-d'œuvre : quantité affichée « 1 lot », mais
     // la surface réellement démolie reste enregistrée en référence.
     const demolition = lineOf(dqe, "Démolition carrelage et faïence");
     expect(demolition.unit).toBe("lot");
