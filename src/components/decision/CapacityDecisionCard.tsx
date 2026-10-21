@@ -54,9 +54,9 @@ import {
   type QuantitatifLot,
 } from "@/lib/budgetEngine";
 import {
-  CUSTOM_WORK_RANK,
   buildConstructionPlan,
   compareScenarioCapacity,
+  customWorkRank,
   deriveWorks,
   estimateBuildableSurface,
   planBudgetSteps,
@@ -414,13 +414,17 @@ function customWorkToItem(cw: CustomWorkEstimate): WorkItem {
   addPart(`cw:${cw.key}:mo`, "Main-d'œuvre", cw.labor, "main_oeuvre");
   addPart(`cw:${cw.key}:tr`, "Transport", cw.transport, "transport");
   addPart(`cw:${cw.key}:et`, "Études & frais", cw.studies, "etudes");
+  // Les travaux complémentaires terminent le plan de construction, APRÈS
+  // « Main-d'œuvre », dans l'ordre stable du catalogue (piscine, garage,
+  // cuisine extérieure, jardin, panneaux solaires).
+  const catalogIndex = CUSTOM_WORK_CATALOG.findIndex((d) => d.key === cw.key);
   return {
     id: `cw:${cw.key}`,
     // Aucune icône dans le texte : elle est rendue par `CustomWorkIcon` (même
     // bibliothèque et même style que toutes les icônes de la plateforme).
     label: cw.label,
     cost: cw.total,
-    rank: CUSTOM_WORK_RANK,
+    rank: customWorkRank(catalogIndex),
     categoryId: "custom",
     custom: true,
     parts: parts.length > 0 ? parts : undefined,

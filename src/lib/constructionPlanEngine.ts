@@ -323,8 +323,27 @@ function workFromLots(lots: QuantitatifLot[], def: { id: string; label: string; 
   };
 }
 
-/** Poste personnalisé : l'utilisateur le déclare prioritaire, on le finance tôt. */
-export const CUSTOM_WORK_RANK = 10;
+/**
+ * Rang des travaux complémentaires personnalisés (piscine, garage, jardin,
+ * cuisine extérieure, panneaux solaires…).
+ *
+ * Ils forment la DERNIÈRE partie du plan de construction, immédiatement APRÈS
+ * « Main-d'œuvre » : tous les postes dérivés du Quantitatif ont un rang ≤ 500
+ * (catégories canoniques ≤ 100, catégories non reconnues ≤ 500). Ce rang les
+ * place donc en fin de liste — et l'allocation séquentielle du budget les
+ * finance en dernier, dans le même ordre que l'affichage.
+ */
+export const CUSTOM_WORK_RANK = 1000;
+
+/**
+ * Rang d'un travail complémentaire : `CUSTOM_WORK_RANK` + son index dans le
+ * catalogue, afin que les travaux restent dans l'ordre stable du catalogue
+ * (et non dans un ordre alphabétique).
+ */
+export function customWorkRank(catalogIndex: number): number {
+  const index = Math.floor(Number(catalogIndex));
+  return CUSTOM_WORK_RANK + (Number.isFinite(index) && index > 0 ? index : 0);
+}
 
 /** Normalise un libellé : sans accents, minuscules, sans parenthèses. */
 export function normalizeWorkLabel(label: string): string {

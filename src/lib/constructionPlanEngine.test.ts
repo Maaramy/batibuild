@@ -9,12 +9,15 @@ import type {
 import {
   BUDGET_STEP_DELTAS,
   CANONICAL_WORKS,
+  CUSTOM_WORK_RANK,
   buildConstructionPlan,
   compareScenarioCapacity,
+  customWorkRank,
   deriveWorks,
   estimateBuildableSurface,
   normalizeWorkLabel,
   planBudgetSteps,
+  type WorkItem,
 } from "@/lib/constructionPlanEngine";
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
@@ -580,6 +583,109 @@ describe("compareScenarioCapacity", () => {
     expect(plain[0].extraCost).toBe(0);
     expect(plain[0].baseCost).toBe(120000);
     expect(plain[0].totalCost).toBe(120000);
+  });
+});
+
+// ── Travaux complémentaires en fin de plan ─────────────────────────────────
+
+describe("travaux complémentaires — emplacement dans le plan", () => {
+  /** Analyse réelle : la main-d'œuvre est une catégorie de la répartition. */
+  function withLabor(): BudgetAnalysis {
+    const base = makeAnalysis();
+    base.breakdown = [
+      ...base.breakdown,
+      cat("main_oeuvre", "Main-d'œuvre", 9000, [sub("mo1", "Main-d'œuvre", 9000)]),
+    ];
+    return base;
+  }
+
+  /** Poste personnalisé tel que le construit la carte d'aide à la décision. */
+  function customItem(label: string, catalogIndex: number, cost: number): WorkItem {
+    return {
+      id: `cw:${label}`,
+      label,
+      cost,
+      rank: customWorkRank(catalogIndex),
+      categoryId: "custom",
+      custom: true,
+      parts: [
+        {
+          id: `cw:${label}:mat`,
+          label: "Matériaux",
+          cost,
+          articles: [
+            { id: `cw:${label}:mat:0`, label: `Article ${label}`, cost, quantity: 120, unit: "m²" },
+          ],
+        },
+      ],
+    };
+  }
+
+  function worksWithCustom(): WorkItem[] {
+    return [
+      ...deriveWorks(withLabor()),
+      customItem("Piscine", 0, 37000),
+      customItem("Garage", 1, 18000),
+      customItem("Cuisine extérieure", 2, 9000),
+      customItem("Jardin", 3, 6000),
+    ];
+  }
+
+  it("place les travaux complémentaires APRÈS « Main-d'œuvre », à la fin du plan", () => {
+    const works = worksWithCustom();
+    const plan = buildConstructionPlan({ works, budget: 500000, selectedIds: null });
+    const labels = plan.works.map((w) => w.label);
+    const laborAt = labels.indexOf("Main-d'œuvre");
+
+    expect(laborAt).toBeGreaterThanOrEqual(0);
+    // Aucun poste de construction après la main-d'œuvre.
+    expect(labels.slice(0, laborAt + 1).every((l) => !["Piscine", "Garage", "Cuisine extérieure", "Jardin"].includes(l))).toBe(true);
+    // Les travaux complémentaires terminent le plan, dans l'ordre du catalogue.
+    expect(labels.slice(laborAt + 1)).toEqual(["Piscine", "Garage", "Cuisine extérieure", "Jardin"]);
+  });
+
+  it("garde les travaux complémentaires en dernière position, sans doublon", () => {
+    const works = worksWithCustom();
+    const plan = buildConstructionPlan({ works, budget: 500000, selectedIds: null });
+    const ids = plan.works.map((w) => w.id);
+
+    expect(new Set(ids).size).toBe(ids.length);
+    const customIds = ids.filter((id) => id.startsWith("cw:"));
+    expect(customIds).toHaveLength(4);
+    // Les 4 derniers postes du plan sont exactement les travaux complémentaires.
+    expect(ids.slice(-4)).toEqual(customIds);
+  });
+
+  it("conserve les montants : le total du programme inclut les travaux complémentaires", () => {
+    const base = deriveWorks(withLabor());
+    const works = worksWithCustom();
+    const plan = buildConstructionPlan({ works, budget: 500000, selectedIds: null });
+    const baseCost = base.reduce((s, w) => s + w.cost, 0);
+
+    expect(plan.selectedCost).toBeCloseTo(baseCost + 37000 + 18000 + 9000 + 6000, 2);
+    // Chaque travail complémentaire est compté une seule fois, à son montant.
+    const customSum = plan.works.filter((w) => w.custom).reduce((s, w) => s + w.cost, 0);
+    expect(customSum).toBe(70000);
+    // Le budget est engagé dans l'ordre affiché : les travaux complémentaires
+    // ne sont financés qu'après les postes de construction et la main-d'œuvre.
+    const tight = buildConstructionPlan({ works, budget: baseCost, selectedIds: null });
+    expect(tight.works.filter((w) => w.custom).every((w) => w.funded === 0)).toBe(true);
+    expect(tight.funded).toBeCloseTo(baseCost, 2);
+  });
+
+  it("place aussi les travaux complémentaires après toute catégorie non reconnue", () => {
+    // Catégorie sans rang dédié : rang maximal des postes dérivés (500 + index).
+    const base = withLabor();
+    base.breakdown = [
+      ...base.breakdown,
+      cat("divers_speciaux", "Travaux spéciaux", 3000, [sub("x1", "Poste spécial", 3000)]),
+    ];
+    const works = [...deriveWorks(base), customItem("Piscine", 0, 37000)];
+    const plan = buildConstructionPlan({ works, budget: 500000, selectedIds: null });
+
+    expect(CUSTOM_WORK_RANK).toBeGreaterThan(500);
+    expect(plan.works[plan.works.length - 1].label).toBe("Piscine");
+    expect(plan.works.some((w) => w.label === "Poste spécial")).toBe(true);
   });
 });
 
