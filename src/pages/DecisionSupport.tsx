@@ -15,7 +15,7 @@
 // chargement, sa mise en cache et son accès réservé au forfait Client Pro.
 // ============================================================================
 
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useQuery } from "convex/react";
 import { ArrowRight, Building2, CreditCard, MapPin, Ruler, ShieldAlert, Wallet } from "lucide-react";
@@ -23,9 +23,10 @@ import { ArrowRight, Building2, CreditCard, MapPin, Ruler, ShieldAlert, Wallet }
 import { api } from "@/convex/_generated/api";
 import { realBuiltArea } from "@/lib/buildingLevels";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
+import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
 import { DecisionSupportModule } from "@/components/decision/DecisionSupportModule";
 import { Button } from "@/components/ui/button";
-import { EmptyState, LoadingState } from "@/components/ui/feedback";
+import { EmptyState } from "@/components/ui/feedback";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import {
   DECISION_SUPPORT_DENY_COPY,
@@ -44,6 +45,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { formatTndAmount } from "@/lib/budgetEngine";
 import { resolveEstimationBudget } from "@/lib/estimationBudget";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
+import { decisionSupportLoadingSteps } from "@/lib/projectJourney";
 
 const SCENARIO_KEYS: BudgetScenarioKey[] = ["economique", "standard", "premium"];
 
@@ -56,6 +58,29 @@ export default function DecisionSupport() {
 
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  // ── Chargement par étapes (même écran que les résultats d'estimation) ──
+  // L'horodatage du DÉBUT du chargement est partagé avec le module : quand
+  // celui-ci prend le relais, l'animation continue au lieu de redémarrer
+  // (aucune double animation, aucun flash de contenu).
+  const loadingStartRef = useRef<{ id?: string; at: number }>({
+    id,
+    at: performance.now(),
+  });
+  if (loadingStartRef.current.id !== id) {
+    loadingStartRef.current = { id, at: performance.now() };
+  }
+  // Résultats affichés (budget analysé) : la carte projet et la carte de
+  // saisie du budget sont alors masquées — leurs données restent intactes.
+  const [budgetResultsDisplayed, setBudgetResultsDisplayed] = useState(false);
+  const handleBudgetResultsDisplayed = useCallback(
+    (displayed: boolean) => setBudgetResultsDisplayed(displayed),
+    [],
+  );
+  const handleLoadingComplete = useCallback(() => {}, []);
+  useEffect(() => {
+    setBudgetResultsDisplayed(false);
+  }, [id]);
 
   const project = useQuery(
     api.projects.getProject,
@@ -167,9 +192,24 @@ export default function DecisionSupport() {
       />
 
       <div className="mx-auto mt-4 max-w-6xl space-y-4 px-3 sm:px-6">
-        {project === undefined || access === undefined ? (
-          /* ── Chargement du projet et de l'autorisation ── */
-          <LoadingState message="Chargement du projet…" />
+        {project === undefined ||
+        access === undefined ||
+        customization === undefined ||
+        customWorksData === undefined ? (
+          /* ── Chargement réel : même écran par étapes que le résultat
+              d'estimation (design, logo animé, couleurs, transitions). ── */
+          <EstimateLoadingScreen
+            pending
+            startedAt={loadingStartRef.current.at}
+            title="BatiBuild prépare votre aide à la décision"
+            description="Analyse du Quantitatif, des prix et de votre budget — les résultats s'affichent dès que les données réelles sont prêtes."
+            steps={decisionSupportLoadingSteps()}
+            progressLabel="Progression de l'aide à la décision"
+            readyLabel="Analyse prête, affichage des résultats…"
+            waitingLabel="Calculs en cours — attente des données réelles…"
+            waitingDetail="Finalisation de l'analyse prédictive…"
+            onComplete={handleLoadingComplete}
+          />
         ) : project === null ? (
           /* ── Projet introuvable ── */
           <EmptyState
@@ -208,7 +248,10 @@ export default function DecisionSupport() {
           />
         ) : (
           <>
-            {/* ── Résumé du projet ── */}
+            {/* ── Résumé du projet — masqué dès que les résultats sont
+                affichés (les données du projet restent chargées et utilisées
+                par le module pour les étapes suivantes). ── */}
+            {!budgetResultsDisplayed ? (
             <section
               aria-label="Résumé du projet"
               className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elev-1"
@@ -255,6 +298,7 @@ export default function DecisionSupport() {
                 <SynthStat icon={Wallet} label="Scénario" value={scenarioLabel} />
               </div>
             </section>
+            ) : null}
 
             {/* ── Module budget / capacité de construction ── */}
             <DecisionSupportModule
@@ -272,6 +316,8 @@ export default function DecisionSupport() {
               scenarioLabel={scenarioLabel}
               scenarioTotals={scenarioTotals.length > 0 ? scenarioTotals : undefined}
               complementaryWorksEnabled={complementaryWorksEligible}
+              loadingStartedAt={loadingStartRef.current.at}
+              onBudgetResultsDisplayed={handleBudgetResultsDisplayed}
             />
           </>
         )}

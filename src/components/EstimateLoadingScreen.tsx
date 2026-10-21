@@ -6,11 +6,14 @@ import {
   BrainCircuit,
   Calculator,
   Check,
+  Coins,
   HardHat,
   Loader2,
   RotateCcw,
   Ruler,
+  Sparkles,
   Users,
+  Wallet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -21,6 +24,7 @@ import { cn } from "@/lib/utils";
 import {
   ESTIMATE_INTRO_MS,
   ESTIMATE_JOURNEY_STEPS,
+  estimateIntroElapsed,
   estimateIntroState,
   isEstimateResultReady,
   resolveEstimateFlowPhase,
@@ -57,6 +61,12 @@ const STEP_ICONS_BY_LABEL: Record<string, LucideIcon> = {
   "Plans architecturaux AI": Ruler,
   "Mise en relation": Users,
   "Exécution & Suivi": HardHat,
+  // Étapes du traitement « Aide à la décision » (même écran, mêmes icônes).
+  "Analyse du Quantitatif": Boxes,
+  "Prix & matériaux": Coins,
+  "Capacité de construction": Wallet,
+  "Plan de construction": HardHat,
+  "Optimisation budgétaire": Sparkles,
 };
 
 const FALLBACK_STEP_ICONS: LucideIcon[] = [Calculator, Boxes, Ruler, Users, HardHat];
@@ -87,6 +97,7 @@ export function EstimateLoadingScreen({
   readyLabel = "Estimation prête, affichage des résultats…",
   waitingLabel = "Calculs en cours — attente des données réelles…",
   waitingDetail = "Finalisation des calculs réels…",
+  startedAt,
   className,
 }: {
   /** Nom du projet envoyé au calcul (affichage uniquement). */
@@ -115,6 +126,12 @@ export function EstimateLoadingScreen({
   waitingLabel?: string;
   /** Détail affiché sous l'indicateur d'attente discrète. */
   waitingDetail?: string;
+  /**
+   * Horodatage (`performance.now()`) du début réel du chargement. Permet de
+   * reprendre l'animation déjà commencée par l'écran parent au lieu de
+   * redémarrer les 4 s : aucune animation en double, aucun flash visuel.
+   */
+  startedAt?: number;
   className?: string;
 }) {
   const reduceMotion = useReducedMotion();
@@ -139,7 +156,11 @@ export function EstimateLoadingScreen({
       ? durationMs
       : ESTIMATE_INTRO_MS;
   const [intro, setIntro] = useState<EstimateIntroState>(() =>
-    estimateIntroState(0, duration, stepCount),
+    estimateIntroState(
+      estimateIntroElapsed(startedAt, performance.now()),
+      duration,
+      stepCount,
+    ),
   );
   const notifiedRef = useRef(false);
 
@@ -147,7 +168,11 @@ export function EstimateLoadingScreen({
   // 4 s ne dépend JAMAIS d'une frame (onglet en arrière-plan, appareil lent).
   // Une seule boucle et un seul timer, tous deux nettoyés au démontage.
   useEffect(() => {
-    const start = performance.now();
+    const now = performance.now();
+    const declaredStart = Number(startedAt);
+    const start =
+      Number.isFinite(declaredStart) && declaredStart > 0 ? declaredStart : now;
+    const elapsedAtMount = Math.max(0, now - start);
     let frame = 0;
     let finished = false;
 
@@ -156,6 +181,13 @@ export function EstimateLoadingScreen({
       finished = true;
       setIntro(estimateIntroState(duration, duration, stepCount));
     };
+
+    // Chargement déjà plus long que l'animation : l'écran est immédiatement en
+    // fin d'introduction (« waiting » ou « complete »), sans rejouer 4 s.
+    if (elapsedAtMount >= duration) {
+      finish();
+      return;
+    }
 
     const tick = (now: number) => {
       if (finished) return;
@@ -174,12 +206,15 @@ export function EstimateLoadingScreen({
     };
 
     frame = requestAnimationFrame(tick);
-    const backstop = window.setTimeout(finish, duration);
+    const backstop = window.setTimeout(
+      finish,
+      Math.max(0, duration - elapsedAtMount),
+    );
     return () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(backstop);
     };
-  }, [duration, stepCount]);
+  }, [duration, stepCount, startedAt]);
 
   // Machine à états : les données réelles priment, puis l'erreur, puis
   // l'attente / l'animation.

@@ -5,6 +5,7 @@ import {
   ESTIMATE_INTRO_MS,
   ESTIMATE_JOURNEY_STEPS,
   describeEstimateError,
+  estimateIntroElapsed,
   estimateIntroState,
   isEstimateProjectReady,
   isEstimateResultReady,
@@ -12,6 +13,30 @@ import {
   resolveEstimateResultsPhase,
   shouldShowAnimatedEstimateLoader,
 } from "./estimateLoaderTiming";
+
+describe("estimateIntroElapsed — reprise d'un chargement déjà commencé", () => {
+  it("reprend la progression au lieu de redémarrer les 4 s", () => {
+    // La page a commencé le chargement à 1 000 ms ; le module prend le relais
+    // 1 500 ms plus tard : l'animation continue à 1 500 ms.
+    expect(estimateIntroElapsed(1000, 2500)).toBe(1500);
+    expect(estimateIntroState(estimateIntroElapsed(1000, 2500)).progress).toBe(37);
+  });
+
+  it("repart de zéro sans horodatage exploitable", () => {
+    for (const start of [undefined, 0, -10, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(estimateIntroElapsed(start, 5000), String(start)).toBe(0);
+    }
+  });
+
+  it("ne renvoie jamais un temps négatif (horloge incohérente)", () => {
+    expect(estimateIntroElapsed(3000, 1000)).toBe(0);
+  });
+
+  it("termine immédiatement l'introduction si le chargement dure déjà 4 s", () => {
+    const elapsed = estimateIntroElapsed(1000, 1000 + ESTIMATE_INTRO_MS + 250);
+    expect(estimateIntroState(elapsed).done).toBe(true);
+  });
+});
 
 describe("estimateIntroState — animation de l'estimation", () => {
   it("dure exactement 4 000 ms", () => {

@@ -311,6 +311,28 @@ export function costEstimateLoadingSteps(
 }
 
 /**
+ * ÉTAPES DE CHARGEMENT « AIDE À LA DÉCISION »
+ *
+ * Même écran, même design et même animation que le chargement des résultats
+ * d'estimation (`EstimateLoadingScreen`) ; seuls les intitulés décrivent le
+ * traitement réellement exécuté par le module d'aide à la décision : analyse du
+ * quantitatif, prix & matériaux, capacité de construction, plan de construction
+ * et optimisation budgétaire. Aucun montant n'est calculé ici.
+ */
+export const DECISION_SUPPORT_LOADING_STEPS = [
+  "Analyse du Quantitatif",
+  "Prix & matériaux",
+  "Capacité de construction",
+  "Plan de construction",
+  "Optimisation budgétaire",
+] as const;
+
+/** Étapes de chargement affichées par la page « Aide à la décision ». */
+export function decisionSupportLoadingSteps(): string[] {
+  return [...DECISION_SUPPORT_LOADING_STEPS];
+}
+
+/**
  * Étapes du parcours pour un projet donné, dans l'ordre officiel.
  * Retourne un tableau vide si l'identifiant du projet est absent (le Journey
  * n'est alors pas affiché plutôt que d'afficher des liens sans contexte).

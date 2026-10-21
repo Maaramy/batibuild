@@ -84,10 +84,15 @@ export function OptimizationSection({
   const budgetNumber = Number(budgetInputValue);
   const budgetTooLow = budgetInputValue !== "" && budgetNumber > 0 && budgetNumber < MIN_BUDGET_TND;
   const budgetValid = Number.isFinite(budgetNumber) && budgetNumber >= MIN_BUDGET_TND;
+  // Résultats réellement affichés : la carte de saisie du budget est alors
+  // masquée (la valeur saisie et l'analyse restent conservées).
+  const budgetResultsDisplayed =
+    !budgetAnalyzing && !budgetAnalysisError && budgetAnalysis?.available === true;
 
   return (
     <div className="space-y-4">
-      {/* ── Saisie du budget ── */}
+      {/* ── Saisie du budget (avant l'affichage des résultats) ── */}
+      {!budgetResultsDisplayed ? (
       <Card className="rounded-2xl border-border/60 bg-card shadow-elev-1">
         <CardContent className="p-4 sm:p-5">
           <div className="flex items-start gap-3">
@@ -161,6 +166,7 @@ export function OptimizationSection({
           </div>
         </CardContent>
       </Card>
+      ) : null}
 
       {/* ── Chargement animé (même design que l'estimation) ── */}
       {budgetAnalyzing || budgetAnalysisError ? (

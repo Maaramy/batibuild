@@ -9,6 +9,7 @@ import {
   buildProjectJourney,
   canAccessJourneyStep,
   costEstimateLoadingSteps,
+  decisionSupportLoadingSteps,
   projectJourneyGroup,
 } from "./projectJourney";
 
@@ -429,6 +430,24 @@ describe("canAccessJourneyStep — accès direct aux étapes", () => {
         "Exécution & Suivi",
       );
     }
+  });
+});
+
+describe("decisionSupportLoadingSteps — étapes du chargement de l'aide à la décision", () => {
+  it("décrit le traitement réel du module, dans l'ordre", () => {
+    expect(decisionSupportLoadingSteps()).toEqual([
+      "Analyse du Quantitatif",
+      "Prix & matériaux",
+      "Capacité de construction",
+      "Plan de construction",
+      "Optimisation budgétaire",
+    ]);
+  });
+
+  it("renvoie un nouveau tableau à chaque appel (aucune mutation partagée)", () => {
+    const steps = decisionSupportLoadingSteps();
+    steps.push("Étape parasite");
+    expect(decisionSupportLoadingSteps()).toHaveLength(5);
   });
 });
 

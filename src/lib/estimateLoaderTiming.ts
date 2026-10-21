@@ -172,6 +172,24 @@ export interface EstimateIntroState {
 }
 
 /**
+ * Temps écoulé d'une animation commencée à `startedAt`.
+ *
+ * Permet à un écran de chargement de PRENDRE LE RELAIS d'un autre sans
+ * redémarrer l'animation de 4 s : la page transmet l'horodatage du début du
+ * chargement, le composant reprend la progression là où elle en est.
+ * `undefined` (ou une valeur incohérente) repart de zéro.
+ */
+export function estimateIntroElapsed(
+  startedAt: number | undefined,
+  now: number,
+): number {
+  const start = Number(startedAt);
+  if (!Number.isFinite(start) || start <= 0) return 0;
+  const current = Number.isFinite(now) ? now : start;
+  return Math.max(0, current - start);
+}
+
+/**
  * État de l'introduction pour un temps écoulé donné.
  *
  * - 0 ms → étape 1 active, progression 0 % ;

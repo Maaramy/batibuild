@@ -30,7 +30,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   CreditCard,
   Info,
-  Loader2,
   Lock,
   RefreshCw,
   TriangleAlert,
@@ -58,37 +57,9 @@ import {
 } from "@/lib/decisionAnalysis";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-
-// ── Chargement élégant (Skeleton) ───────────────────────────────────────────
-
-function DecisionLoading() {
-  return (
-    <div className="space-y-3">
-      <div className="rounded-xl border border-border/60 bg-card p-4 shadow-elev-1">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold">Analyse prédictive en cours…</p>
-            <p className="text-[11px] text-muted-foreground">
-              L'IA analyse les prix, le budget, les quantités et les opportunités d'achat de votre projet.
-            </p>
-          </div>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-[92px] rounded-xl" />
-        ))}
-      </div>
-      <Skeleton className="h-40 rounded-xl" />
-      <Skeleton className="h-56 rounded-xl" />
-    </div>
-  );
-}
+import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
+import { decisionSupportLoadingSteps } from "@/lib/projectJourney";
 
 // ── État verrouillé (hors forfait Client Pro) ───────────────────────────────
 
@@ -137,6 +108,13 @@ export interface DecisionSupportModuleProps {
    * immobilier neuf ET surface couverte ≥ 120 m²). Masqués sinon.
    */
   complementaryWorksEnabled?: boolean;
+  /**
+   * Horodatage du début du chargement de la page : l'écran par étapes reprend
+   * l'animation déjà commencée au lieu de redémarrer (aucun flash).
+   */
+  loadingStartedAt?: number;
+  /** Résultats du budget affichés ? (les cartes projet / saisie sont masquées.) */
+  onBudgetResultsDisplayed?: (displayed: boolean) => void;
 }
 
 export function DecisionSupportModule({
@@ -150,6 +128,8 @@ export function DecisionSupportModule({
   scenarioLabel,
   scenarioTotals,
   complementaryWorksEnabled,
+  loadingStartedAt,
+  onBudgetResultsDisplayed,
 }: DecisionSupportModuleProps) {
   const { hash } = useLocation();
   // Même décision serveur que la page : GROUPE A + Client Pro actif. Aucune
@@ -385,6 +365,8 @@ export function DecisionSupportModule({
     void startBudgetAnalysis(lastBudgetRef.current);
   };
 
+  const handleDecisionLoadingComplete = useCallback(() => {}, []);
+
   // ── Signature des données (quantitatif / prix / scénario / marché) ───────
   const signature = useMemo(
     () =>
@@ -421,7 +403,30 @@ export function DecisionSupportModule({
   };
 
   const ready = allowed && workspaceQuery != null && trends != null;
-  const loading = access === undefined || (allowed && (workspaceQuery === undefined || trends === undefined || committedSignature === null));
+  // Le chargement dure tant que les données RÉELLES utilisées par l'analyse
+  // (quantitatif, marché, prix) ne sont pas arrivées : aucun résultat partiel
+  // ni carte vide n'est affiché entre-temps.
+  const loading =
+    access === undefined ||
+    (allowed &&
+      (workspaceQuery === undefined ||
+        trends === undefined ||
+        priceList === undefined ||
+        materialTrends === undefined ||
+        committedSignature === null));
+
+  // « Résultats affichés » = exactement la condition de rendu de « Capacité de
+  // construction » : analyse prédictive terminée, budget analysé, animation
+  // finie, aucune erreur. La page en déduit le masquage de la carte projet et
+  // de la carte de saisie du budget (les données restent en mémoire et en base).
+  const budgetResultsDisplayed =
+    !loading &&
+    budgetPhase !== "loading" &&
+    budgetError === null &&
+    Boolean(budgetAnalysis?.available);
+  useEffect(() => {
+    onBudgetResultsDisplayed?.(budgetResultsDisplayed);
+  }, [budgetResultsDisplayed, onBudgetResultsDisplayed]);
 
   if (access !== undefined && !allowed) {
     return (
@@ -434,7 +439,20 @@ export function DecisionSupportModule({
   if (loading) {
     return (
       <section id="aide-a-la-decision" className="scroll-mt-24 space-y-3">
-        <DecisionLoading />
+        {/* Même écran, même design et mêmes transitions que le chargement des
+            résultats d'estimation ; seuls les intitulés d'étapes changent. */}
+        <EstimateLoadingScreen
+          pending
+          startedAt={loadingStartedAt}
+          title="BatiBuild prépare votre aide à la décision"
+          description="Analyse prédictive du Quantitatif, des prix réels et du budget de votre projet."
+          steps={decisionSupportLoadingSteps()}
+          progressLabel="Progression de l'aide à la décision"
+          readyLabel="Analyse prête, affichage des résultats…"
+          waitingLabel="Calculs en cours — attente des données réelles…"
+          waitingDetail="Finalisation de l'analyse prédictive…"
+          onComplete={handleDecisionLoadingComplete}
+        />
       </section>
     );
   }
