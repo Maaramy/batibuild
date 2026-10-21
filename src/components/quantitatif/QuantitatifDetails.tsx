@@ -20,6 +20,7 @@ import {
   quantitatifLineKey,
   type QuantitatifCustomizationEntry,
 } from "@/convex/quantitatifCustomLogic";
+import { formatLaborLot, formatQuantitatifQuantity } from "@/lib/laborLot";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("fr-TN", {
@@ -316,7 +317,7 @@ export function QuantitatifDetails({
                                         )}
                                       </div>
                                       <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                                        {line.quantity} {line.unit}
+                                        {formatQuantitatifQuantity(line.quantity, line.unit, line.nature)}
                                       </span>
                                       <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 hidden sm:block">
                                         {fmt(line.unitPrice)}
@@ -348,7 +349,7 @@ export function QuantitatifDetails({
                                         </p>
                                       </div>
                                       <span className="text-[10px] text-muted-foreground/80 tabular-nums shrink-0">
-                                        {line.labor.quantity} {line.labor.unit}
+                                        {formatLaborLot(line.labor.quantity)}
                                       </span>
                                       <span className="text-[10px] text-muted-foreground/80 tabular-nums shrink-0 hidden sm:block">
                                         {fmt(line.labor.unitPrice)}

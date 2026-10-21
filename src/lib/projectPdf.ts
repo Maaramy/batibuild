@@ -4,6 +4,11 @@ import { toast } from "sonner";
 import { drawReportFooters, drawReportHeader } from "./pdfBranding";
 import { buildChartBreakdownFromLots } from "./complementaryWorks";
 import {
+  formatLaborLot,
+  formatQuantitatifQuantity,
+  normalizeLaborLots,
+} from "./laborLot";
+import {
   resolvePdfScenarioValues,
   type PersonalizedScenarioData,
 } from "./projectPdfScenario";
@@ -483,7 +488,9 @@ export async function generateProjectPdf({
 
     // ── DQE data: lots déjà résolus pour le scénario exporté ──
     // (mis à l'échelle du scénario, ou articles personnalisés superposés)
-    const dqeLots: any[] = values.dqeLots;
+    // Main-d'œuvre en lots : le devis PDF affiche « Lot N » et conserve les
+    // montants des lignes (y compris pour un quantitatif ancien).
+    const dqeLots: any[] = normalizeLaborLots(values.dqeLots);
 
     const hasDqeLots = dqeLots.length > 0;
     const hasFlatItems = breakdown.some((b: any) => b.items?.length > 0);
@@ -578,7 +585,7 @@ export async function generateProjectPdf({
             natLines.forEach((line: any) => {
               natTableBody.push([
                 { content: line.designation || line.name || "", styles: { fontSize: 6, halign: "left" as const } },
-                { content: `${line.quantity || 0} ${line.unit || ""}`, styles: { fontSize: 6, halign: "right" as const, textColor: C.textSecondary } },
+                { content: formatQuantitatifQuantity(line.quantity, line.unit, line.nature), styles: { fontSize: 6, halign: "right" as const, textColor: C.textSecondary } },
                 { content: fmtPdf(line.unitPrice || 0), styles: { fontSize: 6, halign: "right" as const, textColor: C.textSecondary } },
                 { content: fmtPdf(line.total || 0), styles: { fontSize: 6, halign: "right" as const, fontStyle: "bold" as const } },
               ]);
@@ -587,7 +594,7 @@ export async function generateProjectPdf({
               if (line.labor) {
                 natTableBody.push([
                   { content: `   ↳ ${line.labor.label} (inclus)`, styles: { fontSize: 5.5, halign: "left" as const, textColor: C.textSecondary, fontStyle: "italic" as const } },
-                  { content: `${line.labor.quantity || 0} ${line.labor.unit || ""}`, styles: { fontSize: 5.5, halign: "right" as const, textColor: C.textSecondary } },
+                  { content: formatLaborLot(line.labor.quantity), styles: { fontSize: 5.5, halign: "right" as const, textColor: C.textSecondary } },
                   { content: fmtPdf(line.labor.unitPrice || 0), styles: { fontSize: 5.5, halign: "right" as const, textColor: C.textSecondary } },
                   { content: fmtPdf(line.labor.total || 0), styles: { fontSize: 5.5, halign: "right" as const, textColor: C.textSecondary } },
                 ]);
@@ -632,7 +639,7 @@ export async function generateProjectPdf({
           catItems.forEach((item: any) => {
             tableBody.push([
               { content: item.name, styles: { fontSize: 6.5, halign: "left" as const } },
-              { content: `${item.quantity} ${item.unit}`, styles: { fontSize: 6.5, halign: "right" as const, textColor: C.textSecondary } },
+              { content: cat.category === "main_oeuvre" ? formatLaborLot(1) : `${item.quantity} ${item.unit}`, styles: { fontSize: 6.5, halign: "right" as const, textColor: C.textSecondary } },
               { content: fmtPdf(item.unitPrice), styles: { fontSize: 6.5, halign: "right" as const, textColor: C.textSecondary } },
               { content: fmtPdf(item.totalPrice), styles: { fontSize: 6.5, halign: "right" as const, fontStyle: "bold" } },
             ]);

@@ -136,19 +136,29 @@ describe("Estimation enregistrée d'un projet à étages (createProject → simu
     expect(paintInt.unit).toBe("seau 20 L");
     expect(paintInt.quantity).toBe(18);
     expect(paintInt.unitPrice).toBe(178.82);
-    expect(paintInt.labor.quantity).toBe(250);
-    expect(paintInt.labor.unitPrice).toBe(4.4);
+    // Main-d'œuvre facturée au lot : 1 lot, prix = montant du lot, base du
+    // barème conservée en référence (250 m² × 4,40 DT/m² = 1 100 DT).
+    expect(paintInt.labor.quantity).toBe(1);
+    expect(paintInt.labor.unit).toBe("lot");
+    expect(paintInt.labor.unitPrice).toBe(1_100);
+    expect(paintInt.labor.referenceUnitPrice).toBe(4.4);
     const paintExt = line("Peinture extérieure");
     expect(paintExt.quantity).toBe(12);
-    expect(paintExt.labor.unitPrice).toBe(5.5);
+    expect(paintExt.labor.unit).toBe("lot");
+    expect(paintExt.labor.unitPrice).toBe(440);
+    expect(paintExt.labor.referenceUnitPrice).toBe(5.5);
     // Plomberie 103,40 DT/m² et électricité 79,20 DT/m² de surface construite
     // (barème national 94 / 72 DT/m² × 1,10 pour Tunis).
     const plumbing = line("Plomberie");
     expect(plumbing.unitPrice).toBe(103.4);
-    expect(plumbing.labor.unitPrice).toBe(38.5);
+    expect(plumbing.labor.quantity).toBe(1);
+    expect(plumbing.labor.unitPrice).toBe(3_850);
+    expect(plumbing.labor.referenceUnitPrice).toBe(38.5);
     const electricity = line("Électricité");
     expect(electricity.unitPrice).toBe(79.2);
-    expect(electricity.labor.unitPrice).toBe(27.5);
+    expect(electricity.labor.quantity).toBe(1);
+    expect(electricity.labor.unitPrice).toBe(2_750);
+    expect(electricity.labor.referenceUnitPrice).toBe(27.5);
     // Total du lot = somme de ses postes, comptés une seule fois.
     expect(so.subtotal).toBe(
       so.lines.reduce((s: number, l: any) => s + l.total, 0),

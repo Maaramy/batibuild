@@ -50,10 +50,15 @@ describe("barème peinture — seaux de 20 L (100 m² construits)", () => {
     expect(paint.labor).toBeDefined();
     // 250 m² de murs / plafonds peints × 4 DT/m² = 1 000 DT, inclus dans le poste.
     expect(paint.labor!.label).toContain("Peinture intérieure");
-    expect(paint.labor!.quantity).toBe(250);
-    expect(paint.labor!.unit).toBe("m²");
-    expect(paint.labor!.unitPrice).toBe(4);
+    // Main-d'œuvre facturée au lot : 1 lot, prix = montant du lot.
+    expect(paint.labor!.quantity).toBe(1);
+    expect(paint.labor!.unit).toBe("lot");
+    expect(paint.labor!.unitPrice).toBe(1_000);
     expect(paint.labor!.total).toBe(1_000);
+    // La base du barème reste enregistrée pour audit.
+    expect(paint.labor!.referenceQuantity).toBe(250);
+    expect(paint.labor!.referenceUnit).toBe("m²");
+    expect(paint.labor!.referenceUnitPrice).toBe(4);
     // La main-d'œuvre est INCLUSE : elle est inférieure au montant du poste.
     expect(paint.labor!.total).toBeLessThan(paint.total);
   });
@@ -64,8 +69,11 @@ describe("barème peinture — seaux de 20 L (100 m² construits)", () => {
     expect(paint.quantity).toBe(12);
     expect(paint.labor).toBeDefined();
     // 80 m² de façade × 5 DT/m² = 400 DT, inclus dans le poste.
-    expect(paint.labor!.quantity).toBe(80);
-    expect(paint.labor!.unitPrice).toBe(5);
+    expect(paint.labor!.quantity).toBe(1);
+    expect(paint.labor!.unit).toBe("lot");
+    expect(paint.labor!.unitPrice).toBe(400);
+    expect(paint.labor!.referenceQuantity).toBe(80);
+    expect(paint.labor!.referenceUnitPrice).toBe(5);
     expect(paint.labor!.total).toBe(400);
     expect(paint.labor!.total).toBeLessThan(paint.total);
   });
@@ -86,7 +94,8 @@ describe("barème peinture — seaux de 20 L (100 m² construits)", () => {
     )!;
     expect(int.quantity).toBe(36);
     expect(ext.quantity).toBe(24);
-    expect(int.labor!.quantity).toBe(500);
+    expect(int.labor!.quantity).toBe(1);
+    expect(int.labor!.referenceQuantity).toBe(500);
   });
 });
 
@@ -98,8 +107,11 @@ describe("barème plomberie et électricité — DT/m² de surface construite", 
     expect(plumbing.unitPrice).toBe(PLUMBING_BAREME_M2.standard);
     expect(plumbing.total).toBe(9_400);
     expect(plumbing.labor).toBeDefined();
-    expect(plumbing.labor!.quantity).toBe(100);
-    expect(plumbing.labor!.unitPrice).toBe(PLUMBING_LABOR_M2.standard);
+    expect(plumbing.labor!.quantity).toBe(1);
+    expect(plumbing.labor!.unit).toBe("lot");
+    expect(plumbing.labor!.unitPrice).toBe(3_500);
+    expect(plumbing.labor!.referenceQuantity).toBe(100);
+    expect(plumbing.labor!.referenceUnitPrice).toBe(PLUMBING_LABOR_M2.standard);
     expect(plumbing.labor!.total).toBe(3_500);
     expect(plumbing.labor!.total).toBeLessThan(plumbing.total);
   });
@@ -111,7 +123,10 @@ describe("barème plomberie et électricité — DT/m² de surface construite", 
     expect(electricity.unitPrice).toBe(ELECTRICITY_BAREME_M2.standard);
     expect(electricity.total).toBe(7_200);
     expect(electricity.labor).toBeDefined();
-    expect(electricity.labor!.unitPrice).toBe(ELECTRICITY_LABOR_M2.standard);
+    expect(electricity.labor!.quantity).toBe(1);
+    expect(electricity.labor!.unit).toBe("lot");
+    expect(electricity.labor!.unitPrice).toBe(2_500);
+    expect(electricity.labor!.referenceUnitPrice).toBe(ELECTRICITY_LABOR_M2.standard);
     expect(electricity.labor!.total).toBe(2_500);
     expect(electricity.labor!.total).toBeLessThan(electricity.total);
   });
@@ -179,10 +194,13 @@ describe("impact régional du barème dans le Quantitatif détaillé", () => {
       paintAllInPerBucket("exterieure") * tunisFactor,
       2,
     );
-    // La main-d'œuvre incluse suit le même coefficient (4 → 4,40 · 5 → 5,50).
-    expect(paintInt.labor!.unitPrice).toBe(4.4);
+    // La main-d'œuvre incluse suit le même coefficient (4 → 4,40 · 5 → 5,50) :
+    // le montant du lot et la base de référence sont tous deux actualisés.
+    expect(paintInt.labor!.unitPrice).toBe(1_100);
+    expect(paintInt.labor!.referenceUnitPrice).toBe(4.4);
     expect(paintInt.labor!.total).toBe(1_100);
-    expect(paintExt.labor!.unitPrice).toBe(5.5);
+    expect(paintExt.labor!.unitPrice).toBe(440);
+    expect(paintExt.labor!.referenceUnitPrice).toBe(5.5);
     expect(paintExt.labor!.total).toBe(440);
     // La description du poste reste factuelle : ni mention de la main-d'œuvre
     // incluse, ni note de coefficient régional (le prix régional parle seul).
@@ -198,14 +216,16 @@ describe("impact régional du barème dans le Quantitatif détaillé", () => {
     expect(plumbing.quantity).toBe(100);
     expect(plumbing.unitPrice).toBe(103.4);
     expect(plumbing.total).toBe(10_340);
-    expect(plumbing.labor!.unitPrice).toBe(38.5);
+    expect(plumbing.labor!.unitPrice).toBe(3_850);
+    expect(plumbing.labor!.referenceUnitPrice).toBe(38.5);
     expect(plumbing.labor!.total).toBe(3_850);
 
     const electricity = tunisLine("Électricité");
     expect(electricity.quantity).toBe(100);
     expect(electricity.unitPrice).toBe(79.2);
     expect(electricity.total).toBe(7_920);
-    expect(electricity.labor!.unitPrice).toBe(27.5);
+    expect(electricity.labor!.unitPrice).toBe(2_750);
+    expect(electricity.labor!.referenceUnitPrice).toBe(27.5);
     expect(electricity.labor!.total).toBe(2_750);
 
     // Descriptions factuelles : plus de mention « main-d'œuvre incluse » ni de

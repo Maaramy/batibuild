@@ -23,6 +23,7 @@ import {
   type QuantitatifPosteRemovalEntry,
 } from "./quantitatifCustomLogic";
 import { buildLivePriceIndex, getCompatibleArticles } from "./quantitatifCatalog";
+import { isLaborNature, normalizeLaborLine } from "../lib/laborLot";
 
 const scenarioValidator = v.union(
   v.literal("economique"),
@@ -151,15 +152,19 @@ export const saveItemCustomization = mutation({
     // tentative de contournement (client forgé, arguments supplémentaires) est
     // rejetée par la validation des arguments, et toute valeur de quantité ou
     // de prix unitaire envoyée serait ignorée par ce recalcul.
-    const reference = resolveLockedArticle(
+    const rawReference = resolveLockedArticle(
       (project as any)?.dqe?.lots,
       args.lotId,
       args.lineIndex,
       args.baseDesignation,
     );
-    if (!reference) {
+    if (!rawReference) {
       throw new Error("Article de référence introuvable dans le quantitatif du projet");
     }
+    // Main-d'œuvre : la référence est relue en LOT (quantité 1, prix du lot),
+    // y compris pour un quantitatif enregistré avant la règle des lots.
+    const reference = normalizeLaborLine(rawReference);
+    const unit = isLaborNature(reference.nature) ? reference.unit : args.unit;
     const quantity = reference.quantity;
     const unitPrice = lockedUnitPriceForScenario(
       reference.unitPrice,
@@ -181,10 +186,11 @@ export const saveItemCustomization = mutation({
       lineIndex: args.lineIndex,
       baseDesignation: args.baseDesignation,
       designation: args.designation,
-      unit: args.unit,
+      unit,
       quantity,
       unitPrice,
-      nature: args.nature,
+      // Nature relue dans le quantitatif (jamais fournie par le client).
+      nature: reference.nature,
       priceScenario: args.priceScenario,
       replacedArticle: args.replacedArticle,
       updatedAt: now,
@@ -193,7 +199,7 @@ export const saveItemCustomization = mutation({
     const noop = isNoopCustomization({
       baseDesignation: args.baseDesignation,
       designation: args.designation,
-      unit: args.unit,
+      unit,
       baseUnit: reference.unit,
       quantity,
       baseQuantity: reference.quantity,

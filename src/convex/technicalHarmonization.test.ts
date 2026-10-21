@@ -448,7 +448,11 @@ describe("Test C — cohérence globale", () => {
             Math.round(line.quantity * line.unitPrice),
           );
           if (line.labor) {
-            expect(line.labor.unitPrice).toBe(kind === "plomberie" ? 35 : 25);
+            // Main-d'œuvre facturée au lot : 1 lot, prix = montant du lot.
+            expect(line.labor.quantity).toBe(1);
+            expect(line.labor.unit).toBe("lot");
+            expect(line.labor.unitPrice).toBe(line.labor.total);
+            expect(line.labor.referenceUnitPrice).toBe(kind === "plomberie" ? 35 : 25);
             expect(line.labor.total).toBeLessThan(line.total);
           }
         }

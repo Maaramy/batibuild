@@ -23,6 +23,7 @@ import {
   TriangleAlert,
   Wand2,
 } from "lucide-react";
+import { formatLaborLot, isLaborNature } from "@/lib/laborLot";
 import {
   BUDGET_SCENARIO_KEYS,
   BUDGET_SCENARIO_LABELS,
@@ -140,14 +141,24 @@ export function ArticleEditDialog({
   // aussi ces deux valeurs (voir `saveItemCustomization`) : la restriction
   // n'est donc pas contournable. Choisir un article compatible ne met à jour
   // que les informations autorisées de l'article (désignation, unité).
-  const quantity = Number(existing?.quantity ?? line?.quantity) || 0;
+  //
+  // Main-d'œuvre : le poste est facturé AU LOT. Sa quantité est toujours
+  // 1 lot et son prix unitaire est le montant du lot, quel que soit le
+  // scénario ; une personnalisation enregistrée avant la règle des lots est
+  // donc ignorée pour ces deux valeurs (le montant du poste reste identique).
+  const laborLine = isLaborNature(line?.nature);
+  const quantity = laborLine
+    ? 1
+    : Number(existing?.quantity ?? line?.quantity) || 0;
 
   // Prix de référence (niveau « Standard » du moteur) de l'article de
   // référence : il n'est jamais remplacé par un prix saisi par l'utilisateur,
   // ni par le prix catalogue d'un article de remplacement.
-  const baseStandardPrice = existing
-    ? standardLevelFromPrice(existing.unitPrice, scenarios, existing.priceScenario)
-    : Number(line?.unitPrice) || 0;
+  const baseStandardPrice = laborLine
+    ? Number(line?.unitPrice) || 0
+    : existing
+      ? standardLevelFromPrice(existing.unitPrice, scenarios, existing.priceScenario)
+      : Number(line?.unitPrice) || 0;
 
   // Montant affiché exprimé au niveau du scénario affiché (comme le tableau du
   // quantitatif) ; seule la valeur enregistrée est ramenée au niveau de
@@ -155,7 +166,7 @@ export function ArticleEditDialog({
   const scenarioDisplayedPrice = useMemo(() => {
     const stdPrice =
       scenario === PERSONALIZED_SCENARIO_KEY
-        ? existing
+        ? existing && !laborLine
           ? existing.unitPrice
           : baseStandardPrice
         : unitPriceForScenario(baseStandardPrice, scenarios, scenario);
@@ -164,16 +175,20 @@ export function ArticleEditDialog({
 
   const effectiveStdUnitPrice = scenarioDisplayedPrice / (displayFactor || 1);
 
-  const oldStdTotal = existing
-    ? existing.quantity * existing.unitPrice
-    : (Number(line?.quantity) || 0) * (Number(line?.unitPrice) || 0);
+  const oldStdTotal = laborLine
+    ? (Number(line?.quantity) || 0) * (Number(line?.unitPrice) || 0)
+    : existing
+      ? existing.quantity * existing.unitPrice
+      : (Number(line?.quantity) || 0) * (Number(line?.unitPrice) || 0);
 
   const oldAmount = Math.round(oldStdTotal * displayFactor);
   const newAmount = Math.round(quantity * scenarioDisplayedPrice);
   const difference = newAmount - oldAmount;
   const projectedTotal = quantitatifTotal - oldAmount + newAmount;
 
-  const unit = article?.unit || line?.unit || "";
+  const unit = laborLine
+    ? "lot"
+    : article?.unit || line?.unit || "";
   const designation = article?.name || line?.designation || "";
 
   // ── Protection du poste ────────────────────────────────────────────────
@@ -410,11 +425,16 @@ export function ArticleEditDialog({
               </p>
               <Row label="Nom" value={designation} />
               <Row label="Catégorie" value={lotName} />
-              <Row label="Unité" value={unit} />
+              <Row label="Unité" value={laborLine ? "Lot" : unit} />
               {/* Quantité et prix unitaire : lecture seule stricte — aucun champ
                   éditable, aucun bouton +/−, donc aucune saisie possible (ni au
                   clavier, ni via le DOM). */}
-              <Row label="Quantité" valueNode={<ReadOnlyValue value={String(quantity)} />} />
+              <Row
+                label="Quantité"
+                valueNode={
+                  <ReadOnlyValue value={laborLine ? formatLaborLot(quantity) : String(quantity)} />
+                }
+              />
               <Row
                 label="Prix unitaire"
                 valueNode={<ReadOnlyValue value={fmt(scenarioDisplayedPrice)} />}
@@ -432,7 +452,7 @@ export function ArticleEditDialog({
                   <span className="text-[10px] font-medium tabular-nums text-muted-foreground shrink-0">
                     {fmt(Math.round(line.labor.total * displayFactor))}
                     <span className="ml-1 text-[9px] font-normal">
-                      ({line.labor.quantity} {line.labor.unit} · inclus)
+                      ({formatLaborLot(line.labor.quantity)} · inclus)
                     </span>
                   </span>
                 </div>
@@ -510,7 +530,7 @@ export function ArticleEditDialog({
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] font-semibold truncate">{article.name}</p>
                     <p className="text-[9px] text-muted-foreground">
-                      Article de remplacement — unité {article.unit || "—"} · quantité et prix
+                      Article de remplacement — unité {laborLine ? "lot" : article.unit || "—"} · quantité et prix
                       unitaire verrouillés
                     </p>
                   </div>

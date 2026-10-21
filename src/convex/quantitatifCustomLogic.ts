@@ -11,6 +11,8 @@
 // « Personnalisé » (scénario de référence + modifications utilisateur).
 // ============================================================================
 
+import { normalizeLaborLine } from "../lib/laborLot";
+
 /** Scénarios budgétaires d'origine (jamais écrasés). */
 export type BudgetScenarioKey = "economique" | "standard" | "premium";
 
@@ -540,13 +542,13 @@ export function scaleDqeLots(lots: any[], factor: number): any[] {
               Math.round((Number(line.labor.unitPrice) || 0) * factor * 100) / 100,
           }
         : undefined;
-      return {
+      return normalizeLaborLine({
         ...line,
         total,
         unitPrice:
           Math.round((total / Math.max(1, Number(line?.quantity) || 1)) * 100) / 100,
         ...(labor ? { labor } : {}),
-      };
+      });
     }),
   }));
 }
@@ -600,7 +602,7 @@ export function overlayCustomizations(
       const unitPrice = Math.round(mod.unitPrice * factor * 100) / 100;
       const total = Math.round(mod.quantity * mod.unitPrice * factor);
       deltaTotal += total - (Number(line.total) || 0);
-      return {
+      return normalizeLaborLine({
         ...line,
         designation: mod.designation,
         unit: mod.unit,
@@ -611,7 +613,7 @@ export function overlayCustomizations(
         // s'applique plus (l'utilisateur a fixé sa propre quantité / son prix).
         labor: undefined,
         customized: true,
-      };
+      });
     });
     const subtotal = lines.reduce((s: number, l: any) => s + (Number(l.total) || 0), 0);
     return { ...lot, lines, subtotal };
@@ -644,7 +646,7 @@ export function overlayRawCustomizations(
     const lines = lot.lines.map((line: any, idx: number) => {
       const mod = resolveMod(lotMods, line, idx);
       if (!mod) return line;
-      return {
+      return normalizeLaborLine({
         ...line,
         designation: mod.designation,
         unit: mod.unit,
@@ -652,7 +654,7 @@ export function overlayRawCustomizations(
         unitPrice: Math.round(mod.unitPrice * 100) / 100,
         total: Math.round(mod.quantity * mod.unitPrice),
         labor: undefined,
-      };
+      });
     });
     return {
       ...lot,

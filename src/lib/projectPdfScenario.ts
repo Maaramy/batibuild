@@ -20,6 +20,7 @@ import {
   PERSONALIZED_SCENARIO_KEY,
   PERSONALIZED_SCENARIO_LABEL,
 } from "../convex/quantitatifCustomLogic";
+import { normalizeLaborLots } from "./laborLot";
 
 /** Scénario « Personnalisé » préparé par la page projet (articles modifiés). */
 export interface PersonalizedScenarioData {
@@ -119,7 +120,7 @@ export function scaleBreakdownToTotal(
 
 /** Met une copie du quantitatif à l'échelle d'un scénario budgétaire. */
 function scaleDqeLotsForPdf(lots: any[] | undefined, factor: number): any[] {
-  return (lots ?? []).map((lot: any) => ({
+  const scaled = (lots ?? []).map((lot: any) => ({
     ...lot,
     subtotal: Math.round((Number(lot?.subtotal) || 0) * factor),
     lines: (lot?.lines ?? []).map((line: any) => {
@@ -147,6 +148,8 @@ function scaleDqeLotsForPdf(lots: any[] | undefined, factor: number): any[] {
       };
     }),
   }));
+  // Main-d'œuvre en lots : « Lot N », montants des lignes inchangés.
+  return normalizeLaborLots(scaled);
 }
 
 /** Copie profonde légère des lignes d'un lot personnalisé (jamais de mutation). */

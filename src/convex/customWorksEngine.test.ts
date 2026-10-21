@@ -142,11 +142,17 @@ describe("estimateCustomWork", () => {
       if (count === 3) {
         expect(work.total).toBe(round2(3 * unitPrice));
       }
-      // La quantité affichée est exprimée EN PANNEAUX, jamais en m².
+      // La quantité affichée est exprimée EN PANNEAUX, jamais en m² — sauf la
+      // main-d'œuvre, facturée au lot (montant inchangé).
       expect(work.surface).toBe(0);
       for (const line of work.lines) {
-        expect(line.unit).toBe("panneaux");
-        expect(line.quantity).toBe(count);
+        if (line.nature === "main_oeuvre") {
+          expect(line.unit).toBe("lot");
+          expect(line.quantity).toBe(1);
+        } else {
+          expect(line.unit).toBe("panneaux");
+          expect(line.quantity).toBe(count);
+        }
       }
       // Le prix TTC posé est décomposé en natures : matériel ET pose.
       expect(work.equipments).toBeGreaterThan(0);

@@ -94,6 +94,11 @@ import {
   isEnduitLissageName,
 } from "@/lib/enduitLissage";
 import { resolveEstimationBudget } from "@/lib/estimationBudget";
+import {
+  formatLaborLot,
+  formatQuantitatifQuantity,
+  normalizeLaborLine,
+} from "@/lib/laborLot";
 // Impact régional & comparatif régional : UNE seule source de calcul
 // (`lib/regionImpact`), la même que celle du moteur BIM. Elle ne fait varier
 // que le prix régional du SCÉNARIO ACTIF (coefficient régional appliqué une
@@ -716,7 +721,9 @@ export default function ProjectDetail() {
     const map = new globalThis.Map<string, any>();
     for (const lot of rawDqeLots) {
       (lot?.lines ?? []).forEach((line: any, index: number) =>
-        map.set(quantitatifLineKey(lot.id, index), line),
+        // Main-d'œuvre : la ligne de référence est déjà exprimée en lots
+        // (quantité 1, prix du lot) avant d'ouvrir « Modifier l'article ».
+        map.set(quantitatifLineKey(lot.id, index), normalizeLaborLine(line)),
       );
     }
     return map;
@@ -1621,7 +1628,7 @@ export default function ProjectDetail() {
               {[
                 { icon: Building2, label: "Surface couverte", value: project.surface ? `${project.surface} m²` : "Non définie", color: "from-blue-500/10 to-blue-500/5 text-blue-600" },
                 { icon: Globe, label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", color: "from-rose-500/10 to-rose-500/5 text-rose-600" },
-                { icon: Users, label: "Main-d'œuvre", value: "1 lot", color: "from-emerald-500/10 to-emerald-500/5 text-emerald-600" },
+                { icon: Users, label: "Main-d'œuvre", value: "Lot 1", color: "from-emerald-500/10 to-emerald-500/5 text-emerald-600" },
                 { icon: Clock, label: "Durée estimée", value: ai.estimatedDuration ?? "Non estimée", color: "from-amber-500/10 to-amber-500/5 text-amber-600" },
               ].map((s, i) => (
                 <div key={i} className="flex items-center gap-2.5 p-3 rounded-xl bg-gradient-to-br from-background to-muted/20 border border-border/30 shadow-xs">
@@ -2142,7 +2149,7 @@ export default function ProjectDetail() {
                                                       <p className="text-[10px] text-muted-foreground/60 leading-snug">{line.description}</p>
                                                     )}
                                                   </div>
-                                                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{line.quantity} {line.unit}</span>
+                                                  <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{formatQuantitatifQuantity(line.quantity, line.unit, line.nature)}</span>
                                                   <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 hidden sm:block">{fmt(line.unitPrice)}</span>
                                                   <span className="text-xs font-semibold tabular-nums shrink-0">{fmt(line.total)}</span>
                                                 </div>
@@ -2187,7 +2194,7 @@ export default function ProjectDetail() {
                                         <motion.tr key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
                                           className="border-b border-border/5 hover:bg-muted/10 transition-colors">
                                           <td className="py-2 px-3 font-medium whitespace-normal break-words min-w-[160px]">{item.name}</td>
-                                          <td className="text-right py-2 px-3 font-mono text-muted-foreground">{cat.category === "main_oeuvre" ? "1 lot" : `${item.quantity} ${item.unit}`}</td>
+                                          <td className="text-right py-2 px-3 font-mono text-muted-foreground">{cat.category === "main_oeuvre" ? formatLaborLot(1) : `${item.quantity} ${item.unit}`}</td>
                                           <td className="text-right py-2 px-3 text-muted-foreground font-mono hidden sm:table-cell">{fmt(item.unitPrice)}</td>
                                           <td className="text-right py-2 px-3 font-semibold font-mono">{fmt(item.totalPrice)}</td>
                                           <td className="py-2 px-3 hidden lg:table-cell">

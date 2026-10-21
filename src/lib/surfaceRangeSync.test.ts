@@ -48,9 +48,12 @@ const findLine = (dqe: DqeResult, designation: string) =>
   dqe.lots.flatMap((lot) => lot.lines).find((line) => line.designation === designation);
 
 /** Poste de référence clairement proportionnel à la surface, par type. */
+// Poste MATÉRIEL proportionnel à la surface : la main-d'œuvre est désormais
+// facturée au lot (quantité fixe « Lot 1 »), elle ne peut donc plus servir de
+// témoin de croissance surfacique.
 const AREA_LINE: Record<string, string> = {
   renovation_cuisine: "Revêtement de sol (carrelage grès cérame)",
-  renovation_salle_de_bain: "Démolition carrelage et faïence",
+  renovation_salle_de_bain: "Carrelage de sol antidérapant (grès cérame)",
   piscine: "Terrassement et excavation piscine",
 };
 

@@ -542,6 +542,56 @@ describe("quantitatifCustom — persistance", () => {
     expect(doc?.modifications[0].designation).toBe(`${target.line.designation} — variante`);
   });
 
+  it("enregistre la main-d'œuvre en lot (quantité 1, prix du lot), même pour un ancien quantitatif au jour", async () => {
+    const userId = await createUser(t);
+    // Quantitatif enregistré AVANT la règle des lots : main-d'œuvre au jour.
+    const dqe = {
+      lots: [
+        {
+          id: "gros_oeuvre",
+          name: "Gros œuvre",
+          nature: "materiaux",
+          percent: 100,
+          subtotal: 550,
+          lines: [
+            {
+              designation: "Main-d'œuvre maçonnerie",
+              nature: "main_oeuvre",
+              unit: "jour",
+              quantity: 10,
+              unitPrice: 55,
+              total: 550,
+            },
+          ],
+        },
+      ],
+      totals: { materiaux: 0, mainOeuvre: 550, equipements: 0, transport: 0, etudes: 0, total: 550, costPerM2: 4 },
+    };
+    const projectId = await createProject(t, userId, { dqe });
+
+    await asUser(t, userId).mutation(api.quantitatifCustom.saveItemCustomization, {
+      projectId,
+      lotId: "gros_oeuvre",
+      lotName: "Gros œuvre",
+      lineIndex: 0,
+      baseDesignation: "Main-d'œuvre maçonnerie",
+      designation: "Main-d'œuvre maçonnerie — variante",
+      unit: "jour", // valeur obsolète : le serveur relit la référence en lots
+      nature: "main_oeuvre",
+      priceScenario: "standard" as const,
+      replacedArticle: true,
+      baseScenario: "standard" as const,
+    });
+
+    const doc = await asUser(t, userId).query(api.quantitatifCustom.getCustomization, {
+      projectId,
+    });
+    expect(doc?.modifications[0].unit).toBe("lot");
+    expect(doc?.modifications[0].quantity).toBe(1);
+    expect(doc?.modifications[0].unitPrice).toBe(550);
+    expect(doc?.modifications[0].nature).toBe("main_oeuvre");
+  });
+
   it("regroupe plusieurs articles dans un seul scénario Personnalisé", async () => {
     const { userId, projectId, dqe, target } = await setup();
     const other = findLine(dqe.lots, "second_oeuvre", CARRELAGE);

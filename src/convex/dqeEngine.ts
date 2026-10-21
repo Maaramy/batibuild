@@ -59,6 +59,7 @@ import {
   type SdbOptions,
   type SdbScenario,
 } from "../lib/renovationSdbPricing";
+import { normalizeLaborLots } from "../lib/laborLot";
 
 export type DqeNature =
   | "materiaux"
@@ -69,10 +70,14 @@ export type DqeNature =
 
 export interface DqeLaborDetail {
   label: string; // « Main-d'œuvre — Peinture intérieure »
-  quantity: number;
-  unit: string;
-  unitPrice: number;
+  quantity: number; // Nombre de lots (toujours ≥ 1)
+  unit: string; // « lot »
+  unitPrice: number; // Montant du lot (TTC)
   total: number;
+  /** Base de calcul d'origine du barème (m², seau…), conservée pour audit. */
+  referenceQuantity?: number;
+  referenceUnit?: string;
+  referenceUnitPrice?: number;
 }
 
 export interface DqeLine {
@@ -98,6 +103,13 @@ export interface DqeLine {
    * dans son montant : elle n'est jamais ajoutée une seconde fois au lot.
    */
   labor?: DqeLaborDetail;
+  /**
+   * Base de calcul d'origine d'un poste de main-d'œuvre (m², jour…), conservée
+   * pour audit lorsque la quantité affichée est exprimée en lots.
+   */
+  referenceQuantity?: number;
+  referenceUnit?: string;
+  referenceUnitPrice?: number;
   /**
    * Poste à barème technique (plomberie / électricité complète) : quantité =
    * surface construite, prix = référence du marché au m². Ce marqueur permet
@@ -1251,7 +1263,9 @@ export function generateDqe(input: DqeInput): DqeResult {
           totalHT: l.totalHT,
           vatRate: l.vatRate,
           vatAmount: l.vatAmount,
-          ...(l.unitPriceLaborHT > 0
+          // Un poste de prestation EST de la main-d'œuvre : sa part incluse
+          // n'est pas répétée en sous-ligne (aucun doublon dans le DQE).
+          ...(l.unitPriceLaborHT > 0 && l.nature !== "main_oeuvre"
             ? {
                 labor: {
                   label: `Main-d'œuvre — ${l.designation}`,
@@ -1281,6 +1295,8 @@ export function generateDqe(input: DqeInput): DqeResult {
       ...l,
       percent: sdbTotal > 0 ? Math.round((l.subtotal / sdbTotal) * 1000) / 10 : 0,
     }));
+    // Main-d'œuvre facturée au lot : quantité « Lot N », montants inchangés.
+    const normalizedLots = normalizeLaborLots(lotsWithPercent);
 
     // Totaux par nature : la part main-d'œuvre d'un poste est comptée dans la
     // main-d'œuvre et retirée de la nature de la fourniture, jamais deux fois.
@@ -1291,7 +1307,7 @@ export function generateDqe(input: DqeInput): DqeResult {
       transport: 0,
       etudes: 0,
     };
-    for (const lot of lotsWithPercent) {
+    for (const lot of normalizedLots) {
       for (const line of lot.lines) {
         const labor = Number(line.labor?.total) || 0;
         if (line.nature === "main_oeuvre") {
@@ -1304,7 +1320,7 @@ export function generateDqe(input: DqeInput): DqeResult {
     }
 
     return {
-      lots: lotsWithPercent,
+      lots: normalizedLots,
       totals: {
         materiaux: natureTotals.materiaux,
         mainOeuvre: natureTotals.main_oeuvre,
@@ -1530,7 +1546,8 @@ export function generateDqe(input: DqeInput): DqeResult {
   };
 
   return {
-    lots: lotsWithPercent,
+    // Main-d'œuvre facturée au lot : quantité « Lot N », montants inchangés.
+    lots: normalizeLaborLots(lotsWithPercent),
     totals: {
       materiaux: rollup("materiaux"),
       mainOeuvre: rollup("main_oeuvre"),

@@ -27,6 +27,8 @@
 // Ce module ne contient AUCUN accès aux données : il est pur et testable.
 // ============================================================================
 
+import { normalizeLaborLine } from "./laborLot";
+
 /** Scénarios de finition (mêmes clés que le moteur BIM). */
 export type SdbScenario = "economique" | "standard" | "premium";
 
@@ -1040,18 +1042,22 @@ export function sdbDqeLots(estimate: SdbEstimate): {
   // est la somme de ces sous-totaux : le quantitatif, le graphique, le devis
   // PDF et le coût global affichent donc toujours le même nombre, au dinar.
   const lots = estimate.lots.map((lot) => {
-    const lines = lot.lines.map((l) => ({
-      designation: l.designation,
-      description: l.description,
-      unit: l.unit,
-      quantity: l.quantity,
-      unitPrice: l.unitPriceTTC,
-      total: Math.round(l.totalTTC),
-      nature: l.nature,
-      totalHT: l.totalHT,
-      vatRate: l.vatRate,
-      vatAmount: l.vatAmount,
-    }));
+    const lines = lot.lines.map((l) =>
+      // Main-d'œuvre facturée au lot : « Lot 1 » et montant du lot conservé
+      // à l'identique (le total TTC, la TVA et le total du lot ne bougent pas).
+      normalizeLaborLine({
+        designation: l.designation,
+        description: l.description,
+        unit: l.unit,
+        quantity: l.quantity,
+        unitPrice: l.unitPriceTTC,
+        total: Math.round(l.totalTTC),
+        nature: l.nature,
+        totalHT: l.totalHT,
+        vatRate: l.vatRate,
+        vatAmount: l.vatAmount,
+      }),
+    );
     return {
       id: lot.id,
       name: lot.name,

@@ -194,8 +194,14 @@ describe("catégories « Travaux complémentaires personnalisés » du Quantitat
     const solarLines = lots.find((l) => l.id === complementaryWorkLotId("solaire"))?.lines ?? [];
     expect(solarLines.length).toBeGreaterThan(0);
     for (const line of solarLines) {
-      expect(line.unit).toBe("panneaux");
-      expect(line.quantity).toBe(3);
+      if (line.nature === "main_oeuvre") {
+        // Main-d'œuvre : facturée au lot, jamais au m² ni au panneau.
+        expect(line.unit).toBe("lot");
+        expect(line.quantity).toBe(1);
+      } else {
+        expect(line.unit).toBe("panneaux");
+        expect(line.quantity).toBe(3);
+      }
     }
   });
 

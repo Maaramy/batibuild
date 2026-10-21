@@ -15,6 +15,7 @@
 // ============================================================================
 
 import { PROJECT_PCT, runBIMEstimation } from "./bimEngine";
+import { normalizeLaborLine } from "../lib/laborLot";
 import {
   SOLAR_PANEL_TYPE,
   getCustomWorkDef,
@@ -202,7 +203,8 @@ function estimateSolarPanels(
     transport: byNature.transport,
     studies: byNature.etudes,
     total,
-    lines,
+    // Main-d'œuvre facturée au lot (quantité « Lot N », montant inchangé).
+    lines: lines.map(normalizeLaborLine),
   };
 }
 
@@ -286,7 +288,8 @@ export function estimateCustomWork(
     transport: byNature.transport,
     studies: byNature.etudes,
     total,
-    lines,
+    // Main-d'œuvre facturée au lot (quantité « Lot N », montant inchangé).
+    lines: lines.map(normalizeLaborLine),
   };
 }
 
