@@ -13,12 +13,9 @@ import {
   MousePointer2,
   Pencil,
   RefreshCw,
-  RotateCcw,
   Ruler,
   Save,
   Undo2,
-  ZoomIn,
-  ZoomOut,
   Zap,
 } from "lucide-react";
 
@@ -35,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { PlanZoomButtons } from "@/components/floorplan/PlanZoomButtons";
 import { TechnicalPlan2D } from "@/components/floorplan/TechnicalPlan2D";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
 import type { FloorPlanVariant } from "@/lib/floorPlanEngine";
@@ -589,38 +587,22 @@ export function TechnicalPlansPanel({
                 >
                   <Undo2 className="h-3.5 w-3.5" /> Réinitialiser
                 </Button>
-                <div className="ml-auto flex items-center gap-1">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-7 w-7"
-                    onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.2) * 10) / 10))}
-                    aria-label="Zoom avant"
-                  >
-                    <ZoomIn className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-7 w-7"
-                    onClick={() => setZoom((z) => Math.max(0.6, Math.round((z - 0.2) * 10) / 10))}
-                    aria-label="Zoom arrière"
-                  >
-                    <ZoomOut className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-7 w-7"
-                    onClick={() => {
-                      setZoom(1);
-                      setPan({ x: 0, y: 0 });
-                    }}
-                    aria-label="Réinitialiser le zoom"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+                <PlanZoomButtons
+                  className="ml-auto"
+                  canZoomIn={zoom < 3}
+                  canZoomOut={zoom > 0.6}
+                  onZoomIn={() =>
+                    setZoom((z) => Math.min(3, Math.round((z + 0.2) * 10) / 10))
+                  }
+                  onZoomOut={() =>
+                    setZoom((z) => Math.max(0.6, Math.round((z - 0.2) * 10) / 10))
+                  }
+                  onReset={() => {
+                    setZoom(1);
+                    setPan({ x: 0, y: 0 });
+                  }}
+                  resetLabel="Réinitialiser le zoom"
+                />
               </div>
 
               <div className="relative overflow-hidden rounded-xl border bg-white shadow-sm">
@@ -631,15 +613,15 @@ export function TechnicalPlansPanel({
                   zoom={zoom}
                   pan={pan}
                   onPanChange={setPan}
+                  onZoomChange={setZoom}
                   editable={editable}
                   selectedId={selectedId}
                   onSelect={setSelectedId}
                   onMovePoint={handleMovePoint}
-                />
-                <span className="pointer-events-none absolute bottom-2 left-2 rounded-md border bg-background/90 px-2 py-1 text-[9px] text-muted-foreground">
+                />                    <span className="pointer-events-none absolute bottom-2 left-2 rounded-md border bg-background/90 px-2 py-1 text-[9px] text-muted-foreground">
                   {editable
                     ? "Touchez un point puis déplacez-le · grille 5 cm"
-                    : "Glissez le plan pour le déplacer · boutons pour zoomer"}
+                    : "Glissez le plan pour le déplacer · pincez ou boutons pour zoomer"}
                 </span>
               </div>
 

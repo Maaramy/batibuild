@@ -91,20 +91,21 @@ describe("FloorPlan2D — zoom vectoriel centré", () => {
   });
 });
 
-describe("PlanZoomButtons — boutons + / −", () => {
-  it("expose deux boutons accessibles et le facteur de zoom", () => {
+describe("PlanZoomButtons — boutons loupe + / −", () => {
+  it("expose les trois boutons ronds accessibles (loupe +, loupe −, recadrage)", () => {
     const html = renderToStaticMarkup(
       <PlanZoomButtons
-        zoom={1.5}
         onZoomIn={() => undefined}
         onZoomOut={() => undefined}
         onReset={() => undefined}
       />,
     );
-    expect(html).toContain('aria-label="Zoom avant (+)"');
-    expect(html).toContain('aria-label="Zoom arrière (−)"');
-    expect(html).toContain("150 %");
+    expect(html).toContain('aria-label="Zoom avant"');
+    expect(html).toContain('aria-label="Zoom arrière"');
     expect(html).toContain("Réinitialiser le zoom");
+    // Même présentation que la barre d'outils des plans techniques.
+    expect(html).toContain("rounded-full");
+    expect(html).not.toContain("%");
   });
 
   it("désactive les bornes atteintes", () => {
@@ -112,9 +113,9 @@ describe("PlanZoomButtons — boutons + / −", () => {
       <PlanZoomButtons onZoomIn={() => undefined} onZoomOut={() => undefined} canZoomIn={false} />,
     );
     const hasDisabledAttribute = (tag: string) => /\sdisabled(?:="")?(?=[\s/>])/.test(tag);
-    const plusButton = html.match(/<button[^>]*aria-label="Zoom avant \(\+\)"[^>]*>/)?.[0] ?? "";
+    const plusButton = html.match(/<button[^>]*aria-label="Zoom avant"[^>]*>/)?.[0] ?? "";
     expect(hasDisabledAttribute(plusButton)).toBe(true);
-    const minusButton = html.match(/<button[^>]*aria-label="Zoom arrière \(−\)"[^>]*>/)?.[0] ?? "";
+    const minusButton = html.match(/<button[^>]*aria-label="Zoom arrière"[^>]*>/)?.[0] ?? "";
     expect(hasDisabledAttribute(minusButton)).toBe(false);
   });
 });

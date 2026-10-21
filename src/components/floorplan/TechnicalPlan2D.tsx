@@ -68,6 +68,8 @@ export interface TechnicalPlan2DProps {
   zoom?: number;
   pan?: Pt;
   onPanChange?: (pan: Pt) => void;
+  /** Zoom à la main (pincement à deux doigts) : remonte le nouveau facteur. */
+  onZoomChange?: (zoom: number) => void;
   /** Mode édition : les points deviennent déplaçables (sinon déplacement du plan). */
   editable?: boolean;
   selectedId?: string | null;
@@ -83,6 +85,7 @@ export function TechnicalPlan2D({
   zoom = 1,
   pan = { x: 0, y: 0 },
   onPanChange,
+  onZoomChange,
   editable = false,
   selectedId,
   onSelect,
@@ -96,6 +99,8 @@ export function TechnicalPlan2D({
   const [dragId, setDragId] = useState<string | null>(null);
   const [panning, setPanning] = useState(false);
   const panStart = useRef({ clientX: 0, clientY: 0, x: 0, y: 0 });
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
 
   // Même échelle et même marge que le plan architectural : les réseaux se
   // superposent au millimètre près.
@@ -122,6 +127,17 @@ export function TechnicalPlan2D({
   };
 
   const handleBackgroundDown = (event: ReactPointerEvent<SVGRectElement>) => {
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointersRef.current.size === 2 && onZoomChange) {
+      // Deux doigts sur le plan : pincement = zoom (le déplacement attend).
+      const [a, b] = [...pointersRef.current.values()];
+      pinchRef.current = {
+        distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+        zoom,
+      };
+      setPanning(false);
+      return;
+    }
     if (editable || !onPanChange) return;
     setPanning(true);
     panStart.current = {
@@ -134,6 +150,21 @@ export function TechnicalPlan2D({
   };
 
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const tracked = pointersRef.current.get(event.pointerId);
+    if (tracked) {
+      tracked.x = event.clientX;
+      tracked.y = event.clientY;
+    }
+    if (pointersRef.current.size >= 2 && pinchRef.current && onZoomChange) {
+      const [a, b] = [...pointersRef.current.values()];
+      const distance = Math.hypot(a.x - b.x, a.y - b.y);
+      const next = Math.round(
+        Math.min(3, Math.max(0.6, pinchRef.current.zoom * (distance / pinchRef.current.distance))) *
+          10,
+      ) / 10;
+      if (Math.abs(next - zoom) > 0.01) onZoomChange(next);
+      return;
+    }
     if (dragId && onMovePoint) {
       const point = toPlanPoint(event);
       if (!point) return;
@@ -155,7 +186,9 @@ export function TechnicalPlan2D({
     });
   };
 
-  const endInteraction = () => {
+  const endInteraction = (event?: ReactPointerEvent<SVGSVGElement>) => {
+    if (event) pointersRef.current.delete(event.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
     setDragId(null);
     setPanning(false);
   };

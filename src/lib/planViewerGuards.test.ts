@@ -38,29 +38,48 @@ describe("plans architecturaux — aucun plein écran automatique", () => {
   });
 });
 
-describe("plans architecturaux — zoom + / − sur les deux vues", () => {
-  it("la vue 2D expose un zoom vectoriel borné", () => {
+describe("plans architecturaux — zoom loupe + / − sur les deux vues", () => {
+  it("la vue 2D expose un zoom vectoriel borné et le zoom à la main", () => {
     const source = read(VIEWER_2D);
     expect(source).toMatch(/PLAN_ZOOM_MIN/);
     expect(source).toMatch(/PLAN_ZOOM_MAX/);
-    expect(source).toMatch(/zoom/);
+    expect(source).toMatch(/onZoomChange/);
+    expect(source).toMatch(/pointersRef/);
+    expect(source).toMatch(/touchAction/);
   });
 
-  it("la page et les deux moteurs 3D branchent les boutons de zoom", () => {
-    for (const file of [PAGE, VIEWER_3D_HD, VIEWER_3D_LEGACY]) {
+  it("la page et les plans techniques branchent les mêmes boutons ronds", () => {
+    for (const file of [PAGE, "src/components/floorplan/TechnicalPlansPanel.tsx"]) {
       const source = read(file);
       expect(source, file).toContain("<PlanZoomButtons");
       expect(source, file).toMatch(/onZoomIn=/);
       expect(source, file).toMatch(/onZoomOut=/);
     }
+    // Le module partagé utilise les loupes et des boutons ronds.
+    const buttons = read("src/components/floorplan/PlanZoomButtons.tsx");
+    expect(buttons).toContain("ZoomIn");
+    expect(buttons).toContain("ZoomOut");
+    expect(buttons).toContain("rounded-full");
   });
 
-  it("aucun contour filaire parasite ni fond sombre autour de la maquette 3D", () => {
+  it("les deux moteurs 3D reçoivent les commandes de zoom de la barre d'outils", () => {
+    for (const file of [VIEWER_3D_HD, VIEWER_3D_LEGACY]) {
+      const source = read(file);
+      expect(source, file).toMatch(/zoomAction/);
+      expect(source, file).toMatch(/zoomBy/);
+      expect(source, file).not.toContain("<PlanZoomButtons");
+    }
+  });
+
+  it("aucun contour filaire, cote ni fond sombre autour de la maquette 3D", () => {
     for (const file of [VIEWER_3D_HD, VIEWER_3D_LEGACY]) {
       const source = read(file);
       expect(source, file).not.toMatch(/shellEdges/);
+      expect(source, file).not.toMatch(/dimGroup/);
+      expect(source, file).not.toMatch(/makeTextSprite/);
       expect(source, file).not.toMatch(/dark:from-slate-9/);
       expect(source, file).toMatch(/from-sky-50/);
     }
+    expect(read("src/components/floorplan/site3D.ts")).not.toMatch(/boundary/);
   });
 });

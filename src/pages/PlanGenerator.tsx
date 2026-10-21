@@ -513,9 +513,15 @@ function VariantCard({
 }) {
   const [floorIdx, setFloorIdx] = useState(0);
   const [view, setView] = useState<"2d" | "mass" | "3d">("2d");
-  // Zoom du plan 2D uniquement (la vue 3D pilote sa caméra avec les mêmes
-  // boutons + / −). Aucun changement de dimensions ni de surfaces.
+  // Zoom du plan 2D (glisser / pincer / boutons) et commandes de caméra 3D.
+  // Aucun changement de dimensions ni de surfaces.
   const [zoom2d, setZoom2d] = useState(1);
+  const [zoom3d, setZoom3d] = useState<{
+    action: "in" | "out" | "fit";
+    seq: number;
+  } | null>(null);
+  const request3dZoom = (action: "in" | "out" | "fit") =>
+    setZoom3d((prev) => ({ action, seq: (prev?.seq ?? 0) + 1 }));
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   // Téléchargement PDF : contrôle centralisé (réservé au forfait payant Client Pro).
@@ -643,6 +649,7 @@ function VariantCard({
                       // Nouveau niveau = plan entier : jamais un cadrage
                       // hérité du niveau précédent.
                       setZoom2d(1);
+                      setZoom3d(null);
                     }}
                     className={cn(
                       "h-6 px-2 rounded-md text-[10px] font-medium border transition-colors cursor-pointer",
@@ -657,6 +664,41 @@ function VariantCard({
               </div>
             )}
           </div>
+
+          {/* Barre d'outils du plan : aide gestuelle à gauche, zoom à droite
+              (mêmes boutons ronds que les plans de plomberie / électricité). */}
+          {view !== "mass" && (
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] leading-snug text-muted-foreground">
+                {view === "2d"
+                  ? "Glissez ou pincez le plan · boutons pour zoomer"
+                  : "Faites tourner la maquette · pincez ou boutons pour zoomer"}
+              </p>
+              <PlanZoomButtons
+                canZoomIn={view === "3d" || zoom2d < PLAN_ZOOM_MAX}
+                canZoomOut={view === "3d" || zoom2d > PLAN_ZOOM_MIN}
+                onZoomIn={() => {
+                  if (view === "3d") request3dZoom("in");
+                  else
+                    setZoom2d((z) =>
+                      Math.min(PLAN_ZOOM_MAX, Math.round((z + PLAN_ZOOM_STEP) * 100) / 100),
+                    );
+                }}
+                onZoomOut={() => {
+                  if (view === "3d") request3dZoom("out");
+                  else
+                    setZoom2d((z) =>
+                      Math.max(PLAN_ZOOM_MIN, Math.round((z - PLAN_ZOOM_STEP) * 100) / 100),
+                    );
+                }}
+                onReset={() => {
+                  if (view === "3d") request3dZoom("fit");
+                  else setZoom2d(1);
+                }}
+                resetLabel={view === "3d" ? "Recadrer la vue 3D" : "Afficher le plan entier"}
+              />
+            </div>
+          )}
 
           {/* Plan 2D, plan de masse ou 3D — sélection de pièce synchronisée */}
           {view === "mass" ? (
@@ -701,28 +743,14 @@ function VariantCard({
             // la pièce (synchro 2D ↔ 3D) et n'ouvre plus aucun plein écran.
             <div className="relative">
               <FloorPlan2D
+                // Un nouveau niveau repart d'un plan entier (aucun
+                // déplacement hérité du niveau précédent).
+                key={`${variant.id}-${floor.level}`}
                 plan={floor}
                 selectedRoomId={selectedRoomId}
                 onSelectRoom={setSelectedRoomId}
                 zoom={zoom2d}
-              />
-              <PlanZoomButtons
-                className="absolute bottom-2 right-2"
-                zoom={zoom2d}
-                canZoomIn={zoom2d < PLAN_ZOOM_MAX}
-                canZoomOut={zoom2d > PLAN_ZOOM_MIN}
-                onZoomIn={() =>
-                  setZoom2d((z) =>
-                    Math.min(PLAN_ZOOM_MAX, Math.round((z + PLAN_ZOOM_STEP) * 100) / 100),
-                  )
-                }
-                onZoomOut={() =>
-                  setZoom2d((z) =>
-                    Math.max(PLAN_ZOOM_MIN, Math.round((z - PLAN_ZOOM_STEP) * 100) / 100),
-                  )
-                }
-                onReset={() => setZoom2d(1)}
-                resetLabel="Afficher le plan entier"
+                onZoomChange={setZoom2d}
               />
             </div>
           ) : (
@@ -731,6 +759,7 @@ function VariantCard({
               site={variant.site}
               selectedRoomId={selectedRoomId}
               onSelectRoom={setSelectedRoomId}
+              zoomAction={zoom3d}
             />
           )}
 

@@ -30,18 +30,8 @@ export function buildSiteScene(
   plot.receiveShadow = shadows;
   group.add(plot);
 
-  // ── Limite de parcelle ───────────────────────────────────────────────────
-  const halfL = site.plot.length / 2;
-  const halfW = site.plot.width / 2;
-  const boundary = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(-halfL, 0.015, -halfW),
-    new THREE.Vector3(halfL, 0.015, -halfW),
-    new THREE.Vector3(halfL, 0.015, halfW),
-    new THREE.Vector3(-halfL, 0.015, halfW),
-    new THREE.Vector3(-halfL, 0.015, -halfW),
-  ]);
-  const boundaryMat = track(new THREE.LineBasicMaterial({ color: 0x44503a }));
-  group.add(new THREE.Line(boundary, boundaryMat));
+  // Aucune limite de parcelle filaire : le jardin s'arrête naturellement sur
+  // le sol, sans trait sombre autour de la maquette.
 
   // ── Patios : espaces extérieurs intégrés au volume ───────────────────────
   for (const patio of site.patios ?? []) {

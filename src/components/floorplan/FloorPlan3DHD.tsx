@@ -25,12 +25,11 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
-  Box, Contrast, Eye, EyeOff, Focus,
+  Box, Contrast, Focus,
   MousePointerClick, RotateCcw, Tag,
 } from "lucide-react";
 import type { FloorPlan, RoomKind, SitePlan } from "@/lib/floorPlanEngine";
 import { buildSiteScene } from "./site3D";
-import { PlanZoomButtons } from "./PlanZoomButtons";
 import { courtyardWindows, cutSegment } from "./interiorWalls";
 import { roomFurniture, type MatTag } from "@/lib/furniture";
 import { cn } from "@/lib/utils";
@@ -121,6 +120,8 @@ interface FloorPlan3DProps {
   compact?: boolean;
   /** Niveau de qualité forcé (sinon détection automatique). */
   quality?: QualityLevel;
+  /** Commandes de zoom envoyées par la barre d'outils du plan. */
+  zoomAction?: { action: "in" | "out" | "fit"; seq: number } | null;
 }
 
 interface Interval { a: number; b: number; }
@@ -150,6 +151,7 @@ export function FloorPlan3DHD({
   className,
   compact = false,
   quality: qualityProp,
+  zoomAction,
 }: FloorPlan3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Hooks toujours appelés (jamais conditionnels) : la détection auto tourne à
@@ -159,7 +161,6 @@ export function FloorPlan3DHD({
   const qs = useMemo(() => qualitySettings(quality), [quality]);
 
   const [showLabels, setShowLabels] = useState(true);
-  const [showDims, setShowDims] = useState(true);
   const [preset, setPreset] = useState<ViewPreset>("orbit");
   const [style, setStyle] = useState<RenderStyle>("architectural");
   const [performanceMode, setPerformanceMode] = useState(false);
@@ -168,7 +169,6 @@ export function FloorPlan3DHD({
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const labelGroupRef = useRef<THREE.Group | null>(null);
-  const dimGroupRef = useRef<THREE.Group | null>(null);
   const highlightRef = useRef<THREE.LineSegments | null>(null);
   const roomMeshesRef = useRef<Map<string, { cx: number; cz: number; w: number; h: number }>>(new Map());
   const buildingRef = useRef<THREE.Group | null>(null);
@@ -267,6 +267,15 @@ export function FloorPlan3DHD({
     camera.updateProjectionMatrix();
     controls.update();
   }, []);
+
+  // Boutons de la barre d'outils du plan (identiques à la vue 2D) : même
+  // zoom progressif, même recadrage « Ajuster ». `seq` permet de répéter la
+  // commande sans changer d'état React.
+  useEffect(() => {
+    if (!zoomAction) return;
+    if (zoomAction.action === "fit") fitToScene();
+    else zoomBy(zoomAction.action === "in" ? 1.25 : 1 / 1.25);
+  }, [zoomAction, fitToScene, zoomBy]);
 
   // ── Construction de la scène (données géométriques = source unique 2D/3D) ─
   useEffect(() => {
@@ -637,23 +646,8 @@ export function FloorPlan3DHD({
     }
     building.add(labelGroup);
 
-    // ── Cotes d'emprise ────────────────────────────────────────────────────
-    const dimGroup = new THREE.Group();
-    dimGroup.visible = showDims;
-    dimGroupRef.current = dimGroup;
-    const addDimLine = (from: THREE.Vector3, to: THREE.Vector3, text: string) => {
-      const geo = track(new THREE.BufferGeometry().setFromPoints([from, to]));
-      const line = new THREE.Line(geo, track(new THREE.LineBasicMaterial({ color: 0x44403c })));
-      dimGroup.add(line);
-      const spr = makeTextSprite(text);
-      track(spr.texture);
-      track(spr.material);
-      spr.sprite.position.copy(from.clone().add(to).multiplyScalar(0.5)).add(new THREE.Vector3(0, 0.05, 0));
-      dimGroup.add(spr.sprite);
-    };
-    addDimLine(new THREE.Vector3(0, 0.02, -1.2), new THREE.Vector3(L, 0.02, -1.2), `${L.toFixed(2)} m`);
-    addDimLine(new THREE.Vector3(-1.2, 0.02, 0), new THREE.Vector3(-1.2, 0.02, W), `${W.toFixed(2)} m`);
-    building.add(dimGroup);
+    // Aucun tracé de cote ni de cadrage autour de la maquette : le 3D reste
+    // propre, les dimensions sont portées par le plan 2D.
 
     // ── Mobilier (batches fusionnés) ───────────────────────────────────────
     const furnMats = Object.fromEntries(
@@ -776,7 +770,6 @@ export function FloorPlan3DHD({
       cameraRef.current = null;
       rendererRef.current = null;
       labelGroupRef.current = null;
-      dimGroupRef.current = null;
       highlightRef.current = null;
       buildingRef.current = null;
       sceneRef.current = null;
@@ -815,11 +808,10 @@ export function FloorPlan3DHD({
     });
   }, [style]);
 
-  // Visibilité labels / cotes
+  // Visibilité des noms de pièces
   useEffect(() => {
     if (labelGroupRef.current) labelGroupRef.current.visible = showLabels;
-    if (dimGroupRef.current) dimGroupRef.current.visible = showDims;
-  }, [showLabels, showDims]);
+  }, [showLabels]);
 
   // Surbrillance 2D → 3D
   useEffect(() => {
@@ -888,9 +880,6 @@ export function FloorPlan3DHD({
             <Contrast className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{style === "architectural" ? "Réaliste" : "Archit."}</span>
           </ToolBtn>
-          <ToolBtn active={showDims} onClick={() => setShowDims((s) => !s)} title="Afficher/Masquer les dimensions">
-            {showDims ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-          </ToolBtn>
           <ToolBtn active={showLabels} onClick={() => setShowLabels((s) => !s)} title="Afficher/Masquer les noms des pièces">
             <Tag className="h-3.5 w-3.5" />
           </ToolBtn>
@@ -901,16 +890,6 @@ export function FloorPlan3DHD({
         Touchez une pièce · Pincez pour zoomer · Qualité {quality === "high" ? "élevée" : quality === "medium" ? "moyenne" : "allégée"}
       </div>
       </>
-      )}
-      {/* Zoom + / − : même commande que la vue 2D, sans masquer le bâti. */}
-      {!compact && (
-        <PlanZoomButtons
-          className="absolute bottom-2 right-2"
-          onZoomIn={() => zoomBy(1.25)}
-          onZoomOut={() => zoomBy(1 / 1.25)}
-          onReset={fitToScene}
-          resetLabel="Recadrer la vue 3D"
-        />
       )}
     </div>
   );
@@ -981,30 +960,4 @@ function makeLabelTexture(label: string, area: number) {
   texture.generateMipmaps = true;
   const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false });
   return { canvas, texture, material };
-}
-
-function makeTextSprite(text: string) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 128;
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.beginPath();
-  ctx.roundRect(8, 16, canvas.width - 16, canvas.height - 32, 24);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(28,25,23,0.4)";
-  ctx.lineWidth = 3;
-  ctx.stroke();
-  ctx.fillStyle = "#44403c";
-  ctx.font = "600 60px Inter, system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
-  const sprite = new THREE.Sprite(material);
-  sprite.scale.set(1.7, 0.425, 1);
-  return { texture, material, sprite };
 }

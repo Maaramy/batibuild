@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import type { FloorPlan } from "@/lib/floorPlanEngine";
 import { FurnitureLayer } from "./FurnitureLayer";
 import { cn } from "@/lib/utils";
@@ -61,6 +61,8 @@ export interface FloorPlan2DProps {
   showDimensions?: boolean;
   /** Facteur de zoom (1 = plan entier, 3 = maximum). Centré sur le plan. */
   zoom?: number;
+  /** Zoom à la main (pincement) : remonte le nouveau facteur au parent. */
+  onZoomChange?: (zoom: number) => void;
   className?: string;
 }
 
@@ -70,10 +72,25 @@ export function FloorPlan2D({
   onSelectRoom,
   showDimensions = true,
   zoom = 1,
+  onZoomChange,
   className,
 }: FloorPlan2DProps) {
   const clipId = useId();
   const gridId = useId();
+  const svgRef = useRef<SVGSVGElement>(null);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
+  const dragRef = useRef<{
+    x: number;
+    y: number;
+    panX: number;
+    panY: number;
+    moved: boolean;
+  } | null>(null);
+  // Empêche la sélection d'une pièce lorsqu'un glissement vient d'avoir lieu.
+  const suppressClickRef = useRef(false);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
 
   // Échelle adaptative : le plan tient toujours dans ~660 px de large
   const S = useMemo(
@@ -91,6 +108,7 @@ export function FloorPlan2D({
   const rooms = useMemo(() => plan.rooms, [plan]);
 
   const handleRoomClick = (roomId: string) => {
+    if (suppressClickRef.current) return;
     onSelectRoom?.(selectedRoomId === roomId ? null : roomId);
   };
 
@@ -101,17 +119,106 @@ export function FloorPlan2D({
   const VB_H = H + PAD * 2;
   const VIEW_W = VB_W / z;
   const VIEW_H = VB_H / z;
-  const VIEW_X = -PAD + (VB_W - VIEW_W) / 2;
-  const VIEW_Y = -PAD + (VB_H - VIEW_H) / 2;
+  // Déplacement à la main : borné aux bords du plan, jamais dans le vide.
+  const MAX_PAN_X = Math.max(0, (VB_W - VIEW_W) / 2);
+  const MAX_PAN_Y = Math.max(0, (VB_H - VIEW_H) / 2);
+  const clampPan = (x: number, y: number) => ({
+    x: Math.max(-MAX_PAN_X, Math.min(MAX_PAN_X, x)),
+    y: Math.max(-MAX_PAN_Y, Math.min(MAX_PAN_Y, y)),
+  });
+  const clampedPan = clampPan(pan.x, pan.y);
+  const VIEW_X = -PAD + (VB_W - VIEW_W) / 2 + clampedPan.x;
+  const VIEW_Y = -PAD + (VB_H - VIEW_H) / 2 + clampedPan.y;
+
+  const clampZoom = (value: number) =>
+    Math.round(Math.min(PLAN_ZOOM_MAX, Math.max(PLAN_ZOOM_MIN, value)) * 100) / 100;
+
+  const handlePointerDown = (event: React.PointerEvent<SVGSVGElement>) => {
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointersRef.current.size === 2) {
+      // Deux doigts : pincement = zoom centré sur le plan.
+      const [a, b] = [...pointersRef.current.values()];
+      pinchRef.current = {
+        distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+        zoom: z,
+      };
+      dragRef.current = null;
+      suppressClickRef.current = true;
+      setDragging(false);
+      return;
+    }
+    if (event.isPrimary && z > PLAN_ZOOM_MIN) {
+      dragRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        panX: pan.x,
+        panY: pan.y,
+        moved: false,
+      };
+      setDragging(true);
+    }
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    const tracked = pointersRef.current.get(event.pointerId);
+    if (!tracked) return;
+    tracked.x = event.clientX;
+    tracked.y = event.clientY;
+
+    if (pointersRef.current.size >= 2 && pinchRef.current && onZoomChange) {
+      const [a, b] = [...pointersRef.current.values()];
+      const distance = Math.hypot(a.x - b.x, a.y - b.y);
+      const next = clampZoom(pinchRef.current.zoom * (distance / pinchRef.current.distance));
+      if (Math.abs(next - z) > 0.005) onZoomChange(next);
+      return;
+    }
+
+    const drag = dragRef.current;
+    const svg = svgRef.current;
+    if (!drag || !svg) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) > 4) {
+      drag.moved = true;
+      suppressClickRef.current = true;
+    }
+    if (!drag.moved) return;
+    const rect = svg.getBoundingClientRect();
+    const ratio = rect.width > 0 ? VIEW_W / rect.width : 1;
+    setPan(clampPan(drag.panX - dx * ratio, drag.panY - dy * ratio));
+  };
+
+  const endPointer = (event: React.PointerEvent<SVGSVGElement>) => {
+    pointersRef.current.delete(event.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (pointersRef.current.size === 0) {
+      dragRef.current = null;
+      setDragging(false);
+    }
+    // Laisse le clic éventuel se produire avant de réarmer la sélection.
+    window.setTimeout(() => {
+      suppressClickRef.current = false;
+    }, 0);
+  };
 
   return (
     <svg
+      ref={svgRef}
       viewBox={`${VIEW_X} ${VIEW_Y} ${VIEW_W} ${VIEW_H}`}
       data-zoom={z}
       className={cn("w-full h-auto select-none", className)}
       role="img"
       aria-label={`Plan 2D — ${plan.rooms.length} pièces`}
-      style={{ fontFamily: "inherit" }}
+      style={{
+        fontFamily: "inherit",
+        cursor: z > PLAN_ZOOM_MIN ? (dragging ? "grabbing" : "grab") : "default",
+        touchAction: z > PLAN_ZOOM_MIN ? "none" : "pan-y",
+      }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endPointer}
+      onPointerCancel={endPointer}
+      onPointerLeave={endPointer}
     >
       {/* ── Papier + emprise ── */}
       <rect x={-PAD / 2} y={-PAD / 2} width={W + PAD} height={H + PAD} rx={3} fill={PAPER} />
