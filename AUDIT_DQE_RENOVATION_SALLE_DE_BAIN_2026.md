@@ -168,6 +168,7 @@ Les totaux `Économique / Standard / Premium` exposés par le moteur BIM sont d�
 |---|---|
 | Historique des DQE déjà enregistrés | Non réécrits (préservation des données) : la page recalcule l'affichage salle de bain ; les autres types utilisent toujours leur DQE enregistré. |
 | Vérification fournisseur ligne à ligne | **Non faite** : aucun fournisseur nommé n'a confirmé ces prix. La base est datée et présentée comme indicative (voir §4). |
+| Test dans un navigateur (écran Admin) | **Non fait** : aucun test d'interface automatisé. Le chemin est couvert côté serveur par des mutations réelles (`materials.test.ts`, `bimConfig.test.ts`) : prix, région, source, horodatage, historique, refus d'un non-admin, bornes de TVA. |
 
 ---
 
@@ -184,7 +185,11 @@ Les totaux `Économique / Standard / Premium` exposés par le moteur BIM sont d�
 | 7. Petite et grande salle de bain | ✅ 4 m² vs 8 m² (quantités et total croissants, prix unitaires stables) |
 | 8. Autres types de projets inchangés | ✅ maison / appartement / bureau / cuisine conservent leur calage historique |
 
-Exécution : **119 fichiers, 1892 tests réussis** (`bun x vitest run`), `convex dev --once` et `tsc -b --noEmit` sans erreur.
+Exécution : **120 fichiers, 1911 tests réussis** (`bun x vitest run`), `convex dev --once` et `tsc -b --noEmit` sans erreur.
+
+Chemin d'administration verrouillé par des mutations exécutées sur une base de test (`convex-test`), sans passer par l'écran :
+- `materials.test.ts` : un non-admin est refusé ; prix + `region` + `notes` (source) enregistrés ; `lastUpdated` posé par le serveur (jamais par le client) ; `priceHistory` reçoit l'ancien et le nouveau prix ; aucune ligne d'historique si le prix ne change pas ; le prix révisé (95 TND TTC) arrive dans le DQE salle de bain avec la même valeur TTC et la mention « prix administré ».
+- `bimConfig.test.ts` : un taux de 13 % est enregistré et relu (`sdbVatRateIsDefault = false`) ; −1 %, 31 % et 55 % sont refusés **sans** écrire de configuration ; une configuration legacy sans taux retombe sur 19 %.
 
 Parité verrouillée par un test permanent (`renovationSdb.test.ts` → « parité affichage ↔ DQE enregistré ») : pour 5 m² standard avec trois prix administrés et une TVA de 19 %, 13 % puis 7 %, le total du DQE enregistré, le total de la page et la somme des lignes affichées sont **identiques au dinar**, et le TTC d'un poste administré est le même des deux côtés.
 
@@ -220,3 +225,5 @@ Plus aucune catégorie ne partage le même montant par construction ; les postes
 - `src/pages/AdminPanel.tsx` — édition de la région et de la source d'un prix, date de mise à jour affichée, message de propagation.
 - `src/lib/surfaceRangeSync.test.ts` — invariant adapté : la salle de bain n'est plus calibrée sur un pourcentage (comportement demandé).
 - `src/lib/renovationSdbPricing.test.ts`, `src/convex/renovationSdb.test.ts` — **nouveaux** tests (40 cas, dont la parité affichage ↔ DQE enregistré à plusieurs taux de TVA).
+- `src/convex/materials.test.ts` — couverture de `updateMaterialPrice` (région, source, horodatage serveur, historique des prix, propagation au DQE) et du refus d'un non-admin.
+- `src/convex/bimConfig.test.ts` — couverture de `saveBIMConfig` pour `sdbVatRate` (enregistrement, bornes 0–30 %, repli à 19 % sur une configuration legacy).

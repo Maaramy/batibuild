@@ -5,6 +5,7 @@ import { convexTest } from "convex-test";
 import schema from "./schema.js";
 import { api } from "./_generated/api.js";
 import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
+import { generateDqe } from "./dqeEngine";
 
 const modules = import.meta.glob("./**/*.*s");
 
@@ -161,6 +162,140 @@ describe("resetMaterialPrices", () => {
       expect(m.currency).toBe("TND");
       expect(m.unitPrice).toBeGreaterThan(0);
     }
+  });
+});
+
+/** Normalisation identique à `normKey` du moteur DQE. */
+const norm = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/×/g, "x")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+describe("updateMaterialPrice — réglage administrateur d'un prix", () => {
+  const SDB_DESIGNATION = "Carrelage de sol antidérapant (grès cérame)";
+  const OLD_DATE = 1_600_000_000_000;
+
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  /** Insère le poste salle de bain que l'administrateur va réviser. */
+  async function insertSdbMaterial(adminId: string, unitPrice = 42) {
+    return t.run(async (ctx) => {
+      return ctx.db.insert("materialPrices", {
+        category: "revetements_sols_murs" as any,
+        name: SDB_DESIGNATION,
+        unit: "m²",
+        unitPrice,
+        currency: "TND",
+        lastUpdated: OLD_DATE,
+        updatedBy: adminId as any,
+      });
+    });
+  }
+
+  it("refuse un utilisateur non-admin", async () => {
+    const adminId = await createUser(t, "admin", "admin@test.com");
+    const materialId = await insertSdbMaterial(adminId);
+    const userId = await createUser(t, "user", "user@test.com");
+    const userT = t.withIdentity({ subject: userId });
+
+    await expect(
+      userT.mutation(api.materials.updateMaterialPrice, {
+        id: materialId as any,
+        unitPrice: 10,
+      }),
+    ).rejects.toThrow("Unauthorized");
+  });
+
+  it("enregistre prix, région et source, et horodate côté serveur", async () => {
+    const adminId = await createUser(t, "admin", "admin@test.com");
+    const materialId = await insertSdbMaterial(adminId);
+    const adminT = t.withIdentity({ subject: adminId });
+
+    await adminT.mutation(api.materials.updateMaterialPrice, {
+      id: materialId as any,
+      unitPrice: 57,
+      region: "Sfax",
+      notes: "Devis Carrelage Sfax 2026",
+    });
+
+    const updated = await t.run(async (ctx) => ctx.db.get(materialId as any));
+    expect(updated!.unitPrice).toBe(57);
+    expect(updated!.region).toBe("Sfax");
+    expect(updated!.notes).toBe("Devis Carrelage Sfax 2026");
+    // La date n'est pas celle fournie par le client : le serveur la pose.
+    expect(updated!.lastUpdated).toBeGreaterThan(OLD_DATE);
+    expect(updated!.updatedBy).toBe(adminId);
+
+    const history = await t.run(async (ctx) =>
+      ctx.db.query("priceHistory").collect(),
+    );
+    expect(history.length).toBe(1);
+    expect(history[0].previousPrice).toBe(42);
+    expect(history[0].newPrice).toBe(57);
+    expect(history[0].materialPriceId).toBe(materialId);
+  });
+
+  it("n'écrit aucun historique quand le prix ne change pas", async () => {
+    const adminId = await createUser(t, "admin", "admin@test.com");
+    const materialId = await insertSdbMaterial(adminId, 42);
+    const adminT = t.withIdentity({ subject: adminId });
+
+    await adminT.mutation(api.materials.updateMaterialPrice, {
+      id: materialId as any,
+      unitPrice: 42,
+      region: "Tunis",
+    });
+
+    const history = await t.run(async (ctx) =>
+      ctx.db.query("priceHistory").collect(),
+    );
+    expect(history.length).toBe(0);
+  });
+
+  it("le prix révisé arrive dans le DQE salle de bain au même TTC", async () => {
+    const adminId = await createUser(t, "admin", "admin@test.com");
+    const materialId = await insertSdbMaterial(adminId, 42);
+    const adminT = t.withIdentity({ subject: adminId });
+
+    // 95 TND TTC saisi dans l'administration (prix de vente, TVA comprise).
+    await adminT.mutation(api.materials.updateMaterialPrice, {
+      id: materialId as any,
+      unitPrice: 95,
+    });
+
+    // Carte de prix en direct construite comme dans `projects.ts`, puis DQE.
+    const rows = await t.run(async (ctx) =>
+      ctx.db.query("materialPrices").collect(),
+    );
+    const livePrices = new Map(
+      rows.map((r) => [norm(r.name), { unit: r.unit, unitPrice: r.unitPrice }] as const),
+    );
+    const dqe = generateDqe({
+      category: "renovation_salle_de_bain",
+      surface: 5,
+      floors: 1,
+      totalBudget: 250_000,
+      livePrices,
+      sdbVatRate: 19,
+    });
+
+    const line = dqe.lots
+      .flatMap((l) => l.lines)
+      .find((l) => l.designation === SDB_DESIGNATION);
+    expect(line).toBeDefined();
+    // 95 TTC → 79,83 HT pour la fourniture ; la main-d'œuvre du poste s'ajoute.
+    const laborHTPerUnit = line!.labor ? line!.labor.unitPrice / 1.19 : 0;
+    const supplyHTPerUnit = line!.totalHT! / line!.quantity - laborHTPerUnit;
+    expect(Math.abs(supplyHTPerUnit - 79.83)).toBeLessThanOrEqual(0.02);
+    expect(line!.totalHT!).toBeCloseTo(79.83 * line!.quantity, 1);
+    expect(line!.observations).toContain("prix administré");
   });
 });
 

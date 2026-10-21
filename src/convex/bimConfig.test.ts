@@ -86,6 +86,53 @@ describe("refreshBIMData", () => {
     expect(logs.length).toBe(1);
   });
 
+  it("sauvegarde le taux de TVA salle de bain et le relit", async () => {
+    const adminId = await createAdmin(t);
+    const adminT = t.withIdentity({ subject: adminId });
+
+    const res = await adminT.mutation(api.bimConfig.saveBIMConfig, {
+      sdbVatRate: 13,
+    });
+    expect(res.sdbVatRate).toBe(13);
+
+    const config = await t.query(api.bimConfig.getBIMConfig, {});
+    expect(config!.sdbVatRate).toBe(13);
+    expect(config!.sdbVatRateIsDefault).toBe(false);
+  });
+
+  it("refuse un taux de TVA hors 0-30 % sans rien enregistrer", async () => {
+    const adminId = await createAdmin(t);
+    const adminT = t.withIdentity({ subject: adminId });
+
+    for (const rate of [-1, 31, 55]) {
+      await expect(
+        adminT.mutation(api.bimConfig.saveBIMConfig, { sdbVatRate: rate }),
+      ).rejects.toThrow(/TVA invalide/);
+    }
+
+    const config = await t.query(api.bimConfig.getBIMConfig, {});
+    expect(config).toBeNull();
+  });
+
+  it("une configuration legacy sans taux retombe sur 19 %", async () => {
+    const adminId = await createAdmin(t);
+    await t.run(async (ctx) =>
+      ctx.db.insert("bimConfig", {
+        marketPricesM2: "{}",
+        projectPercentages: "{}",
+        regionMultipliers: "{}",
+        unitPrices: "{}",
+        version: 1,
+        refreshedAt: Date.now(),
+        refreshedBy: adminId as any,
+      }),
+    );
+
+    const config = await t.query(api.bimConfig.getBIMConfig, {});
+    expect(config!.sdbVatRate).toBe(19);
+    expect(config!.sdbVatRateIsDefault).toBe(true);
+  });
+
   it("getBIMConfig ne plante pas sur une ligne legacy malformée", async () => {
     const adminId = await createAdmin(t);
     await t.run(async (ctx) =>
