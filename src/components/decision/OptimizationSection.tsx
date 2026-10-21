@@ -11,6 +11,11 @@
 // n'est plus affiché ici ; le plan d'optimisation reste calculé en amont par
 // le module parent.
 //
+// SEUL écran de chargement animé du parcours « Aide à la décision » : il est
+// affiché uniquement après le clic sur « Analyser mon budget avec l'IA »
+// (design, logo, animations et durée de 3 s inchangés). Aucun chargement
+// automatique n'est déclenché à l'arrivée sur la page.
+//
 // L'« Analyse de vos matériaux » n'est plus ici : elle est rendue sous la carte
 // « Confiance » de la page « Coût de construction ».
 // ============================================================================

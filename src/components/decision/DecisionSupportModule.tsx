@@ -5,8 +5,11 @@
 // DÉDIÉE « Aide à la décision » (étape n°2 du parcours du groupe A) : il a
 // été retiré de la page de résultat « Coût estimatif ».
 //
-// • Déclenchement automatique : dès que les résultats du coût sont disponibles,
-//   l'analyse se prépare (état de chargement élégant) puis s'affiche.
+// • AUCUN CHARGEMENT AUTOMATIQUE : à l'arrivée, le module n'affiche ni écran
+//   animé ni analyse. Un squelette discret couvre l'attente des données réelles
+//   puis la carte de saisie du budget s'affiche. L'écran de chargement animé de
+//   Batibuild n'apparaît qu'au clic sur « Analyser mon budget avec l'IA » —
+//   cette action est exclusivement utilisateur (`OptimizationSection`).
 // • Données réelles uniquement : les prévisions proviennent du moteur partagé
 //   `predictiveIntelligence` (historique marché réel, sinon comparaison réelle
 //   des scénarios Économique / Standard / Premium). Aucun prix inventé — sans
@@ -58,8 +61,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
-import { decisionSupportLoadingSteps } from "@/lib/projectJourney";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // ── État verrouillé (hors forfait Client Pro) ───────────────────────────────
 
@@ -108,11 +110,6 @@ export interface DecisionSupportModuleProps {
    * immobilier neuf ET surface couverte ≥ 120 m²). Masqués sinon.
    */
   complementaryWorksEnabled?: boolean;
-  /**
-   * Horodatage du début du chargement de la page : l'écran par étapes reprend
-   * l'animation déjà commencée au lieu de redémarrer (aucun flash).
-   */
-  loadingStartedAt?: number;
   /** Résultats du budget affichés ? (les cartes projet / saisie sont masquées.) */
   onBudgetResultsDisplayed?: (displayed: boolean) => void;
 }
@@ -128,7 +125,6 @@ export function DecisionSupportModule({
   scenarioLabel,
   scenarioTotals,
   complementaryWorksEnabled,
-  loadingStartedAt,
   onBudgetResultsDisplayed,
 }: DecisionSupportModuleProps) {
   const { hash } = useLocation();
@@ -365,8 +361,6 @@ export function DecisionSupportModule({
     void startBudgetAnalysis(lastBudgetRef.current);
   };
 
-  const handleDecisionLoadingComplete = useCallback(() => {}, []);
-
   // ── Signature des données (quantitatif / prix / scénario / marché) ───────
   const signature = useMemo(
     () =>
@@ -381,15 +375,16 @@ export function DecisionSupportModule({
     [workspaceQuery, trends],
   );
 
-  // Analyse mémorisée : jamais relancée à chaque affichage (déclenchement auto
-  // au premier rendu, puis recalcul uniquement sur action de l'utilisateur).
+  // Analyse mémorisée : jamais relancée à chaque affichage. La signature est
+  // adoptée immédiatement dès qu'elle est disponible — aucune attente
+  // artificielle, donc aucun « chargement » supplémentaire avant le clic sur
+  // « Analyser mon budget avec l'IA ».
   const [committedSignature, setCommittedSignature] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (!signature || committedSignature !== null) return;
-    const t = window.setTimeout(() => setCommittedSignature(signature), 850);
-    return () => window.clearTimeout(t);
+    setCommittedSignature(signature);
   }, [signature, committedSignature]);
 
   const stale = signature != null && committedSignature != null && signature !== committedSignature;
@@ -403,9 +398,9 @@ export function DecisionSupportModule({
   };
 
   const ready = allowed && workspaceQuery != null && trends != null;
-  // Le chargement dure tant que les données RÉELLES utilisées par l'analyse
-  // (quantitatif, marché, prix) ne sont pas arrivées : aucun résultat partiel
-  // ni carte vide n'est affiché entre-temps.
+  // Attente des données RÉELLES utilisées par l'analyse (quantitatif, marché,
+  // prix) : un squelette discret remplace le contenu, jamais l'écran de
+  // chargement animé — celui-ci reste réservé au clic sur le bouton d'analyse.
   const loading =
     access === undefined ||
     (allowed &&
@@ -438,21 +433,33 @@ export function DecisionSupportModule({
 
   if (loading) {
     return (
-      <section id="aide-a-la-decision" className="scroll-mt-24 space-y-3">
-        {/* Même écran, même design et mêmes transitions que le chargement des
-            résultats d'estimation ; seuls les intitulés d'étapes changent. */}
-        <EstimateLoadingScreen
-          pending
-          startedAt={loadingStartedAt}
-          title="BatiBuild prépare votre aide à la décision"
-          description="Analyse prédictive du Quantitatif, des prix réels et du budget de votre projet."
-          steps={decisionSupportLoadingSteps()}
-          progressLabel="Progression de l'aide à la décision"
-          readyLabel="Analyse prête, affichage des résultats…"
-          waitingLabel="Calculs en cours — attente des données réelles…"
-          waitingDetail="Finalisation de l'analyse prédictive…"
-          onComplete={handleDecisionLoadingComplete}
-        />
+      <section
+        id="aide-a-la-decision"
+        className="scroll-mt-24 space-y-3"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        {/* Attente discrète : aucun écran animé avant le clic sur
+            « Analyser mon budget avec l'IA », aucune analyse lancée. */}
+        <span className="sr-only">Chargement des données de votre aide à la décision…</span>
+        <Card className="rounded-2xl border-border/60 bg-card shadow-elev-1">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-5 w-56 max-w-full" />
+                <Skeleton className="h-3 w-full max-w-md" />
+              </div>
+            </div>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-12 w-full rounded-xl" />
+              </div>
+              <Skeleton className="h-12 w-full rounded-xl sm:w-56" />
+            </div>
+          </CardContent>
+        </Card>
       </section>
     );
   }

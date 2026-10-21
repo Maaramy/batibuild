@@ -9,13 +9,18 @@
 // plus affiché en extension du résultat, mais uniquement sur cette page,
 // atteignable depuis l'étape « Aide à la décision » du Journey.
 //
+// AUCUN CHARGEMENT AUTOMATIQUE : l'arrivée sur cette page n'affiche ni écran
+// animé ni analyse. Un squelette discret couvre uniquement l'attente des
+// données réelles ; l'écran de chargement animé de Batibuild n'apparaît qu'au
+// clic sur « Analyser mon budget avec l'IA », dans `OptimizationSection`.
+//
 // Le coût total du scénario retenu (même valeur que « Coût estimatif ») est
 // déduit du scénario persisté du projet ; il sert de contexte au module pour le
-// risque de dépassement et les simulations. Le module gère lui-même son état de
-// chargement, sa mise en cache et son accès réservé au forfait Client Pro.
+// risque de dépassement et les simulations. Le module gère lui-même sa mise en
+// cache et son accès réservé au forfait Client Pro.
 // ============================================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useQuery } from "convex/react";
 import { ArrowRight, Building2, CreditCard, MapPin, Ruler, ShieldAlert, Wallet } from "lucide-react";
@@ -23,9 +28,9 @@ import { ArrowRight, Building2, CreditCard, MapPin, Ruler, ShieldAlert, Wallet }
 import { api } from "@/convex/_generated/api";
 import { realBuiltArea } from "@/lib/buildingLevels";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
-import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
 import { DecisionSupportModule } from "@/components/decision/DecisionSupportModule";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/feedback";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import {
@@ -45,7 +50,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { formatTndAmount } from "@/lib/budgetEngine";
 import { resolveEstimationBudget } from "@/lib/estimationBudget";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
-import { decisionSupportLoadingSteps } from "@/lib/projectJourney";
 
 const SCENARIO_KEYS: BudgetScenarioKey[] = ["economique", "standard", "premium"];
 
@@ -59,17 +63,12 @@ export default function DecisionSupport() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  // ── Chargement par étapes (même écran que les résultats d'estimation) ──
-  // L'horodatage du DÉBUT du chargement est partagé avec le module : quand
-  // celui-ci prend le relais, l'animation continue au lieu de redémarrer
-  // (aucune double animation, aucun flash de contenu).
-  const loadingStartRef = useRef<{ id?: string; at: number }>({
-    id,
-    at: performance.now(),
-  });
-  if (loadingStartRef.current.id !== id) {
-    loadingStartRef.current = { id, at: performance.now() };
-  }
+  // ── Aucun chargement automatique ────────────────────────────────────────
+  // L'arrivée sur cette page ne lance aucune analyse et n'affiche aucun écran
+  // animé : seules les données réelles sont attendues (squelette discret).
+  // L'écran de chargement animé est déclenché exclusivement par le clic sur
+  // « Analyser mon budget avec l'IA » (`OptimizationSection`).
+  //
   // Résultats affichés (budget analysé) : la carte projet et la carte de
   // saisie du budget sont alors masquées — leurs données restent intactes.
   const [budgetResultsDisplayed, setBudgetResultsDisplayed] = useState(false);
@@ -77,7 +76,6 @@ export default function DecisionSupport() {
     (displayed: boolean) => setBudgetResultsDisplayed(displayed),
     [],
   );
-  const handleLoadingComplete = useCallback(() => {}, []);
   useEffect(() => {
     setBudgetResultsDisplayed(false);
   }, [id]);
@@ -196,20 +194,52 @@ export default function DecisionSupport() {
         access === undefined ||
         customization === undefined ||
         customWorksData === undefined ? (
-          /* ── Chargement réel : même écran par étapes que le résultat
-              d'estimation (design, logo animé, couleurs, transitions). ── */
-          <EstimateLoadingScreen
-            pending
-            startedAt={loadingStartRef.current.at}
-            title="BatiBuild prépare votre aide à la décision"
-            description="Analyse du Quantitatif, des prix et de votre budget — les résultats s'affichent dès que les données réelles sont prêtes."
-            steps={decisionSupportLoadingSteps()}
-            progressLabel="Progression de l'aide à la décision"
-            readyLabel="Analyse prête, affichage des résultats…"
-            waitingLabel="Calculs en cours — attente des données réelles…"
-            waitingDetail="Finalisation de l'analyse prédictive…"
-            onComplete={handleLoadingComplete}
-          />
+          /* ── Attente discrète des données réelles : AUCUN écran de
+              chargement animé, aucune analyse lancée. L'animation de Batibuild
+              reste réservée au clic sur « Analyser mon budget avec l'IA ». ── */
+          <div className="space-y-4" aria-busy="true" aria-live="polite">
+            <span className="sr-only">Chargement des données de votre aide à la décision…</span>
+            <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elev-1">
+              <div className="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5">
+                <div className="flex min-w-0 items-start gap-3">
+                  <Skeleton className="h-11 w-11 shrink-0 rounded-xl" />
+                  <div className="min-w-0 space-y-2">
+                    <Skeleton className="h-5 w-40 max-w-full" />
+                    <Skeleton className="h-3 w-28 max-w-full" />
+                  </div>
+                </div>
+                <div className="flex flex-col items-start gap-2 sm:items-end">
+                  <Skeleton className="h-5 w-28 rounded-full" />
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-7 w-32" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 divide-x divide-border/50 border-t border-border/50">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="min-w-0 px-3 py-3 sm:px-4">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="mt-2 h-4 w-20" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-elev-1 sm:p-5">
+              <div className="flex items-start gap-3">
+                <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-5 w-56 max-w-full" />
+                  <Skeleton className="h-3 w-full max-w-md" />
+                </div>
+              </div>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-12 w-full rounded-xl" />
+                </div>
+                <Skeleton className="h-12 w-full rounded-xl sm:w-56" />
+              </div>
+            </div>
+          </div>
         ) : project === null ? (
           /* ── Projet introuvable ── */
           <EmptyState
@@ -316,7 +346,6 @@ export default function DecisionSupport() {
               scenarioLabel={scenarioLabel}
               scenarioTotals={scenarioTotals.length > 0 ? scenarioTotals : undefined}
               complementaryWorksEnabled={complementaryWorksEligible}
-              loadingStartedAt={loadingStartRef.current.at}
               onBudgetResultsDisplayed={handleBudgetResultsDisplayed}
             />
           </>

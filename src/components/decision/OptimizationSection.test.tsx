@@ -92,5 +92,8 @@ describe("OptimizationSection — masquage de la carte budget après résultats"
     expect(html).toContain("Plan de construction selon votre budget");
     expect(html).toContain(formatTndAmount(500_000));
     expect(html).toContain(formatTndAmount(PROJECT_TOTAL));
+    // Après le chargement, les résultats s'affichent directement : aucun
+    // second écran de chargement ne reste au-dessus d'eux.
+    expect(html).not.toContain("BatiBuild analyse votre budget");
   });
 });
