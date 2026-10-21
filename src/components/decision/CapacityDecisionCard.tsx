@@ -1445,9 +1445,6 @@ export function CapacityDecisionCard({
                     <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
                       {analysis.recommendation}
                     </p>
-                    <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
-                      Combinaison conseillée : {analysis.optimalCombination}
-                    </p>
                   </div>
                 </div>
               </div>
