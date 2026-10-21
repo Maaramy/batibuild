@@ -18,6 +18,15 @@ const PAPER = "#fdfdfb"; // fond papier
 const GRID = "#e7e5e4"; // trame
 const DIMC = "#78716c"; // cotes
 const SEL = "#7c3aed"; // sélection
+const EXIT = "#b91c1c"; // sortie de secours
+
+/** Bornes du zoom du plan 2D : jamais plus petit que le plan entier, jamais
+ *  au-delà de 3× (au-delà, les cotes deviennent illisibles et le plan se
+ *  coupe au point de perdre des pièces). Le zoom se fait dans le viewBox SVG :
+ *  proportions et netteté vectorielle sont conservées. */
+export const PLAN_ZOOM_MIN = 1;
+export const PLAN_ZOOM_MAX = 3;
+export const PLAN_ZOOM_STEP = 0.25;
 
 /** Teintes très légères par nature de pièce (remplissage ~14 %). */
 const ROOM_TINT: Record<string, string> = {
@@ -50,6 +59,8 @@ export interface FloorPlan2DProps {
   onSelectRoom?: (roomId: string | null) => void;
   /** Afficher les chaînes de cotes globales (par défaut : oui). */
   showDimensions?: boolean;
+  /** Facteur de zoom (1 = plan entier, 3 = maximum). Centré sur le plan. */
+  zoom?: number;
   className?: string;
 }
 
@@ -58,6 +69,7 @@ export function FloorPlan2D({
   selectedRoomId,
   onSelectRoom,
   showDimensions = true,
+  zoom = 1,
   className,
 }: FloorPlan2DProps) {
   const clipId = useId();
@@ -82,9 +94,20 @@ export function FloorPlan2D({
     onSelectRoom?.(selectedRoomId === roomId ? null : roomId);
   };
 
+  // Zoom centré sur le plan : le viewBox se resserre symétriquement, donc le
+  // plan grossit sans se déformer et reste net (aucune pixellisation).
+  const z = Math.min(PLAN_ZOOM_MAX, Math.max(PLAN_ZOOM_MIN, zoom));
+  const VB_W = W + PAD * 2;
+  const VB_H = H + PAD * 2;
+  const VIEW_W = VB_W / z;
+  const VIEW_H = VB_H / z;
+  const VIEW_X = -PAD + (VB_W - VIEW_W) / 2;
+  const VIEW_Y = -PAD + (VB_H - VIEW_H) / 2;
+
   return (
     <svg
-      viewBox={`${-PAD} ${-PAD} ${W + PAD * 2} ${H + PAD * 2}`}
+      viewBox={`${VIEW_X} ${VIEW_Y} ${VIEW_W} ${VIEW_H}`}
+      data-zoom={z}
       className={cn("w-full h-auto select-none", className)}
       role="img"
       aria-label={`Plan 2D — ${plan.rooms.length} pièces`}
@@ -198,6 +221,7 @@ export function FloorPlan2D({
                   inward={d.wall === "N" ? 1 : d.wall === "S" ? -1 : d.wall === "W" ? 1 : -1}
                   vertical={d.wall === "W" || d.wall === "E"}
                   isEntry={!!d.isEntry}
+                  isEmergency={!!d.isEmergency}
                 />
               ))}
             </g>
@@ -288,6 +312,35 @@ export function FloorPlan2D({
       {/* ── Rose des vents ── */}
       <NorthArrow cx={W + PAD * 0.55} cy={-PAD * 0.45} r={11} />
 
+      {/* Sortie de secours : ouverture repérée près de son mur extérieur */}
+      {rooms.map((r) =>
+        r.doors.filter((d) => d.isEmergency).map((d, i) => {
+          const horizontal = d.wall === "N" || d.wall === "S";
+          const cx = horizontal
+            ? (r.x + d.position + d.width / 2) * S
+            : (d.wall === "W" ? r.x : r.x + r.w) * S;
+          const cy = horizontal
+            ? (d.wall === "N" ? r.y : r.y + r.h) * S
+            : (r.y + d.position + d.width / 2) * S;
+          if (d.width * S < 16) return null;
+          return (
+            <text
+              key={`x-${r.id}-${i}`}
+              x={d.wall === "W" ? cx - 5 : d.wall === "E" ? cx + 5 : cx}
+              y={d.wall === "N" ? cy - 6 : d.wall === "S" ? cy + 10 : cy + 3}
+              textAnchor={d.wall === "W" ? "end" : d.wall === "E" ? "start" : "middle"}
+              fontSize={6.5}
+              fontWeight={700}
+              letterSpacing={0.6}
+              fill={EXIT}
+              pointerEvents="none"
+            >
+              SECOURS
+            </text>
+          );
+        }),
+      )}
+
       {/* Flèche d'entrée : sous la première porte isEntry trouvée */}
       {rooms.map((r) =>
         r.doors.filter((d) => d.isEntry).map((d, i) => {
@@ -345,9 +398,9 @@ function WindowSym({
 
 /** Porte : percement + vantail perpendiculaire + arc de débattement. */
 function DoorSym({
-  p1, len, line, band, inward, vertical, isEntry,
+  p1, len, line, band, inward, vertical, isEntry, isEmergency,
 }: {
-  wall: string; p1: number; len: number; line: number; band: number; inward: number; vertical: boolean; isEntry: boolean;
+  wall: string; p1: number; len: number; line: number; band: number; inward: number; vertical: boolean; isEntry: boolean; isEmergency?: boolean;
 }) {
   const gap = band / 2 + 1.5;
   const patch = vertical ? (
@@ -364,16 +417,17 @@ function DoorSym({
   const bx = vertical ? line : p1 + len;
   const by = vertical ? p1 + len : line + inward * len;
   const sweep = vertical ? (inward > 0 ? 0 : 1) : inward > 0 ? 0 : 1;
+  const leafColor = isEmergency ? EXIT : isEntry ? "#15803d" : INK;
   return (
     <g>
       {patch}
       {/* Vantail */}
-      <line x1={hx} y1={hy} x2={lx} y2={ly} stroke={isEntry ? "#15803d" : INK} strokeWidth={1.3} />
+      <line x1={hx} y1={hy} x2={lx} y2={ly} stroke={leafColor} strokeWidth={1.3} />
       {/* Arc de gissement */}
       <path
         d={`M ${lx} ${ly} A ${len} ${len} 0 0 ${sweep} ${bx} ${by}`}
         fill="none"
-        stroke={isEntry ? "#15803d" : DIMC}
+        stroke={isEmergency ? EXIT : isEntry ? "#15803d" : DIMC}
         strokeWidth={0.9}
         strokeDasharray={isEntry ? undefined : "3 2.5"}
       />
@@ -383,7 +437,7 @@ function DoorSym({
         y1={vertical ? p1 : line}
         x2={vertical ? line : p1 + len}
         y2={vertical ? p1 + len : line}
-        stroke={isEntry ? "#15803d" : "#d6d3d1"}
+        stroke={isEmergency ? EXIT : isEntry ? "#15803d" : "#d6d3d1"}
         strokeWidth={Math.max(1, band * 0.5)}
       />
     </g>

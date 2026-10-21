@@ -25,11 +25,13 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
-  Box, Contrast, Eye, EyeOff, Focus, Maximize, Minimize,
+  Box, Contrast, Eye, EyeOff, Focus,
   MousePointerClick, RotateCcw, Tag,
 } from "lucide-react";
 import type { FloorPlan, RoomKind, SitePlan } from "@/lib/floorPlanEngine";
 import { buildSiteScene } from "./site3D";
+import { PlanZoomButtons } from "./PlanZoomButtons";
+import { courtyardWindows, cutSegment } from "./interiorWalls";
 import { roomFurniture, type MatTag } from "@/lib/furniture";
 import { cn } from "@/lib/utils";
 
@@ -110,7 +112,6 @@ interface FloorPlan3DProps {
   onSelectRoom?: (roomId: string | null) => void;
   /** Repli de compatibilité : `lite` équivaut à la qualité "low". */
   lite?: boolean;
-  fullscreen?: boolean;
   className?: string;
   /**
    * Rendu COMPACT (vignette) : hauteur réduite et barre d'outils/aide masquées.
@@ -146,7 +147,6 @@ export function FloorPlan3DHD({
   selectedRoomId,
   onSelectRoom,
   lite,
-  fullscreen = false,
   className,
   compact = false,
   quality: qualityProp,
@@ -160,7 +160,6 @@ export function FloorPlan3DHD({
 
   const [showLabels, setShowLabels] = useState(true);
   const [showDims, setShowDims] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(fullscreen);
   const [preset, setPreset] = useState<ViewPreset>("orbit");
   const [style, setStyle] = useState<RenderStyle>("architectural");
   const [performanceMode, setPerformanceMode] = useState(false);
@@ -178,14 +177,6 @@ export function FloorPlan3DHD({
   const styleRef = useRef<RenderStyle>(style);
   styleRef.current = style;
 
-  useEffect(() => setIsFullscreen(fullscreen), [fullscreen]);
-
-  useEffect(() => {
-    const onFsChange = () => { if (!document.fullscreenElement) setIsFullscreen(false); };
-    document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
-  }, []);
-
   // ── Cadrage automatique « Ajuster à la scène » ────────────────────────────
   const fitToScene = useCallback(() => {
     const camera = cameraRef.current;
@@ -196,8 +187,14 @@ export function FloorPlan3DHD({
     const cx = site ? site.plot.length / 2 - site.building.x : L / 2;
     const cz = site ? site.plot.width / 2 - site.building.y : W / 2;
     const fov = (camera.fov * Math.PI) / 180;
-    // Distance pour encadrer la diagonale avec une marge de 12 %
-    const fitDist = ((dist * 1.15) / 2) / Math.tan(fov / 2);
+    // Encadrement réel de la scène : elle doit tenir en largeur COMME en
+    // hauteur (téléphone en portrait, tablette), avec une marge de 12 % pour
+    // ne jamais couper les façades, les portes ni les fenêtres.
+    const half = (dist * 1.12) / 2;
+    const fitDist = Math.max(
+      half / Math.tan(fov / 2),
+      half / (Math.tan(fov / 2) * camera.aspect),
+    );
     camera.position.set(cx - fitDist * 0.52, fitDist * 0.62, cz + fitDist * 0.86);
     controls.target.set(cx, WALL_H * 0.33, cz);
     controls.minDistance = dist * 0.22;
@@ -252,16 +249,23 @@ export function FloorPlan3DHD({
     [plan, fitToScene],
   );
 
-  const toggleFullscreen = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen?.().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.().catch(() => {});
-      setIsFullscreen(false);
-    }
+  // Zoom caméra progressif (+ / −) : la distance à la cible évolue par pas
+  // de 25 %, bornée par les limites des contrôles orbitaux (jamais de plan
+  // minuscule ni de traversée des murs). Le cadrage et l'orientation restent
+  // inchangés : seul le rapprochement change.
+  const zoomBy = useCallback((factor: number) => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+    const offset = camera.position.clone().sub(controls.target);
+    const distance = offset.length();
+    if (distance < 0.001) return;
+    const min = Math.max(0.5, controls.minDistance || 0.5);
+    const max = Math.max(min + 0.1, controls.maxDistance || distance * 2.6);
+    const next = Math.min(max, Math.max(min, distance / factor));
+    camera.position.copy(controls.target).add(offset.setLength(next));
+    camera.updateProjectionMatrix();
+    controls.update();
   }, []);
 
   // ── Construction de la scène (données géométriques = source unique 2D/3D) ─
@@ -289,7 +293,14 @@ export function FloorPlan3DHD({
     const dist0 = site ? Math.max(site.plot.length, site.plot.width) : Math.max(L, W);
     const cx0 = site ? site.plot.length / 2 - site.building.x : L / 2;
     const cz0 = site ? site.plot.width / 2 - site.building.y : W / 2;
-    const fitDist0 = ((dist0 * 1.15) / 2) / Math.tan(((42 * Math.PI) / 180) / 2);
+    const halfTan0 = Math.tan(((42 * Math.PI) / 180) / 2);
+    const half0 = (dist0 * 1.12) / 2;
+    // Même cadrage « rien de coupé » qu'au bouton « Ajuster », en tenant
+    // compte du ratio réel du conteneur (portrait mobile inclus).
+    const fitDist0 = Math.max(
+      half0 / halfTan0,
+      half0 / (halfTan0 * (width / height)),
+    );
     camera.near = Math.max(0.05, fitDist0 * 0.01);
     camera.far = fitDist0 * 12;
     camera.position.set(cx0 - fitDist0 * 0.52, fitDist0 * 0.62, cz0 + fitDist0 * 0.86);
@@ -425,12 +436,22 @@ export function FloorPlan3DHD({
     ];
     for (const r of plan.rooms) {
       for (const win of r.windows) {
+        // Seules les fenêtres de FAÇADE percent l'enveloppe : une fenêtre de
+        // cour/patio est percée dans la cloison correspondante (plus bas).
+        const onEnvelope =
+          (win.wall === "N" && r.y < TOL) ||
+          (win.wall === "S" && Math.abs(r.y + r.h - W) < TOL) ||
+          (win.wall === "W" && r.x < TOL) ||
+          (win.wall === "E" && Math.abs(r.x + r.w - L) < TOL);
+        if (!onEnvelope) continue;
         const side = win.wall as "N" | "S" | "W" | "E";
         const start = win.wall === "N" || win.wall === "S" ? r.x + win.position : r.y + win.position;
         sides.find((s) => s.key === side)!.openings.push({ a: start, b: start + win.width, kind: "win" });
       }
       for (const d of r.doors) {
-        if (!d.isEntry) continue;
+        // Entrée principale ET sortie de secours : les deux issues extérieures
+        // du plan 2D sont réellement percées dans les murs 3D.
+        if (!d.isEntry && !d.isEmergency) continue;
         const side = d.wall as "N" | "S" | "W" | "E";
         const start = d.wall === "N" || d.wall === "S" ? r.x + d.position : r.y + d.position;
         const onExterior =
@@ -494,17 +515,42 @@ export function FloorPlan3DHD({
     }
     const isInterior = (v: number, max: number) => v > TOL && Math.abs(v - max) > TOL;
     const wallSegs: { pos: [number, number, number]; size: [number, number, number] }[] = [];
+    // Fenêtres donnant sur un patio : percées dans la cloison réelle (mêmes
+    // données que la 2D), jamais reportées sur une façade extérieure.
+    const courtyard = courtyardWindows(plan);
     for (const [x, segs] of vMap) {
       if (!isInterior(x, L)) continue;
+      const openings = courtyard.vertical.filter((o) => Math.abs(o.line - x) < TOL);
       for (const seg of mergeIntervals(segs)) {
-        pushBox(INT_T, WALL_H, seg.b - seg.a, x, WALL_H / 2, (seg.a + seg.b) / 2, wallMat);
+        const { solids, cuts } = cutSegment(seg.a, seg.b, openings);
+        for (const solid of solids) {
+          pushBox(INT_T, WALL_H, solid.b - solid.a, x, WALL_H / 2, (solid.a + solid.b) / 2, wallMat);
+        }
+        for (const cut of cuts) {
+          const mid = (cut.a + cut.b) / 2;
+          const len = cut.b - cut.a;
+          pushBox(INT_T, WIN_SILL, len, x, WIN_SILL / 2, mid, wallMat);
+          pushBox(INT_T, WALL_H - WIN_TOP, len, x, (WIN_TOP + WALL_H) / 2, mid, wallMat);
+          pushBox(INT_T * 0.35, WIN_TOP - WIN_SILL, len, x, (WIN_SILL + WIN_TOP) / 2, mid, glassMat);
+        }
         wallSegs.push({ pos: [x, WALL_H / 2, (seg.a + seg.b) / 2], size: [INT_T, WALL_H, seg.b - seg.a] });
       }
     }
     for (const [z, segs] of hMap) {
       if (!isInterior(z, W)) continue;
+      const openings = courtyard.horizontal.filter((o) => Math.abs(o.line - z) < TOL);
       for (const seg of mergeIntervals(segs)) {
-        pushBox(seg.b - seg.a, WALL_H, INT_T, (seg.a + seg.b) / 2, WALL_H / 2, z, wallMat);
+        const { solids, cuts } = cutSegment(seg.a, seg.b, openings);
+        for (const solid of solids) {
+          pushBox(solid.b - solid.a, WALL_H, INT_T, (solid.a + solid.b) / 2, WALL_H / 2, z, wallMat);
+        }
+        for (const cut of cuts) {
+          const mid = (cut.a + cut.b) / 2;
+          const len = cut.b - cut.a;
+          pushBox(len, WIN_SILL, INT_T, mid, WIN_SILL / 2, z, wallMat);
+          pushBox(len, WALL_H - WIN_TOP, INT_T, mid, (WIN_TOP + WALL_H) / 2, z, wallMat);
+          pushBox(len, WIN_TOP - WIN_SILL, INT_T * 0.35, mid, (WIN_SILL + WIN_TOP) / 2, z, glassMat);
+        }
         wallSegs.push({ pos: [(seg.a + seg.b) / 2, WALL_H / 2, z], size: [seg.b - seg.a, WALL_H, INT_T] });
       }
     }
@@ -532,12 +578,8 @@ export function FloorPlan3DHD({
     if (qs.edgeLines) {
       const edgeMatArchi = track(new THREE.LineBasicMaterial({ color: 0x8a8578, transparent: true, opacity: 0.35 }));
       const edgeMatReal = track(new THREE.LineBasicMaterial({ color: 0x6b665c, transparent: true, opacity: 0.25 }));
-      // Contour du volume extérieur (4 côtés × arêtes verticales + couronne)
-      const shell = new THREE.BoxGeometry(L, WALL_H, W);
-      const shellEdges = track(new THREE.EdgesGeometry(shell, 20));
-      shell.dispose();
-      archiEdges.add(new THREE.LineSegments(shellEdges, edgeMatArchi));
-      realisticEdges.add(new THREE.LineSegments(shellEdges, edgeMatReal));
+      // Aucun contour filaire autour du volume : seules les arêtes des
+      // cloisons réelles sont tracées (pas de cadre parasite autour du bâti).
       // Arêtes des cloisons principales
       for (const seg of wallSegs) {
         const g = new THREE.BoxGeometry(seg.size[0], seg.size[1], seg.size[2]);
@@ -803,12 +845,10 @@ export function FloorPlan3DHD({
       <div
         ref={containerRef}
         className={cn(
-          "w-full rounded-lg overflow-hidden bg-gradient-to-b from-sky-100 via-sky-50 to-emerald-50 dark:from-slate-900 dark:via-slate-850 dark:to-slate-800 touch-none",
-          isFullscreen
-            ? "h-[calc(100vh-0px)] sm:h-[calc(100vh-0px)]"
-            : compact
-              ? "h-[165px] sm:h-[195px]"
-              : "h-[320px] sm:h-[400px]",
+          // Fond d'atelier clair dans tous les thèmes : aucune bande sombre
+          // ne doit encadrer la maquette 3D.
+          "w-full rounded-lg overflow-hidden bg-gradient-to-b from-sky-50 via-white to-emerald-50 touch-none",
+          compact ? "h-[165px] sm:h-[195px]" : "h-[320px] sm:h-[400px]",
         )}
       />
       {/* Bandeau « Mode performance activé » (dégradation automatique, non bloquant) */}
@@ -854,16 +894,23 @@ export function FloorPlan3DHD({
           <ToolBtn active={showLabels} onClick={() => setShowLabels((s) => !s)} title="Afficher/Masquer les noms des pièces">
             <Tag className="h-3.5 w-3.5" />
           </ToolBtn>
-          <ToolBtn onClick={toggleFullscreen} title="Plein écran">
-            {isFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
-          </ToolBtn>
         </div>
       </div>
-      <div className="absolute bottom-2 left-2 flex items-center gap-1.5 text-[9px] text-muted-foreground bg-background/80 rounded-md px-2 py-1 border pointer-events-none">
-        <MousePointerClick className="h-3 w-3" />
+      <div className="absolute bottom-2 left-2 right-28 flex items-center gap-1.5 text-[9px] leading-tight text-muted-foreground bg-background/80 rounded-md px-2 py-1 border pointer-events-none">
+        <MousePointerClick className="h-3 w-3 shrink-0" />
         Touchez une pièce · Pincez pour zoomer · Qualité {quality === "high" ? "élevée" : quality === "medium" ? "moyenne" : "allégée"}
       </div>
       </>
+      )}
+      {/* Zoom + / − : même commande que la vue 2D, sans masquer le bâti. */}
+      {!compact && (
+        <PlanZoomButtons
+          className="absolute bottom-2 right-2"
+          onZoomIn={() => zoomBy(1.25)}
+          onZoomOut={() => zoomBy(1 / 1.25)}
+          onReset={fitToScene}
+          resetLabel="Recadrer la vue 3D"
+        />
       )}
     </div>
   );

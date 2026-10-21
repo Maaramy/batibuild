@@ -3,10 +3,12 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
-  Box, EyeOff, Eye, Maximize, Minimize, MousePointerClick, RotateCcw, Tag,
+  Box, EyeOff, Eye, MousePointerClick, RotateCcw, Tag,
 } from "lucide-react";
 import type { FloorPlan, RoomKind, SitePlan } from "@/lib/floorPlanEngine";
 import { buildSiteScene } from "./site3D";
+import { PlanZoomButtons } from "./PlanZoomButtons";
+import { courtyardWindows, cutSegment } from "./interiorWalls";
 import { roomFurniture, type MatTag } from "@/lib/furniture";
 import { cn } from "@/lib/utils";
 
@@ -17,8 +19,9 @@ import { cn } from "@/lib/utils";
 //  · Sols colorés par pièce + labels (noms) togglables + cotes d'emprise.
 //  · Performance : géométries fusionnées par matériau (1 draw call / matériau),
 //    mode léger automatique (sans ombres, pixelRatio 1) sur appareils modestes.
-//  · Caméra orbitale : rotation 360°, zoom, pan, presets (dessus, face, côtés,
-//    perspective, intérieure), réinitialisation, plein écran.
+//  · Caméra orbitale : rotation 360°, zoom (+ / − et pincement), pan, presets
+//    (dessus, face, côtés, perspective, intérieure), recadrage. Le plan reste
+//    toujours dans son conteneur (aucun plein écran).
 //  · Sélection : clic sur un sol de pièce → onSelectRoom (synchro avec le 2D) ;
 //    selectedRoomId → surbrillance (synchro 2D → 3D).
 // ============================================================================
@@ -92,8 +95,6 @@ export interface FloorPlan3DProps {
   onSelectRoom?: (roomId: string | null) => void;
   /** Force le mode léger (rendu sans ombres, pixelRatio réduit). */
   lite?: boolean;
-  /** Plein écran contrôlé par le parent (le conteneur occupe alors tout l'espace). */
-  fullscreen?: boolean;
   className?: string;
   /**
    * Rendu COMPACT (vignette) : hauteur réduite et barre d'outils/aide masquées.
@@ -127,7 +128,6 @@ export function FloorPlan3DLegacy({
   selectedRoomId,
   onSelectRoom,
   lite: liteProp,
-  fullscreen = false,
   className,
   compact = false,
 }: FloorPlan3DProps) {
@@ -136,7 +136,6 @@ export function FloorPlan3DLegacy({
 
   const [showLabels, setShowLabels] = useState(true);
   const [showDims, setShowDims] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(fullscreen);
   const [preset, setPreset] = useState<ViewPreset>("orbit");
 
   const controlsRef = useRef<OrbitControls | null>(null);
@@ -148,17 +147,6 @@ export function FloorPlan3DLegacy({
   const roomMeshesRef = useRef<Map<string, { cx: number; cz: number; w: number; h: number }>>(
     new Map(),
   );
-
-  useEffect(() => setIsFullscreen(fullscreen), [fullscreen]);
-
-  // Sortie du plein écran natif (Échap) → resynchronise l'état du bouton
-  useEffect(() => {
-    const onFsChange = () => {
-      if (!document.fullscreenElement) setIsFullscreen(false);
-    };
-    document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
-  }, []);
 
   // ── Presets caméra ────────────────────────────────────────────────────────
   const applyPreset = useCallback(
@@ -212,17 +200,21 @@ export function FloorPlan3DLegacy({
     [plan, site],
   );
 
-  // ── Plein écran natif sur le conteneur ────────────────────────────────────
-  const toggleFullscreen = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen?.().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.().catch(() => {});
-      setIsFullscreen(false);
-    }
+  // Zoom caméra progressif (+ / −) : même comportement que la vue HD, borné
+  // par les limites des contrôles orbitaux (pas de plan inaccessible).
+  const zoomBy = useCallback((factor: number) => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+    const offset = camera.position.clone().sub(controls.target);
+    const distance = offset.length();
+    if (distance < 0.001) return;
+    const min = Math.max(0.5, controls.minDistance || 0.5);
+    const max = Math.max(min + 0.1, controls.maxDistance || distance * 2.6);
+    const next = Math.min(max, Math.max(min, distance / factor));
+    camera.position.copy(controls.target).add(offset.setLength(next));
+    camera.updateProjectionMatrix();
+    controls.update();
   }, []);
 
   // ── Construction de la scène ──────────────────────────────────────────────
@@ -350,13 +342,22 @@ export function FloorPlan3DLegacy({
     ];
     for (const r of plan.rooms) {
       for (const win of r.windows) {
+        // Fenêtres de façade uniquement : celles des patios sont percées dans
+        // les cloisons intérieures, jamais reportées sur une façade au hasard.
+        const onEnvelope =
+          (win.wall === "N" && r.y < TOL) ||
+          (win.wall === "S" && Math.abs(r.y + r.h - W) < TOL) ||
+          (win.wall === "W" && r.x < TOL) ||
+          (win.wall === "E" && Math.abs(r.x + r.w - L) < TOL);
+        if (!onEnvelope) continue;
         const side = win.wall as "N" | "S" | "W" | "E";
         const start =
           win.wall === "N" || win.wall === "S" ? r.x + win.position : r.y + win.position;
         sides.find((s) => s.key === side)!.openings.push({ a: start, b: start + win.width, kind: "win" });
-      }
-      for (const d of r.doors) {
-        if (!d.isEntry) continue;
+      }      for (const d of r.doors) {
+        // Toute ouverture extérieure réelle est percée : l'entrée principale
+        // ET la sortie de secours (mêmes données qu'en 2D).
+        if (!d.isEntry && !d.isEmergency) continue;
         const side = d.wall as "N" | "S" | "W" | "E";
         const start =
           d.wall === "N" || d.wall === "S" ? r.x + d.position : r.y + d.position;
@@ -421,15 +422,41 @@ export function FloorPlan3DLegacy({
       }
     }
     const isInterior = (v: number, max: number) => v > TOL && Math.abs(v - max) > TOL;
+    // Fenêtres de cour / patio : percées dans la cloison (même donnée que 2D).
+    const courtyard = courtyardWindows(plan);
     for (const [x, segs] of vMap) {
       if (!isInterior(x, L)) continue;
-      for (const seg of mergeIntervals(segs))
-        pushBox(INT_T, WALL_H, seg.b - seg.a, x, WALL_H / 2, (seg.a + seg.b) / 2, wallMat);
+      const openings = courtyard.vertical.filter((o) => Math.abs(o.line - x) < TOL);
+      for (const seg of mergeIntervals(segs)) {
+        const { solids, cuts } = cutSegment(seg.a, seg.b, openings);
+        for (const solid of solids) {
+          pushBox(INT_T, WALL_H, solid.b - solid.a, x, WALL_H / 2, (solid.a + solid.b) / 2, wallMat);
+        }
+        for (const cut of cuts) {
+          const mid = (cut.a + cut.b) / 2;
+          const len = cut.b - cut.a;
+          pushBox(INT_T, WIN_SILL, len, x, WIN_SILL / 2, mid, wallMat);
+          pushBox(INT_T, WALL_H - WIN_TOP, len, x, (WIN_TOP + WALL_H) / 2, mid, wallMat);
+          pushBox(INT_T * 0.35, WIN_TOP - WIN_SILL, len, x, (WIN_SILL + WIN_TOP) / 2, mid, glassMat);
+        }
+      }
     }
     for (const [z, segs] of hMap) {
       if (!isInterior(z, W)) continue;
-      for (const seg of mergeIntervals(segs))
-        pushBox(seg.b - seg.a, WALL_H, INT_T, (seg.a + seg.b) / 2, WALL_H / 2, z, wallMat);
+      const openings = courtyard.horizontal.filter((o) => Math.abs(o.line - z) < TOL);
+      for (const seg of mergeIntervals(segs)) {
+        const { solids, cuts } = cutSegment(seg.a, seg.b, openings);
+        for (const solid of solids) {
+          pushBox(solid.b - solid.a, WALL_H, INT_T, (solid.a + solid.b) / 2, WALL_H / 2, z, wallMat);
+        }
+        for (const cut of cuts) {
+          const mid = (cut.a + cut.b) / 2;
+          const len = cut.b - cut.a;
+          pushBox(len, WIN_SILL, INT_T, mid, WIN_SILL / 2, z, wallMat);
+          pushBox(len, WALL_H - WIN_TOP, INT_T, mid, (WIN_TOP + WALL_H) / 2, z, wallMat);
+          pushBox(len, WIN_TOP - WIN_SILL, INT_T * 0.35, mid, (WIN_SILL + WIN_TOP) / 2, z, glassMat);
+        }
+      }
     }
 
     // Flush des batches (murs / vitrages / portes)
@@ -678,8 +705,9 @@ export function FloorPlan3DLegacy({
       <div
         ref={containerRef}
         className={cn(
-          "w-full rounded-lg overflow-hidden bg-gradient-to-b from-sky-100 via-sky-50 to-emerald-50 dark:from-slate-900 dark:via-slate-850 dark:to-slate-800",
-          isFullscreen ? "h-[70vh]" : compact ? "h-[165px] sm:h-[195px]" : "h-[320px] sm:h-[400px]",
+          // Fond clair constant : aucune bande sombre autour de la maquette.
+          "w-full rounded-lg overflow-hidden bg-gradient-to-b from-sky-50 via-white to-emerald-50",
+          compact ? "h-[165px] sm:h-[195px]" : "h-[320px] sm:h-[400px]",
         )}
       />
       {/* Barre d'outils + aide (masquées en rendu compact) */}
@@ -720,16 +748,23 @@ export function FloorPlan3DLegacy({
           >
             <Tag className="h-3.5 w-3.5" />
           </ToolBtn>
-          <ToolBtn onClick={toggleFullscreen} title="Plein écran">
-            {isFullscreen ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}
-          </ToolBtn>
         </div>
       </div>
-      <div className="absolute bottom-2 left-2 flex items-center gap-1.5 text-[9px] text-muted-foreground bg-background/80 rounded-md px-2 py-1 border pointer-events-none">
-        <MousePointerClick className="h-3 w-3" />
+      <div className="absolute bottom-2 left-2 right-28 flex items-center gap-1.5 text-[9px] leading-tight text-muted-foreground bg-background/80 rounded-md px-2 py-1 border pointer-events-none">
+        <MousePointerClick className="h-3 w-3 shrink-0" />
         Touchez une pièce pour la sélectionner · Pincez pour zoomer
       </div>
       </>
+      )}
+      {/* Zoom + / − : mêmes boutons que la vue 2D et la vue HD. */}
+      {!compact && (
+        <PlanZoomButtons
+          className="absolute bottom-2 right-2"
+          onZoomIn={() => zoomBy(1.25)}
+          onZoomOut={() => zoomBy(1 / 1.25)}
+          onReset={() => applyPreset("orbit")}
+          resetLabel="Recadrer la vue 3D"
+        />
       )}
     </div>
   );

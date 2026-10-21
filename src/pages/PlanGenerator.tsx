@@ -14,7 +14,6 @@ import {
   Lightbulb,
   Loader2,
   Map as MapIcon,
-  Maximize2,
   Ruler,
   ScanLine,
   Trees,
@@ -56,10 +55,15 @@ import {
   VARIANTS_PER_PROJECT,
 } from "@/lib/floorPlanEngine";
 import type { FloorPlan, FloorPlanVariant } from "@/lib/floorPlanEngine";
-import { FloorPlan2D } from "@/components/floorplan/FloorPlan2D";
+import {
+  FloorPlan2D,
+  PLAN_ZOOM_MAX,
+  PLAN_ZOOM_MIN,
+  PLAN_ZOOM_STEP,
+} from "@/components/floorplan/FloorPlan2D";
+import { PlanZoomButtons } from "@/components/floorplan/PlanZoomButtons";
 import { FloorPlan3D } from "@/components/floorplan/FloorPlan3D";
 import { SiteLegend, SitePlan2D } from "@/components/floorplan/SitePlan2D";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { cn } from "@/lib/utils";
 import { analyzeFloorPlan } from "@/lib/planAnalysis";
@@ -509,7 +513,9 @@ function VariantCard({
 }) {
   const [floorIdx, setFloorIdx] = useState(0);
   const [view, setView] = useState<"2d" | "mass" | "3d">("2d");
-  const [previewOpen, setPreviewOpen] = useState(false);
+  // Zoom du plan 2D uniquement (la vue 3D pilote sa caméra avec les mêmes
+  // boutons + / −). Aucun changement de dimensions ni de surfaces.
+  const [zoom2d, setZoom2d] = useState(1);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
   // Téléchargement PDF : contrôle centralisé (réservé au forfait payant Client Pro).
@@ -632,7 +638,12 @@ function VariantCard({
                 {variant.floors.map((f) => (
                   <button
                     key={f.level}
-                    onClick={() => setFloorIdx(f.level)}
+                    onClick={() => {
+                      setFloorIdx(f.level);
+                      // Nouveau niveau = plan entier : jamais un cadrage
+                      // hérité du niveau précédent.
+                      setZoom2d(1);
+                    }}
                     className={cn(
                       "h-6 px-2 rounded-md text-[10px] font-medium border transition-colors cursor-pointer",
                       f.level === floorIdx
@@ -686,27 +697,33 @@ function VariantCard({
               )}
             </div>
           ) : view === "2d" ? (
-            <div
-              className="relative group cursor-zoom-in"
-              role="button"
-              tabIndex={0}
-              aria-label="Afficher le plan 2D en plein écran"
-              onClick={() => setPreviewOpen(true)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setPreviewOpen(true);
-                }
-              }}
-            >
+            // Le plan reste dans sa carte : le clic sur une pièce sélectionne
+            // la pièce (synchro 2D ↔ 3D) et n'ouvre plus aucun plein écran.
+            <div className="relative">
               <FloorPlan2D
                 plan={floor}
                 selectedRoomId={selectedRoomId}
                 onSelectRoom={setSelectedRoomId}
+                zoom={zoom2d}
               />
-              <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md border bg-background/90 px-2 py-1 text-[10px] font-medium text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100">
-                <Maximize2 className="h-3 w-3" /> Plein écran
-              </span>
+              <PlanZoomButtons
+                className="absolute bottom-2 right-2"
+                zoom={zoom2d}
+                canZoomIn={zoom2d < PLAN_ZOOM_MAX}
+                canZoomOut={zoom2d > PLAN_ZOOM_MIN}
+                onZoomIn={() =>
+                  setZoom2d((z) =>
+                    Math.min(PLAN_ZOOM_MAX, Math.round((z + PLAN_ZOOM_STEP) * 100) / 100),
+                  )
+                }
+                onZoomOut={() =>
+                  setZoom2d((z) =>
+                    Math.max(PLAN_ZOOM_MIN, Math.round((z - PLAN_ZOOM_STEP) * 100) / 100),
+                  )
+                }
+                onReset={() => setZoom2d(1)}
+                resetLabel="Afficher le plan entier"
+              />
             </div>
           ) : (
             <FloorPlan3D
@@ -988,24 +1005,6 @@ function VariantCard({
         </CardContent>
       </Card>
 
-      {/* Plein écran du plan 2D */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-none w-[calc(100vw-2rem)] h-[calc(100vh-2rem)] max-w-full p-4 sm:p-6 overflow-auto bg-transparent border-transparent">
-          <DialogTitle className="sr-only">
-            Plan 2D — {variant.name} · {floorLabel}
-          </DialogTitle>
-          <div className="flex items-center justify-between gap-2 mb-3 pr-10">
-            <p className="text-sm font-semibold tracking-tight truncate">
-              {variant.name} · {floorLabel} — Plan 2D
-            </p>
-          </div>
-          <div className="mx-auto w-full max-w-6xl">
-            <div className="rounded-md border bg-white p-2 shadow-sm">
-              <FloorPlan2D plan={floor} />
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </motion.div>
   );
 }

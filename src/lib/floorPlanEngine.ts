@@ -55,6 +55,11 @@ export interface DoorSpec {
   width: number;
   /** Porte d'entrée principale ? */
   isEntry?: boolean;
+  /**
+   * Porte de sortie de secours ? Deuxième issue sur une façade différente de
+   * l'entrée, rendue à l'identique en 2D et en 3D (même donnée).
+   */
+  isEmergency?: boolean;
 }
 
 export interface WindowSpec {
@@ -1004,6 +1009,75 @@ function addPairedDoor(
 }
 
 /**
+ * Pose une porte dans un mur de façade, centrée sur le mur et décalée si une
+ * ouverture existe déjà. Renvoie `false` si aucune place libre n'est trouvée.
+ * Utilisée pour l'entrée principale et la sortie de secours : l'ouverture est
+ * une vraie donnée du plan (2D = 3D), jamais un élément décoratif.
+ */
+function addFacadeDoor(
+  room: PlanRoom,
+  side: WallSide,
+  desiredWidth: number,
+  flags: { isEntry?: boolean; isEmergency?: boolean } = {},
+): boolean {
+  const span = side === "N" || side === "S" ? room.w : room.h;
+  const width = round3(Math.min(desiredWidth, span - 0.4));
+  if (width < 0.6) return false;
+  const existing = [...room.doors, ...room.windows].filter((o) => o.wall === side);
+  const clampPos = (raw: number) => Math.max(0.2, Math.min(raw, span - width - 0.2));
+  const free = (raw: number) => {
+    const pos = clampPos(raw);
+    return existing.every(
+      (o) => pos >= o.position + o.width + 0.15 || pos + width <= o.position - 0.15,
+    );
+  };
+  const candidates = [span / 2 - width / 2, 0.2, span - width - 0.2];
+  const position = candidates.find(free);
+  if (position === undefined) return false;
+  room.doors.push({
+    wall: side,
+    position: round3(clampPos(position)),
+    width,
+    ...flags,
+  });
+  return true;
+}
+
+/**
+ * Place une fenêtre dans le plus grand espace LIBRE d'un mur, entre les
+ * portes existantes. `from`/`to` limitent la zone autorisée le long du mur
+ * (mur de cour partagé) ; la position reste relative à l'origine du mur de la
+ * pièce. Renvoie `null` si l'espace libre est trop court : une fenêtre n'est
+ * jamais superposée à une porte.
+ */
+function fitWindowOnWall(
+  room: PlanRoom,
+  side: WallSide,
+  from: number,
+  to: number,
+  desired: number,
+  minWidth: number,
+): { position: number; width: number } | null {
+  if (to - from < minWidth) return null;
+  const obstacles = room.doors
+    .filter((d) => d.wall === side)
+    .map((d) => ({ a: d.position - 0.15, b: d.position + d.width + 0.15 }))
+    .sort((x, y) => x.a - y.a);
+  let cursor = from;
+  let best = { start: from, len: 0 };
+  for (const o of obstacles) {
+    const end = Math.min(to, o.a);
+    if (end > cursor && end - cursor > best.len) best = { start: cursor, len: end - cursor };
+    cursor = Math.max(cursor, Math.min(to, o.b));
+    if (cursor >= to) break;
+  }
+  if (to > cursor && to - cursor > best.len) best = { start: cursor, len: to - cursor };
+  const width = Math.min(desired, best.len);
+  if (width < minWidth) return null;
+  return { position: round3(best.start + (best.len - width) / 2), width: round3(width) };
+}
+
+/**
  * Portes et fenêtres d'un niveau.
  *
  * Circulation : un arbre couvrant de poids maximal relie toutes les pièces à
@@ -1011,6 +1085,10 @@ function addPairedDoor(
  * évite les portes orphelines et les arcs de débattement dans le vide. Les
  * liaisons vers un couloir, un hall ou le séjour sont privilégiées ; deux
  * chambres ne sont jamais reliées directement si un autre chemin existe.
+ *
+ * Façades : une porte d'entrée principale et une porte de sortie de secours
+ * (RDC) sont placées sur deux façades différentes, puis des fenêtres éclairent
+ * les pièces habitables (et les pièces d'eau) sur les façades extérieures.
  */
 function addOpenings(
   level: FloorPlan,
@@ -1088,37 +1166,64 @@ function addOpenings(
     inTree.add(e.b);
   }
 
-  // ── 2. Porte d'entrée sur la façade rue ─────────────────────────────────
+  const opposite: Record<WallSide, WallSide> = { N: "S", S: "N", E: "W", W: "E" };
+
+  // ── 2. Porte d'entrée principale sur la façade rue ───────────────────────
+  let entrySide: WallSide | null = null;
   if (isGroundFloor && entry) {
     const side: WallSide =
       onFacade(entry, profile.mainFacade)
         ? profile.mainFacade
         : (["S", "E", "W", "N"] as WallSide[]).find((s) => onFacade(entry!, s)) ?? "S";
-    const wallLen = side === "N" || side === "S" ? entry.w : entry.h;
-    const width = Math.min(1.1, wallLen - 0.4);
-    const existing = entry.doors.filter((d) => d.wall === side);
-    const candidates = [
-      wallLen / 2 - width / 2,
-      0.2,
-      wallLen - width - 0.2,
+    entrySide = side;
+    addFacadeDoor(entry, side, 1.1, { isEntry: true });
+  }
+
+  // ── 3. Porte de sortie de secours (rez-de-chaussée) ─────────────────────
+  // Exigence de sécurité : une deuxième issue vers l'extérieur, sur une façade
+  // DIFFÉRENTE de l'entrée. Elle privilégie la façade opposée, puis une
+  // circulation ou une pièce publique (hall, séjour, couloir, cuisine, garage)
+  // avant les pièces privées, et une largeur de mur suffisante pour un battant
+  // de 0,90 m. La porte est ajoutée dans le mur réel : elle est donc percée et
+  // affichée à l'identique en 2D et en 3D, sans modifier aucune surface.
+  if (isGroundFloor && entrySide) {
+    const sideOrder: WallSide[] = [
+      opposite[entrySide],
+      ...(["N", "S", "E", "W"] as WallSide[]).filter(
+        (s) => s !== entrySide && s !== opposite[entrySide],
+      ),
     ];
-    let position = candidates[0];
+    const rankSide = (side: WallSide) => sideOrder.indexOf(side);
+    const rankKind = (r: PlanRoom) =>
+      CIRCULATION_KINDS.has(r.kind) ? 0 : PRIVATE_KINDS.has(r.kind) ? 2 : 1;
+    const candidates: { room: PlanRoom; side: WallSide; span: number }[] = [];
+    for (const r of rooms) {
+      if (r === entry) continue;
+      for (const side of ["N", "S", "E", "W"] as WallSide[]) {
+        if (side === entrySide || !onFacade(r, side)) continue;
+        const span = side === "N" || side === "S" ? r.w : r.h;
+        if (span < 1.4) continue;
+        candidates.push({ room: r, side, span });
+      }
+    }
+    candidates.sort(
+      (a, b) =>
+        rankSide(a.side) - rankSide(b.side) ||
+        rankKind(a.room) - rankKind(b.room) ||
+        b.span - a.span,
+    );
+    let emergencyAdded = false;
     for (const c of candidates) {
-      const pos = Math.max(0.2, Math.min(c, wallLen - width - 0.2));
-      const clash = existing.some(
-        (d) => pos < d.position + d.width + 0.15 && pos + width > d.position - 0.15,
-      );
-      if (!clash) {
-        position = pos;
+      if (addFacadeDoor(c.room, c.side, 0.9, { isEmergency: true })) {
+        emergencyAdded = true;
         break;
       }
     }
-    entry.doors.push({
-      wall: side,
-      position: round3(position),
-      width: round3(width),
-      isEntry: true,
-    });
+    // Dernier recours (plan très compact) : la pièce d'entrée reçoit sa
+    // deuxième issue sur la façade opposée, jamais sur celle de l'entrée.
+    if (!emergencyAdded && entry) {
+      addFacadeDoor(entry, opposite[entrySide], 0.9, { isEmergency: true });
+    }
   }
 
   // Filet de sécurité : une pièce intérieure sans porte (cas limite d'une
@@ -1135,10 +1240,13 @@ function addOpenings(
     });
   }
 
-  // ── 3. Fenêtres : façade jardin prioritaire, double exposition ──────────
-  const opposite: Record<WallSide, WallSide> = { N: "S", S: "N", E: "W", W: "E" };
+  // ── 4. Fenêtres : façade jardin prioritaire, double exposition ──────────
+  // Pièces habitables ET pièces d'eau (ventilation) : chaque ouverture reste
+  // dans son mur, sans chevaucher la porte du même mur.
+  const WET_ROOMS = new Set<RoomKind>(["sdb", "wc", "sanitaire", "buanderie"]);
   for (const room of rooms) {
-    if (!HABITABLE_KINDS.has(room.kind)) continue;
+    const wet = WET_ROOMS.has(room.kind);
+    if (!HABITABLE_KINDS.has(room.kind) && !wet) continue;
     const sides: { side: WallSide; span: number; origin: number }[] = [
       { side: "N", span: room.w, origin: room.x },
       { side: "S", span: room.w, origin: room.x },
@@ -1156,30 +1264,21 @@ function addOpenings(
 
     let added = 0;
     for (const side of order) {
-      if (added >= 2) break;
+      if (added >= (wet ? 1 : 2)) break;
       const s = sides.find((x) => x.side === side)!;
-      if (!onFacade(room, side) || s.span < 0.9) continue;
+      if (!onFacade(room, side) || s.span < (wet ? 0.75 : 0.9)) continue;
       const isMain = side === profile.mainFacade;
-      const desired = isMain && profile.bayWindows ? 2.4 : isMain ? 1.6 : 1.2;
+      const desired = wet ? 0.6 : isMain && profile.bayWindows ? 2.4 : isMain ? 1.6 : 1.2;
       const winW = Math.min(desired, s.span - 0.3);
-      // Éviter le chevauchement avec une porte du même mur.
+      // Éviter le chevauchement avec une porte du même mur : la fenêtre est
+      // centrée dans le plus grand segment LIBRE du mur. Si ce segment est
+      // trop court, la fenêtre est omise sur ce mur (jamais superposée à une
+      // porte, et jamais repoussée dans le mur voisin).
       // `WindowSpec.position` est RELATIF à l'origine du mur de la pièce
       // (le rendu 2D ajoute r.x / r.y) — jamais une coordonnée globale.
-      const doors = room.doors.filter((d) => d.wall === side);
-      let pos = s.span / 2 - winW / 2;
-      for (const d of doors) {
-        if (pos < d.position + d.width + 0.15 && pos + winW > d.position - 0.15) {
-          pos = d.position + d.width + 0.2;
-        }
-      }
-      const maxPos = s.span - winW - 0.15;
-      if (pos > maxPos) pos = maxPos;
-      if (pos < 0.15) pos = 0.15;
-      room.windows.push({
-        wall: side,
-        position: round3(pos),
-        width: round3(winW),
-      });
+      const fitted = fitWindowOnWall(room, side, 0, s.span, winW, wet ? 0.45 : 0.6);
+      if (!fitted) continue;
+      room.windows.push({ wall: side, ...fitted });
       added++;
     }
 
@@ -1189,12 +1288,18 @@ function addOpenings(
       for (const ext of allRooms.filter((r) => r.exterior)) {
         const shared = sharedBoundary(room, ext);
         if (!shared || shared.len < 1.2) continue;
-        const winW = Math.min(1.4, shared.len - 0.3);
-        room.windows.push({
-          wall: shared.wallA,
-          position: round3(shared.startA + shared.len / 2 - winW / 2),
-          width: round3(winW),
-        });
+        // La fenêtre ne doit pas non plus recouvrir la porte de secours ou
+        // d'entrée posée sur ce mur de cour.
+        const fitted = fitWindowOnWall(
+          room,
+          shared.wallA,
+          shared.startA,
+          shared.startA + shared.len,
+          Math.min(1.4, shared.len - 0.3),
+          0.5,
+        );
+        if (!fitted) continue;
+        room.windows.push({ wall: shared.wallA, ...fitted });
         break;
       }
     }
@@ -2793,7 +2898,7 @@ function clampOpening(
  *  4. portes/fenêtres clampées dans leur mur (fenêtres sur murs, pas de
  *     porte hors clôture) ;
  *  5. portes candidates requalifiées en fenêtres si le mur est extérieur
- *     (l'accès principal reste une porte) ;
+ *     (l'entrée principale et la sortie de secours restent des portes) ;
  *  6. toute pièce sans accès reçoit une porte sur son mur le plus grand.
  */
 export function repairFloorPlan(plan: FloorPlan): FloorPlan {
@@ -2887,14 +2992,39 @@ export function repairFloorPlan(plan: FloorPlan): FloorPlan {
           (d.wall === "E" && onEdge(r.x + r.w, plan.length))),
     ).length;
     for (const d of r.doors) {
-      if (d.isEntry) continue;
+      // L'entrée principale et la sortie de secours sont des issues voulues :
+      // elles restent des portes, jamais requalifiées en fenêtres.
+      if (d.isEntry || d.isEmergency) continue;
       const isOnFacade =
         (d.wall === "N" && onEdge(r.y, 0)) ||
         (d.wall === "S" && onEdge(r.y + r.h, plan.width)) ||
         (d.wall === "W" && onEdge(r.x, 0)) ||
         (d.wall === "E" && onEdge(r.x + r.w, plan.length));
       if (isOnFacade && otherDoors >= 1) {
-        r.windows.push({ wall: d.wall, position: d.position, width: d.width });
+        // La fenêtre issue de la conversion ne doit jamais recouvrir une
+        // ouverture déjà présente sur le même mur (entrée, sortie de secours
+        // ou fenêtre existante) : elle est décalée dans l'espace libre, sinon
+        // simplement omise — la baie reste alors une porte du plan.
+        const wallLen = d.wall === "N" || d.wall === "S" ? r.w : r.h;
+        const width = Math.min(d.width, wallLen * 0.9);
+        const overlaps = (pos: number, w: number, o: { position: number; width: number }) =>
+          pos < o.position + o.width + 0.1 && pos + w > o.position - 0.1;
+        // Obstacles encore présents : fenêtres du mur + autres portes du mur
+        // (entrée, sortie de secours) — la porte convertie est retirée.
+        const blockers = [
+          ...r.windows.filter((w) => w.wall === d.wall),
+          ...r.doors
+            .filter((o) => o !== d && o.width > 0.01 && o.wall === d.wall)
+            .map((o) => ({ position: o.position, width: o.width })),
+        ];
+        let pos = Math.min(Math.max(0, d.position), Math.max(0, wallLen - width));
+        for (const b of blockers) {
+          if (overlaps(pos, width, b)) pos = b.position + b.width + 0.15;
+        }
+        if (pos + width > wallLen) pos = Math.max(0, wallLen - width);
+        if (!blockers.some((b) => overlaps(pos, width, b))) {
+          r.windows.push({ wall: d.wall, position: round3(pos), width: round3(width) });
+        }
         d.width = 0; // marquée pour suppression
       }
     }
