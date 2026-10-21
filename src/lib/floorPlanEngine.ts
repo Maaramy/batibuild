@@ -42,7 +42,12 @@ export type RoomKind =
   | "attente"
   // — Extérieur / annexes résidentielles —
   | "patio"
-  | "buanderie";
+  | "buanderie"
+  // — Commerce —
+  | "vente"
+  // — Piscine —
+  | "bassin"
+  | "local_technique";
 
 export type WallSide = "N" | "S" | "E" | "W";
 
@@ -290,6 +295,9 @@ export const PLAN_ROOM_COLORS: Record<RoomKind, string> = {
   attente: "#f3e8ff",
   patio: "#ecfccb",
   buanderie: "#e2e8f0",
+  vente: "#fde68a",
+  bassin: "#bae6fd",
+  local_technique: "#e2e8f0",
 };
 
 export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
@@ -321,26 +329,119 @@ export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
   attente: "Zone d'attente",
   patio: "Patio",
   buanderie: "Buanderie",
+  vente: "Espace de vente",
+  bassin: "Bassin",
+  local_technique: "Local technique",
 };
 
-// ── Familles de projets ─────────────────────────────────────────────────────
+// ── Typologie architecturale par type de projet ────────────────────────────
+//
+// Chaque type de projet Batibuild possède SA typologie de plan : ce n'est pas
+// une maison générique réutilisée. La typologie détermine le programme des
+// pièces, le nombre de niveaux réel, la distribution (unités multiples pour un
+// immeuble ou une résidence, espace unique détaillé pour une rénovation, bassin
+// + plages pour une piscine) et les éléments extérieurs pertinents. Le rendu 2D
+// et 3D consomme ensuite les mêmes données géométriques.
+
+export type PlanKind =
+  | "house"
+  | "apartment"
+  | "studio"
+  | "duplex"
+  | "building"
+  | "hotel"
+  | "office"
+  | "shop"
+  | "warehouse"
+  | "restaurant"
+  | "kitchen"
+  | "bathroom"
+  | "pool"
+  | "renovation";
 
 type ProjectFamily = "residential" | "commercial" | "logistics" | "restoration";
 
-function familyForCategory(category: string): ProjectFamily {
-  switch (category) {
-    case "local_commercial":
-    case "bureau":
+/** Typologie de plan associée au type de projet sélectionné. */
+export function planKindForCategory(category: string): PlanKind {
+  switch ((category ?? "").trim().toLowerCase()) {
+    case "piscine":
+    case "piscine_coque":
+      return "pool";
+    case "renovation_cuisine":
+      return "kitchen";
+    case "renovation_salle_de_bain":
+      return "bathroom";
+    case "studio":
+      return "studio";
+    case "appartement":
+      return "apartment";
+    case "duplex":
+      return "duplex";
+    case "immeuble":
+      return "building";
     case "residence_touristique":
-      return "commercial";
+      return "hotel";
+    case "bureau":
+      return "office";
+    case "local_commercial":
+      return "shop";
     case "entrepot":
-      return "logistics";
+      return "warehouse";
+    case "restaurant":
     case "cafe":
+      return "restaurant";
+    case "renovation_complete":
+    case "extension_batiment":
+    case "peinture_interieure":
+    case "electricite_complete":
+    case "plomberie_complete":
+      return "renovation";
+    default:
+      // maison, villa, projet_neuf et types inconnus : logement individuel.
+      return "house";
+  }
+}
+
+function familyForCategory(category: string): ProjectFamily {
+  switch (planKindForCategory(category)) {
+    case "office":
+    case "shop":
+    case "hotel":
+    case "building":
+      return "commercial";
+    case "warehouse":
+    case "pool":
+      return "logistics";
     case "restaurant":
       return "restoration";
     default:
-      // maison, villa, appartement, studio, duplex, immeuble, projet_neuf…
+      // house, apartment, studio, duplex, rénovations : logement.
       return "residential";
+  }
+}
+
+/**
+ * Nombre de niveaux RÉELLEMENT générés pour un type de projet.
+ *  · studio / appartement / rénovations / piscine : un seul niveau ;
+ *  · duplex : au moins deux niveaux reliés par l'escalier ;
+ *  · maison, villa, immeuble, bureau… : valeur du projet (aucun étage fictif).
+ */
+export function structuralLevels(kind: PlanKind, requested: number): number {
+  const r = Math.max(1, Math.min(6, Math.round(requested || 1)));
+  switch (kind) {
+    case "pool":
+    case "kitchen":
+    case "bathroom":
+    case "studio":
+    case "apartment":
+      return 1;
+    case "duplex":
+      // Un duplex comporte par définition deux niveaux reliés par l'escalier.
+      return Math.max(2, Math.min(3, r));
+    default:
+      // Maison, villa, immeuble, bureau… : le nombre de niveaux saisi pour le
+      // projet fait foi (aucun étage fictif, cohérence avec le calcul des coûts).
+      return r;
   }
 }
 
@@ -751,6 +852,232 @@ function restorationProgram(
   return items;
 }
 
+// ── Programmes spécifiques par typologie de projet ──────────────────────────
+
+/** Appartement en collectif : un niveau, entrée, séjour, cuisine, chambres. */
+function apartmentProgram(input: FloorPlanInput, area: number): ProgramItem[] {
+  const bedrooms = Math.max(
+    1,
+    Math.min(4, input.bedrooms && input.bedrooms > 0 ? input.bedrooms : Math.round(area / 30)),
+  );
+  const items: ProgramItem[] = [
+    {
+      kind: "hall",
+      label: "Hall d'entrée",
+      target: 4.5,
+      min: 2.8,
+      priority: 16,
+    },
+    {
+      kind: "sejour",
+      label: "Séjour",
+      target: Math.max(18, area * 0.3),
+      min: 14,
+      priority: 20,
+      habitable: true,
+      unique: true,
+    },
+    { kind: "cuisine", label: "Cuisine", target: 8.5, min: 5, priority: 15, habitable: true },
+  ];
+  for (let i = 0; i < bedrooms; i++) {
+    items.push({
+      kind: "chambre",
+      label: i === 0 ? "Chambre principale" : `Chambre ${i + 1}`,
+      target: i === 0 ? 14 : 11.5,
+      min: i === 0 ? 9 : 8.5,
+      priority: 13 - i,
+      habitable: true,
+    });
+  }
+  items.push({ kind: "sdb", label: "Salle de bain", target: 5.5, min: 3.5, priority: 10 });
+  items.push({ kind: "wc", label: "WC", target: 2.5, min: 1.5, priority: 6 });
+  if (area >= 90) {
+    items.push({ kind: "buanderie", label: "Buanderie", target: 4.5, min: 3, priority: 4 });
+  }
+  return items;
+}
+
+/** Studio : une pièce de vie dominante, coin nuit, kitchenette, salle d'eau. */
+function studioProgram(area: number): ProgramItem[] {
+  return [
+    {
+      kind: "sejour",
+      label: "Séjour",
+      target: Math.max(9, area * 0.36),
+      min: 8,
+      priority: 20,
+      habitable: true,
+      unique: true,
+    },
+    {
+      kind: "chambre",
+      label: "Coin nuit",
+      target: Math.max(6.5, area * 0.22),
+      min: 5.5,
+      priority: 15,
+      habitable: true,
+    },
+    {
+      kind: "cuisine",
+      label: "Kitchenette",
+      target: Math.max(3, area * 0.14),
+      min: 2.6,
+      priority: 12,
+      habitable: true,
+    },
+    {
+      kind: "sdb",
+      label: "Salle d'eau",
+      target: Math.max(3, area * 0.16),
+      min: 2.8,
+      priority: 11,
+    },
+    { kind: "hall", label: "Entrée", target: 3, min: 2, priority: 8 },
+  ];
+}
+
+/** Local commercial : accueil, surface de vente, réserve, sanitaires. */
+function shopProgram(area: number): ProgramItem[] {
+  return [
+    {
+      kind: "vente",
+      label: "Espace de vente",
+      target: Math.max(25, area * 0.55),
+      min: 18,
+      priority: 20,
+      habitable: true,
+      unique: true,
+    },
+    {
+      kind: "reception",
+      label: "Accueil / Caisse",
+      target: Math.max(6, area * 0.08),
+      min: 4,
+      priority: 16,
+      habitable: true,
+    },
+    {
+      kind: "stockage",
+      label: "Réserve",
+      target: Math.max(8, area * 0.18),
+      min: 6,
+      priority: 13,
+    },
+    { kind: "sanitaire", label: "Sanitaires", target: 5, min: 3, priority: 9 },
+    {
+      kind: "couloir",
+      label: "Circulation",
+      target: Math.max(3, area * 0.07),
+      min: 2.5,
+      priority: 7,
+    },
+  ];
+}
+
+/** Une unité de logement (appartement d'immeuble) ou une chambre d'hôtel. */
+function dwellingUnitProgram(
+  unitArea: number,
+  unitLabel: string,
+  kind: "apartment" | "hotel",
+): ProgramItem[] {
+  if (kind === "hotel") {
+    return [
+      {
+        kind: "chambre",
+        label: `Chambre ${unitLabel}`,
+        target: Math.max(12, unitArea * 0.62),
+        min: 9,
+        priority: 15,
+        habitable: true,
+        unique: true,
+      },
+      {
+        kind: "sdb",
+        label: `SDB ${unitLabel}`,
+        target: Math.max(4, unitArea * 0.24),
+        min: 3,
+        priority: 11,
+      },
+      { kind: "hall", label: `Entrée ${unitLabel}`, target: 3, min: 2, priority: 7 },
+    ];
+  }
+  const bedrooms = unitArea >= 62 ? 2 : 1;
+  const items: ProgramItem[] = [
+    {
+      kind: "sejour",
+      label: `Séjour ${unitLabel}`,
+      target: Math.max(12, unitArea * 0.28),
+      min: 10,
+      priority: 18,
+      habitable: true,
+      unique: true,
+    },
+    {
+      kind: "cuisine",
+      label: `Cuisine ${unitLabel}`,
+      target: 7,
+      min: 4.5,
+      priority: 14,
+      habitable: true,
+    },
+  ];
+  for (let i = 0; i < bedrooms; i++) {
+    items.push({
+      kind: "chambre",
+      label:
+        bedrooms === 1
+          ? `Chambre ${unitLabel}`
+          : i === 0
+            ? `Chambre 1 ${unitLabel}`
+            : `Chambre 2 ${unitLabel}`,
+      target: i === 0 ? 12 : 10,
+      min: 7.5,
+      priority: 13 - i,
+      habitable: true,
+    });
+  }
+  items.push({ kind: "sdb", label: `SDB ${unitLabel}`, target: 4.5, min: 3, priority: 10 });
+  items.push({ kind: "wc", label: `WC ${unitLabel}`, target: 2.2, min: 1.5, priority: 5 });
+  return items;
+}
+
+/** Accueil commun d'un immeuble ou d'une résidence (rez-de-chaussée). */
+function commonAreaProgram(kind: "building" | "hotel"): ProgramItem[] {
+  if (kind === "hotel") {
+    return [
+      {
+        kind: "reception",
+        label: "Réception",
+        target: 14,
+        min: 9,
+        priority: 20,
+        habitable: true,
+        unique: true,
+      },
+      {
+        kind: "sejour",
+        label: "Salon commun",
+        target: 16,
+        min: 11,
+        priority: 15,
+        habitable: true,
+      },
+      { kind: "sanitaire", label: "Sanitaires communs", target: 5, min: 3, priority: 9 },
+    ];
+  }
+  return [      {
+        kind: "hall",
+        label: "Espace commun",
+        target: 12,
+        min: 7,
+        priority: 18,
+        habitable: true,
+        unique: true,
+      },
+    { kind: "sanitaire", label: "Sanitaires communs", target: 4, min: 2.5, priority: 8 },
+  ];
+}
+
 // ── Découpage BSP (aucun chevauchement par construction) ────────────────────
 
 interface Rect {
@@ -872,26 +1199,38 @@ function fitProgram(items: ProgramItem[], available: number): ProgramItem[] {
       const weight = rooms.reduce((s, i) => s + i.target, 0);
       if (rooms.length > 0 && weight > 0) {
         for (const r of rooms) r.target += (leftover * r.target) / weight;
-      } else if (leftover >= 6) {
-        // Zone sans pièce de vie : le surplus devient un espace polyvalent
-        // (jeux, télétravail, réception) plutôt qu'un couloir surdimensionné.
-        fitted.push({
-          kind: "sejour",
-          label: "Espace polyvalent",
-          target: leftover,
-          min: 5,
-          priority: 2,
-          habitable: true,
-        });
       } else if (leftover >= 1.2) {
+        // Zone sans pièce de vie ni chambre (entrepôt, commerce, restauration) :
+        // le surplus revient à la pièce principale du programme, jamais à une
+        // pièce d'habitation inventée (un entrepôt n'a pas de séjour).
+        const main = [...fitted]
+          .filter((i) =>
+            ["stockage", "logistique", "vente", "salle_client", "openspace", "reunion"].includes(
+              i.kind,
+            ),
+          )
+          .sort((a, b) => b.target - a.target)[0];
+        if (main) {
+          main.target += leftover;
+        } else if (leftover >= 6) {
+          fitted.push({
+            kind: "polyvalent",
+            label: "Espace polyvalent",
+            target: leftover,
+            min: 5,
+            priority: 2,
+            habitable: true,
+          });
+        } else {
         // Petit surplus : rangement intégré, usage courant et surface utile.
-        fitted.push({
-          kind: "stockage",
-          label: "Rangement",
-          target: leftover,
-          min: 1.2,
-          priority: 1,
-        });
+          fitted.push({
+            kind: "stockage",
+            label: "Rangement",
+            target: leftover,
+            min: 1.2,
+            priority: 1,
+          });
+        }
       }
     }
   }
@@ -933,6 +1272,7 @@ const HABITABLE_KINDS = new Set<RoomKind>([
   "salle_client",
   "comptoir",
   "attente",
+  "vente",
 ]);
 
 interface SharedBoundary {
@@ -1509,6 +1849,12 @@ function buildLevel(
   items: ProgramItem[],
   variantSeed: number,
   profile: StyleProfile,
+  /**
+   * Logement traversant : distribution en deux bandes qui conservent chacune
+   * une façade. Utilisé pour les studios et appartements, dont chaque pièce
+   * habitable doit pouvoir s'éclairer naturellement sans couloir aveugle.
+   */
+  doubleExposure = false,
 ): FloorPlan {
   const plan: FloorPlan = {
     level: levelIdx,
@@ -1552,9 +1898,13 @@ function buildLevel(
   const enoughItems = items.length >= 4 + extraZones;
 
   let roomZones: Rect[] = [];
-  let specialRooms: { rect: Rect; kind: RoomKind; label: string; exterior?: boolean }[] = [];
+  const specialRooms: { rect: Rect; kind: RoomKind; label: string; exterior?: boolean }[] = [];
 
-  if (strategy === "patio" && enoughItems && mainZone.w >= 6 && mainZone.h >= 6) {
+  if (doubleExposure) {
+    // Le parti architectural ne découpe pas le logement : la double exposition
+    // prime pour garantir une fenêtre à chaque pièce habitable.
+    roomZones = [mainZone];
+  } else if (strategy === "patio" && enoughItems && mainZone.w >= 6 && mainZone.h >= 6) {
     const carved = carvePatio(mainZone, items);
     roomZones = carved.zones;
     specialRooms.push({ rect: carved.patio, kind: "patio", label: "Patio", exterior: true });
@@ -1599,11 +1949,17 @@ function buildLevel(
   }
 
   // Découpage des zones en pièces.
-  const placed = fillZones(
-    roomZones,
-    items,
-    strategy === "linear" && roomZones.length >= 2 ? "linear" : "bsp",
-  );
+  const placed = doubleExposure
+    ? doubleExposureLayout(
+        mainZone,
+        fitProgram(items, mainZone.w * mainZone.h),
+        mainZone.w >= mainZone.h ? "x" : "y",
+      )
+    : fillZones(
+        roomZones,
+        items,
+        strategy === "linear" && roomZones.length >= 2 ? "linear" : "bsp",
+      );
   for (const p of placed) {
     plan.rooms.push(
       makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable),
@@ -1649,6 +2005,300 @@ function buildLevel(
     r.area = round3(r.w * r.h);
   }
   return plan;
+}
+
+/**
+ * Distribution d'une unité en double exposition : une première coupe sépare
+ * deux bandes (ou deux colonnes) qui gardent chacune une façade, puis chaque
+ * bande est découpée en pièces. Contrairement au BSP libre, aucune pièce
+ * habitable ne se retrouve sans fenêtre au cœur du logement.
+ */
+function doubleExposureLayout<T extends { target: number }>(
+  rect: Rect,
+  items: T[],
+  axis: "x" | "y",
+): Placed<T>[] {
+  if (items.length <= 2) return bspLayout(rect, items);
+  const total = items.reduce((s, i) => s + i.target, 0) || 1;
+  const sorted = [...items].sort((a, b) => b.target - a.target);
+  const g1: T[] = [];
+  const g2: T[] = [];
+  let s1 = 0;
+  let s2 = 0;
+  for (const it of sorted) {
+    if (s1 <= s2) {
+      g1.push(it);
+      s1 += it.target;
+    } else {
+      g2.push(it);
+      s2 += it.target;
+    }
+  }
+  const frac = Math.min(0.72, Math.max(0.28, s1 / total));
+  if (axis === "y") {
+    const cut = round3(Math.max(1.2, Math.min(rect.h - 1.2, rect.h * frac)));
+    return [
+      ...stripLayout({ x: rect.x, y: rect.y, w: rect.w, h: cut }, g1, "x"),
+      ...stripLayout(
+        { x: rect.x, y: round3(rect.y + cut), w: rect.w, h: round3(rect.h - cut) },
+        g2,
+        "x",
+      ),
+    ];
+  }
+  const cut = round3(Math.max(1.2, Math.min(rect.w - 1.2, rect.w * frac)));
+  return [
+    ...stripLayout({ x: rect.x, y: rect.y, w: cut, h: rect.h }, g1, "y"),
+    ...stripLayout(
+      { x: round3(rect.x + cut), y: rect.y, w: round3(rect.w - cut), h: rect.h },
+      g2,
+      "y",
+    ),
+  ];
+}
+
+/**
+ * Découpe une bande (ou une colonne) en pièces juxtaposées : chaque pièce garde
+ * toute la hauteur (ou toute la largeur) de la bande, donc la façade de la
+ * bande. Aucune pièce intérieure aveugle n'est créée par cette passe.
+ */
+function stripLayout<T extends { target: number }>(
+  rect: Rect,
+  items: T[],
+  axis: "x" | "y",
+): Placed<T>[] {
+  if (items.length === 0) return [];
+  if (items.length === 1) return [{ item: items[0], rect: { ...rect } }];
+  const span = axis === "x" ? rect.w : rect.h;
+  const start = axis === "x" ? rect.x : rect.y;
+  const min = Math.min(1.15, span / items.length);
+  const total = items.reduce((s, i) => s + i.target, 0) || 1;
+  const free = Math.max(0, span - min * items.length);
+  const out: Placed<T>[] = [];
+  let cursor = start;
+  items.forEach((item, i) => {
+    const len = i === items.length - 1
+      ? round3(start + span - cursor)
+      : round3(min + (free * item.target) / total);
+    const r: Rect =
+      axis === "x"
+        ? { x: round3(cursor), y: rect.y, w: len, h: rect.h }
+        : { x: rect.x, y: round3(cursor), w: rect.w, h: len };
+    if (r.w > 0.2 && r.h > 0.2) out.push({ item, rect: r });
+    cursor = round3(cursor + len);
+  });
+  return out;
+}
+
+// ── Niveaux à unités multiples (immeuble, résidence touristique) ────────────
+//
+// Un immeuble n'est pas une maison agrandie : chaque niveau est un palier
+// desservi par la cage d'escalier (même position à tous les étages), et ce
+// palier distribue des UNITÉS (appartements ou chambres d'hébergement). Chaque
+// unité reçoit son propre programme (séjour, cuisine, chambre(s), SDB, WC) et
+// ses portes, dans un rectangle qui lui est propre : les logements ne se
+// traversent jamais.
+function buildMultiDwellingLevel(params: {
+  levelIdx: number;
+  length: number;
+  width: number;
+  units: { label: string; items: ProgramItem[] }[];
+  seed: number;
+  profile: StyleProfile;
+  /** Bâtiment à plusieurs niveaux : cage d'escalier + palier de distribution. */
+  withStair?: boolean;
+}): FloorPlan {
+  const { levelIdx, length, width, units, seed, profile } = params;
+  const withStair = params.withStair ?? true;
+  const plan: FloorPlan = {
+    level: levelIdx,
+    length,
+    width,
+    rooms: [],
+    area: length * width,
+  };
+  const rid = () => `L${levelIdx}-R${plan.rooms.length}`;
+
+  // Bande de circulation à l'est : palier sur toute la profondeur + cage
+  // d'escalier au sud. Identique à tous les niveaux (continuité verticale).
+  // Les unités sont des colonnes traversantes : chaque pièce conserve une
+  // façade nord ou sud, jamais un simple jour sur le palier.
+  const corridorW = round3(Math.min(2.2, Math.max(1.7, length * 0.16)));
+  const corridorX = round3(length - corridorW);
+  const stairH = withStair ? round3(Math.min(3.4, Math.max(2.6, width * 0.36))) : 0;
+  if (withStair) {
+    plan.rooms.push(
+      makeRoom(rid(), "escalier", "Escalier", corridorX, round3(width - stairH), corridorW, stairH),
+    );
+  }
+  const palierH = round3(width - stairH);
+  if (palierH > 1.2) {
+    plan.rooms.push(
+      makeRoom(
+        rid(),
+        levelIdx === 0 ? "hall" : "couloir",
+        levelIdx === 0 ? "Hall d'entrée" : "Palier de distribution",
+        corridorX,
+        0,
+        corridorW,
+        palierH,
+      ),
+    );
+  }
+
+  // Unités en colonnes traversantes à l'ouest du palier.
+  const zoneW = corridorX;
+  const n = Math.max(1, units.length);
+  const sliceW = round3(zoneW / n);
+  units.forEach((unit, i) => {
+    const x = round3(i * sliceW);
+    const w = i === n - 1 ? round3(zoneW - x) : sliceW;
+    if (w < 0.8 || width < 0.8) return;
+    const placed = doubleExposureLayout(
+      { x, y: 0, w, h: width },
+      fitProgram(unit.items, w * width),
+      "y",
+    );
+    for (const p of placed) {
+      plan.rooms.push(
+        makeRoom(
+          rid(),
+          p.item.kind,
+          p.item.label,
+          p.rect.x,
+          p.rect.y,
+          p.rect.w,
+          p.rect.h,
+          p.item.habitable,
+        ),
+      );
+    }
+  });
+
+  addOpenings(plan, levelIdx === 0, mulberry32(seed ^ (levelIdx * 7919)), profile);
+  clampLevelGeometry(plan);
+  return plan;
+}
+
+// ── Rénovation cuisine / salle de bain : un espace unique détaillé ────────
+//
+// Ces projets ne construisent pas une maison : le plan représente l'ESPACE
+// RÉNOVÉ, meublé et équipé (plan de travail, évier, appareils / douche, lavabo,
+// WC). La porte d'accès est celle de l'existant : elle est dessinée dans le mur
+// de desserte, sans créer de fausse entrée de bâtiment.
+function buildRenovationSpacePlan(params: {
+  levelIdx: number;
+  length: number;
+  width: number;
+  kind: "kitchen" | "bathroom";
+  seed: number;
+  profile: StyleProfile;
+}): FloorPlan {
+  const { levelIdx, length: L, width: W, kind, seed, profile } = params;
+  const plan: FloorPlan = { level: levelIdx, length: L, width: W, rooms: [], area: L * W };
+  let i = 0;
+  const rid = () => `L${levelIdx}-R${i++}`;
+
+  if (kind === "kitchen") {
+    // Cuisine + cellier en fond de pièce (rangement des denrées).
+    const pantryW = round3(Math.min(1.4, Math.max(0.9, L * 0.26)));
+    const kitchenW = round3(L - pantryW);
+    const kitchen = makeRoom(rid(), "cuisine", "Cuisine", 0, 0, kitchenW, W, true);
+    const pantry = makeRoom(rid(), "stockage", "Cellier", kitchenW, 0, pantryW, W);
+    plan.rooms.push(kitchen, pantry);
+    // Accès depuis le reste du logement : mur sud de la cuisine.
+    kitchen.doors.push({
+      wall: "S",
+      position: round3(Math.min(kitchenW - 1.1, Math.max(0.2, kitchenW * 0.5 - 0.45))),
+      width: 0.9,
+      // Accès existant conservé : ce n'est pas une fenêtre, la réparation ne le
+      // requalifie pas et le plan garde son entrée.
+      isEntry: true,
+    });
+  } else {
+    const bath = makeRoom(rid(), "sdb", "Salle de bain", 0, 0, L, W, true);
+    plan.rooms.push(bath);
+    if (Math.min(L, W) >= 1.9) {
+      // Porte sur le mur le plus long, dégagée des appareils sanitaires.
+      const wall: WallSide = L >= W ? "S" : "E";
+      const span = wall === "S" ? L : W;
+      bath.doors.push({
+        wall,
+        position: round3(Math.min(span - 1.0, Math.max(0.2, span - 1.1))),
+        width: 0.85,
+        isEntry: true,
+      });
+    }
+  }
+
+  // Fenêtres et aérations : mêmes règles que les autres plans, mais aucune
+  // porte d'entrée / de secours inventée sur la façade d'un espace rénové.
+  addOpenings(plan, false, mulberry32(seed), profile);
+  clampLevelGeometry(plan);
+  return plan;
+}
+
+// ── Piscine : bassin, plages et local technique ────────────────────────────
+//
+// Le plan d'une piscine n'est pas un plan de maison : il représente le bassin
+// (surface demandée), les plages de circulation autour, les accès et le local
+// technique. Aucun mur de bâtiment, aucune pièce habitable.
+function buildPoolPlan(params: {
+  levelIdx: number;
+  basinLength: number;
+  basinWidth: number;
+  profile: StyleProfile;
+}): FloorPlan {
+  const { levelIdx, basinLength: BL, basinWidth: BW } = params;
+  const deck = 1.5;
+  const techW = 2.5;
+  // Plage ouest + bassin + bande technique à l'est ; plages nord et sud en
+  // profondeur. La somme des pièces couvre exactement l'emprise du plan.
+  const L = round3(deck + BL + techW);
+  const W = round3(BW + 2 * deck);
+  const plan: FloorPlan = { level: levelIdx, length: L, width: W, rooms: [], area: L * W };
+  let i = 0;
+  const rid = () => `L${levelIdx}-R${i++}`;
+
+  plan.rooms.push(makeRoom(rid(), "bassin", "Bassin", deck, deck, BL, BW));
+  // Plages de circulation : espace extérieur praticable, jamais une pièce.
+  plan.rooms.push(makeRoom(rid(), "terrasse", "Plage nord", deck, 0, BL, deck, false, true));
+  plan.rooms.push(
+    makeRoom(rid(), "terrasse", "Plage sud", deck, round3(deck + BW), BL, deck, false, true),
+  );
+  plan.rooms.push(makeRoom(rid(), "terrasse", "Plage ouest", 0, 0, deck, W, false, true));
+  const techH = round3(Math.min(2.4, Math.max(2.0, W * 0.32)));
+  const eastX = round3(deck + BL);
+  plan.rooms.push(
+    makeRoom(rid(), "local_technique", "Local technique", eastX, 0, techW, techH, false, true),
+  );
+  if (W - techH > 0.8) {
+    plan.rooms.push(
+      makeRoom(
+        rid(),
+        "terrasse",
+        "Plage est",
+        eastX,
+        techH,
+        techW,
+        round3(W - techH),
+        false,
+        true,
+      ),
+    );
+  }
+  return plan;
+}
+
+/** Ramène toutes les pièces dans l'emprise et recalcule les surfaces. */
+function clampLevelGeometry(plan: FloorPlan): void {
+  for (const r of plan.rooms) {
+    r.x = round3(Math.max(0, r.x));
+    r.y = round3(Math.max(0, r.y));
+    if (r.x + r.w > plan.length) r.w = round3(plan.length - r.x);
+    if (r.y + r.h > plan.width) r.h = round3(plan.width - r.y);
+    r.area = round3(r.w * r.h);
+  }
 }
 
 function makeRoom(
@@ -1747,7 +2397,12 @@ export function validatePlan(
   if (!areasOk) score -= 10;
 
   // 4. Circulation : chaque pièce (hors couloirs/escaliers) dispose d'une porte
-  const NO_DOOR_KINDS = new Set<RoomKind>(["couloir", "escalier", "patio"]);
+  const NO_DOOR_KINDS = new Set<RoomKind>(["couloir", "escalier", "patio", "bassin"]);
+  // Une rénovation de cuisine / salle de bain réutilise l'accès existant et une
+  // piscine n'a pas de porte d'entrée : l'exigence de porte principale ne
+  // s'applique qu'aux bâtiments.
+  const planKind = planKindForCategory(input.category);
+  const entranceRequired = planKind !== "pool" && planKind !== "kitchen" && planKind !== "bathroom";
   let circulationOk = true;
   for (const fp of variant.floors) {
     for (const r of fp.rooms) {
@@ -1757,7 +2412,11 @@ export function validatePlan(
         issues.push(`Pièce sans accès : ${r.label} (niveau ${fp.level + 1})`);
       }
     }
-    if (fp.level === 0 && !fp.rooms.some((r) => r.doors.some((d) => d.isEntry))) {
+    if (
+      entranceRequired &&
+      fp.level === 0 &&
+      !fp.rooms.some((r) => r.doors.some((d) => d.isEntry))
+    ) {
       circulationOk = false;
       issues.push("Porte d'entrée manquante au rez-de-chaussée");
     }
@@ -1802,6 +2461,7 @@ export function validatePlan(
     "bureau",
     "openspace",
     "reception",
+    "vente",
   ];
   for (const fp of variant.floors) {
     for (const r of fp.rooms) {
@@ -1892,6 +2552,7 @@ function conceptNote(
   input: FloorPlanInput,
   variant: FloorPlanVariant,
   rng: () => number,
+  kind: PlanKind = planKindForCategory(input.category),
 ): string {
   const fam = familyForCategory(input.category);
   const ratios = variant.footprint.length / variant.footprint.width;
@@ -1903,15 +2564,33 @@ function conceptNote(
         : "un volume quasi carré qui limite les déperditions et rationalise la structure";
   const isResto = input.category === "cafe" || input.category === "restaurant";
   const org =
-    fam === "residential"
-      ? "Le rez-de-chaussée regroupe les espaces de vie, la cuisine et un hall qui filtre l'entrée ; les chambres sont regroupées à l'étage ou dans une zone nuit clairement séparée. Les circulations desservent chaque pièce sans traversée d'une chambre."
-      : fam === "commercial"
-        ? "L'accueil filtre naturellement les flux vers l'espace de travail ouvert et les bureaux fermés, avec les salles de réunion en profondeur."
-        : isResto
-          ? "La zone client " +
-            (input.category === "cafe" ? "salle café + comptoir" : "salle de restauration + bar") +
-            " occupe la façade principale, séparée de la cuisine professionnelle par un couloir de service respectant la marche en avant. Les sanitaires H/F/PMR sont accessibles depuis la salle client sans croiser la zone de production."
-          : "Le hall de stockage occupe le cœur du bâtiment, desservi directement par la zone logistique et les locaux d'exploitation.";
+    kind === "pool"
+      ? "Le bassin occupe le centre de la composition, entouré de plages de circulation continues et d'un local technique regroupant filtration et traitement. Les accès restent dégagés sur tout le pourtour du bassin."
+      : kind === "kitchen"
+        ? "Le plan représente l'espace rénové à sa surface réelle : plan de travail en L, évier sous la fenêtre, appareils électroménagers alignés et cellier de rangement en fond de pièce. Les portes et fenêtres existantes sont conservées."
+        : kind === "bathroom"
+          ? "Le plan détaille l'espace sanitaire réel : douche ou baignoire, lavabo et WC positionnés selon les arrivées d'eau, avec des dégagements praticables devant chaque appareil et la porte existante conservée."
+          : kind === "studio"
+            ? "Un espace compact et fonctionnel : la pièce de vie domine, le coin nuit reste séparé sans cloison lourde, la kitchenette s'aligne sur une paroi et la salle d'eau est regroupée près de l'entrée."
+            : kind === "apartment"
+              ? "Un logement de collectif distribué depuis un hall d'entrée : séjour et cuisine en façade, chambres en zone nuit, sanitaires regroupés pour limiter les circulations perdues."
+              : kind === "building"
+                ? "Chaque niveau s'organise autour de la cage d'escalier et d'un palier qui dessert des appartements autonomes, chacun avec son séjour, sa cuisine, ses chambres et ses sanitaires. Aucun logement n'est traversé pour en desservir un autre."
+                : kind === "hotel"
+                  ? "Le rez-de-chaussée porte la réception et les espaces communs, les niveaux supérieurs accueillent des chambres autonomes avec leur salle d'eau, toutes desservies par le palier de la cage d'escalier."
+                  : kind === "shop"
+                    ? "L'espace de vente occupe la façade et le cœur du local, l'accueil-caisse filtre l'entrée, la réserve et les sanitaires sont regroupés à l'arrière pour ne pas encombrer la surface commerciale."
+                    : kind === "duplex"
+                      ? "Le rez-de-chaussée regroupe les espaces de vie, la cuisine et les sanitaires de jour ; l'étage, relié par un escalier à gaine alignée, porte les chambres et leurs salles d'eau. La distribution est strictement jour/nuit."
+                      : fam === "residential"
+                        ? "Le rez-de-chaussée regroupe les espaces de vie, la cuisine et un hall qui filtre l'entrée ; les chambres sont regroupées à l'étage ou dans une zone nuit clairement séparée. Les circulations desservent chaque pièce sans traversée d'une chambre."
+                        : fam === "commercial"
+                          ? "L'accueil filtre naturellement les flux vers l'espace de travail ouvert et les bureaux fermés, avec les salles de réunion en profondeur."
+                          : isResto
+                            ? "La zone client " +
+                              (input.category === "cafe" ? "salle café + comptoir" : "salle de restauration + bar") +
+                              " occupe la façade principale, séparée de la cuisine professionnelle par un couloir de service respectant la marche en avant. Les sanitaires H/F/PMR sont accessibles depuis la salle client sans croiser la zone de production."
+                            : "Le hall de stockage occupe le cœur du bâtiment, desservi directement par la zone logistique et les locaux d'exploitation.";
   const strengths = [
     "aucun chevauchement entre pièces et aucune pièce hors emprise",
     "surfaces ventilées conformes aux minima d'habitabilité",
@@ -2432,7 +3111,6 @@ function buildSitePlan(params: {
   };
   const frontDepth = round3(plotW - (by + W));
   const eastDepth = round3(plotL - (bx + L));
-  const westDepth = bx;
 
   const occupied: { x: number; y: number; w: number; h: number; kind?: SiteElementKind }[] = [
     { x: bx - 0.6, y: by - 0.6, w: L + 1.2, h: W + 1.2 },
@@ -2681,7 +3359,12 @@ function computeSurfaces(
   site: SitePlan,
   totalBuilt: number,
 ): SurfaceBreakdown {
-  const COMPLEMENTARY = new Set<RoomKind>(["garage", "stockage", "logistique"]);
+  const COMPLEMENTARY = new Set<RoomKind>([
+    "garage",
+    "stockage",
+    "logistique",
+    "local_technique",
+  ]);
   let interior = 0;
   let complementary = 0;
   for (const floor of floors) {
@@ -2725,8 +3408,17 @@ function computeSurfaces(
  * Déterministe : le même projet produit toujours les mêmes plans.
  */
 export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
-  const surface = Math.max(18, input.surface || 90);
-  const levels = Math.max(1, Math.min(4, Math.round(input.floors || 1)));
+  // Typologie réelle du projet : elle pilote le programme, les niveaux, la
+  // distribution et les éléments extérieurs. Aucun type ne réutilise le plan
+  // d'un autre type par défaut.
+  const kind = planKindForCategory(input.category);
+  const isPool = kind === "pool";
+  const isRenovationSpace = kind === "kitchen" || kind === "bathroom";
+  const surface = Math.max(
+    isPool ? 12 : isRenovationSpace ? 4 : 18,
+    input.surface || (isPool ? 32 : isRenovationSpace ? 10 : 90),
+  );
+  const levels = structuralLevels(kind, input.floors ?? 1);
   const family = familyForCategory(input.category);
   const areaPerLevel = surface / levels;
   const baseSeed = 1337 +
@@ -2738,61 +3430,120 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
   for (let v = 0; v < STYLE_PROFILES.length; v++) {
     const profile = STYLE_PROFILES[v];
     const rng = mulberry32(baseSeed + v * 977);
-    // Emprise : longueur × largeur selon le ratio du parti architectural.
-    let L = Math.sqrt(areaPerLevel * profile.ratio);
-    let W = Math.sqrt(areaPerLevel / profile.ratio);
-    // Garde-fous constructifs
-    L = Math.min(Math.max(L, 5), 60);
-    W = Math.min(Math.max(W, 4), 40);
-    L = round3(L);
-    W = round3(W);
-
+    const seed = baseSeed + v * 977;
     const floors: FloorPlan[] = [];
-    if (family === "residential") {
-      const programs = residentialProgram(input, areaPerLevel, levels, profile);
-      for (const prog of programs) {
-        floors.push(
-          buildLevel(prog.level, levels, L, W, prog.items, baseSeed + v * 977, profile),
-        );
-      }
-    } else if (family === "restoration") {
-      const isRestaurant = input.category === "restaurant";
-      const items = restorationProgram(areaPerLevel, isRestaurant ? "restaurant" : "cafe");
-      // Les restaurant/café sont généralement mono-niveau, mais on supporte R+1
-      for (let lvl = 0; lvl < levels; lvl++) {
-        floors.push(
-          buildLevel(
-            lvl,
-            levels,
-            L,
-            W,
-            items.map((i) => ({ ...i })),
-            baseSeed + v * 977,
-            profile,
-          ),
-        );
-      }
+    let L: number;
+    let W: number;
+
+    if (isPool) {
+      // Le bassin impose ses dimensions : le ratio du parti architectural fait
+      // varier sa proportion, jamais sa surface.
+      const ratio = Math.min(2.4, Math.max(1.6, profile.ratio + 0.35));
+      const basinLength = round3(Math.sqrt(surface * ratio));
+      const basinWidth = round3(surface / basinLength);
+      const pool = buildPoolPlan({ levelIdx: 0, basinLength, basinWidth, profile });
+      L = pool.length;
+      W = pool.width;
+      floors.push(pool);
+    } else if (isRenovationSpace) {
+      // Rénovation cuisine / salle de bain : un espace unique aux dimensions
+      // réelles du projet, jamais une maison de 100 m² déguisée.
+      const ratio = Math.min(2.0, Math.max(1.25, profile.ratio));
+      L = round3(Math.sqrt(surface * ratio));
+      W = round3(surface / L);
+      floors.push(
+        buildRenovationSpacePlan({
+          levelIdx: 0,
+          length: L,
+          width: W,
+          kind: kind === "kitchen" ? "kitchen" : "bathroom",
+          seed,
+          profile,
+        }),
+      );
     } else {
-      const items =
-        family === "commercial" ? commercialProgram(areaPerLevel) : logisticsProgram(areaPerLevel);
-      for (let lvl = 0; lvl < levels; lvl++) {
-        floors.push(
-          buildLevel(
-            lvl,
-            levels,
-            L,
-            W,
-            items.map((i) => ({ ...i })),
-            baseSeed + v * 977,
-            profile,
-          ),
-        );
+      // Emprise : longueur × largeur selon le ratio du parti architectural.
+      L = Math.sqrt(areaPerLevel * profile.ratio);
+      W = Math.sqrt(areaPerLevel / profile.ratio);
+      // Garde-fous constructifs
+      L = Math.min(Math.max(L, 5), 60);
+      W = Math.min(Math.max(W, 4), 40);
+      L = round3(L);
+      W = round3(W);
+
+      if (kind === "building" || kind === "hotel") {
+        // Collectif : palier + unités autonomes (appartements ou chambres).
+        const perLevel =
+          kind === "building"
+            ? Math.max(1, Math.min(3, Math.floor(areaPerLevel / 45)))
+            : Math.max(2, Math.min(6, Math.floor(areaPerLevel / 26)));
+        for (let lvl = 0; lvl < levels; lvl++) {
+          // Un immeuble n'a pas besoin d'un salon commun : le palier du
+          // rez-de-chaussée EST le hall d'entrée. Une résidence touristique,
+          // elle, porte sa réception au rez-de-chaussée.
+          const hasCommon = lvl === 0 && kind === "hotel";
+          const slots = perLevel + (hasCommon ? 1 : 0);
+          const sliceArea = areaPerLevel / slots;
+          const units: { label: string; items: ProgramItem[] }[] = [];
+          if (hasCommon) {
+            units.push({ label: "Communs", items: commonAreaProgram("hotel") });
+          }
+          for (let u = 0; u < perLevel; u++) {
+            const code = `${lvl + 1}${String.fromCharCode(65 + u)}`;
+            units.push({
+              label: kind === "building" ? `Appt ${code}` : `Chambre ${code}`,
+              items: dwellingUnitProgram(
+                sliceArea,
+                code,
+                kind === "building" ? "apartment" : "hotel",
+              ),
+            });
+          }
+          floors.push(
+            buildMultiDwellingLevel({
+              levelIdx: lvl,
+              length: L,
+              width: W,
+              units,
+              seed,
+              profile,
+              withStair: levels > 1,
+            }),
+          );
+        }
+      } else if (kind === "apartment" || kind === "studio") {
+        const items =
+          kind === "studio" ? studioProgram(areaPerLevel) : apartmentProgram(input, areaPerLevel);
+        floors.push(buildLevel(0, 1, L, W, items, seed, profile, true));
+      } else if (kind === "shop") {
+        floors.push(buildLevel(0, 1, L, W, shopProgram(areaPerLevel), seed, profile));
+      } else if (kind === "office" || kind === "warehouse" || kind === "restaurant") {
+        const items =
+          kind === "office"
+            ? commercialProgram(areaPerLevel)
+            : kind === "warehouse"
+              ? logisticsProgram(areaPerLevel)
+              : restorationProgram(
+                  areaPerLevel,
+                  input.category === "restaurant" ? "restaurant" : "cafe",
+                );
+        for (let lvl = 0; lvl < levels; lvl++) {
+          floors.push(
+            buildLevel(lvl, levels, L, W, items.map((i) => ({ ...i })), seed, profile),
+          );
+        }
+      } else {
+        // Maison, villa, duplex, projet neuf, rénovation complète.
+        const programs = residentialProgram(input, areaPerLevel, levels, profile);
+        for (const prog of programs) {
+          floors.push(buildLevel(prog.level, levels, L, W, prog.items, seed, profile));
+        }
       }
     }
 
     // Cohérence inter-niveaux : la chambre principale est la plus grande
     // chambre de TOUT le logement, pas seulement du niveau où elle est née.
-    if (family === "residential") {
+    if (kind === "house" || kind === "duplex" || kind === "renovation" || kind === "apartment") {
       const chambres = floors.flatMap((f) => f.rooms.filter((r) => r.kind === "chambre"));
       const master = chambres.find((r) => r.label === "Chambre principale");
       const biggest = chambres.reduce<PlanRoom | null>(
@@ -2854,7 +3605,7 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
         issues: [],
       },
     };
-    variant.conceptNote = conceptNote(profile, input, variant, rng);
+    variant.conceptNote = conceptNote(profile, input, variant, rng, kind);
     variant.validation = validatePlan(variant, { ...input, surface, floors: levels });
     variants.push(variant);
   }
@@ -3033,6 +3784,8 @@ export function repairFloorPlan(plan: FloorPlan): FloorPlan {
 
   // 6) Toute pièce reçoit un accès : porte sur le mur le plus grand si aucun accès
   for (const r of rooms) {
+    // Le bassin n'est pas une pièce : il ne reçoit jamais de porte.
+    if (r.kind === "bassin") continue;
     const hasAccess = r.doors.length > 0;
     if (hasAccess) continue;
     const wallLen = (wall: WallSide) => (wall === "N" || wall === "S" ? r.w : r.h);

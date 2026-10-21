@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   generateFloorPlans,
+  planKindForCategory,
+  repairFloorPlan,
+  structuralLevels,
   summarizeSurfaces,
   VARIANTS_PER_PROJECT,
   type FloorPlanVariant,
@@ -392,7 +395,8 @@ describe("generateFloorPlans — configurations demandées", () => {
       expect(v.validation.score).toBeGreaterThanOrEqual(85);
       const kinds = new Set(v.floors[0].rooms.map((r) => r.kind));
       expect(kinds.has("reception")).toBe(true);
-      expect(kinds.has("openspace")).toBe(true);
+      expect(kinds.has("vente")).toBe(true);
+      expect(kinds.has("stockage")).toBe(true);
       expect(v.validation.exteriorOk).toBe(true);
     }
   });
@@ -444,5 +448,285 @@ describe("séparation intérieur / extérieur", () => {
     expect(kinds.has("piscine")).toBe(true);
     expect(kinds.has("terrasse")).toBe(true);
     expect(kinds.has("jardin")).toBe(true);
+  });
+});
+
+// ============================================================================
+// ADAPTATION AU TYPE DE PROJET
+// ----------------------------------------------------------------------------
+// Chaque type de projet Batibuild produit son propre plan : programme des
+// pièces, nombre de niveaux, distribution et éléments extérieurs. Ces tests
+// verrouillent les cas demandés (maison, duplex, immeuble, studio, rénovation
+// cuisine, rénovation salle de bain, local commercial, piscine) et vérifient
+// qu'un changement de type change réellement la géométrie produite.
+// ============================================================================
+
+const roomsOf = (variants: FloorPlanVariant[]) =>
+  variants.flatMap((v) => v.floors.flatMap((f) => f.rooms));
+const kindsOf = (variants: FloorPlanVariant[]) =>
+  new Set(roomsOf(variants).map((r) => r.kind));
+const labelsOf = (variants: FloorPlanVariant[]) =>
+  roomsOf(variants).map((r) => r.label.toLowerCase());
+
+describe("typologie de plan par type de projet", () => {
+  it("mappe chaque type de projet sur sa typologie", () => {
+    expect(planKindForCategory("maison")).toBe("house");
+    expect(planKindForCategory("villa")).toBe("house");
+    expect(planKindForCategory("appartement")).toBe("apartment");
+    expect(planKindForCategory("studio")).toBe("studio");
+    expect(planKindForCategory("duplex")).toBe("duplex");
+    expect(planKindForCategory("immeuble")).toBe("building");
+    expect(planKindForCategory("bureau")).toBe("office");
+    expect(planKindForCategory("local_commercial")).toBe("shop");
+    expect(planKindForCategory("entrepot")).toBe("warehouse");
+    expect(planKindForCategory("residence_touristique")).toBe("hotel");
+    expect(planKindForCategory("restaurant")).toBe("restaurant");
+    expect(planKindForCategory("renovation_cuisine")).toBe("kitchen");
+    expect(planKindForCategory("renovation_salle_de_bain")).toBe("bathroom");
+    expect(planKindForCategory("piscine")).toBe("pool");
+    expect(planKindForCategory("renovation_complete")).toBe("renovation");
+  });
+
+  it("impose les niveaux réels du type (studio 1, duplex 2, immeuble = saisie)", () => {
+    expect(structuralLevels("studio", 3)).toBe(1);
+    expect(structuralLevels("apartment", 2)).toBe(1);
+    expect(structuralLevels("kitchen", 2)).toBe(1);
+    expect(structuralLevels("bathroom", 3)).toBe(1);
+    expect(structuralLevels("pool", 2)).toBe(1);
+    expect(structuralLevels("duplex", 1)).toBe(2);
+    expect(structuralLevels("duplex", 3)).toBe(3);
+    expect(structuralLevels("building", 1)).toBe(1);
+    expect(structuralLevels("building", 4)).toBe(4);
+    expect(structuralLevels("house", 2)).toBe(2);
+  });
+
+  it("maison de plain-pied de 100 m² : un seul RDC cohérent", () => {
+    const plans = generateFloorPlans({ category: "maison", surface: 100, floors: 1 });
+    for (const v of plans) {
+      expect(v.floors).toHaveLength(1);
+      const kinds = new Set(v.floors[0].rooms.map((r) => r.kind));
+      for (const k of ["sejour", "cuisine", "chambre", "sdb"] as const) {
+        expect(kinds.has(k)).toBe(true);
+      }
+      expect(v.floors[0].rooms.some((r) => r.kind === "escalier")).toBe(false);
+      // 10 % de tolérance : le patio extérieur d'un parti architectural n'est
+      // pas compté en surface bâtie.
+      expect(v.surfaces.built).toBeGreaterThan(90);
+      expect(v.surfaces.built).toBeLessThanOrEqual(100.5);
+      expect(v.validation.score).toBeGreaterThanOrEqual(95);
+    }
+  });
+
+  it("duplex de 120 m² : RDC et étage, escalier commun, chambres à l'étage", () => {
+    const plans = generateFloorPlans({ category: "duplex", surface: 120, floors: 1 });
+    for (const v of plans) {
+      // Le duplex est multi-niveaux même si le formulaire n'a pas saisi d'étage.
+      expect(v.floors).toHaveLength(2);
+      expect(v.floors[0].length).toBeCloseTo(v.floors[1].length, 3);
+      expect(v.floors[0].width).toBeCloseTo(v.floors[1].width, 3);
+      const stairs = v.floors.map((f) => f.rooms.find((r) => r.kind === "escalier"));
+      expect(stairs[0]).toBeDefined();
+      expect(stairs[1]).toBeDefined();
+      // Même gaine d'escalier : la liaison entre niveaux est réelle.
+      expect(stairs[1]!.x).toBeCloseTo(stairs[0]!.x, 3);
+      expect(stairs[1]!.y).toBeCloseTo(stairs[0]!.y, 3);
+      // Espaces de vie au RDC, chambres à l'étage.
+      expect(v.floors[0].rooms.some((r) => r.kind === "sejour")).toBe(true);
+      expect(v.floors[0].rooms.some((r) => r.kind === "chambre")).toBe(false);
+      expect(v.floors[1].rooms.filter((r) => r.kind === "chambre").length).toBeGreaterThanOrEqual(2);
+      expect(v.validation.structureOk).toBe(true);
+    }
+  });
+
+  it("immeuble R+3 : quatre niveaux, appartements autonomes et circulation commune", () => {
+    const plans = generateFloorPlans({ category: "immeuble", surface: 400, floors: 4 });
+    for (const v of plans) {
+      expect(v.floors).toHaveLength(4);
+      const stair0 = v.floors[0].rooms.find((r) => r.kind === "escalier")!;
+      for (const f of v.floors) {
+        // Chaque niveau a sa cage d'escalier, à la même place.
+        const stair = f.rooms.find((r) => r.kind === "escalier");
+        expect(stair).toBeDefined();
+        expect(stair!.x).toBeCloseTo(stair0.x, 3);
+        expect(stair!.y).toBeCloseTo(stair0.y, 3);
+        // Palier de distribution (hall d'entrée au RDC).
+        expect(f.rooms.some((r) => r.kind === "hall" || r.kind === "couloir")).toBe(true);
+        // Plusieurs logements par niveau, chacun avec séjour + chambre + SDB.
+        const codes = new Set(
+          f.rooms
+            .filter((r) => r.kind === "sejour")
+            .map((r) => r.label.split(" ").pop()),
+        );
+        expect(codes.size).toBeGreaterThanOrEqual(2);
+        for (const code of codes) {
+          const unitRooms = f.rooms.filter((r) => r.label.endsWith(code!));
+          const kinds = new Set(unitRooms.map((r) => r.kind));
+          for (const k of ["sejour", "chambre", "sdb", "cuisine"] as const) {
+            expect(kinds.has(k)).toBe(true);
+          }
+        }
+      }
+      expect(v.floors[0].rooms.some((r) => r.doors.some((d) => d.isEntry))).toBe(true);
+      expect(v.validation.structureOk).toBe(true);
+      expect(v.validation.score).toBeGreaterThanOrEqual(90);
+    }
+  });
+
+  it("studio de 30 m² : coin nuit, kitchenette et salle d'eau compacte", () => {
+    const plans = generateFloorPlans({ category: "studio", surface: 30, floors: 2 });
+    for (const v of plans) {
+      expect(v.floors).toHaveLength(1);
+      const labels = v.floors[0].rooms.map((r) => r.label.toLowerCase());
+      expect(labels.some((l) => l.includes("kitchenette"))).toBe(true);
+      expect(labels.some((l) => l.includes("coin nuit"))).toBe(true);
+      expect(v.floors[0].rooms.some((r) => r.kind === "sdb")).toBe(true);
+      // Aucun espace d'une maison familiale ne doit apparaître.
+      const kinds = new Set(v.floors[0].rooms.map((r) => r.kind));
+      expect(kinds.has("garage")).toBe(false);
+      expect(kinds.has("buanderie")).toBe(false);
+      expect(v.surfaces.built).toBeCloseTo(30, 0);
+      expect(v.validation.score).toBeGreaterThanOrEqual(95);
+    }
+  });
+
+  it("rénovation cuisine de 10 m² : cuisine détaillée et cellier aux bonnes dimensions", () => {
+    const plans = generateFloorPlans({ category: "renovation_cuisine", surface: 10, floors: 1 });
+    for (const v of plans) {
+      expect(v.floors).toHaveLength(1);
+      const floor = v.floors[0];
+      const cuisine = floor.rooms.find((r) => r.kind === "cuisine")!;
+      const cellier = floor.rooms.find((r) => r.label === "Cellier")!;
+      expect(cuisine).toBeDefined();
+      expect(cellier).toBeDefined();
+      expect(cuisine.area + cellier.area).toBeCloseTo(10, 1);
+      // Une cuisine de 10 m² reste une pièce de 10 m² : pas une maison.
+      expect(floor.length).toBeLessThan(6);
+      expect(floor.width).toBeLessThan(4);
+      expect(cuisine.doors.length).toBeGreaterThanOrEqual(1);
+      expect(v.surfaces.built).toBeCloseTo(10, 1);
+      expect(v.validation.score).toBeGreaterThanOrEqual(90);
+    }
+  });
+
+  it("rénovation salle de bain de 6 m² : un espace sanitaire complet", () => {
+    const plans = generateFloorPlans({
+      category: "renovation_salle_de_bain",
+      surface: 6,
+      floors: 1,
+    });
+    for (const v of plans) {
+      expect(v.floors).toHaveLength(1);
+      const floor = v.floors[0];
+      expect(floor.rooms).toHaveLength(1);
+      const bath = floor.rooms[0];
+      expect(bath.kind).toBe("sdb");
+      expect(bath.area).toBeCloseTo(6, 1);
+      expect(bath.doors.length).toBeGreaterThanOrEqual(1);
+      expect(floor.rooms.some((r) => r.kind === "chambre")).toBe(false);
+      expect(v.validation.score).toBeGreaterThanOrEqual(90);
+    }
+  });
+
+  it("local commercial : surface de vente, accueil et réserve (aucune chambre)", () => {
+    const plans = generateFloorPlans({ category: "local_commercial", surface: 120, floors: 1 });
+    for (const v of plans) {
+      const kinds = kindsOf([v]);
+      expect(kinds.has("vente")).toBe(true);
+      expect(kinds.has("reception")).toBe(true);
+      expect(kinds.has("stockage")).toBe(true);
+      expect(kinds.has("chambre")).toBe(false);
+      expect(kinds.has("sejour")).toBe(false);
+      expect(v.validation.score).toBeGreaterThanOrEqual(95);
+    }
+  });
+
+  it("piscine : bassin à la surface demandée, plages et local technique, aucun bâti d'habitation", () => {
+    const plans = generateFloorPlans({ category: "piscine", surface: 32, floors: 1 });
+    for (const v of plans) {
+      expect(v.floors).toHaveLength(1);
+      const floor = v.floors[0];
+      const basin = floor.rooms.find((r) => r.kind === "bassin")!;
+      expect(basin).toBeDefined();
+      expect(basin.area).toBeCloseTo(32, 0);
+      expect(floor.rooms.some((r) => r.kind === "terrasse")).toBe(true);
+      expect(floor.rooms.some((r) => r.kind === "local_technique")).toBe(true);
+      const kinds = kindsOf([v]);
+      for (const k of ["sejour", "chambre", "cuisine", "escalier"] as const) {
+        expect(kinds.has(k)).toBe(false);
+      }
+      // Les plages ne sont jamais comptées comme surface bâtie.
+      expect(v.surfaces.built).toBeCloseTo(32, 0);
+      expect(v.validation.score).toBeGreaterThanOrEqual(90);
+      // La réparation 2D/3D ne perce jamais de porte dans le bassin.
+      const repaired = repairFloorPlan({
+        ...floor,
+        rooms: floor.rooms.map((r) => ({ ...r, doors: [...r.doors], windows: [...r.windows] })),
+      });
+      expect(repaired.rooms.find((r) => r.kind === "bassin")!.doors).toHaveLength(0);
+    }
+  });
+
+  it("bureau : espaces de travail, réunion et accueil, pas de chambre", () => {
+    const plans = generateFloorPlans({ category: "bureau", surface: 180, floors: 1 });
+    for (const v of plans) {
+      const kinds = kindsOf([v]);
+      expect(kinds.has("openspace")).toBe(true);
+      expect(kinds.has("reunion")).toBe(true);
+      expect(kinds.has("reception")).toBe(true);
+      expect(kinds.has("chambre")).toBe(false);
+    }
+  });
+
+  it("entrepôt : stockage et zone logistique, pas de séjour", () => {
+    const plans = generateFloorPlans({ category: "entrepot", surface: 400, floors: 1 });
+    for (const v of plans) {
+      const kinds = kindsOf([v]);
+      expect(kinds.has("stockage")).toBe(true);
+      expect(kinds.has("logistique")).toBe(true);
+      expect(kinds.has("sejour")).toBe(false);
+    }
+  });
+
+  it("résidence touristique : réception au RDC et chambres avec salle d'eau aux étages", () => {
+    const plans = generateFloorPlans({
+      category: "residence_touristique",
+      surface: 300,
+      floors: 2,
+    });
+    for (const v of plans) {
+      expect(v.floors).toHaveLength(2);
+      expect(v.floors[0].rooms.some((r) => r.kind === "reception")).toBe(true);
+      for (const f of v.floors) {
+        const chambres = f.rooms.filter((r) => r.kind === "chambre");
+        expect(chambres.length).toBeGreaterThanOrEqual(2);
+        for (const chambre of chambres) {
+          const code = chambre.label.split(" ").pop();
+          expect(f.rooms.some((r) => r.kind === "sdb" && r.label.endsWith(code!))).toBe(true);
+        }
+      }
+      expect(v.validation.structureOk).toBe(true);
+    }
+  });
+
+  it("changer de type de projet change réellement la géométrie et le programme", () => {
+    const ma = generateFloorPlans({ category: "maison", surface: 100, floors: 1 })[0];
+    const studio = generateFloorPlans({ category: "studio", surface: 100, floors: 1 })[0];
+    const immeuble = generateFloorPlans({ category: "immeuble", surface: 100, floors: 2 })[0];
+    const piscine = generateFloorPlans({ category: "piscine", surface: 32, floors: 1 })[0];
+
+    // Aucun type ne réutilise le programme d'un autre.
+    expect(studio.floors).toHaveLength(1);
+    expect(immeuble.floors).toHaveLength(2);
+    expect(piscine.floors[0].rooms.some((r) => r.kind === "bassin")).toBe(true);
+    expect(ma.floors[0].rooms.some((r) => r.kind === "bassin")).toBe(false);
+    expect(kindsOf([studio]).has("sejour")).toBe(true);
+    expect(labelsOf([studio]).some((l) => l.includes("kitchenette"))).toBe(true);
+    expect(labelsOf([ma]).some((l) => l.includes("kitchenette"))).toBe(false);
+    // Les pièces diffèrent : le plan n'est pas seulement relabellisé.
+    const kinds = (v: FloorPlanVariant) => v.floors[0].rooms.map((r) => r.kind).join("|");
+    expect(kinds(studio)).not.toBe(kinds(ma));
+    expect(studio.floors[0].rooms.map((r) => r.label)).not.toEqual(
+      ma.floors[0].rooms.map((r) => r.label),
+    );
   });
 });

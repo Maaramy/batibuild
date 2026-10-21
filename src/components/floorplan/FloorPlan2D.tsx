@@ -50,6 +50,9 @@ const ROOM_TINT: Record<string, string> = {
   polyvalent: "#94a3b8",
   patio: "#84cc16",
   buanderie: "#64748b",
+  vente: "#f59e0b",
+  bassin: "#0ea5e9",
+  local_technique: "#78716c",
 };
 
 export interface FloorPlan2DProps {
@@ -239,10 +242,37 @@ export function FloorPlan2D({
             y={r.y * S}
             width={r.w * S}
             height={r.h * S}
-            fill={r.exterior ? ROOM_TINT.patio : ROOM_TINT[r.kind] ?? ROOM_TINT.polyvalent}
-            opacity={r.exterior ? 0.24 : 0.13}
+            fill={
+              r.kind === "bassin"
+                ? "#bae6fd"
+                : r.exterior
+                  ? ROOM_TINT.patio
+                  : ROOM_TINT[r.kind] ?? ROOM_TINT.polyvalent
+            }
+            opacity={r.kind === "bassin" ? 0.9 : r.exterior ? 0.24 : 0.13}
           />
         ))}
+        {/* Bassin : lignes d'eau (lecture immédiate du plan de piscine) */}
+        {rooms
+          .filter((r) => r.kind === "bassin")
+          .map((r) => {
+            const rx = r.x * S, ry = r.y * S, rw = r.w * S, rh = r.h * S;
+            const lines = Math.max(2, Math.floor(rh / 16));
+            return (
+              <g key={`water-${r.id}`} stroke="#0284c7" strokeWidth={0.75} opacity={0.4} fill="none">
+                {Array.from({ length: lines }, (_, i) => {
+                  const y = ry + rh * ((i + 0.8) / (lines + 0.6));
+                  return (
+                    <path
+                      key={i}
+                      d={`M ${rx + rw * 0.07} ${y} q ${rw * 0.09} -3 ${rw * 0.18} 0 t ${rw * 0.18} 0 t ${rw * 0.18} 0 t ${rw * 0.18} 0`}
+                    />
+                  );
+                })}
+              </g>
+            );
+          })}
+
         {/* Escalier : marches dessinées */}
         {rooms
           .filter((r) => r.kind === "escalier")
@@ -290,14 +320,22 @@ export function FloorPlan2D({
             width={r.w * S}
             height={r.h * S}
             fill="none"
-            stroke={r.exterior ? "#4d7c0f" : INK}
-            strokeWidth={r.exterior ? 1.1 : INT}
-            strokeDasharray={r.exterior ? "4 3" : undefined}
+            stroke={r.kind === "bassin" ? "#0284c7" : r.exterior ? "#4d7c0f" : INK}
+            strokeWidth={r.kind === "bassin" ? 1.6 : r.exterior ? 1.1 : INT}
+            strokeDasharray={r.kind === "bassin" ? undefined : r.exterior ? "4 3" : undefined}
           />
         ))}
       </g>
-      {/* Murs extérieurs plus épais */}
-      <rect x={0} y={0} width={W} height={H} fill="none" stroke={INK} strokeWidth={EXT} />
+      {/* Murs extérieurs plus épais (simple margelle pour un bassin) */}
+      <rect
+        x={0}
+        y={0}
+        width={W}
+        height={H}
+        fill="none"
+        stroke={INK}
+        strokeWidth={plan.rooms.some((r) => r.kind === "bassin") ? 1.2 : EXT}
+      />
 
       {/* ── Passe 3 : ouvertures (percées dans le poché) ── */}
       <g clipPath={`url(#${clipId})`}>

@@ -789,6 +789,46 @@ function genSalleManger(room: PlanRoom, out: Prim[]) {
   }
 }
 
+// ── Espace de vente : rayonnages périphériques + gondole centrale ───────────
+
+function genVente(room: PlanRoom, out: Prim[]) {
+  const walls = wallsByLength(room);
+  // Rayonnages adossés aux deux plus longs murs libres (portes respectées).
+  let placed = 0;
+  for (const wall of walls) {
+    if (placed >= 2) break;
+    const span = bestSpan(room, wall, 1.6);
+    if (!span) continue;
+    const len = Math.min(span.b - span.a - 0.1, 5.2);
+    const shelf = againstWall(room, wall, (span.a + span.b) / 2, 0.06, 0.42, len);
+    if (!pushIf(room, out, shelf, { m: "metal", ht: 1.9 })) continue;
+    if (shelf.w >= shelf.h) {
+      out.push(L(shelf.x + 0.06, shelf.y + shelf.h / 2, shelf.x + shelf.w - 0.06, shelf.y + shelf.h / 2));
+    } else {
+      out.push(L(shelf.x + shelf.w / 2, shelf.y + 0.06, shelf.x + shelf.w / 2, shelf.y + shelf.h - 0.06));
+    }
+    placed++;
+  }
+  // Gondole centrale, dans le sens de la profondeur la plus grande.
+  const gw = Math.min(room.w * 0.5, 2.4);
+  const gh = Math.min(room.h * 0.28, 1.2);
+  if (room.w >= 3.2 && room.h >= 3.2) {
+    pushIf(
+      room,
+      out,
+      { x: room.x + (room.w - gw) / 2, y: room.y + (room.h - gh) / 2, w: gw, h: gh },
+      { m: "wood", ht: 1.45 },
+    );
+  }
+  // Comptoir de caisse près de l'entrée (plus petit mur libre).
+  for (const wall of walls) {
+    const span = bestSpan(room, wall, 1.2);
+    if (!span) continue;
+    const counter = againstWall(room, wall, span.b - 0.35, 0.05, 0.62, 1.1);
+    if (pushIf(room, out, counter, { m: "wood", ht: 1.02 })) break;
+  }
+}
+
 // ── Dispatch par nature de pièce ─────────────────────────────────────────────
 
 export function roomFurniture(room: PlanRoom): Prim[] {
@@ -829,6 +869,19 @@ export function roomFurniture(room: PlanRoom): Prim[] {
     case "stockage":
     case "logistique":
       genStockage(room, out);
+      break;
+    case "vente":
+      genVente(room, out);
+      break;
+    case "local_technique":
+      // Groupe de filtration + pompe du bassin.
+      pushIf(room, out, { x: room.x + 0.25, y: room.y + 0.25, w: 0.7, h: 0.55 }, { m: "metal", ht: 0.85 });
+      pushIf(
+        room,
+        out,
+        { x: room.x + room.w - 0.85, y: room.y + 0.25, w: 0.6, h: 0.6 },
+        { m: "white", ht: 0.95 },
+      );
       break;
     default:
       // couloir, hall, escalier, vestiaire, polyvalent : circulation libre

@@ -70,6 +70,9 @@ const ROOM_COLORS_3D: Record<RoomKind, number> = {
   polyvalent: 0xdfe3e8,
   patio: 0xc8e8b8,
   buanderie: 0xdde3ea,
+  vente: 0xf7e0a0,
+  bassin: 0x5fc8f0,
+  local_technique: 0xd7dde5,
 };
 
 /** Détection simple d'un appareil modeste (tactile / peu de cœurs / mémoire). */

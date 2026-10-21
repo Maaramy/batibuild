@@ -301,7 +301,7 @@ export function TechnicalPlansPanel({
         quantities: technical.quantities,
         summary,
         note: `Plan ${isPlumbing ? "de plomberie" : "électrique"} — ${
-          level === 0 ? "RDC" : `niveau ${level}`
+          level === 0 ? "RDC" : `étage R+${level}`
         }`,
       });
       toast.success(`Plan enregistré dans le projet — version ${result.version}.`);
@@ -339,7 +339,7 @@ export function TechnicalPlansPanel({
           quantities: plan.quantities,
           summary,
           note: `Plan ${isPlumbing ? "de plomberie" : "électrique"} — ${
-            f.level === 0 ? "RDC" : `niveau ${f.level}`
+            f.level === 0 ? "RDC" : `étage R+${f.level}`
           } (bâtiment complet)`,
         });
         lastVersion = result.version;
@@ -463,7 +463,7 @@ export function TechnicalPlansPanel({
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               <Badge variant="outline" className="text-[10px]">
-                {floor.level === 0 ? "RDC" : `Niveau ${floor.level}`}
+                {floor.level === 0 ? "RDC" : `Étage R+${floor.level}`}
               </Badge>
               <Badge variant="outline" className="text-[10px]">
                 {floor.area.toFixed(1)} m²
@@ -533,7 +533,7 @@ export function TechnicalPlansPanel({
                       : "border-border bg-background text-muted-foreground hover:border-primary/40",
                   )}
                 >
-                  {f.level === 0 ? "RDC" : `N${f.level}`}
+                  {f.level === 0 ? "RDC" : `R+${f.level}`}
                 </button>
               ))}
               {floorsCount > 1 && (
@@ -801,7 +801,7 @@ export function TechnicalPlansPanel({
                     {versions.slice(0, 5).map((v) => (
                       <li key={v._id} className="flex items-center justify-between gap-2 text-[9px]">
                         <span className="font-medium tabular-nums">
-                          v{v.version} · {v.level === 0 ? "RDC" : `N${v.level}`}
+                          v{v.version} · {v.level === 0 ? "RDC" : `R+${v.level}`}
                         </span>
                         <span className="text-muted-foreground">
                           {new Date(v.createdAt).toLocaleString("fr-FR", {

@@ -545,7 +545,8 @@ function VariantCard({
     [floor],
   );
   const analysis = useMemo(() => analyzeFloorPlan(floor), [floor]);
-  const floorLabel = floor.level === 0 ? "Rez-de-chaussée" : `Niveau ${floor.level}`;
+  const floorLabel =
+    floor.level === 0 ? "Rez-de-chaussée" : `Étage R+${floor.level}`;
   const v = variant.validation;
   const selectedRoom = selectedRoomId
     ? floor.rooms.find((r) => r.id === selectedRoomId) ?? null
@@ -658,7 +659,7 @@ function VariantCard({
                         : "bg-background text-muted-foreground border-border hover:border-primary/40",
                     )}
                   >
-                    {f.level === 0 ? "RDC" : `N${f.level}`}
+                    {f.level === 0 ? "RDC" : `R+${f.level}`}
                   </button>
                 ))}
               </div>

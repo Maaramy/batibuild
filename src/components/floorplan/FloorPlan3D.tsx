@@ -24,8 +24,13 @@ import type { FloorPlan3DProps } from "@/components/floorplan/FloorPlan3DLegacy"
 export function FloorPlan3D(props: FloorPlan3DProps) {
   const mode = useFeatureFlagMode("plans_3d_enhanced");
 
+  // Un plan de piscine a besoin du rendu HD (bassin enterré, eau, margelle,
+  // aucune enveloppe de bâtiment) : le moteur HD est retenu quel que soit le
+  // flag, avec repli legacy si le contexte WebGL échoue.
+  const poolPlan = props.plan.rooms.some((r) => r.kind === "bassin");
+
   // En OFF → legacy pur. En BETA/ON → moteur HD avec repli legacy si échec.
-  const enhanced = mode === "beta" || mode === "on";
+  const enhanced = poolPlan || mode === "beta" || mode === "on";
 
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [mode]);

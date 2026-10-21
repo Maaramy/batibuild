@@ -71,6 +71,9 @@ const ROOM_COLORS_3D: Record<RoomKind, number> = {
   polyvalent: 0xdfe3e8,
   patio: 0xc8e8b8,
   buanderie: 0xdde3ea,
+  vente: 0xf7e0a0,
+  bassin: 0x5fc8f0,
+  local_technique: 0xd7dde5,
 };
 
 // ── Détection de capacités (netteté vs performance) ─────────────────────────
@@ -435,6 +438,10 @@ export function FloorPlan3DHD({
       arr.push(geo);
     };
 
+    // Un plan de piscine n'a pas d'enveloppe de bâtiment : le bassin et ses
+    // plages sont rendus à ciel ouvert (aucun mur de maison autour du bassin).
+    const isPoolPlan = plan.rooms.some((r) => r.kind === "bassin");
+
     // ── Murs extérieurs percés des ouvertures ──────────────────────────────
     type Opening = { a: number; b: number; kind: "win" | "door" };
     const sides: { key: "N" | "S" | "W" | "E"; openings: Opening[]; run: number }[] = [
@@ -443,7 +450,7 @@ export function FloorPlan3DHD({
       { key: "W", openings: [], run: W },
       { key: "E", openings: [], run: W },
     ];
-    for (const r of plan.rooms) {
+    for (const r of isPoolPlan ? [] : plan.rooms) {
       for (const win of r.windows) {
         // Seules les fenêtres de FAÇADE percent l'enveloppe : une fenêtre de
         // cour/patio est percée dans la cloison correspondante (plus bas).
@@ -474,7 +481,7 @@ export function FloorPlan3DHD({
     }
 
     const halfE = EXT_T / 2;
-    for (const side of sides) {
+    for (const side of isPoolPlan ? [] : sides) {
       const openings = mergeIntervals(side.openings.map((o) => ({ a: o.a, b: o.b }))).map((iv) => ({
         ...iv,
         kind: side.openings.find((o) => o.a >= iv.a - TOL && o.b <= iv.b + TOL)?.kind ?? ("win" as const),
@@ -512,7 +519,7 @@ export function FloorPlan3DHD({
     // ── Cloisons intérieures fusionnées ────────────────────────────────────
     const vMap = new Map<number, Interval[]>();
     const hMap = new Map<number, Interval[]>();
-    for (const r of plan.rooms) {
+    for (const r of isPoolPlan ? [] : plan.rooms) {
       for (const x of [r.x, r.x + r.w]) {
         if (!vMap.has(x)) vMap.set(x, []);
         vMap.get(x)!.push({ a: r.y, b: r.y + r.h });
@@ -608,6 +615,7 @@ export function FloorPlan3DHD({
     const floorMatCache = new Map<number, THREE.MeshStandardMaterial>();
     const roomMeshes = new Map<string, { cx: number; cz: number; w: number; h: number }>();
     for (const r of plan.rooms) {
+      if (r.kind === "bassin") continue; // géométrie de bassin dédiée plus bas
       const color = ROOM_COLORS_3D[r.kind] ?? ROOM_COLORS_3D.polyvalent;
       let mat = floorMatCache.get(color);
       if (!mat) {
@@ -622,6 +630,57 @@ export function FloorPlan3DHD({
       pickables.push(mesh);
       roomMeshes.set(r.id, { cx: r.x + r.w / 2, cz: r.y + r.h / 2, w: r.w, h: r.h });
       building.add(mesh);
+    }
+
+    // ── Bassin de piscine : volume enterré, eau et margelle ────────────────
+    // Le bassin est un ouvrage, pas une pièce : il est creusé sous le niveau
+    // du sol, rempli d'eau et entouré d'une margelle. Les cotes, la surface et
+    // la position proviennent du même plan que la 2D.
+    if (isPoolPlan) {
+      const depth = 1.5;
+      const basinWallMat = track(new THREE.MeshStandardMaterial({ color: 0xeef7fb, roughness: 0.85 }));
+      const waterMat = track(new THREE.MeshStandardMaterial({
+        color: 0x3fb8e8,
+        roughness: 0.08,
+        metalness: 0.06,
+        transparent: true,
+        opacity: 0.82,
+      }));
+      const copingMat = track(new THREE.MeshStandardMaterial({ color: 0xf3efe6, roughness: 0.75 }));
+      for (const r of plan.rooms.filter((x) => x.kind === "bassin")) {
+        const t = 0.22;
+        const parts: { sx: number; sy: number; sz: number; x: number; y: number; z: number; mat: THREE.Material }[] = [
+          // Fond et parois du bassin
+          { sx: r.w, sy: 0.12, sz: r.h, x: r.x + r.w / 2, y: -depth, z: r.y + r.h / 2, mat: basinWallMat },
+          { sx: r.w, sy: depth, sz: t, x: r.x + r.w / 2, y: -depth / 2, z: r.y + t / 2, mat: basinWallMat },
+          { sx: r.w, sy: depth, sz: t, x: r.x + r.w / 2, y: -depth / 2, z: r.y + r.h - t / 2, mat: basinWallMat },
+          { sx: t, sy: depth, sz: r.h, x: r.x + t / 2, y: -depth / 2, z: r.y + r.h / 2, mat: basinWallMat },
+          { sx: t, sy: depth, sz: r.h, x: r.x + r.w - t / 2, y: -depth / 2, z: r.y + r.h / 2, mat: basinWallMat },
+          // Plan d'eau sous la ligne de nage
+          { sx: r.w - 2 * t, sy: 0.06, sz: r.h - 2 * t, x: r.x + r.w / 2, y: -0.28, z: r.y + r.h / 2, mat: waterMat },
+          // Margelle périphérique
+          { sx: r.w + 0.7, sy: 0.1, sz: 0.35, x: r.x + r.w / 2, y: 0.05, z: r.y - 0.175, mat: copingMat },
+          { sx: r.w + 0.7, sy: 0.1, sz: 0.35, x: r.x + r.w / 2, y: 0.05, z: r.y + r.h + 0.175, mat: copingMat },
+          { sx: 0.35, sy: 0.1, sz: r.h, x: r.x - 0.175, y: 0.05, z: r.y + r.h / 2, mat: copingMat },
+          { sx: 0.35, sy: 0.1, sz: r.h, x: r.x + r.w + 0.175, y: 0.05, z: r.y + r.h / 2, mat: copingMat },
+        ];
+        for (const p of parts) {
+          const geo = track(new THREE.BoxGeometry(p.sx, p.sy, p.sz));
+          const mesh = new THREE.Mesh(geo, p.mat);
+          mesh.position.set(p.x, p.y, p.z);
+          mesh.receiveShadow = shadowsOn;
+          mesh.castShadow = false;
+          building.add(mesh);
+        }
+        // Zone cliquable pour la synchro 2D ↔ 3D (plan d'eau).
+        const pickGeo = track(new THREE.BoxGeometry(r.w, 0.05, r.h));
+        const pick = new THREE.Mesh(pickGeo, waterMat);
+        pick.position.set(r.x + r.w / 2, -0.2, r.y + r.h / 2);
+        pick.userData.roomId = r.id;
+        pickables.push(pick);
+        building.add(pick);
+        roomMeshes.set(r.id, { cx: r.x + r.w / 2, cz: r.y + r.h / 2, w: r.w, h: r.h });
+      }
     }
     roomMeshesRef.current = roomMeshes;
 
