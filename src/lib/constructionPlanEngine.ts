@@ -246,6 +246,36 @@ const LOT_SOURCE_TARGETS: Array<{ id: string; match: RegExp }> = [
 ];
 
 /**
+ * Postes dont les ARTICLES viennent du Quantitatif détaillé même quand la
+ * décomposition du coût porte déjà leur montant (aucun article alors).
+ *
+ * « Études & frais préliminaires » est la catégorie agrégée du résultat « Coût
+ * de construction » : le montant y est global, sans détail. Les articles réels
+ * (permis de bâtir, études de sol, frais de dossier…) existent dans le
+ * Quantitatif détaillé — ils sont donc repris ici, sans changer le montant du
+ * poste ni créer de ligne.
+ */
+const ARTICLE_SOURCE_TARGETS: Array<{ id: string; match: RegExp }> = [
+  { id: "etudes", match: /(frais prelim|etude)/ },
+];
+
+/**
+ * Rang du poste « Main-d'œuvre » : juste APRÈS « Second œuvre et finitions »
+ * (rang 75) et avant « Revêtements » (80). La catégorie reste INDÉPENDANTE :
+ * elle n'est fusionnée ni dans le second œuvre ni dans aucun autre poste, elle
+ * est seulement déplacée dans l'ordre du plan.
+ */
+export const MAIN_OEUVRE_RANK = 76;
+
+/** Catégorie « Main-d'œuvre » (clé ou libellé, accents et casse ignorés) ? */
+function isLaborCategory(categoryId: string | undefined, label: string | undefined): boolean {
+  const key = String(categoryId ?? "").toLowerCase();
+  if (key === "main_oeuvre") return true;
+  const normalized = normalizeWorkLabel(String(label ?? ""));
+  return /main\s*[-']?\s*d\s*[-']?\s*oeuvre/.test(normalized);
+}
+
+/**
  * Poste « Équipements » : EXCLU du plan à la demande de l'utilisateur — ses
  * coûts ne sont plus simulés dans la sélection ni dans le plan (ils restent
  * visibles dans le Quantitatif détaillé, qui n'est pas modifié).
@@ -323,6 +353,59 @@ function workFromLots(lots: QuantitatifLot[], def: { id: string; label: string; 
   };
 }
 
+/** Un poste possède-t-il déjà un détail au niveau article ? */
+function hasArticleDetail(work: WorkItem): boolean {
+  return (work.parts ?? []).some((p) => (p.articles?.length ?? 0) > 0);
+}
+
+/**
+ * Ajuste le détail du Quantitatif sur le montant du poste porté par la
+ * décomposition du coût : les sous-catégories et articles sont répartis AU
+ * PRORATA de leurs montants réels (aucune ligne inventée ni supprimée) et leur
+ * somme égale exactement le montant du poste — l'écart d'arrondi est porté par
+ * la ligne la plus importante. Sans écart, le détail est repris tel quel.
+ */
+function fitPartsToCost(parts: WorkPartSource[], cost: number): WorkPartSource[] {
+  const total = round2(parts.reduce((s, p) => s + p.cost, 0));
+  const target = round2(cost);
+  if (total <= 0 || target <= 0) return parts;
+  if (Math.abs(total - target) < 0.01) return parts;
+
+  const factor = target / total;
+  const scaled = parts.map((p) => {
+    const partCost = round2(p.cost * factor);
+    let articles = (p.articles ?? []).map((a) => ({ ...a, cost: round2(a.cost * factor) }));
+    if (articles.length > 0) {
+      const residual = round2(partCost - articles.reduce((s, a) => s + a.cost, 0));
+      if (residual !== 0) {
+        const main = articles.reduce((best, a, i) => (a.cost > articles[best].cost ? i : best), 0);
+        articles = articles.map((a, i) => (i === main ? { ...a, cost: round2(a.cost + residual) } : a));
+      }
+    }
+    return { ...p, cost: partCost, articles: articles.length > 0 ? articles : undefined };
+  });
+
+  // Écart d'arrondi global : reporté sur la sous-catégorie (et son article)
+  // la plus importante pour que la somme des sous-catégories = montant du poste.
+  const diff = round2(target - scaled.reduce((s, p) => s + p.cost, 0));
+  if (diff !== 0) {
+    const main = scaled.reduce((best, p, i) => (p.cost > scaled[best].cost ? i : best), 0);
+    const p = scaled[main];
+    scaled[main] = {
+      ...p,
+      cost: round2(p.cost + diff),
+      articles: p.articles
+        ? p.articles.map((a, i) =>
+            i === p.articles!.reduce((best, art, j) => (art.cost > p.articles![best].cost ? j : best), 0)
+              ? { ...a, cost: round2(a.cost + diff) }
+              : a,
+          )
+        : undefined,
+    };
+  }
+  return scaled;
+}
+
 /**
  * Rang des travaux complémentaires personnalisés (piscine, garage, jardin,
  * cuisine extérieure, panneaux solaires…).
@@ -390,7 +473,11 @@ export function deriveWorks(analysis: BudgetAnalysis, lots?: QuantitatifLot[]): 
   const others: WorkItem[] = [];
 
   for (const cat of analysis.breakdown) {
-    const rank = categoryPriority(cat.categoryId) * 10;
+    // « Main-d'œuvre » : rang dédié juste après « Second œuvre et finitions ».
+    // La catégorie reste indépendante — aucun regroupement avec un autre poste.
+    const rank = isLaborCategory(cat.categoryId, cat.categoryLabel)
+      ? MAIN_OEUVRE_RANK
+      : categoryPriority(cat.categoryId) * 10;
     if (cat.subcategories.length > 0) {
       cat.subcategories.forEach((sub, idx) => {
         const rawLabel = sub.subcategoryLabel.trim() || cat.categoryLabel;
@@ -432,7 +519,10 @@ export function deriveWorks(analysis: BudgetAnalysis, lots?: QuantitatifLot[]): 
             id: `w:sub:${cat.categoryId}:${sub.subcategoryId}`,
             label: rawLabel,
             cost,
-            rank: rank + idx,
+            // Fraction de rang : les sous-catégories d'une même catégorie
+            // restent GROUPÉES (aucun poste d'une autre catégorie ne s'intercale),
+            // y compris pour « Main-d'œuvre » juste après le second œuvre.
+            rank: rank + idx / 100,
             categoryId: cat.categoryId,
           });
         }
@@ -475,6 +565,23 @@ export function deriveWorks(analysis: BudgetAnalysis, lots?: QuantitatifLot[]): 
       if (!def) continue;
       const fromLots = workFromLots(lots, def, target.match);
       if (fromLots) list.push(fromLots);
+    }
+  }
+
+  // Postes dont la décomposition du coût ne porte que le montant global : les
+  // ARTICLES sont repris du Quantitatif détaillé (résultat « Coût de
+  // construction »), sans modifier le montant du poste ni le total du plan.
+  if (lots && lots.length > 0) {
+    for (const target of ARTICLE_SOURCE_TARGETS) {
+      const index = list.findIndex((w) => w.id === `w:${target.id}`);
+      if (index < 0) continue;
+      const work = list[index];
+      if (hasArticleDetail(work)) continue;
+      const def = CANONICAL_WORKS.find((c) => c.id === target.id);
+      if (!def) continue;
+      const detailed = workFromLots(lots, def, target.match);
+      if (!detailed?.parts || detailed.parts.length === 0) continue;
+      list[index] = { ...work, parts: fitPartsToCost(detailed.parts, work.cost) };
     }
   }
 

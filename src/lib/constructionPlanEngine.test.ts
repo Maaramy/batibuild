@@ -469,6 +469,65 @@ describe("buildConstructionPlan", () => {
     expect(transport?.parts?.[0].articles?.[0].cost).toBe(1500);
   });
 
+  it("ajoute les ARTICLES des Études & frais préliminaires depuis le Quantitatif détaillé", () => {
+    // Le poste existe déjà (montant global de la décomposition du coût) : ses
+    // articles viennent du Quantitatif détaillé, sans changer son montant.
+    const lots: QuantitatifLot[] = [
+      {
+        id: "frais_preliminaires",
+        name: "Frais Préliminaires et Études",
+        subtotal: 5000,
+        lines: [
+          { designation: "Étude de sol", subcategory: "Études", quantity: 1, unit: "forfait", total: 3000 },
+          { designation: "Frais de dossier", subcategory: "Frais divers", total: 2000 },
+        ],
+      },
+    ];
+
+    const works = deriveWorks(makeAnalysis(), lots);
+    const etudes = works.find((w) => w.id === "w:etudes")!;
+
+    // Montant du poste inchangé (aucun double comptage).
+    expect(etudes.cost).toBe(5000);
+    expect(etudes.parts?.map((p) => p.label)).toEqual(["Études", "Frais divers"]);
+    expect(etudes.parts?.map((p) => p.articles?.map((a) => a.label))).toEqual([
+      ["Étude de sol"],
+      ["Frais de dossier"],
+    ]);
+    // Les articles couvrent exactement le poste (allocation séquentielle).
+    expect(etudes.parts!.reduce((s, p) => s + p.cost, 0)).toBe(5000);
+    for (const part of etudes.parts!) {
+      expect(part.articles!.reduce((s, a) => s + a.cost, 0)).toBe(part.cost);
+    }
+
+    const plan = buildConstructionPlan({ works, budget: 60000, selectedIds: null });
+    const row = plan.works.find((w) => w.id === "w:etudes")!;
+    expect(row.status).toBe("realisable");
+    // Poste intégralement financé : chaque article l'est aussi.
+    expect(row.parts?.flatMap((p) => p.articles ?? []).every((a) => a.status === "realisable")).toBe(true);
+  });
+
+  it("répartit le détail du Quantitatif sur le montant du poste quand ils diffèrent", () => {
+    const lots: QuantitatifLot[] = [
+      {
+        id: "frais_preliminaires",
+        name: "Frais Préliminaires et Études",
+        subtotal: 9000,
+        lines: [
+          { designation: "Étude de sol", subcategory: "Études", total: 6000 },
+          { designation: "Frais de dossier", subcategory: "Frais divers", total: 3000 },
+        ],
+      },
+    ];
+
+    const etudes = deriveWorks(makeAnalysis(), lots).find((w) => w.id === "w:etudes")!;
+    // Le montant du poste reste celui de la décomposition du coût (5 000) :
+    // les articles sont répartis au prorata, aucune ligne n'est inventée.
+    expect(etudes.cost).toBe(5000);
+    expect(etudes.parts!.map((p) => p.cost)).toEqual([3333.33, 1666.67]);
+    expect(etudes.parts!.reduce((s, p) => s + p.cost, 0)).toBe(5000);
+  });
+
   it("ne reprend pas le Quantitatif quand la décomposition du coût porte déjà le poste", () => {
     const lots: QuantitatifLot[] = [
       {
@@ -631,17 +690,50 @@ describe("travaux complémentaires — emplacement dans le plan", () => {
     ];
   }
 
-  it("place les travaux complémentaires APRÈS « Main-d'œuvre », à la fin du plan", () => {
+  it("termine le plan par les travaux complémentaires, après la main-d'œuvre", () => {
     const works = worksWithCustom();
     const plan = buildConstructionPlan({ works, budget: 500000, selectedIds: null });
     const labels = plan.works.map((w) => w.label);
     const laborAt = labels.indexOf("Main-d'œuvre");
 
     expect(laborAt).toBeGreaterThanOrEqual(0);
-    // Aucun poste de construction après la main-d'œuvre.
+    // Aucun travail complémentaire avant la main-d'œuvre.
     expect(labels.slice(0, laborAt + 1).every((l) => !["Piscine", "Garage", "Cuisine extérieure", "Jardin"].includes(l))).toBe(true);
     // Les travaux complémentaires terminent le plan, dans l'ordre du catalogue.
-    expect(labels.slice(laborAt + 1)).toEqual(["Piscine", "Garage", "Cuisine extérieure", "Jardin"]);
+    expect(labels.slice(-4)).toEqual(["Piscine", "Garage", "Cuisine extérieure", "Jardin"]);
+  });
+
+  it("place « Main-d'œuvre » juste APRÈS « Second œuvre et finitions », catégories indépendantes", () => {
+    const analysis = makeAnalysis();
+    // Une catégorie « Second œuvre et finitions » agrégée (poste canonique) et
+    // une catégorie « Main-d'œuvre » distincte : elles ne sont pas fusionnées.
+    analysis.breakdown = [
+      cat("second_oeuvre", "Second œuvre et finitions", 62000, []),
+      // Deux sous-catégories de main-d'œuvre : elles restent groupées.
+      cat("main_oeuvre", "Main-d'œuvre", 9000, [
+        sub("mo1", "Main-d'œuvre", 9000),
+        sub("mo2", "Dépose et démolition", 1500),
+      ]),
+      cat("revetements", "Revêtements", 8000, [sub("r1", "Carrelage sol", 8000)]),
+    ];
+
+    const works = deriveWorks(analysis);
+    const labels = works.map((w) => w.label);
+    const secondAt = labels.indexOf("Second œuvre et finitions");
+    const laborAt = labels.indexOf("Main-d'œuvre");
+    const revetementsAt = labels.indexOf("Revêtements");
+
+    expect(secondAt).toBeGreaterThanOrEqual(0);
+    // La main-d'œuvre suit immédiatement le second œuvre et reste groupée.
+    expect(labels.slice(secondAt + 1, secondAt + 3)).toEqual(["Main-d'œuvre", "Dépose et démolition"]);
+    expect(laborAt).toBe(secondAt + 1);
+    expect(revetementsAt).toBeGreaterThan(laborAt);
+    // Catégories indépendantes : deux postes, deux montants distincts.
+    expect(works.find((w) => w.id === "w:second_oeuvre")?.cost).toBe(62000);
+    expect(works.find((w) => w.label === "Main-d'œuvre")?.cost).toBe(9000);
+
+    const plan = buildConstructionPlan({ works, budget: 500000, selectedIds: null });
+    expect(plan.works.map((w) => w.id)).toEqual(works.map((w) => w.id));
   });
 
   it("garde les travaux complémentaires en dernière position, sans doublon", () => {

@@ -107,6 +107,111 @@ function buildCase() {
 /** Libellé tel qu'affiché (sans le complément entre parenthèses). */
 const shown = (label: string) => label.replace(/\s*\([^()]*\)\s*$/, "").trim();
 
+/**
+ * Cas réel du résultat « Coût de construction » : la catégorie des études est
+ * agrégée (« Études & permis », sans sous-catégorie) tandis que les articles
+ * existent dans le Quantitatif détaillé (lot « Frais Préliminaires et Études »).
+ */
+const REAL_BREAKDOWN: CategoryBreakdownItem[] = [
+  { category: "etudes_imprevus", label: "Études & permis", estimatedCost: 7_920, percentage: 6.4 },
+  { category: "gros_oeuvre", label: "Gros œuvre (fondations, structures)", estimatedCost: 38_927, percentage: 31.7 },
+  { category: "second_oeuvre", label: "Second œuvre et finitions", estimatedCost: 62_000, percentage: 50.5 },
+  { category: "main_oeuvre", label: "Main-d'œuvre", estimatedCost: 9_000, percentage: 7.3 },
+];
+
+const REAL_LOTS: QuantitatifLot[] = [
+  {
+    id: "frais_preliminaires",
+    name: "Frais Préliminaires et Études",
+    subtotal: 7_920,
+    lines: [
+      {
+        designation: "Permis de bâtir et frais de dossier",
+        subcategory: "Études & permis",
+        quantity: 1,
+        unit: "forfait",
+        total: 5_000,
+      },
+      {
+        designation: "Étude de sol",
+        subcategory: "Études & permis",
+        quantity: 1,
+        unit: "forfait",
+        total: 2_920,
+      },
+    ],
+  },
+  {
+    id: "gros_oeuvre",
+    name: "Gros œuvre",
+    subtotal: 38_927,
+    lines: [{ designation: "Structure et maçonnerie", subcategory: "Gros œuvre", total: 38_927 }],
+  },
+  {
+    id: "second_oeuvre",
+    name: "Second œuvre",
+    subtotal: 62_000,
+    lines: [{ designation: "Nettoyage et finitions", subcategory: "Nettoyage et finitions", total: 62_000 }],
+  },
+  {
+    id: "main_oeuvre",
+    name: "Main-d'œuvre",
+    subtotal: 9_000,
+    lines: [{ designation: "Main-d'œuvre de pose", subcategory: "Main-d'œuvre", total: 9_000 }],
+  },
+];
+
+function buildRealCase() {
+  const analysis = buildBudgetAnalysis({
+    projectId: "project-1",
+    userId: "user-1",
+    projectName: "Ma maison",
+    scenarioLabel: "Standard",
+    projectTotal: 117_847,
+    budgetAvailable: 100_000,
+    breakdown: REAL_BREAKDOWN,
+    lots: REAL_LOTS,
+    surface: 100,
+    costPerM2: 1_178,
+  });
+
+  const html = renderToStaticMarkup(
+    <CapacityDecisionCard analysis={analysis} lots={REAL_LOTS} complementaryWorksEnabled={false} />,
+  );
+
+  const planSection = html.slice(
+    html.indexOf("Plan de construction selon votre budget"),
+    html.indexOf("Priorisation intelligente"),
+  );
+
+  return { analysis, html, planSection };
+}
+
+describe("CapacityDecisionCard — études détaillées et rang de la main-d'œuvre", () => {
+  it("affiche les articles des Études & frais préliminaires venus du Quantitatif détaillé", () => {
+    const { planSection } = buildRealCase();
+
+    expect(planSection).toContain("Études &amp; frais préliminaires");
+    // Les deux articles du lot sont annoncés sous le poste…
+    expect(planSection).toContain("2 articles");
+    // …et le montant du poste reste celui du résultat de coût (7 920 TND).
+    expect(planSection).toContain("7 920 TND");
+  });
+
+  it("place « Main-d'œuvre » juste APRÈS « Second œuvre et finitions »", () => {
+    const { planSection } = buildRealCase();
+
+    const secondAt = planSection.indexOf("Second œuvre et finitions");
+    const laborAt = planSection.search(/Main-d(?:&#x27;|')œuvre/);
+
+    expect(secondAt).toBeGreaterThanOrEqual(0);
+    expect(laborAt).toBeGreaterThan(secondAt);
+    // Les deux postes restent indépendants (chacun son montant).
+    expect(planSection).toContain("62 000 TND");
+    expect(planSection).toContain("9 000 TND");
+  });
+});
+
 describe("CapacityDecisionCard — doublons de libellés dans le plan", () => {
   it("reproduit le cas signalé : le poste porte une sous-catégorie du même nom", () => {
     const { works } = buildCase();
