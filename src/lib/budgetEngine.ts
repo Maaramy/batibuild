@@ -309,43 +309,84 @@ export const BUDGET_SIMULATION_STEP_TND = 10000;
  */
 export const MIN_BUDGET_TND = 50_000;
 
-/** Borne haute du budget sélectionnable dans « Aide à la décision ». */
-export const MAX_BUDGET_TND = 1_000_000;
-
 /** Pas de sélection du curseur de budget (10 000 TND). */
 export const BUDGET_STEP_TND = 10_000;
 
 /**
- * Normalise un budget pour le curseur : borné entre `MIN_BUDGET_TND` et
- * `MAX_BUDGET_TND`, aligné sur le pas de 10 000 TND. Une valeur invalide
- * retombe sur le minimum analysable.
+ * Borne haute du curseur : montant total TTC du scénario actif.
+ *
+ * Aucun plafond fixe n'est appliqué : le maximum suit toujours le scénario
+ * sélectionné (Économique / Standard / Premium / Personnalisé) et se met à
+ * jour dès que ses paramètres changent. Le montant est conservé au dinar près
+ * pour que le curseur puisse atteindre exactement le total du scénario.
  */
-export function clampBudgetTnd(value: number): number {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return MIN_BUDGET_TND;
-  const bounded = Math.min(MAX_BUDGET_TND, Math.max(MIN_BUDGET_TND, n));
-  const steps = Math.round((bounded - MIN_BUDGET_TND) / BUDGET_STEP_TND);
-  return Math.min(
-    MAX_BUDGET_TND,
-    MIN_BUDGET_TND + steps * BUDGET_STEP_TND,
-  );
+export function budgetSliderMaxTnd(projectTotal?: number | null): number {
+  const n = Number(projectTotal);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.floor(n);
 }
 
 /**
- * Valeur initiale du curseur : 50 000 TND, sauf si un budget déjà enregistré
- * est valide (compris entre les deux bornes du curseur).
+ * Le scénario permet-il une plage de sélection valide ? Il faut que son total
+ * TTC atteigne au moins le budget minimal analysable, sinon la plage
+ * [50 000 → total] serait inversée.
  */
-export function initialBudgetTnd(saved?: number | null): number {
-  const n = Number(saved);
-  if (!Number.isFinite(n) || n < MIN_BUDGET_TND || n > MAX_BUDGET_TND) {
-    return MIN_BUDGET_TND;
-  }
-  return clampBudgetTnd(n);
+export function hasAnalyzableBudgetRange(projectTotal?: number | null): boolean {
+  return budgetSliderMaxTnd(projectTotal) >= MIN_BUDGET_TND;
 }
 
-/** Le budget permet-il de lancer l'analyse ? */
-export function isBudgetAnalyzable(value: number): boolean {
-  return Number.isFinite(Number(value)) && Number(value) >= MIN_BUDGET_TND;
+/**
+ * Normalise un budget pour le curseur : borné entre `MIN_BUDGET_TND` et le
+ * total TTC du scénario actif, aligné sur le pas de 10 000 TND. Le maximum
+ * exact est toujours atteignable, même s'il ne correspond pas au pas.
+ * Une valeur invalide retombe sur le minimum analysable.
+ */
+export function clampBudgetTnd(value: number, projectTotal?: number | null): number {
+  const max = budgetSliderMaxTnd(projectTotal);
+  if (max < MIN_BUDGET_TND) return MIN_BUDGET_TND;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= MIN_BUDGET_TND) return MIN_BUDGET_TND;
+  if (n >= max) return max;
+  const steps = Math.round((n - MIN_BUDGET_TND) / BUDGET_STEP_TND);
+  const aligned = MIN_BUDGET_TND + steps * BUDGET_STEP_TND;
+  if (aligned >= max) return max;
+  // Dernier cran : le maximum exact reste sélectionnable même lorsqu'il ne
+  // correspond pas au pas de 10 000 TND (le curseur ne peut pas s'arrêter
+  // dessus autrement, Radix alignant toutes les valeurs sur le pas).
+  if (max - aligned < BUDGET_STEP_TND / 2) return max;
+  return aligned;
+}
+
+/**
+ * Valeur initiale du curseur : 50 000 TND si aucun budget valide n'est déjà
+ * renseigné ; un budget enregistré est conservé, et ramené au maximum du
+ * scénario actif s'il le dépasse (le minimum de 50 000 TND reste prioritaire).
+ */
+export function initialBudgetTnd(
+  saved: number | null | undefined,
+  projectTotal?: number | null,
+): number {
+  const max = budgetSliderMaxTnd(projectTotal);
+  if (max < MIN_BUDGET_TND) return MIN_BUDGET_TND;
+  const n = Number(saved);
+  if (!Number.isFinite(n) || n < MIN_BUDGET_TND) return MIN_BUDGET_TND;
+  if (n >= max) return max;
+  return clampBudgetTnd(n, max);
+}
+
+/**
+ * Le budget permet-il de lancer l'analyse ? Il doit atteindre le minimum
+ * analysable et rester dans la plage du scénario actif (quand elle est
+ * fournie).
+ */
+export function isBudgetAnalyzable(
+  value: number,
+  projectTotal?: number | null,
+): boolean {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < MIN_BUDGET_TND) return false;
+  if (projectTotal === undefined || projectTotal === null) return true;
+  return hasAnalyzableBudgetRange(projectTotal) && n <= budgetSliderMaxTnd(projectTotal);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -667,9 +708,8 @@ export function buildBudgetAnalysis(input: BudgetAnalysisInput): BudgetAnalysis 
       ...base,
       available: false,
       reason:
-        `Budget saisi : ${formatTndAmount(budget)}. ` +
-        `La simulation de construction s'active \u00e0 partir de ${formatTndAmount(MIN_BUDGET_TND)} TND, ` +
-        "montant minimum pour engager un chantier structurant de ce projet.",
+        `Budget insuffisant : le minimum requis est de ${formatTndAmount(MIN_BUDGET_TND)}. ` +
+        `Budget saisi : ${formatTndAmount(budget)} — montant trop faible pour engager un chantier structurant de ce projet.`,
       usedBudget: 0,
       remainingBudget: round2(budget),
       projectReachablePct: 0,

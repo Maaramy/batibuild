@@ -54,12 +54,14 @@ import { OptimizationSection } from "@/components/decision/OptimizationSection";
 import { buildOptimizationPlan, type OptimizationPlan } from "@/lib/optimizationEngine";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
 import {
-  MAX_BUDGET_TND,
   MIN_BUDGET_TND,
+  budgetSliderMaxTnd,
   buildBudgetAnalysis,
   clampBudgetTnd,
   formatTndAmount,
+  hasAnalyzableBudgetRange,
   initialBudgetTnd,
+  isBudgetAnalyzable,
   type BudgetAnalysis,
 } from "@/lib/budgetEngine";
 import {
@@ -247,25 +249,44 @@ export function DecisionSupportModule({
   );
   const saveBudget = useMutation(api.decisionSupport.saveBudgetAnalysis);
 
+  // ── Plage du curseur : 50 000 TND → total TTC du scénario actif ──────────
+  // Aucun plafond fixe : le maximum suit le scénario sélectionné et se met à
+  // jour dès que ses paramètres changent. Sous 50 000 TND, aucune plage
+  // valide n'existe : l'analyse est désactivée pour ce scénario.
+  const scenarioMaxBudget = budgetSliderMaxTnd(projectTotal);
+  const budgetRangeAvailable = hasAnalyzableBudgetRange(projectTotal);
+
   // Valeur initiale : 50 000 TND, sauf budget déjà enregistré et valide.
   const [budgetAvailable, setBudgetAvailable] = useState<number>(() =>
-    initialBudgetTnd(null),
+    initialBudgetTnd(null, scenarioMaxBudget),
   );
   const [analyzedBudget, setAnalyzedBudget] = useState<number | null>(null);
 
-  // Restauration du dernier budget analysé pour ce projet. Un budget hors des
-  // bornes du curseur n'est pas repris : la valeur initiale de 50 000 TND reste
-  // appliquée, conformément à la règle de sélection.
+  // Restauration du dernier budget analysé pour ce projet. Un budget inférieur
+  // au seuil est ignoré (50 000 TND reste appliqué) ; un budget enregistré
+  // au-delà du maximum du scénario est ramené à ce maximum.
   useEffect(() => {
     if (savedBudget === undefined || analyzedBudget !== null) return;
+    if (!budgetRangeAvailable) return;
     const saved = Number(savedBudget?.budgetAvailable);
-    if (!Number.isFinite(saved) || saved < MIN_BUDGET_TND || saved > MAX_BUDGET_TND) {
-      return;
-    }
-    const restored = initialBudgetTnd(saved);
+    if (!Number.isFinite(saved) || saved < MIN_BUDGET_TND) return;
+    const restored = initialBudgetTnd(saved, scenarioMaxBudget);
     setAnalyzedBudget(restored);
     setBudgetAvailable(restored);
-  }, [savedBudget, analyzedBudget]);
+  }, [savedBudget, analyzedBudget, budgetRangeAvailable, scenarioMaxBudget]);
+
+  // Changement de scénario / de paramètres : le maximum est recalculé et un
+  // budget devenu supérieur est ramené AU NOUVEAU MAXIMUM, résultats compris.
+  // L'ajustement est dérivé (aucun état dupliqué, aucun effet en cascade) :
+  // le budget affiché et le budget analysé sont toujours dans la plage.
+  const effectiveBudget = budgetRangeAvailable
+    ? clampBudgetTnd(budgetAvailable, scenarioMaxBudget)
+    : MIN_BUDGET_TND;
+  const effectiveAnalyzedBudget = analyzedBudget === null
+    ? null
+    : budgetRangeAvailable
+      ? clampBudgetTnd(analyzedBudget, scenarioMaxBudget)
+      : null;
 
   /** Analyse réelle pour un budget donné — mêmes règles, mêmes montants. */
   const buildAnalysisForBudget = useCallback(
@@ -289,9 +310,10 @@ export function DecisionSupportModule({
   );
 
   const budgetAnalysis = useMemo<BudgetAnalysis | null>(() => {
-    if (analyzedBudget === null || analyzedBudget < MIN_BUDGET_TND) return null;
-    return buildAnalysisForBudget(analyzedBudget);
-  }, [analyzedBudget, buildAnalysisForBudget]);
+    if (effectiveAnalyzedBudget === null) return null;
+    if (!isBudgetAnalyzable(effectiveAnalyzedBudget, scenarioMaxBudget)) return null;
+    return buildAnalysisForBudget(effectiveAnalyzedBudget);
+  }, [effectiveAnalyzedBudget, scenarioMaxBudget, buildAnalysisForBudget]);
 
   // ── Analyse budgétaire : animation de 3 s + résultat réel ────────────────
   // Le calcul reste EXACTEMENT `buildBudgetAnalysis` (mêmes données, mêmes
@@ -305,6 +327,12 @@ export function DecisionSupportModule({
   const [budgetAttempt, setBudgetAttempt] = useState(0);
   const lastBudgetRef = useRef<number | null>(null);
   const budgetRunRef = useRef(0);
+
+  // Scénario dont le total TTC est inférieur au budget minimal : aucune plage
+  // de sélection valide, donc aucune analyse possible. L'état affiché est
+  // dérivé de la plage réelle — aucune simulation obsolète n'est montrée.
+  const effectivePhase = budgetRangeAvailable ? budgetPhase : "idle";
+  const effectiveError = budgetRangeAvailable ? budgetError : null;
 
   /** Persiste un résultat déjà calculé (aucun recalcul de règle). */
   const persistBudget = useCallback(
@@ -338,6 +366,15 @@ export function DecisionSupportModule({
 
   const startBudgetAnalysis = async (budget: number) => {
     if (budgetPhase === "loading") return;
+    if (!budgetRangeAvailable) {
+      setBudgetSettled(false);
+      setBudgetError(
+        `Le scénario « ${scenarioLabel} » est estimé à ${formatTndAmount(scenarioMaxBudget)} : ` +
+          `le budget minimal analysable est de ${formatTndAmount(MIN_BUDGET_TND)}.`,
+      );
+      setBudgetPhase("error");
+      return;
+    }
     const raw = Number(budget);
     if (!Number.isFinite(raw) || raw < MIN_BUDGET_TND) {
       lastBudgetRef.current = raw;
@@ -348,7 +385,7 @@ export function DecisionSupportModule({
       setBudgetPhase("error");
       return;
     }
-    const value = clampBudgetTnd(raw);
+    const value = clampBudgetTnd(raw, scenarioMaxBudget);
     lastBudgetRef.current = value;
     setBudgetAvailable(value);
 
@@ -390,7 +427,8 @@ export function DecisionSupportModule({
    * réel — sans relancer l'animation de 3 s ni masquer les résultats.
    */
   const handleBudgetChange = (value: number) => {
-    const next = clampBudgetTnd(value);
+    if (!budgetRangeAvailable) return;
+    const next = clampBudgetTnd(value, scenarioMaxBudget);
     lastBudgetRef.current = next;
     setBudgetAvailable(next);
     if (budgetError) {
@@ -408,7 +446,8 @@ export function DecisionSupportModule({
   /** Fin de glissement : enregistre le budget courant, sans nouveau chargement. */
   const handleBudgetCommit = (value: number) => {
     if (analyzedBudget === null || budgetPhase === "loading") return;
-    const next = clampBudgetTnd(value);
+    if (!budgetRangeAvailable) return;
+    const next = clampBudgetTnd(value, scenarioMaxBudget);
     const analysis = buildAnalysisForBudget(next);
     if (!analysis) return;
     void persistBudget(next, analysis).catch(() => undefined);
@@ -478,8 +517,8 @@ export function DecisionSupportModule({
   // de la carte de saisie du budget (les données restent en mémoire et en base).
   const budgetResultsDisplayed =
     !loading &&
-    budgetPhase !== "loading" &&
-    budgetError === null &&
+    effectivePhase !== "loading" &&
+    effectiveError === null &&
     Boolean(budgetAnalysis?.available);
   useEffect(() => {
     onBudgetResultsDisplayed?.(budgetResultsDisplayed);
@@ -591,20 +630,22 @@ export function DecisionSupportModule({
         <OptimizationSection
           plan={optimization}
           budgetAnalysis={budgetAnalysis}
-          budgetAvailable={budgetAvailable}
+          budgetAvailable={effectiveBudget}
           onBudgetChange={handleBudgetChange}
           onBudgetCommit={handleBudgetCommit}
           onBudgetAnalyze={(value) => {
             void startBudgetAnalysis(value);
           }}
-          budgetAnalyzing={budgetPhase === "loading"}
-          budgetAnalysisError={budgetError}
+          budgetAnalyzing={effectivePhase === "loading"}
+          budgetAnalysisError={effectiveError}
           budgetAnalysisSettled={budgetSettled}
           budgetAnalysisAttempt={budgetAttempt}
           onBudgetAnimationComplete={handleBudgetAnimationComplete}
           onBudgetRetry={handleBudgetRetry}
           projectName={projectName}
           projectId={projectId}
+          projectTotal={projectTotal}
+          scenarioLabel={scenarioLabel}
           lots={budgetContext?.lots ?? undefined}
           scenarioTotals={scenarioTotals}
           complementaryWorksEnabled={complementaryWorksEnabled}

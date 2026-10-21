@@ -1,8 +1,9 @@
 // ============================================================================
 // AIDE À LA DÉCISION — Budget / Capacité de construction
 // ----------------------------------------------------------------------------
-// Curseur de budget (50 000 → 1 000 000 TND, pas de 10 000 TND) puis le module
-// d'aide à la décision « Capacité de construction » (`CapacityDecisionCard`) :
+// Curseur de budget (50 000 TND → montant total TTC du scénario actif, pas de
+// 10 000 TND, maximum exact atteignable) puis le module d'aide à la décision
+// « Capacité de construction » (`CapacityDecisionCard`) :
 // sélection des travaux, % global de construction, plan de construction,
 // priorisation IA, simulations +10/+20/+30 TND, comparaison Économique /
 // Standard / Premium. Le curseur reste ajustable après l'analyse : les
@@ -30,10 +31,12 @@ import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
 import { cn } from "@/lib/utils";
 import {
   BUDGET_STEP_TND,
-  MAX_BUDGET_TND,
   MIN_BUDGET_TND,
+  budgetSliderMaxTnd,
   clampBudgetTnd,
   formatTndAmount,
+  hasAnalyzableBudgetRange,
+  isBudgetAnalyzable,
   type BudgetAnalysis,
   type QuantitatifLot,
 } from "@/lib/budgetEngine";
@@ -58,6 +61,10 @@ export function OptimizationSection({
   onBudgetRetry,
   projectName,
   projectId,
+  /** Montant total TTC du scénario actif : maximum dynamique du curseur. */
+  projectTotal,
+  /** Libellé du scénario actif (Économique / Standard / Premium / Personnalisé). */
+  scenarioLabel,
   lots,
   scenarioTotals,
   projectContextLabel,
@@ -85,6 +92,9 @@ export function OptimizationSection({
   onBudgetAnimationComplete?: () => void;
   onBudgetRetry?: () => void;
   projectName?: string;
+  /** Montant total TTC du scénario actif — maximum du curseur, sans plafond fixe. */
+  projectTotal: number;
+  scenarioLabel?: string;
   /** Lots du Quantitatif détaillé (source des postes manquant au coût). */
   lots?: QuantitatifLot[];
   /** Totaux des scénarios d'estimation (Économique / Standard / Premium). */
@@ -93,14 +103,19 @@ export function OptimizationSection({
   /** Travaux complémentaires accessibles (type de projet + surface ≥ 120 m²). */
   complementaryWorksEnabled?: boolean;
 }) {
+  // Maximum du curseur = total TTC du scénario actif (aucun plafond fixe).
+  const scenarioTotal = budgetSliderMaxTnd(projectTotal);
+  const rangeAvailable = hasAnalyzableBudgetRange(projectTotal);
+
   // Budget affiché : 50 000 TND par défaut, ou le budget enregistré déjà
-  // normalisé par le module. Toute valeur est bornée au curseur.
+  // normalisé par le module. Toute valeur est bornée à la plage du scénario.
   const rawBudget = typeof budgetAvailable === "number" && Number.isFinite(budgetAvailable)
     ? budgetAvailable
     : MIN_BUDGET_TND;
-  const budgetNumber = clampBudgetTnd(rawBudget);
-  const budgetTooLow = rawBudget < MIN_BUDGET_TND;
-  const budgetValid = !budgetTooLow && Number.isFinite(budgetNumber) && budgetNumber >= MIN_BUDGET_TND;
+  const budgetNumber = clampBudgetTnd(rawBudget, scenarioTotal);
+  const budgetBelowMin = rawBudget < MIN_BUDGET_TND;
+  const budgetValid =
+    rangeAvailable && !budgetBelowMin && isBudgetAnalyzable(budgetNumber, scenarioTotal);
 
   return (
     <div className="space-y-4">
@@ -127,50 +142,68 @@ export function OptimizationSection({
           </div>
 
           <div className="mt-4 space-y-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <label
-                className="text-[11.5px] font-semibold text-foreground"
-                htmlFor="budget-available"
-              >
-                Budget total
-              </label>
+            {rangeAvailable ? (
+              <>
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <label
+                    className="text-[11.5px] font-semibold text-foreground"
+                    htmlFor="budget-available"
+                  >
+                    Budget total
+                  </label>
+                  <p
+                    id="budget-available-value"
+                    aria-live="polite"
+                    className="text-lg font-bold leading-none tabular-nums text-foreground sm:text-xl"
+                  >
+                    {formatTndAmount(budgetNumber)}
+                  </p>
+                </div>
+
+                <Slider
+                  id="budget-available"
+                  min={MIN_BUDGET_TND}
+                  max={scenarioTotal}
+                  step={BUDGET_STEP_TND}
+                  value={[budgetNumber]}
+                  onValueChange={([value]) => onBudgetChange?.(value)}
+                  onValueCommit={([value]) => onBudgetCommit?.(value)}
+                  disabled={budgetAnalyzing}
+                  aria-label="Budget total disponible"
+                  aria-valuetext={formatTndAmount(budgetNumber)}
+                  className="py-1"
+                />
+
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[10px] font-medium tabular-nums text-muted-foreground">
+                  <span>Min. {formatTndAmount(MIN_BUDGET_TND)}</span>
+                  <span>
+                    Max. {formatTndAmount(scenarioTotal)} · scénario{" "}
+                    {scenarioLabel ?? "actif"}
+                  </span>
+                </div>
+              </>
+            ) : (
               <p
-                id="budget-available-value"
-                aria-live="polite"
-                className="text-lg font-bold leading-none tabular-nums text-foreground sm:text-xl"
+                className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-3 text-[11.5px] leading-snug text-amber-700 dark:text-amber-300"
+                role="alert"
               >
-                {formatTndAmount(budgetNumber)}
+                {`Le scénario ${scenarioLabel ?? "actif"} est estimé à ${formatTndAmount(scenarioTotal)} : ` +
+                  `sa plage de sélection serait inférieure au budget minimal analysable de ${formatTndAmount(MIN_BUDGET_TND)}. ` +
+                  "Choisissez un scénario plus élevé pour lancer l'analyse."}
               </p>
-            </div>
-
-            <Slider
-              id="budget-available"
-              min={MIN_BUDGET_TND}
-              max={MAX_BUDGET_TND}
-              step={BUDGET_STEP_TND}
-              value={[budgetNumber]}
-              onValueChange={([value]) => onBudgetChange?.(value)}
-              onValueCommit={([value]) => onBudgetCommit?.(value)}
-              disabled={budgetAnalyzing}
-              aria-label="Budget total disponible"
-              aria-valuetext={formatTndAmount(budgetNumber)}
-              className="py-1"
-            />
-
-            <div className="flex items-center justify-between gap-3 text-[10px] font-medium tabular-nums text-muted-foreground">
-              <span>Min. {formatTndAmount(MIN_BUDGET_TND)}</span>
-              <span>Max. {formatTndAmount(MAX_BUDGET_TND)}</span>
-            </div>
+            )}
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p
                 className={cn(
                   "text-[11px] leading-snug",
-                  budgetTooLow ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+                  budgetBelowMin || !rangeAvailable
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-muted-foreground",
                 )}
-                role={budgetTooLow ? "alert" : undefined}
+                role={budgetBelowMin ? "alert" : undefined}
               >
-                {budgetTooLow
+                {budgetBelowMin
                   ? `Budget insuffisant : le minimum requis est de ${formatTndAmount(MIN_BUDGET_TND)}.`
                   : `Budget minimal analysable : ${formatTndAmount(MIN_BUDGET_TND)}.`}
               </p>

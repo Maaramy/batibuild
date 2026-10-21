@@ -3,10 +3,15 @@
 // ----------------------------------------------------------------------------
 // Vérifie sur le rendu RÉEL de la section d'optimisation :
 //   • le champ « Budget total » est remplacé par un curseur borné
-//     (50 000 TND → 1 000 000 TND, pas de 10 000 TND) ;
+//     (50 000 TND → total TTC du scénario actif, pas de 10 000 TND) ;
+//   • le maximum suit le scénario sélectionné (Économique / Standard /
+//     Premium / Personnalisé), sans plafond fixe ;
+//   • un budget supérieur au nouveau maximum est ramené à ce maximum ;
 //   • le montant affiché correspond toujours à la valeur du curseur ;
 //   • le curseur reste ajustable après l'analyse, sans nouveau chargement ;
-//   • un budget sous le seuil affiche le message minimal explicite.
+//   • un budget sous le seuil affiche le message minimal explicite ;
+//   • un scénario sous 50 000 TND n'affiche aucune plage invalide et
+//     désactive l'analyse.
 // ============================================================================
 
 import { describe, expect, it, vi } from "vitest";
@@ -20,7 +25,6 @@ vi.mock("convex/react", () => ({
 
 import { OptimizationSection } from "@/components/decision/OptimizationSection";
 import {
-  MAX_BUDGET_TND,
   MIN_BUDGET_TND,
   buildBudgetAnalysis,
   formatTndAmount,
@@ -55,6 +59,8 @@ function renderSection(options: {
   budgetAnalysis: ReturnType<typeof analysis> | null;
   budgetAnalyzing?: boolean;
   budgetAvailable?: number;
+  projectTotal?: number;
+  scenarioLabel?: string;
 }) {
   return renderToStaticMarkup(
     <OptimizationSection
@@ -64,6 +70,8 @@ function renderSection(options: {
       budgetAnalyzing={options.budgetAnalyzing}
       projectName="Villa #64"
       projectId="project-1"
+      projectTotal={options.projectTotal ?? PROJECT_TOTAL}
+      scenarioLabel={options.scenarioLabel ?? "Standard"}
       complementaryWorksEnabled={false}
     />,
   );
@@ -76,20 +84,55 @@ describe("OptimizationSection — curseur de budget", () => {
     expect(html).toContain("Quel est votre budget disponible ?");
     expect(html).toContain('data-slot="slider"');
     expect(html).toContain(formatTndAmount(MIN_BUDGET_TND));
-    expect(html).toContain(formatTndAmount(MAX_BUDGET_TND));
+    expect(html).toContain(formatTndAmount(PROJECT_TOTAL));
     // L'ancien champ numérique « Budget total » n'existe plus (le curseur
     // Radix peut rendre un input masqué interne, sans saisie utilisateur).
     expect(html).not.toContain('type="number"');
     expect(html).not.toContain("Plan de construction selon votre budget");
   });
 
-  it("affiche le budget enregistré et le montant correspondant au curseur", () => {
+  it("prend le total TTC du scénario actif comme maximum, sans plafond fixe", () => {
+    const scenarios = [
+      { label: "Économique", total: 180_000 },
+      { label: "Standard", total: 240_000 },
+      { label: "Premium", total: 320_000 },
+      { label: "Personnalisé", total: 275_500 },
+    ];
+
+    for (const s of scenarios) {
+      const html = renderSection({
+        budgetAnalysis: null,
+        budgetAvailable: MIN_BUDGET_TND,
+        projectTotal: s.total,
+        scenarioLabel: s.label,
+      });
+
+      expect(html).toContain(`Max. ${formatTndAmount(s.total)}`);
+      expect(html).toContain(`scénario ${s.label}`);
+      expect(html).not.toContain("1 000 000 TND");
+    }
+  });
+
+  it("ramène automatiquement un budget supérieur au nouveau maximum", () => {
+    // Budget enregistré 500 000 TND, scénario Standard à 240 000 TND.
     const html = renderSection({
       budgetAnalysis: null,
       budgetAvailable: 500_000,
+      projectTotal: 240_000,
+      scenarioLabel: "Standard",
     });
 
-    expect(html).toContain(formatTndAmount(500_000));
+    expect(html).toContain(formatTndAmount(240_000));
+    expect(html).not.toContain(formatTndAmount(500_000));
+  });
+
+  it("affiche le budget enregistré et le montant correspondant au curseur", () => {
+    const html = renderSection({
+      budgetAnalysis: null,
+      budgetAvailable: 100_000,
+    });
+
+    expect(html).toContain(formatTndAmount(100_000));
     expect(html).toContain(formatTndAmount(MIN_BUDGET_TND));
   });
 
@@ -98,6 +141,8 @@ describe("OptimizationSection — curseur de budget", () => {
       budgetAnalysis: analysis(),
       budgetAnalyzing: true,
       budgetAvailable: 500_000,
+      projectTotal: 500_000,
+      scenarioLabel: "Premium",
     });
 
     expect(html).toContain("Quel est votre budget disponible ?");
@@ -108,13 +153,13 @@ describe("OptimizationSection — curseur de budget", () => {
   it("garde le curseur ajustable avec les résultats, sans chargement résiduel", () => {
     const html = renderSection({
       budgetAnalysis: analysis(),
-      budgetAvailable: 500_000,
+      budgetAvailable: 100_000,
     });
 
     // Le curseur reste visible pour actualiser les résultats.
     expect(html).toContain("Quel est votre budget disponible ?");
     expect(html).toContain('data-slot="slider"');
-    expect(html).toContain(formatTndAmount(500_000));
+    expect(html).toContain(formatTndAmount(100_000));
     // Les résultats (et le budget analysé) restent affichés directement.
     expect(html).toContain("Plan de construction selon votre budget");
     expect(html).toContain(formatTndAmount(PROJECT_TOTAL));
@@ -130,5 +175,23 @@ describe("OptimizationSection — curseur de budget", () => {
     expect(html).toContain(
       `Budget insuffisant : le minimum requis est de ${formatTndAmount(MIN_BUDGET_TND)}.`,
     );
+  });
+
+  it("désactive l'analyse et n'affiche aucune plage invalide sous 50 000 TND", () => {
+    const html = renderSection({
+      budgetAnalysis: null,
+      budgetAvailable: MIN_BUDGET_TND,
+      projectTotal: 42_000,
+      scenarioLabel: "Économique",
+    });
+
+    expect(html).not.toContain('data-slot="slider"');
+    expect(html).toContain(
+      `Le scénario Économique est estimé à ${formatTndAmount(42_000)}`,
+    );
+    expect(html).toContain(`budget minimal analysable de ${formatTndAmount(MIN_BUDGET_TND)}`);
+    // Bouton d'analyse désactivé.
+    expect(html).toContain("Analyser mon budget avec l&#x27;IA");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>/);
   });
 });

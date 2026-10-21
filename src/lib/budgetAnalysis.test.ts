@@ -3,11 +3,12 @@ import { describe, expect, it } from 'vitest'
 import {
   BUDGET_SIMULATION_STEP_TND,
   BUDGET_STEP_TND,
-  MAX_BUDGET_TND,
   MIN_BUDGET_TND,
+  budgetSliderMaxTnd,
   buildBudgetAnalysis,
   clampBudgetTnd,
   formatTndAmount,
+  hasAnalyzableBudgetRange,
   initialBudgetTnd,
   isBudgetAnalyzable,
   type CategoryBreakdownItem,
@@ -402,34 +403,79 @@ describe('buildBudgetAnalysis — couverture du catalogue de lots réel', () => 
   })
 })
 
-describe('curseur de budget — bornes, pas et valeur initiale', () => {
-  it('applique le seuil de 50 000 TND et la borne haute de 1 000 000 TND', () => {
+describe('curseur de budget — seuil, pas et maximum dynamique', () => {
+  it('applique le seuil minimal analysable de 50 000 TND et le pas de 10 000 TND', () => {
     expect(MIN_BUDGET_TND).toBe(50_000)
-    expect(MAX_BUDGET_TND).toBe(1_000_000)
     expect(BUDGET_STEP_TND).toBe(10_000)
     expect(isBudgetAnalyzable(50_000)).toBe(true)
     expect(isBudgetAnalyzable(49_999)).toBe(false)
   })
 
-  it('borne le curseur sans jamais sortir de la plage', () => {
-    expect(clampBudgetTnd(0)).toBe(50_000)
-    expect(clampBudgetTnd(-20_000)).toBe(50_000)
-    expect(clampBudgetTnd(1_500_000)).toBe(1_000_000)
-    expect(clampBudgetTnd(Number.NaN)).toBe(50_000)
+  it('utilise le total TTC de chacun des 4 scénarios comme maximum', () => {
+    const scenarios = [
+      { label: 'Économique', total: 180_000 },
+      { label: 'Standard', total: 240_000 },
+      { label: 'Premium', total: 320_000 },
+      { label: 'Personnalisé', total: 275_500 },
+    ]
+
+    for (const s of scenarios) {
+      expect(budgetSliderMaxTnd(s.total)).toBe(s.total)
+      expect(clampBudgetTnd(9_000_000, s.total)).toBe(s.total)
+      expect(initialBudgetTnd(9_000_000, s.total)).toBe(s.total)
+      expect(isBudgetAnalyzable(s.total, s.total)).toBe(true)
+    }
+
+    // Aucun plafond fixe de 1 000 000 TND.
+    expect(budgetSliderMaxTnd(2_500_000)).toBe(2_500_000)
+    expect(clampBudgetTnd(3_000_000, 2_500_000)).toBe(2_500_000)
+  })
+
+  it('borne le curseur sans jamais sortir de la plage du scénario', () => {
+    expect(clampBudgetTnd(0, 300_000)).toBe(50_000)
+    expect(clampBudgetTnd(-20_000, 300_000)).toBe(50_000)
+    expect(clampBudgetTnd(1_500_000, 300_000)).toBe(300_000)
+    expect(clampBudgetTnd(Number.NaN, 300_000)).toBe(50_000)
   })
 
   it('aligne la valeur sur le pas de 10 000 TND', () => {
-    expect(clampBudgetTnd(50_000)).toBe(50_000)
-    expect(clampBudgetTnd(55_000)).toBe(60_000)
-    expect(clampBudgetTnd(64_000)).toBe(60_000)
-    expect(clampBudgetTnd(1_000_000)).toBe(1_000_000)
+    expect(clampBudgetTnd(50_000, 1_000_000)).toBe(50_000)
+    expect(clampBudgetTnd(55_000, 1_000_000)).toBe(60_000)
+    expect(clampBudgetTnd(64_000, 1_000_000)).toBe(60_000)
+    expect(clampBudgetTnd(1_000_000, 1_000_000)).toBe(1_000_000)
+  })
+
+  it("atteint le maximum exact même s'il ne correspond pas au pas", () => {
+    // 237 450 TND n'est pas un multiple du pas : le curseur l'atteint quand même.
+    expect(clampBudgetTnd(237_450, 237_450)).toBe(237_450)
+    expect(clampBudgetTnd(230_000, 237_450)).toBe(230_000)
+    // Un montant entre deux pas est aligné sur le pas le plus proche, sans
+    // jamais dépasser le total du scénario.
+    expect(clampBudgetTnd(236_000, 237_450)).toBe(237_450)
+    // Le dernier cran du curseur tombe sur le maximum exact, pas sur le pas
+    // inférieur (262 000 n'est pas un multiple de 10 000).
+    expect(clampBudgetTnd(260_000, 262_000)).toBe(262_000)
+    expect(clampBudgetTnd(250_000, 262_000)).toBe(250_000)
   })
 
   it('démarre à 50 000 TND sauf budget enregistré valide', () => {
-    expect(initialBudgetTnd(null)).toBe(50_000)
-    expect(initialBudgetTnd(undefined)).toBe(50_000)
-    expect(initialBudgetTnd(25_000)).toBe(50_000)
-    expect(initialBudgetTnd(2_000_000)).toBe(50_000)
-    expect(initialBudgetTnd(500_000)).toBe(500_000)
+    expect(initialBudgetTnd(null, 300_000)).toBe(50_000)
+    expect(initialBudgetTnd(undefined, 300_000)).toBe(50_000)
+    expect(initialBudgetTnd(25_000, 300_000)).toBe(50_000)
+    expect(initialBudgetTnd(250_000, 300_000)).toBe(250_000)
+  })
+
+  it('ajuste automatiquement le budget au nouveau maximum du scénario', () => {
+    // Premium (320 000) → Économique (180 000) : le budget suit le nouveau max.
+    expect(clampBudgetTnd(320_000, 180_000)).toBe(180_000)
+    expect(initialBudgetTnd(320_000, 180_000)).toBe(180_000)
+    // Standard (240 000) → Premium (320 000) : le budget est conservé.
+    expect(clampBudgetTnd(240_000, 320_000)).toBe(240_000)
+  })
+
+  it("refuse une plage invalide quand le scénario plafonne sous 50 000 TND", () => {
+    expect(hasAnalyzableBudgetRange(42_000)).toBe(false)
+    expect(isBudgetAnalyzable(50_000, 42_000)).toBe(false)
+    expect(hasAnalyzableBudgetRange(MIN_BUDGET_TND)).toBe(true)
   })
 })
