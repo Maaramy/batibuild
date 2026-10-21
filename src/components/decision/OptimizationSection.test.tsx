@@ -2,11 +2,11 @@
 // AIDE À LA DÉCISION — carte « Quel est votre budget disponible ? »
 // ----------------------------------------------------------------------------
 // Vérifie sur le rendu RÉEL de la section d'optimisation :
-//   • avant l'analyse, la carte de saisie du budget reste affichée (comportement
-//     actuel de saisie) ;
-//   • pendant le traitement, elle reste affichée avec l'écran de chargement ;
-//   • dès que les résultats sont affichés, elle est MASQUÉE — la valeur saisie
-//     et l'analyse restent utilisées par les résultats.
+//   • le champ « Budget total » est remplacé par un curseur borné
+//     (50 000 TND → 1 000 000 TND, pas de 10 000 TND) ;
+//   • le montant affiché correspond toujours à la valeur du curseur ;
+//   • le curseur reste ajustable après l'analyse, sans nouveau chargement ;
+//   • un budget sous le seuil affiche le message minimal explicite.
 // ============================================================================
 
 import { describe, expect, it, vi } from "vitest";
@@ -20,6 +20,8 @@ vi.mock("convex/react", () => ({
 
 import { OptimizationSection } from "@/components/decision/OptimizationSection";
 import {
+  MAX_BUDGET_TND,
+  MIN_BUDGET_TND,
   buildBudgetAnalysis,
   formatTndAmount,
   type CategoryBreakdownItem,
@@ -52,12 +54,13 @@ function analysis(budgetAvailable = 500_000) {
 function renderSection(options: {
   budgetAnalysis: ReturnType<typeof analysis> | null;
   budgetAnalyzing?: boolean;
+  budgetAvailable?: number;
 }) {
   return renderToStaticMarkup(
     <OptimizationSection
       plan={{} as never}
       budgetAnalysis={options.budgetAnalysis}
-      budgetAvailable={500_000}
+      budgetAvailable={options.budgetAvailable}
       budgetAnalyzing={options.budgetAnalyzing}
       projectName="Villa #64"
       projectId="project-1"
@@ -66,34 +69,66 @@ function renderSection(options: {
   );
 }
 
-describe("OptimizationSection — masquage de la carte budget après résultats", () => {
-  it("affiche la carte de saisie avant l'analyse", () => {
+describe("OptimizationSection — curseur de budget", () => {
+  it("affiche un curseur initialisé à 50 000 TND, sans champ de saisie", () => {
     const html = renderSection({ budgetAnalysis: null });
 
     expect(html).toContain("Quel est votre budget disponible ?");
+    expect(html).toContain('data-slot="slider"');
+    expect(html).toContain(formatTndAmount(MIN_BUDGET_TND));
+    expect(html).toContain(formatTndAmount(MAX_BUDGET_TND));
+    // L'ancien champ numérique « Budget total » n'existe plus (le curseur
+    // Radix peut rendre un input masqué interne, sans saisie utilisateur).
+    expect(html).not.toContain('type="number"');
     expect(html).not.toContain("Plan de construction selon votre budget");
   });
 
-  it("conserve la saisie pendant le traitement réel", () => {
+  it("affiche le budget enregistré et le montant correspondant au curseur", () => {
+    const html = renderSection({
+      budgetAnalysis: null,
+      budgetAvailable: 500_000,
+    });
+
+    expect(html).toContain(formatTndAmount(500_000));
+    expect(html).toContain(formatTndAmount(MIN_BUDGET_TND));
+  });
+
+  it("conserve le curseur pendant le traitement réel", () => {
     const html = renderSection({
       budgetAnalysis: analysis(),
       budgetAnalyzing: true,
+      budgetAvailable: 500_000,
     });
 
     expect(html).toContain("Quel est votre budget disponible ?");
+    expect(html).toContain('data-slot="slider"');
     expect(html).toContain("BatiBuild analyse votre budget");
   });
 
-  it("masque la carte dès que les résultats sont affichés, sans perdre le budget", () => {
-    const html = renderSection({ budgetAnalysis: analysis() });
+  it("garde le curseur ajustable avec les résultats, sans chargement résiduel", () => {
+    const html = renderSection({
+      budgetAnalysis: analysis(),
+      budgetAvailable: 500_000,
+    });
 
-    expect(html).not.toContain("Quel est votre budget disponible ?");
-    // Les résultats (et le budget analysé) restent affichés.
-    expect(html).toContain("Plan de construction selon votre budget");
+    // Le curseur reste visible pour actualiser les résultats.
+    expect(html).toContain("Quel est votre budget disponible ?");
+    expect(html).toContain('data-slot="slider"');
     expect(html).toContain(formatTndAmount(500_000));
+    // Les résultats (et le budget analysé) restent affichés directement.
+    expect(html).toContain("Plan de construction selon votre budget");
     expect(html).toContain(formatTndAmount(PROJECT_TOTAL));
-    // Après le chargement, les résultats s'affichent directement : aucun
-    // second écran de chargement ne reste au-dessus d'eux.
     expect(html).not.toContain("BatiBuild analyse votre budget");
+  });
+
+  it("affiche le message explicite sous le seuil de 50 000 TND", () => {
+    const html = renderSection({
+      budgetAnalysis: null,
+      budgetAvailable: 30_000,
+    });
+
+    expect(html).toContain(
+      `Budget insuffisant : le minimum requis est de ${formatTndAmount(MIN_BUDGET_TND)}.`,
+    );
   });
 });

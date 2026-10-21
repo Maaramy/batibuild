@@ -53,7 +53,15 @@ import {
 import { OptimizationSection } from "@/components/decision/OptimizationSection";
 import { buildOptimizationPlan, type OptimizationPlan } from "@/lib/optimizationEngine";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
-import { buildBudgetAnalysis, type BudgetAnalysis } from "@/lib/budgetEngine";
+import {
+  MAX_BUDGET_TND,
+  MIN_BUDGET_TND,
+  buildBudgetAnalysis,
+  clampBudgetTnd,
+  formatTndAmount,
+  initialBudgetTnd,
+  type BudgetAnalysis,
+} from "@/lib/budgetEngine";
 import {
   buildDecisionAnalysis,
   type DecisionAnalysis,
@@ -239,34 +247,51 @@ export function DecisionSupportModule({
   );
   const saveBudget = useMutation(api.decisionSupport.saveBudgetAnalysis);
 
-  const [budgetAvailable, setBudgetAvailable] = useState<number | null>(null);
+  // Valeur initiale : 50 000 TND, sauf budget déjà enregistré et valide.
+  const [budgetAvailable, setBudgetAvailable] = useState<number>(() =>
+    initialBudgetTnd(null),
+  );
   const [analyzedBudget, setAnalyzedBudget] = useState<number | null>(null);
 
-  // Restauration du dernier budget analysé pour ce projet.
+  // Restauration du dernier budget analysé pour ce projet. Un budget hors des
+  // bornes du curseur n'est pas repris : la valeur initiale de 50 000 TND reste
+  // appliquée, conformément à la règle de sélection.
   useEffect(() => {
     if (savedBudget === undefined || analyzedBudget !== null) return;
-    if (typeof savedBudget?.budgetAvailable === "number" && savedBudget.budgetAvailable > 0) {
-      setAnalyzedBudget(savedBudget.budgetAvailable);
-      setBudgetAvailable(savedBudget.budgetAvailable);
+    const saved = Number(savedBudget?.budgetAvailable);
+    if (!Number.isFinite(saved) || saved < MIN_BUDGET_TND || saved > MAX_BUDGET_TND) {
+      return;
     }
+    const restored = initialBudgetTnd(saved);
+    setAnalyzedBudget(restored);
+    setBudgetAvailable(restored);
   }, [savedBudget, analyzedBudget]);
 
+  /** Analyse réelle pour un budget donné — mêmes règles, mêmes montants. */
+  const buildAnalysisForBudget = useCallback(
+    (value: number): BudgetAnalysis | null => {
+      const ctx = budgetContext;
+      if (!ctx) return null;
+      return buildBudgetAnalysis({
+        projectId,
+        userId: ctx.userId,
+        projectName: projectName ?? ctx.projectName,
+        scenarioLabel,
+        projectTotal,
+        costPerM2,
+        budgetAvailable: value,
+        breakdown: ctx.breakdown,
+        lots: ctx.lots,
+        surface,
+      });
+    },
+    [budgetContext, projectId, projectName, scenarioLabel, projectTotal, costPerM2, surface],
+  );
+
   const budgetAnalysis = useMemo<BudgetAnalysis | null>(() => {
-    const ctx = budgetContext;
-    if (!ctx || analyzedBudget === null || analyzedBudget <= 0) return null;
-    return buildBudgetAnalysis({
-      projectId,
-      userId: ctx.userId,
-      projectName: projectName ?? ctx.projectName,
-      scenarioLabel,
-      projectTotal,
-      costPerM2,
-      budgetAvailable: analyzedBudget,
-      breakdown: ctx.breakdown,
-      lots: ctx.lots,
-      surface,
-    });
-  }, [budgetContext, analyzedBudget, projectId, projectName, scenarioLabel, projectTotal, costPerM2, surface]);
+    if (analyzedBudget === null || analyzedBudget < MIN_BUDGET_TND) return null;
+    return buildAnalysisForBudget(analyzedBudget);
+  }, [analyzedBudget, buildAnalysisForBudget]);
 
   // ── Analyse budgétaire : animation de 3 s + résultat réel ────────────────
   // Le calcul reste EXACTEMENT `buildBudgetAnalysis` (mêmes données, mêmes
@@ -281,39 +306,9 @@ export function DecisionSupportModule({
   const lastBudgetRef = useRef<number | null>(null);
   const budgetRunRef = useRef(0);
 
-  const startBudgetAnalysis = async (budget: number) => {
-    if (budgetPhase === "loading") return;
-    const value = Math.max(0, Math.round(budget));
-    const ctx = budgetContext;
-    lastBudgetRef.current = value;
-
-    setBudgetError(null);
-    setBudgetSettled(false);
-    setBudgetPhase("loading");
-    setBudgetAttempt((n) => n + 1);
-
-    const runId = ++budgetRunRef.current;
-    try {
-      if (!ctx) {
-        throw new Error(
-          "Le Quantitatif détaillé du projet n'est pas encore disponible.",
-        );
-      }
-      const analysis = buildBudgetAnalysis({
-        projectId,
-        userId: ctx.userId,
-        projectName: projectName ?? ctx.projectName,
-        scenarioLabel,
-        projectTotal,
-        costPerM2,
-        budgetAvailable: value,
-        breakdown: ctx.breakdown,
-        lots: ctx.lots,
-        surface,
-      });
-      // Le résultat est disponible immédiatement, mais l'affichage attend la
-      // fin de l'animation de 3 s (gérée par l'écran de chargement).
-      setAnalyzedBudget(value);
+  /** Persiste un résultat déjà calculé (aucun recalcul de règle). */
+  const persistBudget = useCallback(
+    async (value: number, analysis: BudgetAnalysis) => {
       await saveBudget({
         projectId: projectId as Id<"projects">,
         budgetAvailable: value,
@@ -337,6 +332,43 @@ export function DecisionSupportModule({
           summarySentence: analysis.summarySentence,
         },
       });
+    },
+    [projectId, saveBudget],
+  );
+
+  const startBudgetAnalysis = async (budget: number) => {
+    if (budgetPhase === "loading") return;
+    const raw = Number(budget);
+    if (!Number.isFinite(raw) || raw < MIN_BUDGET_TND) {
+      lastBudgetRef.current = raw;
+      setBudgetSettled(false);
+      setBudgetError(
+        `Budget insuffisant : le minimum requis est de ${formatTndAmount(MIN_BUDGET_TND)}.`,
+      );
+      setBudgetPhase("error");
+      return;
+    }
+    const value = clampBudgetTnd(raw);
+    lastBudgetRef.current = value;
+    setBudgetAvailable(value);
+
+    setBudgetError(null);
+    setBudgetSettled(false);
+    setBudgetPhase("loading");
+    setBudgetAttempt((n) => n + 1);
+
+    const runId = ++budgetRunRef.current;
+    try {
+      const analysis = buildAnalysisForBudget(value);
+      if (!analysis) {
+        throw new Error(
+          "Le Quantitatif détaillé du projet n'est pas encore disponible.",
+        );
+      }
+      // Le résultat est disponible immédiatement, mais l'affichage attend la
+      // fin de l'animation de 3 s (gérée par l'écran de chargement).
+      setAnalyzedBudget(value);
+      await persistBudget(value, analysis);
       // Tentative obsolète (nouvelle analyse ou démontage) : on n'écrase rien.
       if (runId !== budgetRunRef.current) return;
       setBudgetSettled(true);
@@ -350,6 +382,36 @@ export function DecisionSupportModule({
       );
       setBudgetPhase("error");
     }
+  };
+
+  /**
+   * Curseur déplacé : le montant et, une fois l'analyse affichée, tous les
+   * résultats (capacité de construction, répartition) sont actualisés en temps
+   * réel — sans relancer l'animation de 3 s ni masquer les résultats.
+   */
+  const handleBudgetChange = (value: number) => {
+    const next = clampBudgetTnd(value);
+    lastBudgetRef.current = next;
+    setBudgetAvailable(next);
+    if (budgetError) {
+      setBudgetError(null);
+      setBudgetPhase("idle");
+    }
+    // Des résultats existent déjà (analyse lancée ou budget enregistré
+    // restauré) : ils sont recalculés à la volée avec la nouvelle valeur.
+    // Avant toute analyse, le curseur ne fait que préparer le budget.
+    if (analyzedBudget !== null && budgetPhase !== "loading") {
+      setAnalyzedBudget(next);
+    }
+  };
+
+  /** Fin de glissement : enregistre le budget courant, sans nouveau chargement. */
+  const handleBudgetCommit = (value: number) => {
+    if (analyzedBudget === null || budgetPhase === "loading") return;
+    const next = clampBudgetTnd(value);
+    const analysis = buildAnalysisForBudget(next);
+    if (!analysis) return;
+    void persistBudget(next, analysis).catch(() => undefined);
   };
 
   const handleBudgetAnimationComplete = useCallback(() => {
@@ -529,8 +591,9 @@ export function DecisionSupportModule({
         <OptimizationSection
           plan={optimization}
           budgetAnalysis={budgetAnalysis}
-          budgetAvailable={budgetAvailable ?? undefined}
-          onBudgetChange={(value) => setBudgetAvailable(value === "" ? null : Number(value))}
+          budgetAvailable={budgetAvailable}
+          onBudgetChange={handleBudgetChange}
+          onBudgetCommit={handleBudgetCommit}
           onBudgetAnalyze={(value) => {
             void startBudgetAnalysis(value);
           }}

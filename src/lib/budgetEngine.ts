@@ -303,10 +303,50 @@ export interface BudgetAnalysisInput {
 export const BUDGET_SIMULATION_STEP_TND = 10000;
 
 /**
- * Budget minimal saisissable (TND) : en dessous, la simulation perdrait son
- * sens (aucun chantier structurel n'est finançable).
+ * Budget minimal analysable (TND) : en dessous, la simulation perdrait son
+ * sens (aucun chantier structurel n'est finançable). Ce seuil est la source
+ * unique utilisée par l'interface ET par le moteur.
  */
-export const MIN_BUDGET_TND = 25000;
+export const MIN_BUDGET_TND = 50_000;
+
+/** Borne haute du budget sélectionnable dans « Aide à la décision ». */
+export const MAX_BUDGET_TND = 1_000_000;
+
+/** Pas de sélection du curseur de budget (10 000 TND). */
+export const BUDGET_STEP_TND = 10_000;
+
+/**
+ * Normalise un budget pour le curseur : borné entre `MIN_BUDGET_TND` et
+ * `MAX_BUDGET_TND`, aligné sur le pas de 10 000 TND. Une valeur invalide
+ * retombe sur le minimum analysable.
+ */
+export function clampBudgetTnd(value: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return MIN_BUDGET_TND;
+  const bounded = Math.min(MAX_BUDGET_TND, Math.max(MIN_BUDGET_TND, n));
+  const steps = Math.round((bounded - MIN_BUDGET_TND) / BUDGET_STEP_TND);
+  return Math.min(
+    MAX_BUDGET_TND,
+    MIN_BUDGET_TND + steps * BUDGET_STEP_TND,
+  );
+}
+
+/**
+ * Valeur initiale du curseur : 50 000 TND, sauf si un budget déjà enregistré
+ * est valide (compris entre les deux bornes du curseur).
+ */
+export function initialBudgetTnd(saved?: number | null): number {
+  const n = Number(saved);
+  if (!Number.isFinite(n) || n < MIN_BUDGET_TND || n > MAX_BUDGET_TND) {
+    return MIN_BUDGET_TND;
+  }
+  return clampBudgetTnd(n);
+}
+
+/** Le budget permet-il de lancer l'analyse ? */
+export function isBudgetAnalyzable(value: number): boolean {
+  return Number.isFinite(Number(value)) && Number(value) >= MIN_BUDGET_TND;
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 

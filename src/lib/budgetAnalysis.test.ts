@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  buildBudgetAnalysis,
-  MIN_BUDGET_TND,
   BUDGET_SIMULATION_STEP_TND,
+  BUDGET_STEP_TND,
+  MAX_BUDGET_TND,
+  MIN_BUDGET_TND,
+  buildBudgetAnalysis,
+  clampBudgetTnd,
+  formatTndAmount,
+  initialBudgetTnd,
+  isBudgetAnalyzable,
   type CategoryBreakdownItem,
   type QuantitatifLot,
 } from '@/lib/budgetEngine'
@@ -184,11 +190,12 @@ describe('buildBudgetAnalysis — déterministe et lié au projet', () => {
     expect(analysis.recommendation.toLowerCase()).toContain('finition')
   })
 
-  it('refuse un budget inférieur au minimum requis de 25 000 TND', () => {
+  it('refuse un budget inférieur au minimum requis de 50 000 TND', () => {
+    expect(MIN_BUDGET_TND).toBe(50_000)
     const analysis = analyze(MIN_BUDGET_TND - 1)
 
     expect(analysis.available).toBe(false)
-    expect(analysis.reason).toContain('25 000 TND')
+    expect(analysis.reason).toContain(formatTndAmount(MIN_BUDGET_TND))
     expect(analysis.scenarios).toHaveLength(0)
   })
 
@@ -290,11 +297,26 @@ describe('buildBudgetAnalysis — hiérarchie du Quantitatif détaillé', () => 
   })
 
   it('ne finance aucune sous-catégorie quand le budget est épuisé avant elle', () => {
-    const analysis = analyze(45000, makeLots)
+    // 10 000 études + 40 000 dallage = 50 000 (le minimum analysable) : il ne
+    // reste rien pour le terrassement.
+    const analysis = buildBudgetAnalysis({
+      projectId: 'proj-1',
+      userId: 'user-1',
+      projectName: 'Projet test',
+      scenarioLabel: 'Standard',
+      projectTotal: 125000,
+      budgetAvailable: MIN_BUDGET_TND,
+      breakdown: [
+        { ...makeBreakdown[0], estimatedCost: 10000 },
+        makeBreakdown[1],
+        makeBreakdown[2],
+        makeBreakdown[3],
+      ],
+      lots: makeLots,
+    })
     const grosOeuvre = analysis.breakdown.find((l) => l.categoryId === 'gros_oeuvre')!
     const [dallage, terrassement] = grosOeuvre.subcategories
 
-    // 5 000 études + 40 000 dallage = 45 000 : il ne reste rien.
     expect(dallage.realizationPct).toBe(100)
     expect(terrassement.status).toBe('report')
     expect(terrassement.realizationPct).toBe(0)
@@ -352,7 +374,7 @@ describe('buildBudgetAnalysis — couverture du catalogue de lots réel', () => 
     }))
     const analysis = buildBudgetAnalysis({
       projectId: 'p', userId: 'u', projectName: 'P', scenarioLabel: 'Standard',
-      projectTotal: 7, budgetAvailable: 25000, breakdown, lots,
+      projectTotal: 7, budgetAvailable: MIN_BUDGET_TND, breakdown, lots,
     })
 
     const seen = analysis.breakdown.flatMap((c) =>
@@ -377,5 +399,37 @@ describe('buildBudgetAnalysis — couverture du catalogue de lots réel', () => 
     const grosOeuvre = analysis.breakdown.find((l) => l.categoryId === 'gros_oeuvre')!
 
     expect(grosOeuvre.subcategories[0].articles[0].designation).toBe('Béton de fondation')
+  })
+})
+
+describe('curseur de budget — bornes, pas et valeur initiale', () => {
+  it('applique le seuil de 50 000 TND et la borne haute de 1 000 000 TND', () => {
+    expect(MIN_BUDGET_TND).toBe(50_000)
+    expect(MAX_BUDGET_TND).toBe(1_000_000)
+    expect(BUDGET_STEP_TND).toBe(10_000)
+    expect(isBudgetAnalyzable(50_000)).toBe(true)
+    expect(isBudgetAnalyzable(49_999)).toBe(false)
+  })
+
+  it('borne le curseur sans jamais sortir de la plage', () => {
+    expect(clampBudgetTnd(0)).toBe(50_000)
+    expect(clampBudgetTnd(-20_000)).toBe(50_000)
+    expect(clampBudgetTnd(1_500_000)).toBe(1_000_000)
+    expect(clampBudgetTnd(Number.NaN)).toBe(50_000)
+  })
+
+  it('aligne la valeur sur le pas de 10 000 TND', () => {
+    expect(clampBudgetTnd(50_000)).toBe(50_000)
+    expect(clampBudgetTnd(55_000)).toBe(60_000)
+    expect(clampBudgetTnd(64_000)).toBe(60_000)
+    expect(clampBudgetTnd(1_000_000)).toBe(1_000_000)
+  })
+
+  it('démarre à 50 000 TND sauf budget enregistré valide', () => {
+    expect(initialBudgetTnd(null)).toBe(50_000)
+    expect(initialBudgetTnd(undefined)).toBe(50_000)
+    expect(initialBudgetTnd(25_000)).toBe(50_000)
+    expect(initialBudgetTnd(2_000_000)).toBe(50_000)
+    expect(initialBudgetTnd(500_000)).toBe(500_000)
   })
 })

@@ -1,11 +1,12 @@
 // ============================================================================
 // AIDE À LA DÉCISION — Budget / Capacité de construction
 // ----------------------------------------------------------------------------
-// Carte de saisie du budget puis le module d'aide à la décision
-// « Capacité de construction » (`CapacityDecisionCard`) : sélection des
-// travaux, % global de construction, plan de construction, priorisation IA,
-// simulations +10/+20/+30 TND,
-// comparaison Économique / Standard / Premium.
+// Curseur de budget (50 000 → 1 000 000 TND, pas de 10 000 TND) puis le module
+// d'aide à la décision « Capacité de construction » (`CapacityDecisionCard`) :
+// sélection des travaux, % global de construction, plan de construction,
+// priorisation IA, simulations +10/+20/+30 TND, comparaison Économique /
+// Standard / Premium. Le curseur reste ajustable après l'analyse : les
+// résultats sont recalculés à la volée avec les mêmes règles.
 //
 // Le parcours d'optimisation (« Coût total » + « Optimisez votre projet »)
 // n'est plus affiché ici ; le plan d'optimisation reste calculé en amont par
@@ -24,11 +25,14 @@ import { Coins, Info, Loader2, Sparkles } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
 import { cn } from "@/lib/utils";
 import {
+  BUDGET_STEP_TND,
+  MAX_BUDGET_TND,
   MIN_BUDGET_TND,
+  clampBudgetTnd,
   formatTndAmount,
   type BudgetAnalysis,
   type QuantitatifLot,
@@ -45,6 +49,7 @@ export function OptimizationSection({
   onBudgetAnalyze,
   budgetAvailable,
   onBudgetChange,
+  onBudgetCommit,
   budgetAnalyzing,
   budgetAnalysisError,
   budgetAnalysisSettled,
@@ -65,7 +70,10 @@ export function OptimizationSection({
   projectId?: string;
   onBudgetAnalyze?: (budget: number) => void;
   budgetAvailable?: number;
-  onBudgetChange?: (value: string) => void;
+  /** Modification en temps réel du curseur (résultats actualisés à la volée). */
+  onBudgetChange?: (value: number) => void;
+  /** Fin de glissement : persistance du budget (sans animation). */
+  onBudgetCommit?: (value: number) => void;
   /** Analyse IA en cours : bouton désactivé, animation affichée. */
   budgetAnalyzing?: boolean;
   /** Message d'erreur réel (anim + « Réessayer »). */
@@ -85,19 +93,19 @@ export function OptimizationSection({
   /** Travaux complémentaires accessibles (type de projet + surface ≥ 120 m²). */
   complementaryWorksEnabled?: boolean;
 }) {
-  const budgetInputValue = typeof budgetAvailable === "number" ? String(budgetAvailable) : "";
-  const budgetNumber = Number(budgetInputValue);
-  const budgetTooLow = budgetInputValue !== "" && budgetNumber > 0 && budgetNumber < MIN_BUDGET_TND;
-  const budgetValid = Number.isFinite(budgetNumber) && budgetNumber >= MIN_BUDGET_TND;
-  // Résultats réellement affichés : la carte de saisie du budget est alors
-  // masquée (la valeur saisie et l'analyse restent conservées).
-  const budgetResultsDisplayed =
-    !budgetAnalyzing && !budgetAnalysisError && budgetAnalysis?.available === true;
+  // Budget affiché : 50 000 TND par défaut, ou le budget enregistré déjà
+  // normalisé par le module. Toute valeur est bornée au curseur.
+  const rawBudget = typeof budgetAvailable === "number" && Number.isFinite(budgetAvailable)
+    ? budgetAvailable
+    : MIN_BUDGET_TND;
+  const budgetNumber = clampBudgetTnd(rawBudget);
+  const budgetTooLow = rawBudget < MIN_BUDGET_TND;
+  const budgetValid = !budgetTooLow && Number.isFinite(budgetNumber) && budgetNumber >= MIN_BUDGET_TND;
 
   return (
     <div className="space-y-4">
-      {/* ── Saisie du budget (avant l'affichage des résultats) ── */}
-      {!budgetResultsDisplayed ? (
+      {/* ── Budget disponible — curseur toujours ajustable, y compris après
+          l'analyse : les résultats se mettent à jour sans nouveau chargement. ── */}
       <Card className="rounded-2xl border-border/60 bg-card shadow-elev-1">
         <CardContent className="p-4 sm:p-5">
           <div className="flex items-start gap-3">
@@ -109,8 +117,8 @@ export function OptimizationSection({
                 Quel est votre budget disponible ?
               </h3>
               <p className="mt-1 text-xs leading-snug text-muted-foreground sm:text-[13px]">
-                Saisissez votre budget total pour ce projet. L'analyse de la capacité de construction
-                est calculée automatiquement à partir de votre Quantitatif.
+                Faites glisser le curseur pour ajuster votre budget total. L'analyse de la capacité
+                de construction est calculée automatiquement à partir de votre Quantitatif.
               </p>
               {projectContextLabel ? (
                 <p className="mt-1 text-[11px] text-muted-foreground">{projectContextLabel}</p>
@@ -118,60 +126,73 @@ export function OptimizationSection({
             </div>
           </div>
 
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1">
+          <div className="mt-4 space-y-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <label
                 className="text-[11.5px] font-semibold text-foreground"
                 htmlFor="budget-available"
               >
                 Budget total
               </label>
-              <div className="relative mt-1.5">
-                <Input
-                  id="budget-available"
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  step="1000"
-                  value={budgetInputValue}
-                  onChange={(e) => onBudgetChange?.(e.target.value)}
-                  placeholder={`${MIN_BUDGET_TND} TND minimum`}
-                  className="h-12 rounded-xl pr-14 text-base font-semibold tabular-nums"
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[11px] font-semibold text-muted-foreground">
-                  TND
-                </span>
-              </div>
               <p
-                className={cn(
-                  "mt-1.5 text-[11px] leading-snug",
-                  budgetTooLow ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
-                )}
+                id="budget-available-value"
+                aria-live="polite"
+                className="text-lg font-bold leading-none tabular-nums text-foreground sm:text-xl"
               >
-                {budgetTooLow
-                  ? `Budget minimal : ${formatTndAmount(MIN_BUDGET_TND)}. En dessous, aucun chantier structurel n'est finançable.`
-                  : `Budget minimal analysable : ${formatTndAmount(MIN_BUDGET_TND)}.`}
+                {formatTndAmount(budgetNumber)}
               </p>
             </div>
-            <Button
-              className="h-12 w-full gap-1.5 whitespace-nowrap rounded-xl sm:w-auto"
-              disabled={!budgetValid || budgetAnalyzing}
-              aria-busy={budgetAnalyzing || undefined}
-              onClick={() => onBudgetAnalyze?.(budgetNumber)}
-            >
-              {budgetAnalyzing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              {budgetAnalyzing
-                ? "Analyse en cours…"
-                : "Analyser mon budget avec l'IA"}
-            </Button>
+
+            <Slider
+              id="budget-available"
+              min={MIN_BUDGET_TND}
+              max={MAX_BUDGET_TND}
+              step={BUDGET_STEP_TND}
+              value={[budgetNumber]}
+              onValueChange={([value]) => onBudgetChange?.(value)}
+              onValueCommit={([value]) => onBudgetCommit?.(value)}
+              disabled={budgetAnalyzing}
+              aria-label="Budget total disponible"
+              aria-valuetext={formatTndAmount(budgetNumber)}
+              className="py-1"
+            />
+
+            <div className="flex items-center justify-between gap-3 text-[10px] font-medium tabular-nums text-muted-foreground">
+              <span>Min. {formatTndAmount(MIN_BUDGET_TND)}</span>
+              <span>Max. {formatTndAmount(MAX_BUDGET_TND)}</span>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p
+                className={cn(
+                  "text-[11px] leading-snug",
+                  budgetTooLow ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+                )}
+                role={budgetTooLow ? "alert" : undefined}
+              >
+                {budgetTooLow
+                  ? `Budget insuffisant : le minimum requis est de ${formatTndAmount(MIN_BUDGET_TND)}.`
+                  : `Budget minimal analysable : ${formatTndAmount(MIN_BUDGET_TND)}.`}
+              </p>
+              <Button
+                className="h-11 w-full shrink-0 gap-1.5 whitespace-nowrap rounded-xl sm:h-10 sm:w-auto"
+                disabled={!budgetValid || budgetAnalyzing}
+                aria-busy={budgetAnalyzing || undefined}
+                onClick={() => onBudgetAnalyze?.(budgetNumber)}
+              >
+                {budgetAnalyzing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {budgetAnalyzing
+                  ? "Analyse en cours…"
+                  : "Analyser mon budget avec l'IA"}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
-      ) : null}
 
       {/* ── Chargement animé (même design que l'estimation) ── */}
       {budgetAnalyzing || budgetAnalysisError ? (
