@@ -798,7 +798,7 @@ function VariantCard({
                     <p className="text-xs font-semibold tabular-nums">{variant.surfaces.groundBuilt.toFixed(0)} m²</p>
                   </div>
                   <div className="rounded-md border bg-[#FBF9F5] px-2 py-1.5">
-                    <p className="text-[9px] uppercase tracking-wide text-[#6E6559]">Jardin</p>
+                    <p className="text-[9px] uppercase tracking-wide text-[#6E6559]">Reste de parcelle</p>
                     <p className="text-xs font-semibold tabular-nums">{variant.surfaces.garden.toFixed(0)} m²</p>
                   </div>
                 </div>
@@ -938,7 +938,7 @@ function VariantCard({
                 {variant.surfaces.exterior.toFixed(1)} <span className="text-[10px] font-medium">m²</span>
               </p>
               <p className="text-[9px] text-muted-foreground">
-                Jardin {variant.surfaces.garden.toFixed(0)} m²
+                Reste de parcelle {variant.surfaces.garden.toFixed(0)} m²
                 {variant.site.elements.some((e) => e.kind === "piscine") ? " · piscine incluse" : ""}
               </p>
             </div>

@@ -141,7 +141,7 @@ export async function downloadFloorPlanPdf({
     const boxes: { label: string; value: string; note: string }[] = [
       { label: "Habitable intérieure", value: `${surfaces.interior.toFixed(1)} m²`, note: "pièces fermées, tous niveaux" },
       { label: "Bâtie complémentaire", value: `${surfaces.complementary.toFixed(1)} m²`, note: "garage, locaux couverts" },
-      { label: "Extérieure aménagée", value: `${surfaces.exterior.toFixed(1)} m²`, note: `jardin ${surfaces.garden.toFixed(0)} m², non additionnée` },
+      { label: "Extérieure aménagée", value: `${surfaces.exterior.toFixed(1)} m²`, note: `reste de parcelle ${surfaces.garden.toFixed(0)} m², non additionnée` },
     ];
     const bw = (cw - 8) / 3;
     boxes.forEach((b, i) => {
@@ -249,8 +249,8 @@ export async function downloadFloorPlanPdf({
       doc.setTextColor(C.text[0], C.text[1], C.text[2]);
       const lines = [
         `Parcelle : ${site.plot.length.toFixed(2)} × ${site.plot.width.toFixed(2)} m (${site.plot.area.toFixed(0)} m²)`,
-        `Jardin : ${site.gardenArea.toFixed(0)} m² · Surface extérieure aménagée : ${site.exteriorArea.toFixed(0)} m²`,
-        "La piscine, le jardin et la cuisine extérieure sont implantés exclusivement hors du bâti.",
+        `Reste de parcelle : ${site.gardenArea.toFixed(0)} m² · Surface extérieure aménagée : ${site.exteriorArea.toFixed(0)} m²`,
+        "La piscine, la cuisine extérieure et les aménagements sont implantés exclusivement hors du bâti ; le reste de parcelle n'entre jamais dans la surface bâtie.",
       ];
       for (const line of lines) {
         doc.text(doc.splitTextToSize(line, sAvailW), ml, ty);

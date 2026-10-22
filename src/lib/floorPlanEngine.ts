@@ -4317,7 +4317,10 @@ function computeSurfaces(
   const details = site.elements
     .filter((e) => e.kind !== "allee")
     .map((e) => ({ kind: e.kind, label: e.label, area: e.area }));
-  details.push({ kind: "jardin", label: "Jardin", area: site.gardenArea });
+  // Le « jardin » n'est pas un aménagement dessiné : c'est la surface de
+  // parcelle qui reste libre autour du bâti et des aménagements durs.
+  details.push({ kind: "jardin", label: "Reste de parcelle", area: site.gardenArea });
+
   void totalBuilt;
   return {
     interior,

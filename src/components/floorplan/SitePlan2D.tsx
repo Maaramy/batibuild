@@ -22,7 +22,7 @@ const ELEMENT_COLORS: Record<SiteElement["kind"], { fill: string; stroke: string
   terrasse: { fill: "#ead9bd", stroke: "#b79b72", label: "Terrasse" },
   piscine: { fill: "#a8dcf5", stroke: "#2b8fb8", label: "Piscine" },
   cuisine_exterieure: { fill: "#e7e5e4", stroke: "#78716c", label: "Cuisine extérieure" },
-  jardin: { fill: GREEN, stroke: GREEN_LINE, label: "Jardin" },
+  jardin: { fill: GREEN, stroke: GREEN_LINE, label: "Reste de parcelle" },
   allee: { fill: "#eeebe4", stroke: "#a8a29e", label: "Allée" },
   stationnement: { fill: "#e2e0dc", stroke: "#8a8580", label: "Stationnement" },
   acces: { fill: "#eeebe4", stroke: "#a8a29e", label: "Accès" },
@@ -272,7 +272,7 @@ export function SiteLegend({ site }: { site: SitePlan }) {
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span className="h-2.5 w-2.5 rounded-sm border border-lime-700/40 bg-[#dcebc8]" />
-        Jardin (reste de parcelle)
+        Reste de parcelle
       </span>
       {items
         .filter((i) => present.has(i.kind))
