@@ -156,10 +156,7 @@ export const ROOM_ELIGIBLE_TYPES: string[] = [
 
 /** Types à un seul niveau (rez-de-chaussée imposé). */
 export const SINGLE_LEVEL_TYPES: string[] = [
-  // Les locaux professionnels du Groupe D peuvent comporter des étages
-  // (bureau R+1, local commercial avec mezzanine, entrepôt R+1) : ils ne sont
-  // donc PAS limités au plain-pied. Restaurant et café restent des programmes
-  // de plain-pied (salle + production sur un seul niveau).
+  "local_commercial", "entrepot", "bureau",
   "renovation_complete", "extension_batiment", "renovation_cuisine",
   "renovation_salle_de_bain",
   "piscine", "restaurant", "cafe",
@@ -188,8 +185,6 @@ export const CATEGORY_DEFAULT_FLOORS: Record<string, number> = {
  * (groupe D) ou une rénovation complète (groupe A) appartiennent au parcours
  * complet mais sont des projets de plain-pied. Le champ « Nombre de niveaux » reste donc masqué
  * pour les types listés dans `SINGLE_LEVEL_TYPES`, sans changer le parcours.
- * Les autres locaux professionnels (local commercial, bureau, entrepôt)
- * acceptent des niveaux RDC+ : leurs plans 3D sont disponibles à chaque étage.
  */
 export function isMultiLevelCategory(category: string | null | undefined): boolean {
   const resolved = resolveProjectType((category ?? "").trim());
@@ -199,7 +194,7 @@ export function isMultiLevelCategory(category: string | null | undefined): boole
 /**
  * Nombre de niveaux effectif pour le calcul de coût : valeur saisie par
  * l'utilisateur si fournie, sinon déduite du type de projet, sinon 1.
- * Les types à un seul niveau (restaurant, café, rénovations, piscine) sont
+ * Les types à un seul niveau (local commercial, entrepôt, bureau) sont
  * toujours forcés à 1.
  */
 export function inferFloorsFromCategory(category: string | undefined | null): number {

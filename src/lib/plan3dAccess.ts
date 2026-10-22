@@ -1,59 +1,26 @@
 // ============================================================================
 // AFFICHAGE DES PLANS 3D — RÈGLE MÉTIER CENTRALE
 // ----------------------------------------------------------------------------
-// La vue 3D des plans architecturaux est autorisée pour :
+// La vue 3D des plans architecturaux n'est autorisée que pour QUATRE types de
+// projets (maison, villa, studio, appartement) et UNIQUEMENT au rez-de-chaussée.
 //
-//   · les quatre typologies de logement historiques (maison, villa, studio,
-//     appartement) ;
-//   · les cinq locaux professionnels du Groupe D (local commercial, bureau,
-//     entrepôt, restaurant, café) — même parcours et mêmes plans AI que le
-//     Groupe A.
+//   · tous les autres types (duplex, immeuble, local, résidence touristique,
+//     projet neuf, rénovation complète, etc.) n'ont AUCUNE vue 3D, quel que
+//     soit leur nombre de niveaux ;
+//   · les types autorisés n'ont de vue 3D que pour le niveau RDC : les niveaux
+//     R+1, R+2, R+3… restent en 2D / plan de masse.
 //
-// Et cela À TOUS LES NIVEAUX : RDC, R+1, R+2, R+3… Chaque niveau possède sa
-// propre vue 3D, construite depuis son `FloorPlan` réel. Aucune surface n'est
-// dupliquée ni divisée : le niveau affiché est celui du plan 2D correspondant.
-//
-// Une vue 3D GLOBALE du bâtiment est proposée en plus des vues par niveau
-// lorsque le projet comporte plusieurs niveaux (`allowsPlan3DBuilding`).
-//
-// Restent hors 3D : les types sans plans architecturaux AI (Groupes B et C) et
-// la piscine, qui n'est pas un bâtiment à étages (son rendu dédié existe déjà
-// dans le moteur 3D). Les plans 2D, les surfaces et les dimensions ne sont pas
-// modifiés par cette règle.
-//
-// Source unique utilisée par l'interface (onglets « Vue 3D » et « Vue 3D
-// globale ») et par l'aperçu automatique des plans : aucun autre écran ne doit
-// décider seul.
+// Source unique utilisée par l'interface (onglet « Vue 3D ») et par l'aperçu
+// automatique des plans : aucun autre écran ne doit décider seul. Les plans 2D,
+// les surfaces et les dimensions ne sont pas modifiés par cette règle.
 // ============================================================================
 
 import { normalizeLegacyCategory, resolveProjectType } from "@/convex/projectTypes";
 
-/**
- * Types de projets autorisés à afficher une vue 3D, à chaque niveau.
- * Les cinq derniers appartiennent au Groupe D (locaux professionnels).
- */
-export const PLAN_3D_CATEGORIES = [
-  "maison",
-  "villa",
-  "studio",
-  "appartement",
-  "local_commercial",
-  "bureau",
-  "entrepot",
-  "restaurant",
-  "cafe",
-] as const;
+/** Types de projets autorisés à afficher une vue 3D (RDC uniquement). */
+export const PLAN_3D_CATEGORIES = ["maison", "villa", "studio", "appartement"] as const;
 
 export type Plan3DCategory = (typeof PLAN_3D_CATEGORIES)[number];
-
-/** Types du Groupe D (locaux professionnels) explicitement couverts. */
-export const PLAN_3D_GROUP_D_CATEGORIES = [
-  "local_commercial",
-  "bureau",
-  "entrepot",
-  "restaurant",
-  "cafe",
-] as const satisfies readonly Plan3DCategory[];
 
 /**
  * Type canonique du projet pour la règle 3D.
@@ -77,7 +44,7 @@ function canonicalCategory(category: string | null | undefined): string {
   return resolveProjectType(normalizeLegacyCategory(raw.replace(/\+/g, ""))) ?? "";
 }
 
-/** Ce type de projet autorise-t-il une vue 3D ? */
+/** Ce type de projet autorise-t-il une vue 3D (au RDC) ? */
 export function allowsPlan3D(category: string | null | undefined): boolean {
   const canonical = canonicalCategory(category);
   return (PLAN_3D_CATEGORIES as readonly string[]).includes(canonical);
@@ -85,28 +52,12 @@ export function allowsPlan3D(category: string | null | undefined): boolean {
 
 /**
  * Ce niveau précis peut-il être affiché en 3D ?
- *
- * `level === 0` correspond au rez-de-chaussée (RDC) ; 1 = R+1, 2 = R+2, etc.
- * Tous les niveaux d'un type autorisé sont rendus en 3D, chacun avec sa propre
- * géométrie. Un niveau absent ou négatif est refusé.
+ * `level === 0` correspond au rez-de-chaussée (RDC). Tout niveau supérieur
+ * (R+1, R+2, R+3…) est refusé, même pour un type autorisé.
  */
 export function allowsPlan3DLevel(
   category: string | null | undefined,
   level: number | null | undefined,
 ): boolean {
-  if (!allowsPlan3D(category)) return false;
-  return typeof level === "number" && Number.isFinite(level) && level >= 0;
-}
-
-/**
- * Une vue 3D globale du bâtiment est-elle pertinente ?
- * Elle n'a de sens qu'à partir de deux niveaux réels : un RDC seul est déjà
- * entièrement couvert par sa vue 3D de niveau.
- */
-export function allowsPlan3DBuilding(
-  category: string | null | undefined,
-  floors: number | null | undefined,
-): boolean {
-  if (!allowsPlan3D(category)) return false;
-  return typeof floors === "number" && Number.isFinite(floors) && floors >= 2;
+  return allowsPlan3D(category) && level === 0;
 }

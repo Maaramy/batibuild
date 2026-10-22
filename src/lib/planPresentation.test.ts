@@ -8,11 +8,9 @@ import {
   planEmergencyExit,
   planEntry,
   planHasExteriorThumbnail,
-  planFloorFinish,
   planKeyElements,
   planLegend,
   planLevelLabel,
-  planNature,
   planServiceExit,
   planTypeMeta,
 } from "./planPresentation";
@@ -123,58 +121,14 @@ describe("PlanSheet — identité graphique commune", () => {
     expect(EXIT_SIGN_TEXT).toBe("SORTIE DE SECOURS");
   });
 
-  it("adapte les matières 3D à la nature réelle du bâtiment", () => {
-    const byCategory = (category: string, surface: number, floors = 1) => {
-      const variant = generateFloorPlans({ category, surface, floors })[0];
-      return variant.floors[0];
-    };
-
-    const bureau = byCategory("bureau", 120);
-    expect(planNature(bureau)).toBe("bureau");
-    const openspace = bureau.rooms.find((r) => r.kind === "openspace")!;
-    expect(planFloorFinish(openspace, "bureau")).toBe("oak");
-
-    const commerce = byCategory("local_commercial", 120);
-    expect(planNature(commerce)).toBe("commerce");
-    const vente = commerce.rooms.find((r) => r.kind === "vente")!;
-    expect(planFloorFinish(vente, "commerce")).toBe("stone");
-
-    const entrepot = byCategory("entrepot", 300);
-    expect(planNature(entrepot)).toBe("entrepot");
-    const stockage = entrepot.rooms.find((r) => r.kind === "stockage")!;
-    expect(planFloorFinish(stockage, "entrepot")).toBe("concrete");
-
-    const restaurant = byCategory("restaurant", 180);
-    expect(planNature(restaurant)).toBe("restauration");
-    const salle = restaurant.rooms.find((r) => r.kind === "salle_client")!;
-    const cuisine = restaurant.rooms.find((r) => r.kind === "cuisine_pro")!;
-    expect(planFloorFinish(salle, "restauration")).toBe("oak");
-    expect(planFloorFinish(cuisine, "restauration")).toBe("stone");
-
-    const cafe = byCategory("cafe", 90);
-    expect(planNature(cafe)).toBe("restauration");
-
-    const maison = byCategory("maison", 100);
-    expect(planNature(maison)).toBe("residentiel");
-    const sdb = maison.rooms.find((r) => r.kind === "sdb");
-    if (sdb) expect(planFloorFinish(sdb, "residentiel")).toBe("stone");
-  });
-
-  it("affiche la vignette extérieure pour les typologies rendues en 3D", () => {
-    for (const category of [
-      "maison",
-      "villa",
-      "studio",
-      "appartement",
-      "duplex",
-      "local_commercial",
-      "bureau",
-      "entrepot",
-      "restaurant",
-      "cafe",
-    ]) {
-      expect(planHasExteriorThumbnail(category), category).toBe(true);
-    }
-    expect(planHasExteriorThumbnail("piscine")).toBe(false);
+  it("réserve la vignette extérieure aux typologies compatibles avec la 3D", () => {
+    expect(planHasExteriorThumbnail("maison")).toBe(true);
+    expect(planHasExteriorThumbnail("villa")).toBe(true);
+    expect(planHasExteriorThumbnail("studio")).toBe(true);
+    expect(planHasExteriorThumbnail("appartement")).toBe(true);
+    expect(planHasExteriorThumbnail("duplex")).toBe(true);
+    expect(planHasExteriorThumbnail("cafe")).toBe(false);
+    expect(planHasExteriorThumbnail("restaurant")).toBe(false);
+    expect(planHasExteriorThumbnail("local_commercial")).toBe(false);
   });
 });

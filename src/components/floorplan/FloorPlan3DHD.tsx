@@ -28,12 +28,7 @@ import {
   Box, Contrast, Focus,
   MousePointerClick, RotateCcw, Tag,
 } from "lucide-react";
-import type { FloorPlan, PlanRoom, RoomKind, SitePlan } from "@/lib/floorPlanEngine";
-import {
-  planFloorFinish,
-  planNature,
-  type PlanFloorFinish,
-} from "@/lib/planPresentation";
+import type { FloorPlan, RoomKind, SitePlan } from "@/lib/floorPlanEngine";
 import { buildSiteScene } from "./site3D";
 import { courtyardWindows, cutSegment } from "./interiorWalls";
 import { roomFurniture, type MatTag } from "@/lib/furniture";
@@ -67,7 +62,21 @@ const FURN_COLORS_3D: Record<MatTag, number> = {
 };
 
 /** Nature du sol 3D : parquet chêne, pierre claire, béton ou pelouse. */
-type Floor3DKind = PlanFloorFinish;
+type Floor3DKind = "oak" | "stone" | "concrete" | "grass";
+
+const STONE_KINDS_3D = new Set<RoomKind>([
+  "sdb", "wc", "sanitaire", "plonge", "buanderie", "chambre_froide",
+]);
+const CONCRETE_KINDS_3D = new Set<RoomKind>([
+  "garage", "local_technique", "terrasse", "logistique",
+]);
+
+function floorKind3D(room: { kind: RoomKind; exterior?: boolean }): Floor3DKind {
+  if (room.exterior || room.kind === "patio") return "grass";
+  if (STONE_KINDS_3D.has(room.kind)) return "stone";
+  if (CONCRETE_KINDS_3D.has(room.kind)) return "concrete";
+  return "oak";
+}
 
 // ── Détection de capacités (netteté vs performance) ─────────────────────────
 
@@ -641,12 +650,9 @@ export function FloorPlan3DHD({
       concrete: track(makeConcreteTexture()),
       grass: track(makeGrassTexture()),
     };
-    // Nature du bâtiment : matières adaptées à l'usage réel (béton dans un
-    // entrepôt, pierre dans un commerce, chêne dans un bureau ou une salle).
-    const nature = planNature(plan);
     const floorMatCache = new Map<string, THREE.MeshStandardMaterial>();
-    const floorMaterialFor = (r: PlanRoom) => {
-      const kind = planFloorFinish(r, nature);
+    const floorMaterialFor = (r: { kind: RoomKind; w: number; h: number; exterior?: boolean }) => {
+      const kind = floorKind3D(r);
       const tile = kind === "oak" ? 2.4 : 1.6;
       const rx = Math.max(1, Math.round(r.w / tile));
       const rz = Math.max(1, Math.round(r.h / tile));
@@ -872,9 +878,7 @@ export function FloorPlan3DHD({
       arr.push(geo);
     };
     for (const r of plan.rooms) {
-      // Le plan complet est passé : comptoir, bar et tables des salles de
-      // café / restaurant ne sont placés qu'avec les circulations du niveau.
-      for (const p of roomFurniture(r, plan)) {
+      for (const p of roomFurniture(r)) {
         if (p.t === "l") continue;
         if (p.t === "c") {
           if (p.flat || p.r < 0.03) continue;

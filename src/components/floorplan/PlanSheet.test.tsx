@@ -78,36 +78,6 @@ describe("PlanSheet — feuille de présentation des plans", () => {
     }
   });
 
-  it("décrit le bâtiment complet et sa surface totale en vue globale", () => {
-    const variant = generateFloorPlans({
-      category: "bureau",
-      surface: 120,
-      floors: 2,
-      levelSurfaces: [120, 100],
-    })[0];
-    const total = variant.floors.reduce(
-      (sum, floor) =>
-        sum + floor.rooms.filter((room) => !room.exterior).reduce((s, room) => s + room.area, 0),
-      0,
-    );
-    const html = renderToStaticMarkup(
-      <PlanSheet
-        plan={variant.floors[0]}
-        category="bureau"
-        projectName="Bâtiment test"
-        levelLabelOverride="Bâtiment complet · RDC → R+1"
-        building={{ floors: 2, area: total }}
-        showThumbnail
-      >
-        <FloorPlan2D plan={variant.floors[0]} />
-      </PlanSheet>,
-    );
-    expect(html).toContain("Bâtiment complet · RDC → R+1");
-    expect(html).toContain("2 niveaux");
-    expect(html).toContain("Surface couverte totale");
-    expect(html).toContain(`>${(Math.round(total * 10) / 10).toFixed(1)} m²<`);
-  });
-
   it("nomme le niveau 1 d'une maison R+1 et garde le même modèle graphique", () => {
     const floor1 = planFor("maison", 100, 2, 1);
     const html = render(floor1, "maison");

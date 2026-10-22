@@ -9,11 +9,6 @@ import type { FloorPlan, RoomKind, SitePlan } from "@/lib/floorPlanEngine";
 import { buildSiteScene } from "./site3D";
 import { courtyardWindows, cutSegment } from "./interiorWalls";
 import { roomFurniture, type MatTag } from "@/lib/furniture";
-import {
-  planFloorFinish,
-  planNature,
-  type PlanFloorFinish,
-} from "@/lib/planPresentation";
 import { cn } from "@/lib/utils";
 
 // ============================================================================
@@ -503,23 +498,10 @@ export function FloorPlan3DLegacy({
     batches.clear();
 
     // ── Sols de pièces : 1 mesh cliquable par pièce (sélection 2D ↔ 3D) ────
-    // Matières adaptées à l'usage réel du bâtiment (mêmes règles que le moteur
-    // HD) : un entrepôt n'a pas de parquet chêne, un commerce reçoit de la
-    // pierre, un bureau / restaurant un sol chêne chaleureux.
-    const FINISH_COLORS_3D: Record<PlanFloorFinish, number> = {
-      oak: 0xe6c9a2,
-      stone: 0xe9e4d9,
-      concrete: 0xd7d3ca,
-      grass: 0xa8bc8b,
-    };
-    const nature = planNature(plan);
     const floorMatCache = new Map<number, THREE.MeshStandardMaterial>();
     const roomMeshes = new Map<string, { cx: number; cz: number; w: number; h: number }>();
     for (const r of plan.rooms) {
-      const color =
-        nature === "residentiel" || nature === "piscine"
-          ? ROOM_COLORS_3D[r.kind] ?? ROOM_COLORS_3D.polyvalent
-          : FINISH_COLORS_3D[planFloorFinish(r, nature)];
+      const color = ROOM_COLORS_3D[r.kind] ?? ROOM_COLORS_3D.polyvalent;
       let mat = floorMatCache.get(color);
       if (!mat) {
         mat = track(new THREE.MeshStandardMaterial({ color, roughness: 0.8 }));
@@ -625,9 +607,7 @@ export function FloorPlan3DLegacy({
       arr.push(geo);
     };
     for (const r of plan.rooms) {
-      // Le plan complet est passé : les salles de café / restaurant en ont
-      // besoin pour placer comptoir, bar et tables hors des circulations.
-      for (const p of roomFurniture(r, plan)) {
+      for (const p of roomFurniture(r)) {
         if (p.t === "l") continue;
         if (p.t === "c") {
           if (p.flat || p.r < 0.03) continue;

@@ -85,10 +85,6 @@ export interface PlanSheetProps {
   controls?: ReactNode;
   /** Plan 2D, 3D ou plan de masse. */
   children: ReactNode;
-  /** Remplace le niveau du plan (vue 3D globale du bâtiment). */
-  levelLabelOverride?: string;
-  /** Vue globale : nombre de niveaux et surface couverte réelle du bâtiment. */
-  building?: { floors: number; area: number };
   /** Vignette extérieure : typologies compatibles uniquement. */
   showThumbnail?: boolean;
   className?: string;
@@ -103,23 +99,13 @@ export function PlanSheet({
   levelSwitch,
   controls,
   children,
-  levelLabelOverride,
-  building,
   showThumbnail = planHasExteriorThumbnail(category),
   className,
 }: PlanSheetProps) {
   const meta = planTypeMeta(category);
   const Icon = TYPE_ICON[(category ?? "").trim()] ?? GROUP_ICON[meta.group];
-  const levelLabel = levelLabelOverride ?? planLevelLabel(plan.level);
-  const keyElements = planKeyElements(plan, category).map((item) =>
-    building && item.label === "Surface couverte"
-      ? {
-          ...item,
-          label: "Surface couverte totale",
-          value: `${(Math.round(building.area * 10) / 10).toFixed(1)} m²`,
-        }
-      : item,
-  );
+  const levelLabel = planLevelLabel(plan.level);
+  const keyElements = planKeyElements(plan, category);
   const legend = planLegend(plan, category);
 
   return (
@@ -218,13 +204,7 @@ export function PlanSheet({
 
           <div className="mt-2.5 flex flex-wrap gap-1">
             <SheetTag label={levelLabel} />
-            <SheetTag
-              label={
-                building
-                  ? `${building.floors} niveaux`
-                  : `${plan.rooms.filter((r) => !r.exterior).length} pièces`
-              }
-            />
+            <SheetTag label={`${plan.rooms.filter((r) => !r.exterior).length} pièces`} />
             {planEntry(plan) ? <SheetTag label="Entrée repérée" tone="entry" /> : null}
             {planEmergencyExit(plan) ? <SheetTag label="Évacuation vérifiée" tone="exit" /> : null}
           </div>
