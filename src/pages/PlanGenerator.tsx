@@ -318,10 +318,13 @@ export default function PlanGenerator() {
         projectId={projectId || undefined}
         category={project?.category}
         featureLabel="Plans architecturaux AI"
-        maxWidthClassName="max-w-7xl"
+        maxWidthClassName="max-w-[1600px]"
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-5 space-y-5">
+      {/* Les plans sont la raison d'être de cette page : le contenu utilise
+          toute la largeur disponible (jusqu'à 1600 px) au lieu d'être bridé à
+          1280 px, pour un dessin nettement plus grand sur ordinateur. */}
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 mt-5 space-y-5">
         {/* ── Chargement harmonisé avec « Coût estimatif de construction » ── */}
         {view === "loading" ? (
           <EstimateLoadingScreen

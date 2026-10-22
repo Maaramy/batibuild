@@ -161,7 +161,11 @@ export function PlanSheet({
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_17rem]">
+      {/* Le plan garde tout l'espace disponible : le panneau d'information ne
+          vient à sa droite qu'à partir des très grands écrans (≥ 1536 px).
+          En dessous, il passe SOUS le plan et le plan occupe toute la largeur
+          de la feuille — le format du dessin en profite directement. */}
+      <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_17rem]">
         {/* ── Zone principale : plan ── */}
         <div className="min-w-0 p-2.5 sm:p-3.5">
           {(viewSwitch || levelSwitch) && (
@@ -223,7 +227,7 @@ export function PlanSheet({
 
           {/* 4. Éléments clés */}
           <SheetSectionTitle>Éléments clés</SheetSectionTitle>
-          <dl className="space-y-1">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 2xl:grid-cols-1">
             {keyElements.map((item) => (
               <div
                 key={item.label}
@@ -240,7 +244,7 @@ export function PlanSheet({
 
           {/* 5. Légende graphique */}
           <SheetSectionTitle>Légende</SheetSectionTitle>
-          <ul className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-2 lg:grid-cols-1">
+          <ul className="grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-2 2xl:grid-cols-1">
             {legend.map((entry) => (
               <li key={`${entry.symbol}-${entry.label}`} className="flex items-center gap-1.5">
                 <LegendGlyph entry={entry} />
@@ -253,7 +257,9 @@ export function PlanSheet({
           {showThumbnail && (
             <>
               <SheetSectionTitle>Vue extérieure 3D</SheetSectionTitle>
-              <PlanAxon plan={plan} />
+              <div className="max-w-[22rem]">
+                <PlanAxon plan={plan} />
+              </div>
               <p className="mt-1 text-[9px] leading-snug" style={{ color: M.faint }}>
                 Maquette indicative — volumes, ouvertures et bois d'entrée du niveau.
               </p>

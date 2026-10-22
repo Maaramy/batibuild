@@ -93,6 +93,19 @@ describe("PlanSheet — feuille de présentation des plans", () => {
     expect(cafe).not.toContain("Vue extérieure 3D");
   });
 
+  it("laisse toute la largeur au plan, le panneau d'information passant dessous", () => {
+    const html = render(planFor("maison", 100, 2), "maison", true);
+    // Le panneau latéral ne revient à droite du plan qu'à partir de 1536 px :
+    // en dessous, le plan occupe la feuille entière (aucun plafond à 1280 px).
+    expect(html).toContain("2xl:grid-cols-[minmax(0,1fr)_17rem]");
+    const planAt = html.indexOf("ENTRÉE PRINCIPALE");
+    const asideAt = html.indexOf("<aside");
+    const outsideAt = html.indexOf("Vue extérieure 3D");
+    expect(planAt).toBeGreaterThan(-1);
+    expect(planAt).toBeLessThan(asideAt);
+    expect(outsideAt).toBeGreaterThan(asideAt);
+  });
+
   it("adapte la légende au plan (bois d'entrée, porte de service)", () => {
     const cafe = planFor("cafe", 90, 1);
     const html = render(cafe, "cafe");

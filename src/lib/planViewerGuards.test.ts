@@ -28,6 +28,12 @@ describe("plans architecturaux — aucun plein écran automatique", () => {
     expect(page).toMatch(/<FloorPlan2D[\s\S]*?zoom=\{zoom2d\}/);
   });
 
+  it("la page des plans n'est plus bridée à 1280 px : les plans sont agrandis", () => {
+    const page = read(PAGE);
+    expect(page).not.toMatch(/max-w-7xl/);
+    expect(page).toContain("max-w-[1600px]");
+  });
+
   it("les vues 3D ne quittent plus leur conteneur (aucun plein écran natif)", () => {
     for (const file of [VIEWER_3D_HD, VIEWER_3D_LEGACY]) {
       const source = read(file);
