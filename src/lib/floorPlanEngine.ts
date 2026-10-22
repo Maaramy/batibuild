@@ -5084,7 +5084,26 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
             : apartmentProgram(input, levelAreas[0]);
         floors.push(buildLevel(0, 1, L, W, items, seed, profile, true));
       } else if (kind === "shop") {
-        floors.push(buildLevel(0, 1, L, W, shopProgram(levelAreas[0]), seed, profile));
+        // Local commercial : un programme de vente par niveau. Un local sur
+        // plusieurs étages (RDC + réserve/mezzanine à l'étage) conserve SA
+        // surface réelle par niveau et la même gaine d'escalier.
+        for (let lvl = 0; lvl < levels; lvl++) {
+          const levelFootprint = footprintFor(levelAreas[lvl]);
+          const levelArea = round3(levelFootprint.length * levelFootprint.width);
+          floors.push(
+            buildLevel(
+              lvl,
+              levels,
+              levelFootprint.length,
+              levelFootprint.width,
+              shopProgram(levelArea),
+              seed,
+              profile,
+              false,
+              sharedShaft,
+            ),
+          );
+        }
       } else if (cafe) {
         // Café : salle unique des clients (comptoir inclus) + locaux de
         // service, sur la totalité de l'emprise réelle du niveau.

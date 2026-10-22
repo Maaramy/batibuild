@@ -588,8 +588,8 @@ function PlanResult({ data }: { data: LifecycleShowcase }) {
     ],
   );
 
-  // La phase « Vue 3D » n'est proposée que pour un type de projet autorisé et
-  // au RDC (voir `@/lib/plan3dAccess`) : aucun plan 3D interdit n'est généré.
+  // La phase « Vue 3D » n'est proposée que pour un type de projet autorisé
+  // (logements + Groupe D, à chaque niveau — voir `@/lib/plan3dAccess`).
   const phases = useMemo(
     () =>
       allowsPlan3DLevel(data.project.category, 0)

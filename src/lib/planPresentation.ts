@@ -125,6 +125,102 @@ export function planTypeMeta(category?: string | null): PlanTypeMeta {
   };
 }
 
+// ── Nature du bâtiment : pilote les matières 3D (2D et 3D partagent la règle)
+
+export type PlanNature =
+  | "residentiel"
+  | "bureau"
+  | "commerce"
+  | "entrepot"
+  | "restauration"
+  | "piscine";
+
+/**
+ * Nature réelle du niveau, déduite des pièces dessinées (jamais du nom du
+ * projet). Elle adapte les matières de sol en 3D : béton dans un entrepôt,
+ * pierre dans un commerce, parquet chêne dans un bureau ou une salle de
+ * restauration. Les surfaces et la géométrie ne sont pas modifiées.
+ */
+export function planNature(plan: FloorPlan): PlanNature {
+  const kinds = new Set(plan.rooms.map((room) => room.kind));
+  if (kinds.has("bassin")) return "piscine";
+  if (kinds.has("salle_cafe") || kinds.has("salle_client") || kinds.has("cuisine_pro")) {
+    return "restauration";
+  }
+  if (kinds.has("vente")) return "commerce";
+  if (kinds.has("logistique") || (kinds.has("stockage") && !kinds.has("sejour") && !kinds.has("chambre"))) {
+    return "entrepot";
+  }
+  if (kinds.has("openspace") || kinds.has("reunion")) return "bureau";
+  return "residentiel";
+}
+
+export type PlanFloorFinish = "oak" | "stone" | "concrete" | "grass";
+
+const WET_KINDS = new Set<PlanRoom["kind"]>([
+  "sdb",
+  "wc",
+  "sanitaire",
+  "plonge",
+  "buanderie",
+  "chambre_froide",
+]);
+
+/** Matière de sol 3D d'une pièce, adaptée à la nature du bâtiment. */
+export function planFloorFinish(room: PlanRoom, nature: PlanNature): PlanFloorFinish {
+  if (room.exterior || room.kind === "patio") return "grass";
+  if (nature === "piscine") return "concrete";
+  if (WET_KINDS.has(room.kind)) return "stone";
+
+  switch (nature) {
+    case "entrepot":
+      // Entrepôt / logistique : dalle béton dans les zones de stockage et de
+      // circulation, pierre dans les sanitaires et vestiaires.
+      return room.kind === "bureau" || room.kind === "reception" ? "oak" : "concrete";
+    case "commerce":
+      // Commerce : pierre claire en surface de vente, béton en réserve.
+      if (room.kind === "vente" || room.kind === "reception" || room.kind === "hall") {
+        return "stone";
+      }
+      if (room.kind === "stockage" || room.kind === "logistique" || room.kind === "garage") {
+        return "concrete";
+      }
+      return "oak";
+    case "bureau":
+      if (
+        room.kind === "stockage" ||
+        room.kind === "logistique" ||
+        room.kind === "garage" ||
+        room.kind === "local_technique" ||
+        room.kind === "terrasse"
+      ) {
+        return "concrete";
+      }
+      return "oak";
+    case "restauration":
+      // Salle en parquet chêne ; production et service en pierre / béton.
+      if (room.kind === "cuisine_pro" || room.kind === "stockage" || room.kind === "couloir") {
+        return "stone";
+      }
+      if (room.kind === "logistique" || room.kind === "local_technique" || room.kind === "terrasse") {
+        return "concrete";
+      }
+      return "oak";
+    default:
+      // Habitat : parquet dans les pièces de vie, pierre dans les pièces
+      // d'eau, béton dans les annexes et terrasses.
+      if (
+        room.kind === "garage" ||
+        room.kind === "local_technique" ||
+        room.kind === "terrasse" ||
+        room.kind === "logistique"
+      ) {
+        return "concrete";
+      }
+      return "oak";
+  }
+}
+
 /** Libellé du niveau affiché (RDC, niveau 1, niveau 2…). */
 export function planLevelLabel(level: number): string {
   return level <= 0 ? "Rez-de-chaussée" : `Niveau ${level}`;
@@ -374,6 +470,22 @@ export const EXIT_SIGN_TEXT = "SORTIE DE SECOURS";
 
 /** Vignette extérieure : seulement pour les typologies rendues en 3D. */
 export function planHasExteriorThumbnail(category?: string | null): boolean {
+  // Vignette de la feuille de présentation : mêmes familles que la 3D, y
+  // compris les locaux professionnels du Groupe D (commerce, bureau,
+  // restauration). Les typologies collectives gardent leur vignette.
   const group = planTypeMeta(category).group;
-  return group === "residentiel" || group === "tourisme" || group === "generique";
+  return (
+    group === "residentiel" ||
+    group === "tourisme" ||
+    group === "generique" ||
+    group === "commerce" ||
+    group === "bureau" ||
+    group === "restauration"
+  );
+}
+
+/** Libellé du niveau pour la vue 3D globale du bâtiment. */
+export function planBuildingLabel(floors: number): string {
+  const count = Math.max(1, Math.floor(floors || 1));
+  return count > 1 ? `Bâtiment complet · RDC → R+${count - 1}` : "Bâtiment complet";
 }
