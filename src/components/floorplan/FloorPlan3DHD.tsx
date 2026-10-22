@@ -705,6 +705,41 @@ export function FloorPlan3DHD({
     }
     building.add(labelGroup);
 
+    // ── Signalétique « SORTIE DE SECOURS » au-dessus de chaque issue ───────
+    const exitSigns = plan.rooms.flatMap((r) =>
+      r.doors.filter((d) => d.isEmergency).map((d) => ({ r, d })),
+    );
+    if (exitSigns.length > 0) {
+      const sign = makeExitSignTexture();
+      track(sign.texture);
+      track(sign.material);
+      const signGeo = track(new THREE.PlaneGeometry(1.74, 0.4));
+      for (const { r, d } of exitSigns) {
+        const horizontal = d.wall === "N" || d.wall === "S";
+        const x = horizontal
+          ? r.x + d.position + d.width / 2
+          : d.wall === "W"
+            ? r.x - 0.06
+            : r.x + r.w + 0.06;
+        const z = horizontal
+          ? d.wall === "N"
+            ? r.y - 0.06
+            : r.y + r.h + 0.06
+          : r.y + d.position + d.width / 2;
+        const mesh = new THREE.Mesh(signGeo, sign.material);
+        mesh.position.set(x, DOOR_H + 0.34, z);
+        mesh.rotation.y =
+          d.wall === "N"
+            ? Math.PI
+            : d.wall === "S"
+              ? 0
+              : d.wall === "W"
+                ? Math.PI / 2
+                : -Math.PI / 2;
+        building.add(mesh);
+      }
+    }
+
     // Aucun tracé de cote ni de cadrage autour de la maquette : le 3D reste
     // propre, les dimensions sont portées par le plan 2D.
 
@@ -980,6 +1015,40 @@ function ToolBtn({
 }
 
 // ── Textures canvas haute résolution (nettes, filtres propres) ──────────────
+
+/** Panneau « SORTIE DE SECOURS » posé au-dessus des portes de secours. */
+function makeExitSignTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 160;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#b91c1c";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 6;
+  ctx.strokeRect(6, 6, canvas.width - 12, canvas.height - 12);
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  let fontSize = 82;
+  ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
+  while (
+    ctx.measureText("SORTIE DE SECOURS").width > canvas.width - 60 &&
+    fontSize > 40
+  ) {
+    fontSize -= 4;
+    ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
+  }
+  ctx.fillText("SORTIE DE SECOURS", canvas.width / 2, canvas.height / 2 + 4);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    side: THREE.DoubleSide,
+  });
+  return { canvas, texture, material };
+}
 
 function makeLabelTexture(label: string, area: number) {
   // ×2 la résolution du legacy pour un texte net même en zoom

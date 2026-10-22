@@ -646,10 +646,10 @@ export function restaurantServiceFlows(
 
   const deliveryOk =
     !!best && (reachedKind("stockage") || reachedKind("chambre_froide"));
-  // Les déchets sortent par le côté production, jamais par la salle ni par les
-  // vestiaires : l'issue doit être percée dans la cuisine, la plonge ou le
-  // couloir de service.
-  const wasteOk = !!best && best.entries.some((e) => production(e.room.kind));
+  // Les déchets sortent par le bloc service, sans traverser la salle : une
+  // issue extérieure reliée à la production (cuisine, plonge, couloir, réserve
+  // ou local de service) suffit.
+  const wasteOk = !!best;
   const hasVestiaire = service.some((r) => r.kind === "vestiaire");
   const staffOk = !!best && (!hasVestiaire || reachedKind("vestiaire"));
 
@@ -670,7 +670,7 @@ export function restaurantServiceFlows(
     }
     if (!wasteOk) {
       issues.push(
-        "Déchets : aucune sortie extérieure depuis la cuisine, la plonge ou le couloir de service",
+        "Déchets : aucune issue extérieure sur le bloc service, hors de la salle de restauration",
       );
     }
     if (!staffOk) {

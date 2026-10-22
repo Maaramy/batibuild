@@ -476,20 +476,35 @@ export function FloorPlan2D({
             ? (d.wall === "N" ? r.y : r.y + r.h) * S
             : (r.y + d.position + d.width / 2) * S;
           if (d.width * S < 16) return null;
+          const anchor = d.wall === "W" ? "end" : d.wall === "E" ? "start" : "middle";
+          const x = d.wall === "W" ? cx - 5 : d.wall === "E" ? cx + 5 : cx;
+          // Mention complète, sur deux lignes pour rester lisible le long du mur.
+          const firstY = d.wall === "N" ? cy - 15 : d.wall === "S" ? cy + 10 : cy - 1;
           return (
-            <text
-              key={`x-${r.id}-${i}`}
-              x={d.wall === "W" ? cx - 5 : d.wall === "E" ? cx + 5 : cx}
-              y={d.wall === "N" ? cy - 6 : d.wall === "S" ? cy + 10 : cy + 3}
-              textAnchor={d.wall === "W" ? "end" : d.wall === "E" ? "start" : "middle"}
-              fontSize={6.5}
-              fontWeight={700}
-              letterSpacing={0.6}
-              fill={EXIT}
-              pointerEvents="none"
-            >
-              SECOURS
-            </text>
+            <g key={`x-${r.id}-${i}`} pointerEvents="none">
+              <text
+                x={x}
+                y={firstY}
+                textAnchor={anchor}
+                fontSize={6.5}
+                fontWeight={700}
+                letterSpacing={0.6}
+                fill={EXIT}
+              >
+                SORTIE DE
+              </text>
+              <text
+                x={x}
+                y={firstY + 8}
+                textAnchor={anchor}
+                fontSize={6.5}
+                fontWeight={700}
+                letterSpacing={0.6}
+                fill={EXIT}
+              >
+                SECOURS
+              </text>
+            </g>
           );
         }),
       )}

@@ -38,6 +38,16 @@ import {
   serviceRoomComponents,
 } from "./restaurantPlan";
 import {
+  EVACUATION_CIRCULATION_KINDS,
+  EVACUATION_MIN_CORRIDOR_WIDTH,
+  evacuationFacadeWall,
+  evacuationLinked,
+  foodServiceEvacuation,
+  foodServiceHeadcount,
+  requiredEgress,
+  type FoodServiceEvacuation,
+} from "./evacuationPlan";
+import {
   SANITARY_DEPTH_MAX,
   SANITARY_DEPTH_MIN,
   SANITARY_DOOR_WIDTH,
@@ -164,6 +174,8 @@ export interface CafeValidation {
   sanitaryAccessOk: boolean;
   /** WC accessible PMR (giration 1,50 m) lorsque la surface le permet. */
   pmrOk: boolean;
+  /** Sortie de secours, cheminement et dégagements adaptés à l'effectif. */
+  evacuation?: FoodServiceEvacuation;
   ok: boolean;
 }
 
@@ -196,6 +208,8 @@ export interface RestaurantValidation {
   wasteOk: boolean;
   /** Personnel : cuisine et vestiaires atteints sans traverser la salle. */
   staffOk: boolean;
+  /** Sortie de secours, cheminement et dégagements adaptés à l'effectif. */
+  evacuation?: FoodServiceEvacuation;
   ok: boolean;
 }
 
@@ -3222,6 +3236,14 @@ export function validatePlan(
       issues.push(...sanitary.issues);
     }
 
+    // Sortie de secours : desservie par la circulation technique, hors salle
+    // et comptoir, cheminement continu et dégagements adaptés à l'effectif.
+    const evacuation = salle ? foodServiceEvacuation(salle, rooms, fp) : null;
+    if (evacuation && !evacuation.ok) {
+      score -= 15;
+      issues.push(...evacuation.issues);
+    }
+
     cafe = {
       salleShare: Math.round(salleShare * 1000) / 1000,
       salleShareOk,
@@ -3230,12 +3252,14 @@ export function validatePlan(
       accessOk,
       sanitaryAccessOk: sanitary.ok,
       pmrOk: sanitary.pmrOk,
+      ...(evacuation ? { evacuation } : {}),
       ok:
         salleShareOk &&
         counterInsideSalle &&
         counterCountedOnce &&
         accessOk &&
-        sanitary.ok,
+        sanitary.ok &&
+        !!evacuation?.ok,
     };
   }
 
@@ -3391,6 +3415,14 @@ export function validatePlan(
       issues.push(...flows.issues);
     }
 
+    // Sortie de secours : desservie par la circulation technique, hors salle,
+    // bar, cuisine et plonge, dimensionnée pour l'effectif.
+    const evacuation = salle ? foodServiceEvacuation(salle, rooms, fp) : null;
+    if (evacuation && !evacuation.ok) {
+      score -= 15;
+      issues.push(...evacuation.issues);
+    }
+
     restaurant = {
       salleShare: Math.round(salleShare * 1000) / 1000,
       salleShareOk,
@@ -3406,6 +3438,7 @@ export function validatePlan(
       deliveryOk: flows.deliveryOk,
       wasteOk: flows.wasteOk,
       staffOk: flows.staffOk,
+      ...(evacuation ? { evacuation } : {}),
       ok:
         salleShareOk &&
         counterInsideSalle &&
@@ -3415,7 +3448,8 @@ export function validatePlan(
         passePlatOk &&
         accessOk &&
         sanitary.ok &&
-        flows.ok,
+        flows.ok &&
+        !!evacuation?.ok,
     };
   }
 
@@ -4578,6 +4612,337 @@ function serviceRoomRank(kind: RoomKind): number {
   }
 }
 
+// ── Évacuation des cafés / restaurants ──────────────────────────────────────
+
+/** Plus grand intervalle libre d'un mur (portes et fenêtres exclues). */
+function wallFreeSpan(room: PlanRoom, wall: WallSide): { start: number; len: number } {
+  const span = wall === "N" || wall === "S" ? room.w : room.h;
+  const blocked = [...room.doors, ...room.windows]
+    .filter((o) => o.wall === wall)
+    .map((o) => ({
+      a: Math.max(0, o.position - 0.2),
+      b: Math.min(span, o.position + o.width + 0.2),
+    }))
+    .sort((x, y) => x.a - y.a);
+  let cursor = 0;
+  let best = { start: 0, len: 0 };
+  for (const b of blocked) {
+    if (b.a - cursor > best.len) best = { start: cursor, len: b.a - cursor };
+    cursor = Math.max(cursor, b.b);
+  }
+  if (span - cursor > best.len) best = { start: cursor, len: span - cursor };
+  return best;
+}
+
+/** Composante d'un local, parcourue uniquement par des portes réelles. */
+function doorComponent(
+  start: PlanRoom,
+  rooms: readonly PlanRoom[],
+  blocked: (room: PlanRoom) => boolean,
+): Set<PlanRoom> {
+  const seen = new Set<PlanRoom>([start]);
+  if (blocked(start)) return seen;
+  const queue: PlanRoom[] = [start];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const other of rooms) {
+      if (seen.has(other) || other === current || blocked(other)) continue;
+      if (!evacuationLinked(current, other)) continue;
+      seen.add(other);
+      queue.push(other);
+    }
+  }
+  return seen;
+}
+
+/**
+ * La circulation technique doit être reliée au bloc de production : une sortie
+ * de secours dans un couloir isolé n'évacue personne. Une porte de service est
+ * percée entre la composante du couloir et celle de la cuisine. On ne passe
+ * JAMAIS par la salle : elle reste distincte de la circulation technique et
+ * son linéaire de bar n'est pas amputé par une porte d'évacuation.
+ */
+function connectCirculationToService(plan: FloorPlan, salle: PlanRoom): void {
+  const rooms = plan.rooms.filter((r) => !r.exterior);
+  // Un WC n'est jamais traversé par un cheminement d'évacuation.
+  const noSanitary = (r: PlanRoom) => isSanitaryKind(r.kind);
+  const anchor =
+    rooms.find((r) => r.kind === "cuisine_pro") ??
+    rooms.find((r) => isFoodPrepKind(r.kind) || r.kind === "stockage") ??
+    null;
+  if (!anchor) return;
+  let reached = doorComponent(anchor, rooms, noSanitary);
+  const circulation = rooms.filter((r) => EVACUATION_CIRCULATION_KINDS.has(r.kind));
+
+  for (const couloir of circulation) {
+    if (reached.has(couloir)) continue;
+    const comp = doorComponent(couloir, rooms, noSanitary);
+    const pairs: { a: PlanRoom; b: PlanRoom; shared: SharedBoundary }[] = [];
+    for (const a of comp) {
+      for (const b of reached) {
+        if (a === b || b === salle || isSanitaryKind(b.kind)) continue;
+        const shared = sharedBoundary(a, b);
+        if (shared) pairs.push({ a, b, shared });
+      }
+    }
+    // Un local de stockage / vestiaire avant la cuisine ou la plonge :
+    // le cheminement évite au maximum les zones de préparation.
+    const priority = (room: PlanRoom) => (isFoodPrepKind(room.kind) ? 1 : 0);
+    pairs.sort((x, y) => priority(x.b) - priority(y.b) || y.shared.len - x.shared.len);
+    for (const pair of pairs) {
+      if (addPairedServiceDoor(pair.a, pair.b, pair.shared)) {
+        reached = doorComponent(anchor, rooms, noSanitary);
+        break;
+      }
+    }
+  }
+}
+
+/** Priorité d'un local pour porter la sortie de secours (petit = prioritaire). */
+function exitSupportRank(kind: RoomKind): number {
+  switch (kind) {
+    case "stockage":
+      return 1;
+    case "vestiaire":
+      return 2;
+    case "chambre_froide":
+      return 3;
+    default:
+      return 4;
+  }
+}
+
+/**
+ * Support de la porte de sortie de secours : le couloir de service lui-même
+ * lorsqu'il touche une façade, sinon un local de service (réserve, vestiaire,
+ * chambre froide) relié au couloir. Jamais la salle, le comptoir, un WC, la
+ * cuisine ou la plonge : la sortie reste desservie par la circulation.
+ */
+function pickExitSupport(
+  plan: FloorPlan,
+  salle: PlanRoom,
+  width: number,
+  allowPrep: boolean,
+): { room: PlanRoom; wall: WallSide; couloir: PlanRoom } | null {
+  const entrySide = salle.doors.find((d) => d.isEntry)?.wall ?? null;
+  const forbidden = (kind: RoomKind) =>
+    kind === "salle_cafe" ||
+    kind === "salle_client" ||
+    kind === "comptoir" ||
+    isSanitaryKind(kind) ||
+    (!allowPrep && isFoodPrepKind(kind));
+  const circulation = plan.rooms.filter(
+    (r) => !r.exterior && EVACUATION_CIRCULATION_KINDS.has(r.kind),
+  );
+  const candidates: {
+    room: PlanRoom;
+    wall: WallSide;
+    span: number;
+    couloir: PlanRoom;
+    rank: number;
+  }[] = [];
+  for (const couloir of circulation) {
+    for (const wall of ["N", "S", "E", "W"] as WallSide[]) {
+      if (!evacuationFacadeWall(couloir, wall, plan)) continue;
+      const free = wallFreeSpan(couloir, wall);
+      if (free.len < width + 0.4) continue;
+      candidates.push({ room: couloir, wall, span: free.len, couloir, rank: 0 });
+    }
+    for (const room of plan.rooms) {
+      if (room === couloir || room.exterior || room === salle) continue;
+      if (forbidden(room.kind)) continue;
+      if (!sharedBoundary(couloir, room)) continue;
+      for (const wall of ["N", "S", "E", "W"] as WallSide[]) {
+        if (!evacuationFacadeWall(room, wall, plan)) continue;
+        const free = wallFreeSpan(room, wall);
+        if (free.len < width + 0.4) continue;
+        candidates.push({
+          room,
+          wall,
+          span: free.len,
+          couloir,
+          rank: exitSupportRank(room.kind),
+        });
+      }
+    }
+  }
+  candidates.sort(
+    (a, b) =>
+      (a.wall === entrySide ? 1 : 0) - (b.wall === entrySide ? 1 : 0) ||
+      a.rank - b.rank ||
+      b.span - a.span,
+  );
+  return candidates[0] ?? null;
+}
+
+/** Élargit l'entrée principale pour tenir l'effectif (dégagement le plus large). */
+function widenFoodServiceEntry(plan: FloorPlan, salle: PlanRoom, target: number): void {
+  const entry = salle.doors.find((d) => d.isEntry);
+  if (!entry || entry.width >= target - 0.01) return;
+  const wall = entry.wall;
+  const preferred = entry.position - (target - entry.width) / 2;
+  salle.doors = salle.doors.filter((d) => d !== entry);
+  if (!addFacadeDoor(salle, wall, target, { isEntry: true }, preferred)) {
+    salle.doors.push(entry);
+  }
+}
+
+/**
+ * Circulation d'évacuation : un couloir de moins de 0,90 m de largeur libre ne
+ * peut pas servir de cheminement. Il est élargi sur son axe court en prenant
+ * la profondeur à un local mitoyen qui couvre tout le côté ; les portes du mur
+ * déplacé restent alignées (leur position est prise le long du mur). La surface
+ * totale du niveau est conservée : c'est un transfert entre deux locaux.
+ */
+function growCirculation(
+  rooms: readonly PlanRoom[],
+  room: PlanRoom,
+  axis: "h" | "w",
+  need: number,
+): boolean {
+  const donors: { other: PlanRoom; side: WallSide; give: number }[] = [];
+  for (const other of rooms) {
+    if (other === room || other.exterior || other.kind === "bassin") continue;
+    if (
+      other.kind === "salle_cafe" ||
+      other.kind === "salle_client" ||
+      other.kind === "comptoir" ||
+      isSanitaryKind(other.kind)
+    ) {
+      continue;
+    }
+    const full = axis === "h"
+      ? Math.abs(other.x - room.x) < TOL && Math.abs(other.w - room.w) < TOL
+      : Math.abs(other.y - room.y) < TOL && Math.abs(other.h - room.h) < TOL;
+    if (!full) continue;
+    const side: WallSide | null = axis === "h"
+      ? Math.abs(other.y + other.h - room.y) < TOL
+        ? "N"
+        : Math.abs(other.y - (room.y + room.h)) < TOL
+          ? "S"
+          : null
+      : Math.abs(other.x + other.w - room.x) < TOL
+        ? "W"
+        : Math.abs(other.x - (room.x + room.w)) < TOL
+          ? "E"
+          : null;
+    if (!side) continue;
+    const depth = axis === "h" ? other.h : other.w;
+    const len = axis === "h" ? other.w : other.h;
+    const give = Math.min(need, depth - 0.8, (other.area - 1.2) / Math.max(0.01, len));
+    if (give < need * 0.5) continue;
+    donors.push({ other, side, give });
+  }
+  // Un local de stockage / vestiaire avant la cuisine ou la plonge.
+  donors.sort(
+    (a, b) =>
+      Number(isFoodPrepKind(a.other.kind)) - Number(isFoodPrepKind(b.other.kind)) ||
+      b.give - a.give,
+  );
+  const pick = donors[0];
+  if (!pick) return false;
+  const { other, side, give } = pick;
+  if (side === "N") {
+    room.y = round3(room.y - give);
+    room.h = round3(room.h + give);
+    other.h = round3(other.h - give);
+  } else if (side === "S") {
+    room.h = round3(room.h + give);
+    other.y = round3(other.y + give);
+    other.h = round3(other.h - give);
+  } else if (side === "W") {
+    room.x = round3(room.x - give);
+    room.w = round3(room.w + give);
+    other.w = round3(other.w - give);
+  } else {
+    room.w = round3(room.w + give);
+    other.x = round3(other.x + give);
+    other.w = round3(other.w - give);
+  }
+  room.area = round3(room.w * room.h);
+  other.area = round3(other.w * other.h);
+  for (const d of other.doors) clampOpening(d, other);
+  for (const w of other.windows) clampOpening(w, other);
+  return true;
+}
+
+/** Rend chaque circulation d'évacuation assez large pour le cheminement. */
+function widenEvacuationCirculation(plan: FloorPlan): void {
+  for (const room of plan.rooms) {
+    if (room.exterior || !EVACUATION_CIRCULATION_KINDS.has(room.kind)) continue;
+    // Marge de 5 mm : les cotes sont arrondies au millimètre et le contrôle
+    // d'évacuation travaille à ±2 mm.
+    const target = EVACUATION_MIN_CORRIDOR_WIDTH + 0.005;
+    for (let guard = 0; guard < 4; guard++) {
+      const axis: "h" | "w" | null =
+        room.h < target - 0.001 ? "h" : room.w < target - 0.001 ? "w" : null;
+      if (!axis) break;
+      const need = target - (axis === "h" ? room.h : room.w);
+      if (!growCirculation(plan.rooms, room, axis, need)) break;
+    }
+  }
+}
+
+/**
+ * Sortie de secours d'un café / restaurant : desservie par la circulation
+ * technique, dimensionnée pour l'effectif, jamais directement dans la salle,
+ * le comptoir, la cuisine ou la plonge. Aucune surface n'est modifiée.
+ */
+function ensureFoodServiceEvacuation(plan: FloorPlan): void {
+  const salle = plan.rooms.find((r) => !r.exterior && isSalleKind(r.kind));
+  if (!salle) return;
+  const headcount = foodServiceHeadcount(salle, plan.rooms.filter((r) => !r.exterior));
+  const requirement = requiredEgress(headcount.people);
+  const exitWidth = Math.max(0.9, requirement.widths[requirement.widths.length - 1] ?? 0.9);
+  const entryWidth = Math.max(1.1, requirement.widths[0] ?? 0.9);
+
+  // 0. Cheminement dégagé : le couloir d'évacuation fait au moins 0,90 m.
+  widenEvacuationCirculation(plan);
+
+  // 1. Le couloir de service doit être relié au bloc de production.
+  connectCirculationToService(plan, salle);
+
+  // 2. Support de la sortie : couloir, puis local de service relié au couloir.
+  const support =
+    pickExitSupport(plan, salle, exitWidth, false) ??
+    pickExitSupport(plan, salle, exitWidth, true);
+  if (support) {
+    // Toute ancienne sortie de secours (salle, cuisine, sanitaire…) est retirée :
+    // une seule issue de secours, celle de la circulation. Un local dont c'était
+    // l'unique accès reçoit d'abord une porte sur son plus grand mur mitoyen :
+    // retirer la sortie ne doit jamais encloisonner une pièce.
+    for (const room of plan.rooms) {
+      const emergency = room.doors.filter((d) => d.isEmergency);
+      if (emergency.length === 0) continue;
+      if (room.doors.length === emergency.length) {
+        const neighbour = plan.rooms
+          .filter(
+            (r) =>
+              r !== room &&
+              !r.exterior &&
+              !isSanitaryKind(r.kind) &&
+              r.kind !== "bassin",
+          )
+          .map((r) => ({ room: r, shared: sharedBoundary(room, r) }))
+          .filter((x): x is { room: PlanRoom; shared: SharedBoundary } => !!x.shared)
+          .sort((a, b) => b.shared.len - a.shared.len)[0];
+        if (!neighbour || !addPairedServiceDoor(room, neighbour.room, neighbour.shared)) {
+          continue; // dernier accès : la porte reste (le contrôle le signalera)
+        }
+      }
+      room.doors = room.doors.filter((d) => !d.isEmergency);
+    }
+    if (support.room !== support.couloir && !evacuationLinked(support.room, support.couloir)) {
+      const shared = sharedBoundary(support.room, support.couloir);
+      if (shared) addPairedServiceDoor(support.room, support.couloir, shared);
+    }
+    addFacadeDoor(support.room, support.wall, exitWidth, { isEmergency: true });
+  }
+
+  // 3. Nombre et largeur des dégagements adaptés à l'effectif.
+  widenFoodServiceEntry(plan, salle, entryWidth);
+}
+
 /**
  * Génère les 10 variantes de plans d'architecte pour un projet.
  * Déterministe : le même projet produit toujours les mêmes plans.
@@ -4725,20 +5090,22 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
         // service, sur la totalité de l'emprise réelle du niveau.
         const levelFootprint = footprintFor(levelAreas[0]);
         const levelArea = round3(levelFootprint.length * levelFootprint.width);
-        floors.push(
-          buildLevel(
-            0,
-            1,
-            levelFootprint.length,
-            levelFootprint.width,
-            cafeProgram(levelArea),
-            seed,
-            profile,
-            false,
-            undefined,
-            true,
-          ),
+        const plan = buildLevel(
+          0,
+          1,
+          levelFootprint.length,
+          levelFootprint.width,
+          cafeProgram(levelArea),
+          seed,
+          profile,
+          false,
+          undefined,
+          true,
         );
+        // Sortie de secours : desservie par la circulation technique, hors
+        // salle et comptoir, dimensionnée pour l'effectif.
+        ensureFoodServiceEvacuation(plan);
+        floors.push(plan);
       } else if (kind === "restaurant") {
         // Restaurant : salle de restauration à 60 % de la surface couverte,
         // bar intégré à la salle et cuisine professionnelle mitoyenne (une
@@ -4762,6 +5129,9 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
         // Personnel, livraisons et déchets : une issue extérieure propre au
         // bloc service, sans jamais traverser la salle de restauration.
         ensureRestaurantServiceAccess(plan);
+        // Sortie de secours : desservie par la circulation technique, hors
+        // salle, bar, cuisine et plonge, dimensionnée pour l'effectif.
+        ensureFoodServiceEvacuation(plan);
         floors.push(plan);
       } else if (kind === "office" || kind === "warehouse") {
         for (let lvl = 0; lvl < levels; lvl++) {

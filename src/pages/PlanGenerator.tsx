@@ -590,6 +590,9 @@ function VariantCard({
   const floorLabel =
     floor.level === 0 ? "Rez-de-chaussée" : `Étage R+${floor.level}`;
   const v = variant.validation;
+  // Contrôle d'évacuation des cafés / restaurants : la sortie de secours doit
+  // être desservie par la circulation technique, sans quoi le plan est refusé.
+  const evacuation = v.cafe?.evacuation ?? v.restaurant?.evacuation ?? null;
   const selectedRoom = selectedRoomId
     ? floor.rooms.find((r) => r.id === selectedRoomId) ?? null
     : null;
@@ -1055,6 +1058,9 @@ function VariantCard({
               { ok: v.structureOk, label: "Structure continue" },
               { ok: v.exteriorOk, label: "Extérieurs séparés" },
               { ok: v.surfacesOk, label: "Surfaces cohérentes" },
+              ...(evacuation
+                ? [{ ok: evacuation.ok, label: "Sortie de secours accessible" }]
+                : []),
             ].map((c) => (
               <span
                 key={c.label}
