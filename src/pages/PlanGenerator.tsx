@@ -31,10 +31,8 @@ import {
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { ProjectStepUnavailable } from "@/components/ProjectStepUnavailable";
 import { canAccessJourneyStep } from "@/lib/projectJourney";
-import { realBuiltArea } from "@/lib/buildingLevels";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
 import {
-  projectTypeLabel,
   inferFloorsFromCategory,
   normalizeLegacyCategory,
 } from "@/convex/projectTypes";
@@ -236,23 +234,6 @@ export default function PlanGenerator() {
 
   const variants = allVariants;
 
-  // Surface couverte TOTALE du bâtiment = somme des surfaces réelles de chaque
-  // niveau. Elle ne se déduit jamais de `surface × niveaux` ni d'une moyenne.
-  const coveredTotal = useMemo(
-    () =>
-      realBuiltArea(
-        project?.surface ?? 0,
-        Math.max(
-          1,
-          Math.min(
-            4,
-            project?.floors ?? inferFloorsFromCategory((project?.category ?? "") as string),
-          ),
-        ),
-        project?.levelSurfaces ?? undefined,
-      ),
-    [project?.surface, project?.floors, project?.levelSurfaces, project?.category],
-  );
   const selectProjectPlan = useMutation(api.projects.selectProjectPlan);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
   const [savingPlanId, setSavingPlanId] = useState<string | null>(null);
@@ -293,11 +274,6 @@ export default function PlanGenerator() {
       }
     },
     [projectId, savingPlanId, selectProjectPlan, simulateAnalysis],
-  );
-
-  const bestScore = useMemo(
-    () => Math.max(0, ...variants.map((v) => v.validation.score)),
-    [variants],
   );
 
   // Vue 3D : uniquement maison / villa / studio / appartement, et jamais pour
@@ -396,34 +372,6 @@ export default function PlanGenerator() {
               </TabsList>
 
               <TabsContent value="architecture" className="space-y-5">
-            {/* ── Bandeau synthèse projet ── */}
-            <Card className="border-primary/15 bg-gradient-to-r from-violet-500/[0.05] to-transparent">
-              <CardContent className="py-4 px-4 sm:px-5 flex flex-wrap items-center gap-x-6 gap-y-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Building2 className="h-4 w-4 text-primary shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold tracking-tight truncate">{project.name}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {projectTypeLabel(project.category as string)}
-                    </p>
-                  </div>
-                </div>
-                <SynthStat
-                  icon={Ruler}
-                  label="Surface couverte"
-                  value={`${coveredTotal > 0 ? Math.round(coveredTotal) : project.surface ?? 120} m²`}
-                />
-                <SynthStat icon={Layers3} label="Niveaux" value={`${Math.max(1, project.floors ?? 1)}`} />
-                <SynthStat icon={Compass} label="Variantes" value={`${variants.length}`} />
-                <SynthStat
-                  icon={BadgeCheck}
-                  label="Meilleure note"
-                  value={`${bestScore}/100`}
-                  highlight={bestScore >= 90}
-                />
-              </CardContent>
-            </Card>
-
             {/* ── Grille des variantes ── */}
             {/* Une variante par ligne : le plan garde un grand format et le
                 panneau d'information reste à sa droite sur ordinateur. */}
@@ -508,30 +456,6 @@ export default function PlanGenerator() {
 }
 
 // ── Sous-composants ─────────────────────────────────────────────────────────
-
-function SynthStat({
-  icon: Icon,
-  label,
-  value,
-  highlight,
-}: {
-  icon: any;
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <Icon className={cn("h-3.5 w-3.5 shrink-0", highlight ? "text-emerald-600" : "text-muted-foreground")} />
-      <div className="leading-tight">
-        <p className="text-[9px] text-muted-foreground uppercase tracking-wide">{label}</p>
-        <p className={cn("text-xs font-semibold tabular-nums", highlight && "text-emerald-600")}>
-          {value}
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function VariantCard({
   variant,
