@@ -12,13 +12,17 @@
 //   • le comptoir est adossé au mur mitoyen de la cuisine professionnelle :
 //     le personnel dispose d'un plan de travail (passe) + d'un passage derrière
 //     le bar, et le Passe-plat est percé dans ce même mur, au-dessus du plan de
-//     travail, pour le transfert des plats sans traverser la salle.
+//     travail, pour le transfert des plats sans traverser la salle ;
+//   • les FLUX DE SERVICE (livraison, déchets, personnel) disposent d'une issue
+//     extérieure propre au bloc production : réserve, chambre froide, plonge,
+//     vestiaires et cuisine forment un seul bloc relié à cette issue. Aucun de
+//     ces trajets ne traverse la salle de restauration.
 //
 // Aucun autre type de projet n'utilise ces règles : le café conserve les
 // siennes (`cafePlan.ts`) et les autres typologies ne changent pas.
 // ============================================================================
 
-import type { FloorPlan, PlanRoom, WallSide } from "./floorPlanEngine";
+import type { FloorPlan, PlanRoom, RoomKind, WallSide } from "./floorPlanEngine";
 import {
   cafeDoorClearances as doorClearances,
   cafeRectsOverlap as rectsOverlap,
@@ -366,4 +370,323 @@ export function restaurantDoorClearances(room: PlanRoom): PlanRect[] {
 /** Deux rectangles se chevauchent-ils (tolérance géométrique) ? */
 export function restaurantRectsOverlap(a: PlanRect, b: PlanRect): boolean {
   return rectsOverlap(a, b);
+}
+
+// ── Flux de service : livraison, déchets, personnel ─────────────────────────
+
+/**
+ * Locaux pris en compte dans les flux de service : production, stockage,
+ * vestiaires et circulation du personnel. La salle et les sanitaires clients en
+ * sont exclus : les sanitaires sont desservis par la salle (règle sanitaire) et
+ * la salle n'est justement pas un local de service.
+ */
+export const SERVICE_FLOW_KINDS: ReadonlySet<RoomKind> = new Set<RoomKind>([
+  "cuisine_pro",
+  "plonge",
+  "stockage",
+  "chambre_froide",
+  "vestiaire",
+  "couloir",
+  "logistique",
+  "local_technique",
+]);
+
+/** Largeur de la porte de service (livraison, déchets, personnel). */
+export const RESTAURANT_SERVICE_DOOR_WIDTH = 0.9;
+
+/** Porte du bloc service donnant directement sur l'extérieur. */
+export interface ServiceFlowDoor {
+  room: PlanRoom;
+  wall: WallSide;
+  position: number;
+  width: number;
+}
+
+export interface RestaurantServiceFlows {
+  /** Porte de service extérieure retenue (la plus proche de la cuisine). */
+  serviceEntry: ServiceFlowDoor | null;
+  /** Locaux de service atteints depuis l'extérieur sans passer par la salle. */
+  connected: RoomKind[];
+  /** Livraisons : cuisine et réserve/chambre froide atteintes hors salle. */
+  deliveryOk: boolean;
+  /** Déchets : sortie extérieure côté production, hors salle. */
+  wasteOk: boolean;
+  /** Personnel : cuisine et vestiaires atteints hors salle. */
+  staffOk: boolean;
+  ok: boolean;
+  issues: string[];
+}
+
+/** Le mur `wall` de `room` est-il une façade du niveau ? */
+export function restaurantFacadeWall(
+  room: PlanRoom,
+  wall: WallSide,
+  plan: Pick<FloorPlan, "length" | "width">,
+): boolean {
+  if (wall === "N") return Math.abs(room.y) < TOL;
+  if (wall === "S") return Math.abs(room.y + room.h - plan.width) < TOL;
+  if (wall === "W") return Math.abs(room.x) < TOL;
+  return Math.abs(room.x + room.w - plan.length) < TOL;
+}
+
+/** Frontière commune entre deux pièces, avec le repère de chaque mur. */
+interface FlowBoundary {
+  len: number;
+  wallA: WallSide;
+  wallB: WallSide;
+  startA: number;
+  startB: number;
+}
+
+function flowBoundary(a: PlanRoom, b: PlanRoom): FlowBoundary | null {
+  const touchesEW =
+    Math.abs(a.x + a.w - b.x) < TOL || Math.abs(b.x + b.w - a.x) < TOL;
+  if (touchesEW) {
+    const start = Math.max(a.y, b.y);
+    const end = Math.min(a.y + a.h, b.y + b.h);
+    const len = end - start;
+    if (len >= 0.9) {
+      const aIsLeft = Math.abs(b.x + b.w - a.x) < TOL;
+      return {
+        len,
+        wallA: aIsLeft ? "W" : "E",
+        wallB: aIsLeft ? "E" : "W",
+        startA: start - a.y,
+        startB: start - b.y,
+      };
+    }
+  }
+  const touchesNS =
+    Math.abs(a.y + a.h - b.y) < TOL || Math.abs(b.y + b.h - a.y) < TOL;
+  if (touchesNS) {
+    const start = Math.max(a.x, b.x);
+    const end = Math.min(a.x + a.w, b.x + b.w);
+    const len = end - start;
+    if (len >= 0.9) {
+      const aIsTop = Math.abs(b.y + b.h - a.y) < TOL;
+      return {
+        len,
+        wallA: aIsTop ? "N" : "S",
+        wallB: aIsTop ? "S" : "N",
+        startA: start - a.x,
+        startB: start - b.x,
+      };
+    }
+  }
+  return null;
+}
+
+/** Une porte de `room` s'ouvre-t-elle dans l'intervalle [from, to] du mur ? */
+function flowDoorOn(
+  room: PlanRoom,
+  wall: WallSide,
+  from: number,
+  to: number,
+): boolean {
+  return room.doors.some(
+    (d) =>
+      d.wall === wall &&
+      d.width > 0.5 &&
+      d.position < to + 0.05 &&
+      d.position + d.width > from - 0.05,
+  );
+}
+
+/** Deux locaux communiquent-ils réellement (porte des deux côtés du mur) ? */
+function flowLink(a: PlanRoom, b: PlanRoom, shared: FlowBoundary): boolean {
+  return (
+    flowDoorOn(a, shared.wallA, shared.startA, shared.startA + shared.len) &&
+    flowDoorOn(b, shared.wallB, shared.startB, shared.startB + shared.len)
+  );
+}
+
+/** Priorité d'un local de service pour le choix de l'entrée (petit = prioritaire). */
+function serviceKindRank(kind: RoomKind): number {
+  switch (kind) {
+    case "cuisine_pro":
+      return 0;
+    case "plonge":
+      return 1;
+    case "couloir":
+      return 2;
+    case "stockage":
+      return 3;
+    case "chambre_froide":
+      return 4;
+    case "vestiaire":
+      return 5;
+    default:
+      return 6;
+  }
+}
+
+/**
+ * Composantes connexes du bloc service : deux locaux ne communiquent que par
+ * une porte percée des DEUX côtés de leur mur mitoyen. La salle n'est jamais
+ * prise en compte ici (elle est exclue par `SERVICE_FLOW_KINDS`).
+ */
+export function serviceRoomComponents(
+  rooms: readonly PlanRoom[],
+): Set<PlanRoom>[] {
+  const service = rooms.filter(
+    (r) => !r.exterior && SERVICE_FLOW_KINDS.has(r.kind),
+  );
+  const seen = new Set<PlanRoom>();
+  const out: Set<PlanRoom>[] = [];
+  for (const room of service) {
+    if (seen.has(room)) continue;
+    const comp = new Set<PlanRoom>([room]);
+    seen.add(room);
+    const stack: PlanRoom[] = [room];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      for (const other of service) {
+        if (seen.has(other)) continue;
+        const shared = flowBoundary(current, other);
+        if (!shared || !flowLink(current, other, shared)) continue;
+        seen.add(other);
+        comp.add(other);
+        stack.push(other);
+      }
+    }
+    out.push(comp);
+  }
+  return out;
+}
+
+/**
+ * Contrôle des flux de service d'un restaurant.
+ *
+ * La salle de restauration est RETIRÉE du graphe de circulation : les locaux de
+ * service (cuisine, plonge, réserve, chambre froide, vestiaires, couloir) sont
+ * parcourus uniquement par leurs propres portes, depuis les portes qui donnent
+ * directement sur l'extérieur. Les trois flux sont alors vérifiés :
+ *
+ *   • livraison — cuisine + réserve (ou chambre froide) atteintes de l'extérieur ;
+ *   • déchets   — sortie extérieure côté production (cuisine, plonge, couloir) ;
+ *   • personnel — cuisine et vestiaires atteints sans traverser la salle.
+ *
+ * Un accès qui n'existerait que par la salle n'est donc jamais compté comme un
+ * accès de service.
+ */
+export function restaurantServiceFlows(
+  salle: PlanRoom | null,
+  rooms: readonly PlanRoom[],
+  plan: Pick<FloorPlan, "length" | "width">,
+): RestaurantServiceFlows {
+  const service = rooms.filter(
+    (r) =>
+      !r.exterior &&
+      r !== salle &&
+      SERVICE_FLOW_KINDS.has(r.kind),
+  );
+  if (service.length === 0) {
+    return {
+      serviceEntry: null,
+      connected: [],
+      deliveryOk: false,
+      wasteOk: false,
+      staffOk: false,
+      ok: false,
+      issues: ["Aucun local de service : flux de service non vérifiables"],
+    };
+  }
+
+  const kitchen = service.find((r) => r.kind === "cuisine_pro") ?? null;
+  const entries: ServiceFlowDoor[] = [];
+  for (const room of service) {
+    for (const door of room.doors) {
+      if (door.width < 0.7) continue;
+      if (!restaurantFacadeWall(room, door.wall, plan)) continue;
+      entries.push({
+        room,
+        wall: door.wall,
+        position: door.position,
+        width: door.width,
+      });
+    }
+  }
+
+  // Composantes connexes du bloc service. La salle est absente du graphe : un
+  // trajet qui passerait par elle n'est jamais un accès de service.
+  const components = serviceRoomComponents(service);
+
+  // Composante de service retenue : celle qui contient la cuisine ET au moins
+  // une issue extérieure. Une composante isolée, ou un local dont l'unique
+  // accès passe par la salle, ne compte pas comme un accès de service.
+  const production = (kind: RoomKind) =>
+    kind === "cuisine_pro" || kind === "plonge" || kind === "couloir";
+  let best: { rooms: PlanRoom[]; entries: ServiceFlowDoor[]; score: number } | null = null;
+  for (const comp of components) {
+    if (!kitchen || !comp.has(kitchen)) continue;
+    if (!entries.some((e) => comp.has(e.room))) continue;
+    const rooms = [...comp];
+    const kinds = new Set(rooms.map((r) => r.kind));
+    const exits = entries.filter((e) => comp.has(e.room));
+    const score =
+      (kinds.has("stockage") || kinds.has("chambre_froide") ? 1 : 0) +
+      (kinds.has("vestiaire") ? 1 : 0) +
+      (exits.some((e) => production(e.room.kind)) ? 1 : 0);
+    if (!best || score > best.score) best = { rooms, entries: exits, score };
+  }
+
+  const connected = best
+    ? [...new Set(best.rooms.map((r) => r.kind))].sort()
+    : [];
+  const reachedKind = (kind: RoomKind) => connected.includes(kind);
+  const focus = kitchen ?? salle;
+  const entry =
+    best && best.entries.length > 0
+      ? [...best.entries].sort(
+          (a, b) =>
+            (focus ? rectDistance(a.room, focus) - rectDistance(b.room, focus) : 0) ||
+            serviceKindRank(a.room.kind) - serviceKindRank(b.room.kind),
+        )[0]
+      : null;
+
+  const deliveryOk =
+    !!best && (reachedKind("stockage") || reachedKind("chambre_froide"));
+  // Les déchets sortent par le côté production, jamais par la salle ni par les
+  // vestiaires : l'issue doit être percée dans la cuisine, la plonge ou le
+  // couloir de service.
+  const wasteOk = !!best && best.entries.some((e) => production(e.room.kind));
+  const hasVestiaire = service.some((r) => r.kind === "vestiaire");
+  const staffOk = !!best && (!hasVestiaire || reachedKind("vestiaire"));
+
+  const issues: string[] = [];
+  if (entries.length === 0) {
+    issues.push(
+      "Aucune entrée de service extérieure : personnel, livraisons et déchets traversent la salle de restauration",
+    );
+  } else if (!best) {
+    issues.push(
+      "Bloc service non relié à une entrée extérieure : livraisons, déchets et personnel passent par la salle de restauration",
+    );
+  } else {
+    if (!deliveryOk) {
+      issues.push(
+        "Livraisons : la réserve ou la chambre froide n'est pas reliée au bloc production sans traverser la salle",
+      );
+    }
+    if (!wasteOk) {
+      issues.push(
+        "Déchets : aucune sortie extérieure depuis la cuisine, la plonge ou le couloir de service",
+      );
+    }
+    if (!staffOk) {
+      issues.push(
+        "Personnel : la cuisine ou les vestiaires ne sont pas accessibles sans traverser la salle",
+      );
+    }
+  }
+
+  return {
+    serviceEntry: entry,
+    connected,
+    deliveryOk,
+    wasteOk,
+    staffOk,
+    ok: !!entry && deliveryOk && wasteOk && staffOk,
+    issues,
+  };
 }

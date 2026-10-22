@@ -12,10 +12,13 @@ import {
   RESTAURANT_SALLE_SHARE,
   RESTAURANT_SALLE_SHARE_MAX,
   RESTAURANT_SALLE_SHARE_MIN,
+  SERVICE_FLOW_KINDS,
   isRestaurantCategory,
   restaurantCounterPlacement,
   restaurantCounterToKitchen,
+  restaurantFacadeWall,
   restaurantKitchenNeighbour,
+  restaurantServiceFlows,
 } from "./restaurantPlan";
 
 // ============================================================================
@@ -154,6 +157,10 @@ describe("plans restaurant — salle, bar, cuisine et surfaces", () => {
         expect(validation.restaurant?.serviceLinkOk, label).toBe(true);
         expect(validation.restaurant?.passePlatOk, label).toBe(true);
         expect(validation.restaurant?.accessOk, label).toBe(true);
+        expect(validation.restaurant?.serviceAccessOk, label).toBe(true);
+        expect(validation.restaurant?.deliveryOk, label).toBe(true);
+        expect(validation.restaurant?.wasteOk, label).toBe(true);
+        expect(validation.restaurant?.staffOk, label).toBe(true);
         expect(validation.restaurant?.ok, label).toBe(true);
         expect(validation.cafe, label).toBeUndefined();
         expect(validation.noOverlap, label).toBe(true);
@@ -203,6 +210,9 @@ describe("plans restaurant — salle, bar, cuisine et surfaces", () => {
         2,
       );
       expect(Math.abs(covered - fp.area), String(surface)).toBeLessThanOrEqual(0.05);
+      // La réparation ne referme jamais la porte de service : les flux restent
+      // assurés sur le plan réellement affiché.
+      expect(restaurantServiceFlows(salle ?? null, rooms, fp).ok, String(surface)).toBe(true);
     }
   });
 
@@ -344,6 +354,207 @@ describe("validation automatique — les règles restaurant sont réellement con
     const validation = validatePlan(variant, { category: "restaurant", surface: 150, floors: 1 });
     expect(validation.restaurant?.kitchenNearCounter).toBe(false);
     expect(validation.restaurant?.ok).toBe(false);
+  });
+});
+
+describe("flux de service — livraison, déchets et personnel hors salle", () => {
+  const FLOW_SURFACES = [50, 80, 100, 120, 150, 200, 300];
+
+  function flowRoom(
+    partial: Pick<PlanRoom, "id" | "kind" | "x" | "y" | "w" | "h"> &
+      Partial<PlanRoom>,
+  ): PlanRoom {
+    return {
+      label: partial.kind,
+      area: partial.w * partial.h,
+      doors: [],
+      windows: [],
+      ...partial,
+    } as PlanRoom;
+  }
+
+  it("chaque plan restaurant a un accès de service extérieur complet, hors salle", () => {
+    for (const surface of FLOW_SURFACES) {
+      for (const variant of restaurantVariants(surface)) {
+        const fp = variant.floors[0];
+        const rooms = fp.rooms.filter((r) => !r.exterior);
+        const salle = salleOf(variant)!;
+        const label = `${surface} m² / ${variant.styleId}`;
+        const flows = restaurantServiceFlows(salle, rooms, fp);
+
+        expect(flows.ok, label).toBe(true);
+        expect(flows.issues, label).toEqual([]);
+        expect(flows.deliveryOk, label).toBe(true);
+        expect(flows.wasteOk, label).toBe(true);
+        expect(flows.staffOk, label).toBe(true);
+
+        // L'entrée de service est une vraie porte extérieure, jamais la salle.
+        const entry = flows.serviceEntry;
+        expect(entry, label).toBeTruthy();
+        expect(entry?.room, label).not.toBe(salle);
+        expect(entry ? restaurantFacadeWall(entry.room, entry.wall, fp) : false, label).toBe(
+          true,
+        );
+
+        // Le bloc service est d'un seul tenant : réserve, froid, plonge,
+        // vestiaires et cuisine sont reliés sans passer par la salle.
+        const kinds = new Set(
+          rooms.filter((r) => SERVICE_FLOW_KINDS.has(r.kind)).map((r) => r.kind),
+        );
+        expect(new Set(flows.connected), label).toEqual(kinds);
+      }
+    }
+  });
+
+  it("accepte un bloc service relié à l'extérieur côté production", () => {
+    const plan = { level: 0, length: 10, width: 8, area: 80 };
+    const salle = flowRoom({
+      id: "salle",
+      kind: "salle_client",
+      x: 0,
+      y: 0,
+      w: 6,
+      h: 8,
+      doors: [{ wall: "E", position: 3.5, width: 0.9 }],
+    });
+    const cuisine = flowRoom({
+      id: "cuisine",
+      kind: "cuisine_pro",
+      x: 6,
+      y: 3,
+      w: 4,
+      h: 5,
+      doors: [
+        { wall: "W", position: 0.5, width: 0.9 },
+        { wall: "N", position: 1, width: 0.9 },
+        { wall: "S", position: 2, width: 0.9, isService: true },
+      ],
+    });
+    const stockage = flowRoom({
+      id: "stockage",
+      kind: "stockage",
+      x: 6,
+      y: 0,
+      w: 4,
+      h: 3,
+      doors: [{ wall: "S", position: 1, width: 0.9 }],
+    });
+    const flows = restaurantServiceFlows(salle, [salle, cuisine, stockage], plan);
+    expect(flows.ok).toBe(true);
+    expect(flows.deliveryOk).toBe(true);
+    expect(flows.wasteOk).toBe(true);
+    expect(flows.staffOk).toBe(true);
+    expect(flows.serviceEntry?.room.kind).toBe("cuisine_pro");
+  });
+
+  it("refuse un accès de service qui passerait par la salle", () => {
+    const plan = { level: 0, length: 10, width: 8, area: 80 };
+    const salle = flowRoom({
+      id: "salle",
+      kind: "salle_client",
+      x: 0,
+      y: 0,
+      w: 6,
+      h: 8,
+      doors: [{ wall: "E", position: 1, width: 0.9 }],
+    });
+    const cuisine = flowRoom({
+      id: "cuisine",
+      kind: "cuisine_pro",
+      x: 6,
+      y: 0,
+      w: 4,
+      h: 5,
+      doors: [{ wall: "W", position: 1, width: 0.9 }],
+    });
+    const stockage = flowRoom({
+      id: "stockage",
+      kind: "stockage",
+      x: 6,
+      y: 5,
+      w: 4,
+      h: 3,
+      doors: [
+        { wall: "W", position: 0.6, width: 0.9 },
+        { wall: "E", position: 1, width: 0.9 },
+      ],
+    });
+    const flows = restaurantServiceFlows(salle, [salle, cuisine, stockage], plan);
+    // Une porte extérieure existe sur la réserve, mais la cuisine n'y accède
+    // qu'en traversant la salle : aucun flux de service n'est validé.
+    expect(flows.serviceEntry).toBeNull();
+    expect(flows.deliveryOk).toBe(false);
+    expect(flows.wasteOk).toBe(false);
+    expect(flows.staffOk).toBe(false);
+    expect(flows.ok).toBe(false);
+    expect(flows.issues.join(" ")).toMatch(/Bloc service|salle de restauration/);
+  });
+
+  it("la réparation du plan ne transforme jamais la porte de service en fenêtre", () => {
+    const cuisine = flowRoom({
+      id: "cuisine",
+      kind: "cuisine_pro",
+      x: 0,
+      y: 0,
+      w: 10,
+      h: 4,
+      doors: [
+        { wall: "N", position: 1, width: 0.9 },
+        { wall: "S", position: 1, width: 0.9 },
+      ],
+    });
+    const plonge = flowRoom({
+      id: "plonge",
+      kind: "plonge",
+      x: 0,
+      y: 4,
+      w: 10,
+      h: 4,
+      doors: [
+        { wall: "N", position: 1, width: 0.9 },
+        { wall: "S", position: 1, width: 0.9 },
+        { wall: "S", position: 5, width: 0.9, isService: true },
+      ],
+    });
+    const repaired = repairFloorPlan({
+      level: 0,
+      length: 10,
+      width: 8,
+      area: 80,
+      rooms: [cuisine, plonge],
+    });
+    const p = repaired.rooms.find((r) => r.id === "plonge")!;
+    expect(
+      p.doors.some((d) => d.isService && d.wall === "S" && Math.abs(d.position - 5) < 0.01),
+    ).toBe(true);
+    // La porte de façade non marquée, elle, redevient une fenêtre.
+    expect(p.windows.some((w) => w.wall === "S" && w.position < 3)).toBe(true);
+  });
+
+  it("refuse un bloc service sans issue extérieure", () => {
+    const plan = { level: 0, length: 10, width: 8, area: 80 };
+    const salle = flowRoom({
+      id: "salle",
+      kind: "salle_client",
+      x: 0,
+      y: 0,
+      w: 6,
+      h: 8,
+      doors: [{ wall: "E", position: 1, width: 0.9 }],
+    });
+    const cuisine = flowRoom({
+      id: "cuisine",
+      kind: "cuisine_pro",
+      x: 6,
+      y: 0,
+      w: 4,
+      h: 8,
+      doors: [{ wall: "W", position: 1, width: 0.9 }],
+    });
+    const flows = restaurantServiceFlows(salle, [salle, cuisine], plan);
+    expect(flows.serviceEntry).toBeNull();
+    expect(flows.ok).toBe(false);
+    expect(flows.issues[0]).toMatch(/Aucune entrée de service/);
   });
 });
 

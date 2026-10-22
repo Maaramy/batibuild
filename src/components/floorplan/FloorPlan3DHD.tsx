@@ -465,9 +465,9 @@ export function FloorPlan3DHD({
         sides.find((s) => s.key === side)!.openings.push({ a: start, b: start + win.width, kind: "win" });
       }
       for (const d of r.doors) {
-        // Entrée principale ET sortie de secours : les deux issues extérieures
-        // du plan 2D sont réellement percées dans les murs 3D.
-        if (!d.isEntry && !d.isEmergency) continue;
+        // Entrée principale, sortie de secours et porte de service : toutes les
+        // issues extérieures du plan 2D sont réellement percées dans les murs 3D.
+        if (!d.isEntry && !d.isEmergency && !d.isService) continue;
         const side = d.wall as "N" | "S" | "W" | "E";
         const start = d.wall === "N" || d.wall === "S" ? r.x + d.position : r.y + d.position;
         const onExterior =

@@ -25,12 +25,17 @@ import {
   RESTAURANT_SALLE_SHARE,
   RESTAURANT_SALLE_SHARE_MAX,
   RESTAURANT_SALLE_SHARE_MIN,
+  RESTAURANT_SERVICE_DOOR_WIDTH,
+  SERVICE_FLOW_KINDS,
   isRestaurantCategory,
   restaurantCounterPlacement,
   restaurantCounterToKitchen,
   restaurantDoorClearances,
+  restaurantFacadeWall,
   restaurantKitchenNeighbour,
   restaurantRectsOverlap,
+  restaurantServiceFlows,
+  serviceRoomComponents,
 } from "./restaurantPlan";
 import {
   SANITARY_DEPTH_MAX,
@@ -100,6 +105,12 @@ export interface DoorSpec {
    * l'entrée, rendue à l'identique en 2D et en 3D (même donnée).
    */
   isEmergency?: boolean;
+  /**
+   * Porte de service d'un restaurant (livraison, déchets, personnel) : issue
+   * extérieure du bloc production, jamais requalifiée en fenêtre et percée à
+   * l'identique en 2D et en 3D.
+   */
+  isService?: boolean;
 }
 
 export interface WindowSpec {
@@ -177,6 +188,14 @@ export interface RestaurantValidation {
   sanitaryAccessOk: boolean;
   /** WC accessible PMR (giration 1,50 m) lorsque la surface le permet. */
   pmrOk: boolean;
+  /** Entrée de service extérieure : personnel, livraisons et déchets hors salle. */
+  serviceAccessOk: boolean;
+  /** Livraisons : cuisine et réserve/chambre froide atteintes sans la salle. */
+  deliveryOk: boolean;
+  /** Déchets : sortie extérieure côté production, sans traverser la salle. */
+  wasteOk: boolean;
+  /** Personnel : cuisine et vestiaires atteints sans traverser la salle. */
+  staffOk: boolean;
   ok: boolean;
 }
 
@@ -1551,7 +1570,7 @@ function addFacadeDoor(
   room: PlanRoom,
   side: WallSide,
   desiredWidth: number,
-  flags: { isEntry?: boolean; isEmergency?: boolean } = {},
+  flags: { isEntry?: boolean; isEmergency?: boolean; isService?: boolean } = {},
   /** Position à essayer en premier (café / restaurant : entrée à l'écart du service). */
   preferred?: number,
 ): boolean {
@@ -3363,6 +3382,15 @@ export function validatePlan(
       issues.push(...sanitary.issues);
     }
 
+    // Flux de service : le personnel, les livraisons et les déchets ne doivent
+    // jamais traverser la salle de restauration. Le parcours est recalculé
+    // sans la salle, depuis les portes qui donnent sur l'extérieur.
+    const flows = restaurantServiceFlows(salle, rooms, fp);
+    if (!flows.ok) {
+      score -= 10;
+      issues.push(...flows.issues);
+    }
+
     restaurant = {
       salleShare: Math.round(salleShare * 1000) / 1000,
       salleShareOk,
@@ -3374,6 +3402,10 @@ export function validatePlan(
       accessOk,
       sanitaryAccessOk: sanitary.ok,
       pmrOk: sanitary.pmrOk,
+      serviceAccessOk: !!flows.serviceEntry,
+      deliveryOk: flows.deliveryOk,
+      wasteOk: flows.wasteOk,
+      staffOk: flows.staffOk,
       ok:
         salleShareOk &&
         counterInsideSalle &&
@@ -3382,7 +3414,8 @@ export function validatePlan(
         serviceLinkOk &&
         passePlatOk &&
         accessOk &&
-        sanitary.ok,
+        sanitary.ok &&
+        flows.ok,
     };
   }
 
@@ -4362,6 +4395,190 @@ function linkRestaurantService(plan: FloorPlan): void {
 }
 
 /**
+ * Porte de service entre deux locaux mitoyens, posée dans un intervalle libre
+ * du mur (jamais sur une porte existante). Les deux pièces reçoivent la même
+ * ouverture : le 2D et le 3D restent cohérents.
+ */
+function addPairedServiceDoor(
+  a: PlanRoom,
+  b: PlanRoom,
+  shared: SharedBoundary,
+): boolean {
+  const width = Math.min(RESTAURANT_SERVICE_DOOR_WIDTH, shared.len - 0.2);
+  if (width < 0.7) return false;
+  const clashes = (room: PlanRoom, wall: WallSide, start: number) =>
+    room.doors.some(
+      (d) =>
+        d.wall === wall &&
+        d.position < start + width + 0.15 &&
+        d.position + d.width > start - 0.15,
+    );
+  const starts = [
+    shared.len / 2 - width / 2,
+    0.1,
+    shared.len - width - 0.1,
+    0.1 + width + 0.3,
+    shared.len - width - 0.1 - width - 0.3,
+  ];
+  for (const raw of starts) {
+    const start = Math.max(0.1, Math.min(raw, shared.len - width - 0.1));
+    if (start < 0.05) continue;
+    const pa = shared.startA + start;
+    const pb = shared.startB + start;
+    if (clashes(a, shared.wallA, pa) || clashes(b, shared.wallB, pb)) continue;
+    a.doors.push({ wall: shared.wallA, position: round3(pa), width: round3(width) });
+    b.doors.push({ wall: shared.wallB, position: round3(pb), width: round3(width) });
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Accès de service d'un restaurant : personnel, livraisons et déchets.
+ *
+ * Vérifie qu'au moins une porte extérieure dessert le bloc production sans
+ * traverser la salle, puis la perce si elle manque. La porte est posée sur la
+ * façade d'un local de service (cuisine d'abord, puis plonge, couloir,
+ * réserve), sur une façade différente de l'entrée client autant que possible,
+ * et elle est marquée `isService` : le 2D et le 3D percent la même ouverture et
+ * la réparation du plan ne la transforme jamais en fenêtre.
+ *
+ * Aucune surface n'est modifiée : seule une ouverture est ajoutée au mur.
+ */
+function ensureRestaurantServiceAccess(plan: FloorPlan): void {
+  const salle = plan.rooms.find((r) => !r.exterior && r.kind === "salle_client");
+  if (!salle) return;
+  const rooms = () => plan.rooms.filter((r) => !r.exterior);
+  const kitchen = rooms().find((r) => r.kind === "cuisine_pro");
+  if (!kitchen) return;
+
+  // 1. Un seul bloc service : chaque local de service (réserve, froid, plonge,
+  //    vestiaires, couloir) rejoint le bloc de la cuisine par une porte de
+  //    service, jamais par la salle. Une livraison entre par le service et
+  //    atteint la réserve sans traverser la salle de restauration.
+  const components = serviceRoomComponents(rooms());
+  const main = components.find((c) => c.has(kitchen));
+  if (main) {
+    const pending = components.filter((c) => c !== main);
+    let progress = true;
+    while (progress && pending.length > 0) {
+      progress = false;
+      for (let i = 0; i < pending.length; i++) {
+        const comp = pending[i];
+        const pairs: { a: PlanRoom; b: PlanRoom; shared: SharedBoundary }[] = [];
+        for (const room of comp) {
+          for (const target of main) {
+            const shared = sharedBoundary(room, target);
+            if (shared) pairs.push({ a: room, b: target, shared });
+          }
+        }
+        const linked = pairs
+          .sort((x, y) => y.shared.len - x.shared.len)
+          .some((pair) => addPairedServiceDoor(pair.a, pair.b, pair.shared));
+        if (!linked) continue;
+        for (const r of comp) main.add(r);
+        pending.splice(i, 1);
+        progress = true;
+        break;
+      }
+    }
+  }
+
+  // 2. Un local de service n'ouvre plus sur la salle : son accès est côté
+  //    service (le client n'a rien à y faire, la cuisine garde sa porte de
+  //    liaison et son passe-plat).
+  const overlaps = (
+    d: { position: number; width: number },
+    from: number,
+    to: number,
+  ) => d.position < to + 0.05 && d.position + d.width > from - 0.05;
+  for (const room of rooms()) {
+    if (room === salle || room.kind === "cuisine_pro") continue;
+    if (!SERVICE_FLOW_KINDS.has(room.kind)) continue;
+    const shared = sharedBoundary(room, salle);
+    if (!shared) continue;
+    const to = shared.startA + shared.len;
+    if (!room.doors.some((d) => d.wall === shared.wallA && overlaps(d, shared.startA, to))) {
+      continue;
+    }
+    // Un local doit conserver un accès : sa porte côté salle n'est retirée que
+    // s'il est déjà desservi par le bloc service.
+    const kept = room.doors.filter(
+      (d) => !(d.wall === shared.wallA && overlaps(d, shared.startA, to)),
+    );
+    if (kept.length === 0) continue;
+    room.doors = kept;
+    const toB = shared.startB + shared.len;
+    salle.doors = salle.doors.filter(
+      (d) => !(d.wall === shared.wallB && overlaps(d, shared.startB, toB)),
+    );
+  }
+
+  if (restaurantServiceFlows(salle, rooms(), plan).ok) return;
+
+  const entrySide = salle.doors.find((d) => d.isEntry)?.wall ?? null;
+  const order: RoomKind[] = [
+    "cuisine_pro",
+    "plonge",
+    "couloir",
+    "stockage",
+    "chambre_froide",
+    "vestiaire",
+  ];
+  const candidates: { room: PlanRoom; wall: WallSide; span: number }[] = [];
+  for (const kind of order) {
+    for (const room of plan.rooms) {
+      if (room.exterior || room.kind !== kind) continue;
+      for (const wall of ["N", "S", "E", "W"] as WallSide[]) {
+        if (!restaurantFacadeWall(room, wall, plan)) continue;
+        const span = wall === "N" || wall === "S" ? room.w : room.h;
+        if (span < 1.4) continue;
+        candidates.push({ room, wall, span });
+      }
+    }
+  }
+  // Façade différente de l'entrée client d'abord, puis le mur le plus large :
+  // une livraison ne débouche pas devant la porte des clients si une autre
+  // façade est disponible.
+  candidates.sort((a, b) => {
+    const sameEntrySide = (c: { wall: WallSide }) => (c.wall === entrySide ? 1 : 0);
+    return (
+      sameEntrySide(a) - sameEntrySide(b) ||
+      serviceRoomRank(a.room.kind) - serviceRoomRank(b.room.kind) ||
+      b.span - a.span
+    );
+  });
+
+  for (const c of candidates) {
+    const before = c.room.doors.map((d) => ({ ...d }));
+    const added = addFacadeDoor(c.room, c.wall, RESTAURANT_SERVICE_DOOR_WIDTH, {
+      isService: true,
+    });
+    if (!added) continue;
+    if (restaurantServiceFlows(salle, rooms(), plan).ok) return;
+    c.room.doors = before;
+  }
+}
+
+/** Priorité des locaux pour percer la porte de service (petit = prioritaire). */
+function serviceRoomRank(kind: RoomKind): number {
+  switch (kind) {
+    case "cuisine_pro":
+      return 0;
+    case "plonge":
+      return 1;
+    case "couloir":
+      return 2;
+    case "stockage":
+      return 3;
+    case "chambre_froide":
+      return 4;
+    default:
+      return 5;
+  }
+}
+
+/**
  * Génère les 10 variantes de plans d'architecte pour un projet.
  * Déterministe : le même projet produit toujours les mêmes plans.
  */
@@ -4542,6 +4759,9 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
           true,
         );
         linkRestaurantService(plan);
+        // Personnel, livraisons et déchets : une issue extérieure propre au
+        // bloc service, sans jamais traverser la salle de restauration.
+        ensureRestaurantServiceAccess(plan);
         floors.push(plan);
       } else if (kind === "office" || kind === "warehouse") {
         for (let lvl = 0; lvl < levels; lvl++) {
@@ -4801,9 +5021,10 @@ export function repairFloorPlan(plan: FloorPlan): FloorPlan {
           (d.wall === "E" && onEdge(r.x + r.w, plan.length))),
     ).length;
     for (const d of r.doors) {
-      // L'entrée principale et la sortie de secours sont des issues voulues :
-      // elles restent des portes, jamais requalifiées en fenêtres.
-      if (d.isEntry || d.isEmergency) continue;
+      // L'entrée principale, la sortie de secours et la porte de service sont
+      // des issues voulues : elles restent des portes, jamais requalifiées en
+      // fenêtres.
+      if (d.isEntry || d.isEmergency || d.isService) continue;
       const isOnFacade =
         (d.wall === "N" && onEdge(r.y, 0)) ||
         (d.wall === "S" && onEdge(r.y + r.h, plan.width)) ||

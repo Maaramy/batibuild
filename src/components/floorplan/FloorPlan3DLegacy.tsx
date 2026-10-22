@@ -380,9 +380,9 @@ export function FloorPlan3DLegacy({
           win.wall === "N" || win.wall === "S" ? r.x + win.position : r.y + win.position;
         sides.find((s) => s.key === side)!.openings.push({ a: start, b: start + win.width, kind: "win" });
       }      for (const d of r.doors) {
-        // Toute ouverture extérieure réelle est percée : l'entrée principale
-        // ET la sortie de secours (mêmes données qu'en 2D).
-        if (!d.isEntry && !d.isEmergency) continue;
+        // Toute ouverture extérieure réelle est percée : l'entrée principale,
+        // la sortie de secours et la porte de service (mêmes données qu'en 2D).
+        if (!d.isEntry && !d.isEmergency && !d.isService) continue;
         const side = d.wall as "N" | "S" | "W" | "E";
         const start =
           d.wall === "N" || d.wall === "S" ? r.x + d.position : r.y + d.position;
