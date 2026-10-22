@@ -602,7 +602,7 @@ export function FloorPlan3DLegacy({
     }
     building.add(labelGroup);
 
-    // ── Signalétique : entrée principale et sortie de secours (vertes) ─────
+    // ── Signalétique : entrée principale (verte) et sortie de secours (rouge) ──
     const signs = plan.rooms.flatMap((r) =>
       r.doors
         .filter((d) => d.isEntry || d.isEmergency)
@@ -1007,9 +1007,9 @@ function makeSignTexture(text: string, background: string) {
   return { canvas, texture, material };
 }
 
-/** Panneau « SORTIE DE SECOURS » posé au-dessus des portes de secours. */
+/** Panneau rouge « SORTIE DE SECOURS » posé au-dessus des portes de secours. */
 function makeExitSignTexture() {
-  return makeSignTexture("SORTIE DE SECOURS", "#15803D");
+  return makeSignTexture("SORTIE DE SECOURS", "#DC2626");
 }
 
 /** Enseigne verte « ENTRÉE PRINCIPALE » au-dessus de la porte d'entrée. */

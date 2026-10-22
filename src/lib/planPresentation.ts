@@ -6,7 +6,7 @@
 //   · fond papier blanc cassé, panneau d'information beige clair ;
 //   · typographie noire, encadrés à coins légèrement arrondis ;
 //   · sols bois clair / pierre / béton, murs blancs, végétation réaliste ;
-//   · signalétique « ENTRÉE PRINCIPALE » et « SORTIE DE SECOURS » (vertes).
+//   · signalétique verte « ENTRÉE PRINCIPALE » et rouge « SORTIE DE SECOURS ».
 //
 // Ce module ne contient AUCUNE donnée géométrique : il lit le `FloorPlan` produit
 // par le moteur (`floorPlanEngine`) et en déduit uniquement du texte d'affichage
@@ -38,9 +38,9 @@ export const PLAN_MATERIALS = {
   /** Murs blancs coupés (maquette). */
   wall: "#FAF8F3",
   wallShade: "#E7E1D5",
-  /** Signalétique. */
+  /** Signalétique : entrée en vert, sortie de secours en rouge. */
   entry: "#15803D",
-  exit: "#15803D",
+  exit: "#DC2626",
   /** Décoration bois autour de l'entrée principale. */
   wood: "#B07A45",
   woodDark: "#8A5A32",

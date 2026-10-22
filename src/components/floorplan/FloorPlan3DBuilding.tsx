@@ -13,7 +13,7 @@
 //   · escaliers reliant les niveaux (gaine alignée par le moteur) ;
 //   · mobilier et équipements par nature de pièce (mêmes primitives que la 2D) ;
 //   · habillage bois / pergola de l'entrée principale au RDC ;
-//   · enseignes vertes « ENTRÉE PRINCIPALE » et « SORTIE DE SECOURS » ;
+//   · enseignes « ENTRÉE PRINCIPALE » (verte) et « SORTIE DE SECOURS » (rouge) ;
 //   · étiquettes de niveau (RDC, R+1…) et navigation orbitale + zoom.
 // ============================================================================
 
@@ -162,13 +162,13 @@ function makePlankTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-/** Enseigne de signalétique (fond vert, texte en capitales). */
-function makeSignTexture(text: string) {
+/** Enseigne de signalétique (fond coloré, texte en capitales). */
+function makeSignTexture(text: string, background = "#15803D") {
   const canvas = document.createElement("canvas");
   canvas.width = 768;
   canvas.height = 160;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#15803D";
+  ctx.fillStyle = background;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 6;
@@ -391,8 +391,8 @@ export function FloorPlan3DBuilding({
     const woodMat = track(new THREE.MeshStandardMaterial({ color: 0xb07a45, roughness: 0.62 }));
     const woodDarkMat = track(new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.7 }));
 
-    const entrySign = makeSignTexture("ENTRÉE PRINCIPALE");
-    const exitSign = makeSignTexture("SORTIE DE SECOURS");
+    const entrySign = makeSignTexture("ENTRÉE PRINCIPALE", "#15803D");
+    const exitSign = makeSignTexture("SORTIE DE SECOURS", "#DC2626");
     track(entrySign.texture);
     track(entrySign.material);
     track(exitSign.texture);
@@ -748,7 +748,7 @@ export function FloorPlan3DBuilding({
         }
       }
 
-      // ── Signalétique des issues du niveau (enseignes vertes) ─────────────
+      // ── Signalétique des issues du niveau (entrée verte, secours rouge) ──
       for (const room of plan.rooms) {
         for (const door of room.doors.filter((d) => d.isEntry || d.isEmergency)) {
           const horizontal = door.wall === "N" || door.wall === "S";
