@@ -18,8 +18,8 @@ import {
 // ============================================================================
 // PARCOURS DU PROJET — quatre groupes, déduits du seul type enregistré
 //
-//   Groupes A et D (plans architecturaux AI) : coût → aide à la décision →
-//     plans IA → mise en relation → exécution & suivi (5 étapes).
+//   Groupes A et D (plans architecturaux AI) : coût → plans IA → aide à la
+//     décision → mise en relation → exécution & suivi (5 étapes).
 //       · A : logements et bâtiments résidentiels ;
 //       · D : locaux professionnels (local commercial, bureau, entrepôt,
 //         restaurant, café).
@@ -32,12 +32,12 @@ import {
 
 const GROUP_A_LABELS = [
   "Coût estimatif",
-  "Aide à la décision",
   "Plans architecturaux AI",
+  "Aide à la décision",
   "Mise en relation",
   "Exécution & Suivi",
 ];
-const GROUP_A_KEYS = ["cost", "decision", "plans", "consult", "execution"];
+const GROUP_A_KEYS = ["cost", "plans", "decision", "consult", "execution"];
 
 // Les groupes B et C partagent le même parcours simplifié.
 const GROUP_B_LABELS = ["Coût estimatif", "Mise en relation"];
@@ -314,23 +314,40 @@ describe("buildProjectJourney — ordre obligatoire des étapes", () => {
     }
   });
 
-  it("groupe A : coût → décision → plans → mise en relation → exécution", () => {
+  it("groupe A : coût → plans → décision → mise en relation → exécution", () => {
     const keys = buildProjectJourney("villa", PID).map((s) => s.key);
     expect(keys).toEqual(GROUP_A_KEYS);
-    expect(keys.indexOf("decision")).toBe(keys.indexOf("cost") + 1);
-    expect(keys.indexOf("plans")).toBe(keys.indexOf("decision") + 1);
-    expect(keys.indexOf("consult")).toBe(keys.indexOf("plans") + 1);
+    expect(keys.indexOf("plans")).toBe(keys.indexOf("cost") + 1);
+    expect(keys.indexOf("decision")).toBe(keys.indexOf("plans") + 1);
+    expect(keys.indexOf("consult")).toBe(keys.indexOf("decision") + 1);
     expect(keys.indexOf("execution")).toBe(keys.indexOf("consult") + 1);
   });
 
-  it("groupe D : coût → décision → plans → mise en relation → exécution", () => {
+  it("groupe D : coût → plans → décision → mise en relation → exécution", () => {
     for (const type of EXPECTED_GROUP_D) {
       const keys = buildProjectJourney(type, PID).map((s) => s.key);
       expect(keys, type).toEqual(GROUP_D_KEYS);
-      expect(keys.indexOf("decision"), type).toBe(keys.indexOf("cost") + 1);
-      expect(keys.indexOf("plans"), type).toBe(keys.indexOf("decision") + 1);
-      expect(keys.indexOf("consult"), type).toBe(keys.indexOf("plans") + 1);
+      expect(keys.indexOf("plans"), type).toBe(keys.indexOf("cost") + 1);
+      expect(keys.indexOf("decision"), type).toBe(keys.indexOf("plans") + 1);
+      expect(keys.indexOf("consult"), type).toBe(keys.indexOf("decision") + 1);
       expect(keys.indexOf("execution"), type).toBe(keys.indexOf("consult") + 1);
+    }
+  });
+
+  it("groupes A et D : « Suivant » et « Étape précédente » enchaînent l'ordre imposé", () => {
+    for (const type of ["maison", ...EXPECTED_GROUP_D]) {
+      const steps = buildProjectJourney(type, PID);
+      // Le Journey utilise le tableau comme chaîne de navigation : « Suivant »
+      // pointe sur l'étape d'index +1, « Étape précédente » sur l'index -1.
+      const chain = steps
+        .filter((_, i) => i + 1 < steps.length)
+        .map((s, i) => `${s.key}>${steps[i + 1].key}`);
+      expect(chain, type).toEqual([
+        "cost>plans",
+        "plans>decision",
+        "decision>consult",
+        "consult>execution",
+      ]);
     }
   });
 
@@ -372,8 +389,8 @@ describe("buildProjectJourney — liens, rapports et contexte du projet", () => 
     const steps = buildProjectJourney("villa", PID);
     expect(steps.map((s) => s.href)).toEqual([
       `/dashboard/project/${PID}`,
-      `/dashboard/decision/${PID}`,
       `/dashboard/plans/${PID}`,
+      `/dashboard/decision/${PID}`,
       `/dashboard/professionals-directory?project=${PID}`,
       `/dashboard/guide?project=${PID}`,
     ]);
@@ -384,8 +401,8 @@ describe("buildProjectJourney — liens, rapports et contexte du projet", () => 
       const steps = buildProjectJourney(type, PID);
       expect(steps.map((s) => s.href), type).toEqual([
         `/dashboard/project/${PID}`,
-        `/dashboard/decision/${PID}`,
         `/dashboard/plans/${PID}`,
+        `/dashboard/decision/${PID}`,
         `/dashboard/professionals-directory?project=${PID}`,
         `/dashboard/guide?project=${PID}`,
       ]);
@@ -578,14 +595,14 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
     const flags = { construction_guide: false };
     expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
       "cost",
-      "decision",
       "plans",
+      "decision",
       "consult",
     ]);
     expect(buildProjectJourney("cafe", PID, flags).map((s) => s.key)).toEqual([
       "cost",
-      "decision",
       "plans",
+      "decision",
       "consult",
     ]);
     // Les groupes B et C n'ont pas cette étape : leur parcours reste inchangé.

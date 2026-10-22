@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils";
  * même temps.
  *
  *   - les étapes viennent de `@/lib/projectJourney` (groupes A et D : coût →
- *     aide à la décision → plans IA → mise en relation → exécution & suivi ;
+ *     plans IA → aide à la décision → mise en relation → exécution & suivi ;
  *     groupes B et C : coût → mise en relation uniquement) et sont filtrées par les
  *     feature flags de l'administration — une étape désactivée disparaît et le
  *     total est recalculé automatiquement ;

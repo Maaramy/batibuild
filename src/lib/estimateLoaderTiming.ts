@@ -18,8 +18,8 @@ export const ESTIMATE_INTRO_MS = 4000;
  */
 export const ESTIMATE_JOURNEY_STEPS = [
   "Coût estimatif",
-  "Aide à la décision",
   "Plans architecturaux AI",
+  "Aide à la décision",
   "Mise en relation",
   "Exécution & Suivi",
 ] as const;

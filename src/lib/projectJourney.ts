@@ -18,8 +18,8 @@
  *     * Groupe D (locaux professionnels) : Local commercial, Bureau, Entrepôt,
  *       Restaurant, Café.
  *       1. Coût estimatif
- *       2. Aide à la décision (Client Pro)
- *       3. Plans architecturaux AI
+ *       2. Plans architecturaux AI
+ *       3. Aide à la décision (Client Pro)
  *       4. Mise en relation
  *       5. Exécution & Suivi
  *   - **Groupes B et C** — parcours simplifié (2 étapes) :
@@ -169,8 +169,8 @@ export const PROJECT_JOURNEY_GROUP_A: readonly string[] = [
 
 /**
  * Groupe D — locaux professionnels : parcours complet en 5 étapes, identique
- * à celui du groupe A (coût estimatif → aide à la décision → plans
- * architecturaux AI → mise en relation → exécution & suivi).
+ * à celui du groupe A (coût estimatif → plans architecturaux AI →
+ * aide à la décision → mise en relation → exécution & suivi).
  *
  * Ces cinq types sont des bâtiments à usage professionnel : plans AI et
  * accompagnement de chantier leur sont aussi utiles qu'à un logement.
@@ -324,15 +324,15 @@ export const COST_ESTIMATE_LOADING_STEPS: Record<
 > = {
   A: [
     "Coût estimatif",
-    "Aide à la décision",
     "Plans architecturaux AI",
+    "Aide à la décision",
     "Mise en relation",
     "Exécution & Suivi",
   ],
   D: [
     "Coût estimatif",
-    "Aide à la décision",
     "Plans architecturaux AI",
+    "Aide à la décision",
     "Mise en relation",
     "Exécution & Suivi",
   ],
@@ -398,12 +398,23 @@ export function buildProjectJourney(
     reportKey: "cost",
   };
 
-  // ── Aide à la décision (groupes A et D uniquement) — page DÉDIÉE
-  // (`DECISION_PAGE_PATH`) qui affiche uniquement le résultat déjà généré par
-  // l'Intelligence prédictive. Elle reste réservée aux abonnés Client Pro : la
-  // restriction d'abonnement est vérifiée côté serveur
-  // (`decisionSupportAccess`), tandis que l'absence de l'étape pour les groupes
-  // B et C est décidée ici.
+  // ── Plans architecturaux AI (groupes A et D uniquement) — deuxième étape.
+  // La page et les plans exploitent les dimensions, les niveaux et les surfaces
+  // calculées lors de l'estimation du coût.
+  const plans: ProjectJourneyStep = {
+    key: "plans",
+    label: "Plans architecturaux AI",
+    path: `/dashboard/plans/${pid}`,
+    href: `/dashboard/plans/${pid}`,
+    reportKey: "plans",
+  };
+
+  // ── Aide à la décision (groupes A et D uniquement) — troisième étape. Page
+  // DÉDIÉE (`DECISION_PAGE_PATH`) qui affiche uniquement le résultat déjà généré
+  // par l'Intelligence prédictive (montant exact du scénario choisi dans le coût
+  // estimatif). Elle reste réservée aux abonnés Client Pro : la restriction
+  // d'abonnement est vérifiée côté serveur (`decisionSupportAccess`), tandis que
+  // l'absence de l'étape pour les groupes B et C est décidée ici.
   const decision: ProjectJourneyStep = {
     key: "decision",
     label: "Aide à la décision",
@@ -413,18 +424,8 @@ export function buildProjectJourney(
     reportKey: null,
   };
 
-  // ── Plans architecturaux AI (groupes A et D uniquement). La page et les plans
-  // exploitent les dimensions et surfaces enregistrées du projet.
-  const plans: ProjectJourneyStep = {
-    key: "plans",
-    label: "Plans architecturaux AI",
-    path: `/dashboard/plans/${pid}`,
-    href: `/dashboard/plans/${pid}`,
-    reportKey: "plans",
-  };
-
-  // ── Mise en relation — annuaire des professionnels, contexte du projet
-  // conservé (le budget et les choix validés suivent le projet).
+  // ── Mise en relation — quatrième étape : annuaire des professionnels, contexte
+  // du projet conservé (le budget validé et les choix suivent le projet).
   const consult: ProjectJourneyStep = {
     key: "consult",
     label: "Mise en relation",
@@ -453,9 +454,11 @@ export function buildProjectJourney(
   }
 
   // Groupes A et D — parcours complet en 5 étapes, dans l'ordre obligatoire :
-  //   Coût estimatif → Aide à la décision → Plans architecturaux AI →
+  //   Coût estimatif → Plans architecturaux AI → Aide à la décision →
   //   Mise en relation → Exécution & Suivi.
-  return filterDisabledSteps([cost, decision, plans, consult, execution], flags);
+  // « Suivant » depuis le coût estimatif ouvre donc directement les plans, et
+  // « Suivant » depuis les plans ouvre l'aide à la décision.
+  return filterDisabledSteps([cost, plans, decision, consult, execution], flags);
 }
 
 /** Route de l'annuaire des fournisseurs (page des fournisseurs trouvés). */

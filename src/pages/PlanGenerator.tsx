@@ -310,8 +310,8 @@ export default function PlanGenerator() {
     <main className="min-h-screen bg-gradient-to-b from-primary/[0.03] via-background to-background pb-12">
         <ClientProPaywall>
       {/* Parcours du projet — étape « Plans architecturaux AI » (groupes A et D) :
-          cette page affiche son étape dédiée, avec « Étape précédente : Aide à
-          la décision » et « Suivant → : Mise en relation » pour enchaîner sans
+          cette page affiche son étape dédiée, avec « Étape précédente : Coût
+          estimatif » et « Suivant → : Aide à la décision » pour enchaîner sans
           perdre les données du projet. `featureLabel` sert de repli tant que le
           projet n'est pas encore chargé (aucune étape provisoire). */}
       <ProjectJourneyNav

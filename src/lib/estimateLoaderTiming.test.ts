@@ -46,8 +46,8 @@ describe("estimateIntroState — animation de l'estimation", () => {
   it("affiche les 5 étapes du parcours complet (groupe A) dans l'ordre officiel", () => {
     expect(ESTIMATE_JOURNEY_STEPS).toEqual([
       "Coût estimatif",
-      "Aide à la décision",
       "Plans architecturaux AI",
+      "Aide à la décision",
       "Mise en relation",
       "Exécution & Suivi",
     ]);
