@@ -31,6 +31,7 @@ import {
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
 import { ProjectStepUnavailable } from "@/components/ProjectStepUnavailable";
 import { canAccessJourneyStep } from "@/lib/projectJourney";
+import { realBuiltArea } from "@/lib/buildingLevels";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
 import {
   projectTypeLabel,
@@ -206,6 +207,9 @@ export default function PlanGenerator() {
       category: project.category as string,
       surface: project.surface ?? 120,
       floors: Math.max(1, Math.min(4, project.floors ?? inferFloorsFromCategory(project.category))),
+      // Surfaces couvertes réelles de chaque niveau enregistrées sur le projet :
+      // le RDC et les étages gardent leurs propres surfaces (100 m² + 80 m²).
+      levelSurfaces: project.levelSurfaces ?? undefined,
       bedrooms: project.bedrooms ?? undefined,
       bathrooms: project.bathrooms ?? undefined,
       kitchens: project.kitchens ?? undefined,
@@ -230,6 +234,24 @@ export default function PlanGenerator() {
   }, [project, planWorks, worksEligible]);
 
   const variants = allVariants;
+
+  // Surface couverte TOTALE du bâtiment = somme des surfaces réelles de chaque
+  // niveau. Elle ne se déduit jamais de `surface × niveaux` ni d'une moyenne.
+  const coveredTotal = useMemo(
+    () =>
+      realBuiltArea(
+        project?.surface ?? 0,
+        Math.max(
+          1,
+          Math.min(
+            4,
+            project?.floors ?? inferFloorsFromCategory((project?.category ?? "") as string),
+          ),
+        ),
+        project?.levelSurfaces ?? undefined,
+      ),
+    [project?.surface, project?.floors, project?.levelSurfaces, project?.category],
+  );
   const selectProjectPlan = useMutation(api.projects.selectProjectPlan);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
   const [savingPlanId, setSavingPlanId] = useState<string | null>(null);
@@ -377,7 +399,11 @@ export default function PlanGenerator() {
                     </p>
                   </div>
                 </div>
-                <SynthStat icon={Ruler} label="Surface" value={`${project.surface ?? 120} m²`} />
+                <SynthStat
+                  icon={Ruler}
+                  label="Surface couverte"
+                  value={`${coveredTotal > 0 ? Math.round(coveredTotal) : project.surface ?? 120} m²`}
+                />
                 <SynthStat icon={Layers3} label="Niveaux" value={`${Math.max(1, project.floors ?? 1)}`} />
                 <SynthStat icon={Compass} label="Variantes" value={`${variants.length}`} />
                 <SynthStat
@@ -956,7 +982,7 @@ function VariantCard({
                   </tr>
                 ))}
                 <tr className="border-t border-border bg-muted/30">
-                  <td className="px-3 py-1.5 font-semibold">Total bâti du niveau</td>
+                  <td className="px-3 py-1.5 font-semibold">Surface couverte du niveau</td>
                   <td className="px-3 py-1.5 text-right tabular-nums font-bold">
                     {builtLevelArea.toFixed(1)} m²
                   </td>

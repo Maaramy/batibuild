@@ -73,6 +73,64 @@ describe("projects.selectProjectPlan — référence du Journey", () => {
     expect(project.surface).toBe(150);
   });
 
+  it("conserve 100 m² au RDC + 80 m² à l'étage après rechargement (180 m²)", async () => {
+    const userT = t.withIdentity({ subject: userId });
+    const projectId = await userT.mutation(api.projects.createProject, {
+      name: "Maison 100 + 80",
+      category: "maison",
+      region: "tunis",
+      surface: 100,
+      floors: 2,
+    } as any);
+
+    const variant = generateFloorPlans({
+      category: "maison",
+      surface: 100,
+      floors: 2,
+      levelSurfaces: [100, 80],
+      bedrooms: 3,
+    })[0];
+    const levelSurfaces = variant.floors.map((f) =>
+      Number(f.rooms.filter((r) => !r.exterior).reduce((s, r) => s + r.area, 0).toFixed(2)),
+    );
+    expect(levelSurfaces).toEqual([100, 80]);
+
+    await userT.mutation(api.projects.selectProjectPlan, {
+      projectId,
+      variantId: variant.id,
+      styleId: variant.styleId,
+      name: variant.name,
+      builtArea: variant.surfaces.built,
+      levelSurfaces,
+      footprint: variant.footprint,
+    });
+
+    // Rechargement du projet : les surfaces enregistrées sont la référence.
+    const project: any = await userT.query(api.projects.getProject, { projectId });
+    expect(project.surface).toBe(100);
+    expect(project.levelSurfaces).toEqual([100, 80]);
+    expect(project.planSelection.builtArea).toBeCloseTo(180, 1);
+    expect(project.planSelection.levelSurfaces).toEqual([100, 80]);
+
+    // Une régénération depuis les données rechargées redonne 100 / 80 / 180.
+    const regenerated = generateFloorPlans({
+      category: project.category,
+      surface: project.surface,
+      floors: project.floors,
+      levelSurfaces: project.levelSurfaces,
+    })[0];
+    const covered = regenerated.floors.map((f) =>
+      f.rooms.filter((r) => !r.exterior).reduce((s, r) => s + r.area, 0),
+    );
+    regenerated.floors.forEach((f, idx) => {
+      expect(covered[idx] + f.rooms.filter((r) => r.exterior).reduce((s, r) => s + r.area, 0)).toBeCloseTo(
+        [100, 80][idx],
+        1,
+      );
+    });
+    expect(regenerated.surfaces.built).toBeLessThanOrEqual(180);
+  });
+
   it("refuse la sélection d'un projet appartenant à un autre utilisateur", async () => {
     const ownerT = t.withIdentity({ subject: userId });
     const projectId = await ownerT.mutation(api.projects.createProject, {

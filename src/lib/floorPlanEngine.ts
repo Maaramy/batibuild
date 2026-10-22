@@ -11,6 +11,8 @@
 // Le moteur est déterministe (PRNG semé) et sans dépendance externe.
 // ============================================================================
 
+import { normalizeLevelSurfaces } from "./buildingLevels";
+
 // ── Types publics ───────────────────────────────────────────────────────────
 
 export type RoomKind =
@@ -221,9 +223,19 @@ export interface FloorPlanVariant {
 
 export interface FloorPlanInput {
   category: string;
-  /** Surface construite totale (m²), tous niveaux confondus */
+  /**
+   * Surface couverte du rez-de-chaussée (m²) — et surface de référence des
+   * niveaux dont la surface n'est pas fournie. Ce n'est JAMAIS une surface
+   * totale à diviser par le nombre de niveaux.
+   */
   surface: number;
   floors?: number;
+  /**
+   * Surfaces couvertes réelles de chaque niveau (RDC en premier), en m².
+   * Un niveau non renseigné reprend la surface du RDC : la surface demandée
+   * n'est jamais divisée par le nombre de niveaux.
+   */
+  levelSurfaces?: number[];
   bedrooms?: number;
   bathrooms?: number;
   kitchens?: number;
@@ -464,17 +476,21 @@ interface ProgramItem {
 
 function residentialProgram(
   input: FloorPlanInput,
-  floorAreaPerLevel: number,
+  levelAreas: number[],
   levels: number,
   style?: StyleProfile,
 ): { level: number; items: ProgramItem[] }[] {
-  const area = floorAreaPerLevel;
+  // Surface du rez-de-chaussée : référence du programme de jour. Chaque étage
+  // reçoit ensuite SA surface réelle (levelAreas[lvl]) — les niveaux peuvent
+  // avoir des superficies différentes.
+  const groundArea = levelAreas[0] ?? 0;
   const tune = style?.tuning ?? {};
   // Le nombre de chambres se déduit de la surface TOTALE du logement (et non
   // du seul niveau) : 180 m² → 4 chambres, 120 m² → 3, 90-100 m² → 2.
   // Densifier davantage produirait des chambres de couloir et des pièces d'eau
   // surdimensionnées par rapport aux usages familiaux tunisiens.
-  const totalArea = area * Math.max(1, levels);
+  const totalArea =
+    levelAreas.slice(0, Math.max(1, levels)).reduce((s, a) => s + a, 0) || groundArea;
   const bedrooms =
     input.bedrooms && input.bedrooms > 0
       ? input.bedrooms
@@ -544,6 +560,9 @@ function residentialProgram(
 
   const result: { level: number; items: ProgramItem[] }[] = [];
   for (let lvl = 0; lvl < levels; lvl++) {
+    // Surface couverte RÉELLE du niveau courant : elle pilote les cibles de
+    // surfaces (hall, couloir, séjour…) sans jamais recopier le RDC.
+    const area = levelAreas[lvl] ?? groundArea;
     const items: ProgramItem[] = [];
     if (lvl === 0) {
       items.push({
@@ -1855,6 +1874,12 @@ function buildLevel(
    * habitable doit pouvoir s'éclairer naturellement sans couloir aveugle.
    */
   doubleExposure = false,
+  /**
+   * Gaine d'escalier commune au bâtiment : identique sur tous les niveaux
+   * lorsque les surfaces couvertes diffèrent (étage en gradin), pour que la
+   * liaison verticale reste réelle. Absente ⇒ dimensionnée sur le niveau.
+   */
+  stair?: { w: number; h: number },
 ): FloorPlan {
   const plan: FloorPlan = {
     level: levelIdx,
@@ -1867,8 +1892,12 @@ function buildLevel(
   const multi = levels > 1;
   // Gaine d'escalier dimensionnée pour TOUJOURS tenir dans l'emprise quand le
   // projet est multi-niveaux (continuité verticale garantie sur tous les étages).
-  const shaftW = round3(Math.min(2.5, length * 0.32));
-  const shaftD = round3(Math.min(4.2, width * 0.38));
+  const shaftW = round3(
+    stair ? Math.min(stair.w, length * 0.5) : Math.min(2.5, length * 0.32),
+  );
+  const shaftD = round3(
+    stair ? Math.min(stair.h, width * 0.6) : Math.min(4.2, width * 0.38),
+  );
   const carveShaft = multi && length >= 4 && width >= 3;
   // Identifiants déterministes par niveau
   const rid = () => `L${levelIdx}-R${plan.rooms.length}`;
@@ -1982,10 +2011,26 @@ function buildLevel(
     (best, r) => (!best || r.area > best.area ? r : best),
     null,
   );
-  if (master && biggest && biggest !== master && biggest.area > master.area + 0.5) {
+  if (master && biggest && biggest !== master && biggest.area > master.area + 0.01) {
     const label = master.label;
     master.label = biggest.label;
     biggest.label = label;
+  }
+
+  // Un bureau en cœur d'îlot (aucune façade) n'est pas une pièce habitable
+  // viable : sur les grands plateaux, le découpage peut le priver de jour.
+  // La géométrie reste inchangée, seule sa nature devient un rangement.
+  const onPerimeter = (r: PlanRoom) =>
+    Math.abs(r.x) < TOL ||
+    Math.abs(r.y) < TOL ||
+    Math.abs(r.x + r.w - length) < TOL ||
+    Math.abs(r.y + r.h - width) < TOL;
+  for (const r of plan.rooms) {
+    if (r.exterior || r.kind !== "bureau") continue;
+    if (!onPerimeter(r)) {
+      r.kind = "stockage";
+      r.label = "Rangement";
+    }
   }
 
   addOpenings(
@@ -2353,17 +2398,29 @@ export function validatePlan(
     );
   }
 
-  // 1. Dimensions : la surface BÂTIE (hors patio extérieur) doit correspondre
-  //    à la surface construite demandée, répartie sur les niveaux.
+  // 1. Dimensions : la surface BÂTIE (hors patio extérieur) de chaque niveau
+  //    doit correspondre à SA surface couverte réelle. Aucune moyenne ni
+  //    division par le nombre de niveaux : le RDC et les étages peuvent avoir
+  //    des superficies différentes.
   const levels = variant.floors.length;
-  const expectedArea = input.surface / levels;
-  const builtPerLevel = variant.surfaces.built / levels;
-  const dimsErr = Math.abs(builtPerLevel - expectedArea) / expectedArea;
-  // 10 % de tolérance : un patio non couvert retiré de la surface bâtie peut
-  // représenter jusqu'à ~9 % sur une maison de plain-pied.
-  const dimensionsOk = dimsErr <= 0.1;
-  if (!dimensionsOk)
-    issues.push(`Surface bâtie écartée de ${(dimsErr * 100).toFixed(1)} % de la cible`);
+  const levelTargets = normalizeLevelSurfaces(input.surface, levels, input.levelSurfaces);
+  let dimensionsOk = true;
+  variant.floors.forEach((fp, idx) => {
+    const target = levelTargets[idx] ?? levelTargets[0] ?? input.surface;
+    const covered = fp.rooms
+      .filter((r) => !r.exterior)
+      .reduce((s, r) => s + r.area, 0);
+    if (target <= 0) return;
+    const dimsErr = Math.abs(covered - target) / target;
+    // 10 % de tolérance : un patio non couvert retiré de la surface bâtie peut
+    // représenter jusqu'à ~9 % sur une maison de plain-pied.
+    if (dimsErr > 0.1) {
+      dimensionsOk = false;
+      issues.push(
+        `Surface couverte du niveau ${fp.level + 1} écartée de ${(dimsErr * 100).toFixed(1)} % de sa cible (${target.toFixed(1)} m²)`,
+      );
+    }
+  });
 
   // 2. Chevauchements
   let noOverlap = true;
@@ -2423,31 +2480,23 @@ export function validatePlan(
   }
   if (!circulationOk) score -= 12;
 
-  // 5. Structure : emprise + gaine escalier identiques sur tous les niveaux
+  // 5. Structure : chaque niveau porte sa propre emprise (un étage peut être
+  //    plus petit que celui du dessous) mais jamais plus grand — aucun
+  //    porte-à-faux — et la gaine d'escalier dessert tous les niveaux.
   let structureOk = true;
   if (levels > 1) {
-    const ref = variant.floors[0];
-    const stairRef = ref.rooms.find((r) => r.kind === "escalier");
-    for (const fp of variant.floors.slice(1)) {
-      if (
-        Math.abs(fp.length - ref.length) > EPS ||
-        Math.abs(fp.width - ref.width) > EPS
-      ) {
+    for (let i = 1; i < variant.floors.length; i++) {
+      const fp = variant.floors[i];
+      const below = variant.floors[i - 1];
+      if (fp.length > below.length + EPS || fp.width > below.width + EPS) {
         structureOk = false;
-        issues.push(`Emprise discontinue au niveau ${fp.level + 1}`);
+        issues.push(
+          `Emprise du niveau ${fp.level + 1} plus grande que celle du niveau inférieur`,
+        );
       }
-      const stair = fp.rooms.find((r) => r.kind === "escalier");
-      if (!stair || !stairRef) {
+      if (!fp.rooms.some((r) => r.kind === "escalier")) {
         structureOk = false;
         issues.push(`Gaine d'escalier absente au niveau ${fp.level + 1}`);
-      } else if (
-        Math.abs(stair.x - stairRef.x) > 0.01 ||
-        Math.abs(stair.y - stairRef.y) > 0.01 ||
-        Math.abs(stair.w - stairRef.w) > 0.01 ||
-        Math.abs(stair.h - stairRef.h) > 0.01
-      ) {
-        structureOk = false;
-        issues.push(`Gaine d'escalier désalignée au niveau ${fp.level + 1}`);
       }
     }
   }
@@ -2601,10 +2650,18 @@ function conceptNote(
   while (chosen.size < 2 && chosen.size < strengths.length)
     chosen.add(strengths[Math.floor(rng() * strengths.length)]);
   const s = [...chosen].join(", ");
+  // Surfaces couvertes réelles par niveau (jamais une moyenne) : elles peuvent
+  // différer d'un étage à l'autre (étage en gradin, immeuble).
+  const coveredByLevel = variant.floors.map((f) =>
+    f.rooms.filter((r) => !r.exterior).reduce((s, r) => s + r.area, 0),
+  );
+  const coveredTxt = coveredByLevel.map((a) => `${a.toFixed(1)} m²`).join(" · ");
   const levelsTxt =
     variant.floors.length > 1
-      ? `${variant.floors.length} niveaux d'une emprise de ${variant.footprint.length.toFixed(1)} × ${variant.footprint.width.toFixed(1)} m`
-      : `une emprise unique de ${variant.footprint.length.toFixed(1)} × ${variant.footprint.width.toFixed(1)} m`;
+      ? new Set(coveredByLevel.map((a) => a.toFixed(1))).size === 1
+        ? `${variant.floors.length} niveaux d'une emprise de ${variant.footprint.length.toFixed(1)} × ${variant.footprint.width.toFixed(1)} m (${coveredTxt} couverts par niveau)`
+        : `${variant.floors.length} niveaux aux surfaces couvertes réelles (${coveredTxt})`
+      : `une emprise unique de ${variant.footprint.length.toFixed(1)} × ${variant.footprint.width.toFixed(1)} m (${coveredTxt} couverts)`;
 
   // Travaux complémentaires sélectionnés : rappelés comme contraintes / besoins
   // du projet pris en compte. La piscine, le jardin et la cuisine extérieure
@@ -3420,10 +3477,15 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
   );
   const levels = structuralLevels(kind, input.floors ?? 1);
   const family = familyForCategory(input.category);
-  const areaPerLevel = surface / levels;
+  // Surface couverte RÉELLE de chaque niveau : `surface` est la surface du
+  // rez-de-chaussée, `input.levelSurfaces` porte celle des étages. Elle n'est
+  // jamais divisée par le nombre de niveaux (100 m² au RDC + 80 m² à l'étage
+  // = 180 m² couverts, et non 50 m² par niveau).
+  const levelAreas = normalizeLevelSurfaces(surface, levels, input.levelSurfaces);
+  const totalSurface = round3(levelAreas.reduce((s, a) => s + a, 0));
   const baseSeed = 1337 +
     input.category.length * 31 +
-    Math.round(surface) * 17 +
+    Math.round(totalSurface) * 17 +
     levels * 101;
 
   const variants: FloorPlanVariant[] = [];
@@ -3434,6 +3496,24 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
     const floors: FloorPlan[] = [];
     let L: number;
     let W: number;
+
+    // Emprise d'un niveau : calculée depuis SA propre surface couverte et le
+    // ratio du parti architectural, jamais recopiée d'un autre niveau.
+    const footprintFor = (area: number) => {
+      const length = Math.min(Math.max(Math.sqrt(area * profile.ratio), 5), 60);
+      const width = Math.min(Math.max(Math.sqrt(area / profile.ratio), 4), 40);
+      return { length: round3(length), width: round3(width) };
+    };
+    const groundFootprint = footprintFor(levelAreas[0]);
+    // Gaine d'escalier du niveau de référence : mêmes dimensions sur tous les
+    // étages, pour que la liaison verticale reste réelle même lorsque les
+    // surfaces couvertes diffèrent (étage en gradin).
+    const sharedShaft = {
+      w: round3(Math.min(2.5, groundFootprint.length * 0.32)),
+      h: round3(Math.min(4.2, groundFootprint.width * 0.38)),
+    };
+    L = groundFootprint.length;
+    W = groundFootprint.width;
 
     if (isPool) {
       // Le bassin impose ses dimensions : le ratio du parti architectural fait
@@ -3462,28 +3542,26 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
         }),
       );
     } else {
-      // Emprise : longueur × largeur selon le ratio du parti architectural.
-      L = Math.sqrt(areaPerLevel * profile.ratio);
-      W = Math.sqrt(areaPerLevel / profile.ratio);
-      // Garde-fous constructifs
-      L = Math.min(Math.max(L, 5), 60);
-      W = Math.min(Math.max(W, 4), 40);
-      L = round3(L);
-      W = round3(W);
+      // Emprise du rez-de-chaussée : L × W déjà dérivés de la surface réelle
+      // du RDC, selon le ratio du parti architectural.
 
       if (kind === "building" || kind === "hotel") {
         // Collectif : palier + unités autonomes (appartements ou chambres).
-        const perLevel =
-          kind === "building"
-            ? Math.max(1, Math.min(3, Math.floor(areaPerLevel / 45)))
-            : Math.max(2, Math.min(6, Math.floor(areaPerLevel / 26)));
         for (let lvl = 0; lvl < levels; lvl++) {
+          // Chaque étage est composé sur SA surface couverte : aucun étage ne
+          // recopie la surface d'un autre (immeuble à niveaux différents).
+          const levelFootprint = footprintFor(levelAreas[lvl]);
+          const levelArea = round3(levelFootprint.length * levelFootprint.width);
+          const perLevel =
+            kind === "building"
+              ? Math.max(1, Math.min(3, Math.floor(levelArea / 45)))
+              : Math.max(2, Math.min(6, Math.floor(levelArea / 26)));
           // Un immeuble n'a pas besoin d'un salon commun : le palier du
           // rez-de-chaussée EST le hall d'entrée. Une résidence touristique,
           // elle, porte sa réception au rez-de-chaussée.
           const hasCommon = lvl === 0 && kind === "hotel";
           const slots = perLevel + (hasCommon ? 1 : 0);
-          const sliceArea = areaPerLevel / slots;
+          const sliceArea = levelArea / slots;
           const units: { label: string; items: ProgramItem[] }[] = [];
           if (hasCommon) {
             units.push({ label: "Communs", items: commonAreaProgram("hotel") });
@@ -3502,8 +3580,8 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
           floors.push(
             buildMultiDwellingLevel({
               levelIdx: lvl,
-              length: L,
-              width: W,
+              length: levelFootprint.length,
+              width: levelFootprint.width,
               units,
               seed,
               profile,
@@ -3513,30 +3591,57 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
         }
       } else if (kind === "apartment" || kind === "studio") {
         const items =
-          kind === "studio" ? studioProgram(areaPerLevel) : apartmentProgram(input, areaPerLevel);
+          kind === "studio"
+            ? studioProgram(levelAreas[0])
+            : apartmentProgram(input, levelAreas[0]);
         floors.push(buildLevel(0, 1, L, W, items, seed, profile, true));
       } else if (kind === "shop") {
-        floors.push(buildLevel(0, 1, L, W, shopProgram(areaPerLevel), seed, profile));
+        floors.push(buildLevel(0, 1, L, W, shopProgram(levelAreas[0]), seed, profile));
       } else if (kind === "office" || kind === "warehouse" || kind === "restaurant") {
-        const items =
-          kind === "office"
-            ? commercialProgram(areaPerLevel)
-            : kind === "warehouse"
-              ? logisticsProgram(areaPerLevel)
-              : restorationProgram(
-                  areaPerLevel,
-                  input.category === "restaurant" ? "restaurant" : "cafe",
-                );
         for (let lvl = 0; lvl < levels; lvl++) {
+          const levelFootprint = footprintFor(levelAreas[lvl]);
+          const levelArea = round3(levelFootprint.length * levelFootprint.width);
+          const items =
+            kind === "office"
+              ? commercialProgram(levelArea)
+              : kind === "warehouse"
+                ? logisticsProgram(levelArea)
+                : restorationProgram(
+                    levelArea,
+                    input.category === "restaurant" ? "restaurant" : "cafe",
+                  );
           floors.push(
-            buildLevel(lvl, levels, L, W, items.map((i) => ({ ...i })), seed, profile),
+            buildLevel(
+              lvl,
+              levels,
+              levelFootprint.length,
+              levelFootprint.width,
+              items.map((i) => ({ ...i })),
+              seed,
+              profile,
+              false,
+              sharedShaft,
+            ),
           );
         }
       } else {
         // Maison, villa, duplex, projet neuf, rénovation complète.
-        const programs = residentialProgram(input, areaPerLevel, levels, profile);
+        const programs = residentialProgram(input, levelAreas, levels, profile);
         for (const prog of programs) {
-          floors.push(buildLevel(prog.level, levels, L, W, prog.items, seed, profile));
+          const levelFootprint = footprintFor(levelAreas[prog.level] ?? levelAreas[0]);
+          floors.push(
+            buildLevel(
+              prog.level,
+              levels,
+              levelFootprint.length,
+              levelFootprint.width,
+              prog.items,
+              seed,
+              profile,
+              false,
+              sharedShaft,
+            ),
+          );
         }
       }
     }
@@ -3550,7 +3655,7 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
         (best, r) => (!best || r.area > best.area ? r : best),
         null,
       );
-      if (master && biggest && biggest !== master && biggest.area > master.area + 0.5) {
+      if (master && biggest && biggest !== master && biggest.area > master.area + 0.01) {
         const label = master.label;
         master.label = biggest.label;
         biggest.label = label;

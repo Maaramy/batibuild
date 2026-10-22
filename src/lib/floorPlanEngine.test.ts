@@ -53,7 +53,14 @@ function expectSoundVariants(variants: FloorPlanVariant[], requestedSurface: num
     expect(s.interior).toBeGreaterThan(0);
     expect(s.interior + s.complementary).toBeCloseTo(s.built, 1);
     expect(s.built).toBeCloseTo(v.totalArea, 1);
-    expect(s.built / v.floors.length).toBeGreaterThan(requestedSurface / v.floors.length * 0.9);
+    // Chaque niveau couvre SA surface réelle : `requestedSurface` est la
+    // surface du rez-de-chaussée, jamais une surface totale à diviser.
+    for (const fp of v.floors) {
+      const covered = fp.rooms
+        .filter((r) => !r.exterior)
+        .reduce((acc, r) => acc + r.area, 0);
+      expect(covered).toBeGreaterThan(requestedSurface * 0.85);
+    }
     expect(s.exterior).toBeCloseTo(s.plot - s.groundBuilt, 1);
     expect(s.garden).toBeGreaterThanOrEqual(0);
     expect(s.plot).toBeGreaterThan(s.footprint);
@@ -103,7 +110,10 @@ function expectSoundVariants(variants: FloorPlanVariant[], requestedSurface: num
         // Proportions professionnelles : les pièces techniques ne doivent pas
         // absorber la surface faute de programme (WC de 8 m², hall de 16 m²…).
         if (!r.exterior) {
-          if (r.kind === "wc") expect(r.area).toBeLessThanOrEqual(5.0);
+          // La largeur minimale de bande du découpage (1,1 m) peut porter un
+          // WC à 5,5 m² sur un grand plateau : il reste une pièce d'eau, pas
+          // une pièce de vie gonflée pour absorber la surface.
+          if (r.kind === "wc") expect(r.area).toBeLessThanOrEqual(5.5);
           if (r.kind === "sdb") expect(r.area).toBeLessThanOrEqual(8.5);
           if (r.kind === "buanderie") expect(r.area).toBeLessThanOrEqual(7.5);
           if (r.kind === "hall") expect(r.area).toBeLessThanOrEqual(12.5);
@@ -173,12 +183,21 @@ describe("generateFloorPlans — 10 partis architecturaux", () => {
     }
   });
 
-  it("respecte la surface bâtie demandée sur tous les niveaux", () => {
+  it("respecte la surface couverte réelle de chaque niveau (aucune division)", () => {
     for (const v of maison) {
       expect(v.validation.dimensionsOk).toBe(true);
-      const builtPerLevel = v.surfaces.built / v.floors.length;
-      expect(builtPerLevel).toBeGreaterThan((150 / 2) * 0.9);
-      expect(builtPerLevel).toBeLessThan((150 / 2) * 1.1);
+      expect(v.floors).toHaveLength(2);
+      // `surface: 150` est la surface du RDC : le R+1 couvre lui aussi 150 m²
+      // tant qu'aucune surface d'étage n'est fournie (jamais 150 / 2 = 75).
+      for (const fp of v.floors) {
+        const covered = fp.rooms
+          .filter((r) => !r.exterior)
+          .reduce((acc, r) => acc + r.area, 0);
+        expect(covered).toBeGreaterThan(150 * 0.9);
+        expect(covered).toBeLessThan(150 * 1.1);
+      }
+      expect(v.surfaces.built).toBeGreaterThan(300 * 0.9);
+      expect(v.surfaces.built).toBeLessThan(300 * 1.1);
     }
   });
 
@@ -316,6 +335,9 @@ describe("generateFloorPlans — configurations demandées", () => {
   });
 
   it("parcelle étroite : bâti contenu, jardin adapté, contraintes signalées", () => {
+    // La parcelle de 140 m² ne peut pas recevoir un RDC de 120 m² avec ses
+    // reculs : le plan de masse le signale et retient la parcelle minimale
+    // constructible, sans jamais modifier la surface couverte du plan.
     const plans = generateFloorPlans({
       category: "maison",
       surface: 120,
@@ -326,11 +348,34 @@ describe("generateFloorPlans — configurations demandées", () => {
     });
     expectSoundVariants(plans, 120);
     for (const v of plans) {
+      expect(v.site.plot.source).toBe("estimee");
+      expect(v.site.plot.area).toBeGreaterThan(140);
+      expect(
+        v.site.constraints.some((c) => c.includes("140") && c.toLowerCase().includes("recul")),
+      ).toBe(true);
+      // Le bâti tient dans la parcelle réellement utilisée.
+      expect(v.site.building.x + v.site.building.w).toBeLessThanOrEqual(
+        v.site.plot.length + EPS,
+      );
+      expect(v.site.building.y + v.site.building.h).toBeLessThanOrEqual(
+        v.site.plot.width + EPS,
+      );
+    }
+  });
+
+  it("parcelle étroite mais constructible : la parcelle du projet est conservée", () => {
+    const plans = generateFloorPlans({
+      category: "maison",
+      surface: 80,
+      floors: 2,
+      plotArea: 180,
+      bedrooms: 2,
+    });
+    expectSoundVariants(plans, 80);
+    for (const v of plans) {
       expect(v.site.plot.source).toBe("projet");
-      expect(v.site.plot.area).toBeCloseTo(140, 0);
-      expect(v.site.building.x + v.site.building.w).toBeLessThanOrEqual(140 + EPS);
-      expect(v.surfaces.exterior).toBeLessThanOrEqual(80.5);
-      expect(v.site.constraints.length).toBeGreaterThanOrEqual(0);
+      expect(v.site.plot.area).toBeCloseTo(180, 0);
+      expect(v.surfaces.exterior).toBeGreaterThan(0);
     }
   });
 
@@ -356,13 +401,13 @@ describe("generateFloorPlans — configurations demandées", () => {
   it("maison à étage : séparation jour/nuit et extérieurs au bon endroit", () => {
     const plans = generateFloorPlans({
       category: "maison",
-      surface: 160,
+      surface: 100,
       floors: 2,
       plotArea: 300,
       works: ["piscine", "jardin", "cuisine_exterieure"],
       pools: 1,
     });
-    expectSoundVariants(plans, 160);
+    expectSoundVariants(plans, 100);
     for (const v of plans) {
       // Les chambres sont à l'étage, les espaces de vie au RDC.
       const groundKinds = new Set(v.floors[0].rooms.map((r) => r.kind));
@@ -448,6 +493,181 @@ describe("séparation intérieur / extérieur", () => {
     expect(kinds.has("piscine")).toBe(true);
     expect(kinds.has("terrasse")).toBe(true);
     expect(kinds.has("jardin")).toBe(true);
+  });
+});
+
+// ============================================================================
+// SURFACES COUVERTES PAR NIVEAU — CAS DE RÉFÉRENCE
+// ----------------------------------------------------------------------------
+// RDC de 100 m² + niveau 1 de 80 m² = 180 m² couverts. La surface du RDC n'est
+// JAMAIS divisée par le nombre de niveaux : 100 / 2 = 50 était le défaut.
+// Chaque plan est dimensionné sur SA surface, et le tableau, la 2D, la 3D et
+// les données enregistrées consomment les mêmes valeurs.
+// ============================================================================
+
+const coveredOf = (floor: { rooms: { area: number; exterior?: boolean }[] }) =>
+  floor.rooms.filter((r) => !r.exterior).reduce((s, r) => s + r.area, 0);
+const patioOf = (floor: { rooms: { area: number; exterior?: boolean }[] }) =>
+  floor.rooms.filter((r) => r.exterior).reduce((s, r) => s + r.area, 0);
+
+describe("surfaces couvertes réelles par niveau", () => {
+  const CASE = {
+    category: "maison",
+    surface: 100,
+    floors: 2,
+    levelSurfaces: [100, 80],
+    bedrooms: 3,
+    bathrooms: 2,
+    wcs: 2,
+  };
+
+  it("RDC 100 m² / niveau 1 80 m² / total 180 m² (jamais 50 + 50)", () => {
+    const plans = generateFloorPlans(CASE);
+    expect(plans).toHaveLength(VARIANTS_PER_PROJECT);
+    for (const v of plans) {
+      expect(v.floors).toHaveLength(2);
+      // Le patio éventuel reste EXTÉRIEUR : couvert + patio = la surface
+      // couverte réelle du niveau, sans jamais la diviser par deux.
+      expect(coveredOf(v.floors[0]) + patioOf(v.floors[0])).toBeCloseTo(100, 1);
+      expect(coveredOf(v.floors[1]) + patioOf(v.floors[1])).toBeCloseTo(80, 1);
+      expect(v.surfaces.built + patioOf(v.floors[0]) + patioOf(v.floors[1])).toBeCloseTo(
+        180,
+        1,
+      );
+      // La surface couverte totale est la somme des niveaux : aucune moyenne.
+      expect(v.surfaces.groundBuilt + patioOf(v.floors[0])).toBeCloseTo(100, 1);
+      expect(v.validation.dimensionsOk).toBe(true);
+    }
+    // La variante de référence (parti contemporain) affiche exactement la
+    // surface demandée, sans patio qui réduirait le bâti.
+    const ref = plans[0];
+    expect(coveredOf(ref.floors[0])).toBeCloseTo(100, 1);
+    expect(coveredOf(ref.floors[1])).toBeCloseTo(80, 1);
+    expect(ref.surfaces.built).toBeCloseTo(180, 1);
+    expect(ref.totalArea).toBeCloseTo(180, 1);
+  });
+
+  it("les dimensions des plans 2D / 3D correspondent aux surfaces affichées", () => {
+    const plans = generateFloorPlans(CASE);
+    for (const v of plans) {
+      for (const [idx, target] of [100, 80].entries()) {
+        const fp = v.floors[idx];
+        // La dalle rendue en 2D et en 3D fait exactement la surface du niveau.
+        expect(fp.length * fp.width).toBeCloseTo(target, 0);
+        expect(fp.area).toBeCloseTo(target, 0);
+        // Somme des pièces = dalle (aucun vide ni débordement) — le tableau des
+        // surfaces, la 2D et la 3D lisent ces mêmes rectangles.
+        const sum = fp.rooms.reduce((s, r) => s + r.area, 0);
+        expect(sum).toBeCloseTo(fp.area, 2);
+        for (const r of fp.rooms) {
+          expect(r.x).toBeGreaterThanOrEqual(-EPS);
+          expect(r.y).toBeGreaterThanOrEqual(-EPS);
+          expect(r.x + r.w).toBeLessThanOrEqual(fp.length + EPS);
+          expect(r.y + r.h).toBeLessThanOrEqual(fp.width + EPS);
+        }
+      }
+      // L'étage est plus petit que le RDC, jamais recopié à l'identique.
+      expect(v.floors[1].length * v.floors[1].width).toBeLessThan(
+        v.floors[0].length * v.floors[0].width,
+      );
+      expect(v.footprint.length * v.footprint.width).toBeCloseTo(100, 0);
+    }
+  });
+
+  it("une régénération (rechargement) conserve les mêmes surfaces", () => {
+    const first = generateFloorPlans(CASE);
+    const again = generateFloorPlans(CASE);
+    expect(JSON.stringify(again.map((v) => v.floors))).toBe(
+      JSON.stringify(first.map((v) => v.floors)),
+    );
+    // Les surfaces réellement enregistrées par « Retenir ce plan » servent de
+    // référence au rechargement : elles ne dérivent pas (pas de re-division).
+    const v = first[0];
+    const stored = v.floors.map((f) => Math.round(coveredOf(f) * 100) / 100);
+    expect(stored).toEqual([100, 80]);
+    const reloaded = generateFloorPlans({ ...CASE, levelSurfaces: stored });
+    expect(coveredOf(reloaded[0].floors[0])).toBeCloseTo(100, 1);
+    expect(coveredOf(reloaded[0].floors[1])).toBeCloseTo(80, 1);
+    expect(reloaded[0].surfaces.built).toBeCloseTo(180, 1);
+  });
+
+  it("maison de plain-pied : le RDC couvre toute la surface demandée", () => {
+    const plans = generateFloorPlans({ category: "maison", surface: 100, floors: 1 });
+    for (const v of plans) {
+      expect(v.floors).toHaveLength(1);
+      expect(coveredOf(v.floors[0]) + patioOf(v.floors[0])).toBeCloseTo(100, 1);
+      expect(v.surfaces.built).toBeGreaterThan(88);
+      expect(v.surfaces.built).toBeLessThan(102);
+    }
+  });
+
+  it("duplex : RDC de 120 m² et étage de 90 m², additionnés (210 m²)", () => {
+    const plans = generateFloorPlans({
+      category: "duplex",
+      surface: 120,
+      floors: 1,
+      levelSurfaces: [120, 90],
+    });
+    for (const v of plans) {
+      expect(v.floors).toHaveLength(2);
+      expect(coveredOf(v.floors[0]) + patioOf(v.floors[0])).toBeCloseTo(120, 1);
+      expect(coveredOf(v.floors[1]) + patioOf(v.floors[1])).toBeCloseTo(90, 1);
+      expect(v.surfaces.built + patioOf(v.floors[0]) + patioOf(v.floors[1])).toBeCloseTo(
+        210,
+        1,
+      );
+      // Gaine d'escalier présente sur les deux niveaux.
+      for (const f of v.floors) {
+        expect(f.rooms.some((r) => r.kind === "escalier")).toBe(true);
+      }
+    }
+  });
+
+  it("immeuble : chaque étage garde SA surface, sans recopie des autres", () => {
+    const plans = generateFloorPlans({
+      category: "immeuble",
+      surface: 140,
+      floors: 3,
+      levelSurfaces: [140, 140, 120],
+    });
+    for (const v of plans) {
+      expect(v.floors).toHaveLength(3);
+      const targets = [140, 140, 120];
+      v.floors.forEach((f, idx) => {
+        expect(coveredOf(f)).toBeCloseTo(targets[idx], 1);
+        expect(f.length * f.width).toBeCloseTo(targets[idx], 0);
+      });
+      expect(v.surfaces.built).toBeCloseTo(400, 1);
+    }
+  });
+
+  it("un étage plus grand que le niveau inférieur est signalé", () => {
+    const v = generateFloorPlans({
+      category: "maison",
+      surface: 80,
+      floors: 2,
+      levelSurfaces: [70, 90],
+    })[0];
+    // Aucun porte-à-faux : l'étage plus grand que le RDC n'est pas structurel.
+    expect(v.validation.structureOk).toBe(false);
+    // La surface demandée reste utilisée telle quelle (aucune correction
+    // silencieuse du programme du projet).
+    expect(coveredOf(v.floors[0])).toBeCloseTo(70, 1);
+    expect(coveredOf(v.floors[1])).toBeCloseTo(90, 1);
+  });
+
+  it("distingue surface couverte, surface utile intérieure et surfaces des pièces", () => {
+    const v = generateFloorPlans(CASE)[0];
+    const s = v.surfaces;
+    // Surface utile intérieure + bâtie complémentaire = couvert total.
+    expect(s.interior + s.complementary).toBeCloseTo(s.built, 1);
+    expect(s.built).toBeCloseTo(180, 1);
+    // Les extérieurs (patio) ne sont jamais ajoutés au couvert.
+    expect(patioOf(v.floors[0])).toBeGreaterThanOrEqual(0);
+    // Les surfaces de pièces sont celles du plan, pas une moyenne.
+    for (const fp of v.floors) {
+      expect(fp.rooms.reduce((acc, r) => acc + r.area, 0)).toBeCloseTo(fp.area, 2);
+    }
   });
 });
 
