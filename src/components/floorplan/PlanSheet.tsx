@@ -32,8 +32,8 @@ import { cn } from "@/lib/utils";
 // FEUILLE DE PRÉSENTATION COMMUNE DES PLANS (2D & 3D)
 // ----------------------------------------------------------------------------
 // Modèle graphique unique, repris de la maquette architecturale de référence :
-//   · feuille blanc cassé, en-tête type de projet + niveau ;
-//   · plan en grand format à gauche, panneau d'information beige à droite ;
+//   · feuille blanche sans cadre, en-tête type de projet + niveau ;
+//   · plan en grand format à gauche, panneau d'information à droite ;
 //   · « Éléments clés » et légende graphique déduits du plan réel ;
 //   · vignette extérieure axonométrique pour les typologies compatibles.
 // Sur mobile le plan passe en premier, le panneau en dessous (aucune
@@ -128,17 +128,11 @@ export function PlanSheet({
   return (
     <article
       data-slot="plan-sheet"
-      className={cn(
-        "overflow-hidden rounded-2xl border shadow-[0_1px_2px_rgba(35,32,28,0.05),0_12px_32px_-24px_rgba(35,32,28,0.35)]",
-        className,
-      )}
-      style={{ background: M.paper, borderColor: M.panelEdge, color: M.ink }}
+      className={cn("overflow-hidden", className)}
+      style={{ background: M.paper, color: M.ink }}
     >
       {/* ── En-tête : type de projet, nom, niveau ── */}
-      <header
-        className="flex flex-wrap items-center gap-3 border-b px-3 py-2.5 sm:px-4"
-        style={{ borderColor: M.panelEdge }}
-      >
+      <header className="flex flex-wrap items-center gap-3 px-3 py-2.5 sm:px-4">
         <span
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border"
           style={{ background: M.panel, borderColor: M.panelEdge, color: M.ink }}
@@ -176,10 +170,7 @@ export function PlanSheet({
               {levelSwitch}
             </div>
           )}
-          <div
-            className="relative overflow-hidden rounded-xl border"
-            style={{ background: M.paper, borderColor: M.panelEdge }}
-          >
+          <div className="relative overflow-hidden" style={{ background: M.paper }}>
             {children}
           </div>
           {controls && (
@@ -194,10 +185,7 @@ export function PlanSheet({
         </div>
 
         {/* ── Panneau d'information latéral ── */}
-        <aside
-          className="border-t p-3 sm:p-4 lg:border-l lg:border-t-0"
-          style={{ background: M.panel, borderColor: M.panelEdge }}
-        >
+        <aside className="p-3 sm:p-4" style={{ background: M.panel }}>
           {/* 1–3. Icône, type de projet, niveau */}
           <div className="flex items-start gap-2.5">
             <span

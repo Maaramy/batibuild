@@ -3,7 +3,7 @@
 // ----------------------------------------------------------------------------
 // Une seule identité graphique pour tous les plans Batibuild, inspirée de la
 // maquette architecturale de référence :
-//   · fond papier blanc cassé, panneau d'information beige clair ;
+//   · fond blanc, feuille sans cadre ni ombre, panneau d'information blanc ;
 //   · typographie noire, encadrés à coins légèrement arrondis ;
 //   · sols bois clair / pierre / béton, murs blancs, végétation réaliste ;
 //   · signalétique verte « ENTRÉE PRINCIPALE » et rouge « SORTIE DE SECOURS ».
@@ -18,10 +18,10 @@ import type { DoorSpec, FloorPlan, PlanRoom, WallSide } from "./floorPlanEngine"
 
 /** Palette unique, partagée par la feuille de présentation, le 2D et le 3D. */
 export const PLAN_MATERIALS = {
-  /** Fond papier de la feuille. */
-  paper: "#FBF9F5",
-  /** Panneau d'information beige clair. */
-  panel: "#F2EBDD",
+  /** Fond blanc de la feuille. */
+  paper: "#FFFFFF",
+  /** Panneau d'information, blanc comme la feuille. */
+  panel: "#FFFFFF",
   panelEdge: "#E4D9C5",
   /** Encre : titres, cotes, contours. */
   ink: "#23201C",

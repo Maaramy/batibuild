@@ -874,7 +874,7 @@ export function FloorPlan3DBuilding({
     <div className={cn("relative group", className)}>
       <div
         ref={containerRef}
-        style={{ background: "#FBFAF7" }}
+        style={{ background: "#FFFFFF" }}
         className={cn(
           "w-full overflow-hidden rounded-lg touch-none",
           compact ? "h-[200px] sm:h-[240px]" : "h-[360px] sm:h-[480px]",

@@ -1122,9 +1122,9 @@ export function FloorPlan3DHD({
     <div className={cn("relative group", className)}>
       <div
         ref={containerRef}
-        style={{ background: "#FBFAF7" }}
+        style={{ background: "#FFFFFF" }}
         className={cn(
-          // Fond d'atelier clair dans tous les thèmes : aucune bande sombre
+          // Fond blanc dans tous les thèmes : aucune bande sombre ni cadre
           // ne doit encadrer la maquette 3D.
           "w-full rounded-lg overflow-hidden touch-none",
           compact ? "h-[165px] sm:h-[195px]" : "h-[320px] sm:h-[400px]",
