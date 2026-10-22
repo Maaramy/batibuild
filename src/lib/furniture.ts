@@ -732,8 +732,11 @@ function genGarage(room: PlanRoom, out: Prim[]) {
   const carW = Math.min(1.78, cross / nCars - 0.55);
   if (carL < 2.6 || carW < 1.2) return;
   for (let i = 0; i < nCars; i++) {
-    const cCross = room.y + (cross * (i + 1)) / (nCars + 1);
-    const cAlong = room.x + along / 2;
+    // `cross` suit la profondeur du garage, `along` sa longueur : les deux
+    // axes d'origine sont pris sur la bonne coordonnée de la pièce.
+    const cCross =
+      (horiz ? room.y : room.x) + (cross * (i + 1)) / (nCars + 1);
+    const cAlong = (horiz ? room.x : room.y) + along / 2;
     const car: Box = horiz
       ? { x: cAlong - carL / 2, y: cCross - carW / 2, w: carL, h: carW }
       : { x: cCross - carW / 2, y: cAlong - carL / 2, w: carW, h: carL };
@@ -1360,6 +1363,193 @@ function genBuanderie(room: PlanRoom, out: Prim[]) {
   }
 }
 
+// ── Dégagement des portes ───────────────────────────────────────────────────
+
+/**
+ * Dégage le passage devant chaque porte : aucun meuble plein, appareil ou
+ * équipement ne doit se trouver dans la bande d'accès (largeur du battant,
+ * profondeur 0,90 m). Un meuble qui traverse cette bande est recadré de part
+ * et d'autre ; les tapis et tracés (non bloquants) sont conservés.
+ *
+ * Cette règle est appliquée à la GÉOMÉTRIE du mobilier, donc identique en 2D,
+ * en 3D, dans les PDF et pour le validateur de circulation.
+ */
+function clearDoorLanes(room: PlanRoom, prims: Prim[]): Prim[] {
+  if (room.doors.length === 0) return prims;
+  const LANE = 0.9;
+  const lanes = room.doors.map((door) => {
+    const lateral = door.wall === "N" || door.wall === "S";
+    const depth = Math.min(LANE, Math.max(0.35, Math.min(room.w, room.h) - 0.1));
+    if (door.wall === "N") {
+      return { x: room.x + door.position, y: room.y, w: door.width, h: depth, lateral };
+    }
+    if (door.wall === "S") {
+      return {
+        x: room.x + door.position,
+        y: room.y + room.h - depth,
+        w: door.width,
+        h: depth,
+        lateral,
+      };
+    }
+    if (door.wall === "W") {
+      return { x: room.x, y: room.y + door.position, w: depth, h: door.width, lateral };
+    }
+    return {
+      x: room.x + room.w - depth,
+      y: room.y + door.position,
+      w: depth,
+      h: door.width,
+      lateral,
+    };
+  });
+
+  const overlap = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) => {
+    const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+    const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+    return ox > 0.02 && oy > 0.02 ? ox * oy : 0;
+  };
+
+  const boxOf = (p: Prim) =>
+    p.t === "r"
+      ? { x: p.x, y: p.y, w: p.w, h: p.h }
+      : p.t === "c"
+        ? { x: p.x - p.r, y: p.y - p.r, w: p.r * 2, h: p.r * 2 }
+        : null;
+  const original = new Map<Prim, { x: number; y: number; w: number; h: number }>();
+  for (const p of prims) {
+    const b = boxOf(p);
+    if (b) original.set(p, b);
+  }
+
+  // Symboles posés sur un meuble (foyer de cuisson, tambour de machine à laver,
+  // brûleurs…) : ils doivent suivre le meuble s'il est déplacé, et disparaître
+  // avec lui s'il est retiré.
+  const isSymbol = (p: Prim) =>
+    p.t !== "l" && (p.noFill === true || (p.t === "r" && p.dash === true));
+  const symbols = prims.filter(isSymbol);
+  const anchorOf = new Map<Prim, Prim | null>();
+  for (const symbol of symbols) {
+    const sb = boxOf(symbol);
+    const cx = sb ? sb.x + sb.w / 2 : NaN;
+    const cy = sb ? sb.y + sb.h / 2 : NaN;
+    let anchor: Prim | null = null;
+    let bestArea = Infinity;
+    for (const candidate of prims) {
+      if (candidate === symbol || isSymbol(candidate)) continue;
+      const cb = boxOf(candidate);
+      if (!cb) continue;
+      if (cx < cb.x - 0.01 || cx > cb.x + cb.w + 0.01) continue;
+      if (cy < cb.y - 0.01 || cy > cb.y + cb.h + 0.01) continue;
+      const area = cb.w * cb.h;
+      if (area < bestArea) {
+        bestArea = area;
+        anchor = candidate;
+      }
+    }
+    anchorOf.set(symbol, anchor);
+  }
+
+  const out: Prim[] = [];
+  for (const prim of prims) {
+    if (prim.t === "l") {
+      out.push(prim);
+      continue;
+    }
+    if (isSymbol(prim)) {
+      // Symbole solidaire d'un meuble : il est replacé plus bas avec lui.
+      if (anchorOf.get(prim)) continue;
+      out.push(prim);
+      continue;
+    }
+    const box =
+      prim.t === "r"
+        ? { x: prim.x, y: prim.y, w: prim.w, h: prim.h }
+        : { x: prim.x - prim.r, y: prim.y - prim.r, w: prim.r * 2, h: prim.r * 2 };
+    // Autres meubles pleins : un équipement ne doit pas être déplacé sur eux.
+    const others = prims
+      .filter(
+        (other) =>
+          other !== prim &&
+          other.t !== "l" &&
+          !other.noFill &&
+          !(other.t === "r" && other.dash),
+      )
+      .map((other) =>
+        other.t === "r"
+          ? { x: other.x, y: other.y, w: other.w, h: other.h }
+          : { x: other.x - other.r, y: other.y - other.r, w: other.r * 2, h: other.r * 2 },
+      );
+    if (lanes.every((lane) => overlap(box, lane) === 0)) {
+      out.push(prim);
+      continue;
+    }
+    // Meuble ou symbole posé dans une bande d'accès : le placer hors de
+    // TOUTES les bandes (pas seulement de celle qui l'a révélé), sinon le
+    // retirer. Un meuble décalé devant une autre porte est aussi gênant.
+    const candidateRects: Box[] = [];
+    for (const lane of lanes) {
+      if (overlap(box, lane) === 0) continue;
+      if (lane.lateral) {
+        const leftW = lane.x - box.x - 0.05;
+        const rightX = lane.x + lane.w + 0.05;
+        const rightW = box.x + box.w - rightX;
+        if (leftW >= 0.12) candidateRects.push({ x: box.x, y: box.y, w: leftW, h: box.h });
+        if (rightW >= 0.12) candidateRects.push({ x: rightX, y: box.y, w: rightW, h: box.h });
+        candidateRects.push({ x: lane.x + lane.w + 0.06, y: box.y, w: box.w, h: box.h });
+        candidateRects.push({ x: lane.x - 0.06 - box.w, y: box.y, w: box.w, h: box.h });
+      } else {
+        const topH = lane.y - box.y - 0.05;
+        const bottomY = lane.y + lane.h + 0.05;
+        const bottomH = box.y + box.h - bottomY;
+        if (topH >= 0.12) candidateRects.push({ x: box.x, y: box.y, w: box.w, h: topH });
+        if (bottomH >= 0.12) candidateRects.push({ x: box.x, y: bottomY, w: box.w, h: bottomH });
+        candidateRects.push({ x: box.x, y: lane.y + lane.h + 0.06, w: box.w, h: box.h });
+        candidateRects.push({ x: box.x, y: lane.y - 0.06 - box.h, w: box.w, h: box.h });
+      }
+    }
+    const clearsEveryLane = (r: Box) => lanes.every((lane) => overlap(r, lane) === 0);
+    const fits = (r: Box) =>
+      prim.t === "r" &&
+      r.w >= 0.12 &&
+      r.h >= 0.12 &&
+      inside(room, r) &&
+      clearsEveryLane(r) &&
+      !others.some((other) => overlap(r, other) > 0.01);
+    // On privilégie la plus grande surface conservée, puis le moindre décalage.
+    const score = (r: Box) =>
+      r.w * r.h - 0.02 * (Math.abs(r.x - box.x) + Math.abs(r.y - box.y));
+    let best: Box | null = null;
+    for (const candidateRect of candidateRects) {
+      if (!fits(candidateRect)) continue;
+      if (!best || score(candidateRect) > score(best)) best = candidateRect;
+    }
+    if (!best) continue;
+    prim.x = best.x;
+    prim.y = best.y;
+    if (prim.t === "r") {
+      prim.w = best.w;
+      prim.h = best.h;
+      if (prim.rx !== undefined) prim.rx = Math.min(prim.rx, best.w / 2, best.h / 2);
+    }    out.push(prim);
+  }
+
+  for (const symbol of symbols) {
+    const anchor = anchorOf.get(symbol);
+    if (!anchor) continue; // symbole libre : déjà traité dans la boucle
+    if (!out.includes(anchor)) continue; // meuble retiré → symbole retiré
+    const from = original.get(anchor);
+    const to = boxOf(anchor);
+    if (from && to && symbol.t !== "l") {
+      symbol.x = Math.round((symbol.x + (to.x - from.x)) * 1000) / 1000;
+      symbol.y = Math.round((symbol.y + (to.y - from.y)) * 1000) / 1000;
+    }
+    out.push(symbol);
+  }
+
+  return out;
+}
+
 // ── Dispatch par nature de pièce ─────────────────────────────────────────────
 
 export function roomFurniture(room: PlanRoom, plan?: FloorPlan): Prim[] {
@@ -1439,5 +1629,6 @@ export function roomFurniture(room: PlanRoom, plan?: FloorPlan): Prim[] {
       // couloir, escalier, vestiaire, polyvalent : circulation libre
       break;
   }
-  return out;
+  // Aucun meuble ni équipement dans une bande d'accès de porte.
+  return clearDoorLanes(room, out);
 }

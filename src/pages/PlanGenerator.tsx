@@ -53,6 +53,7 @@ import {
   generateFloorPlans,
   summarizeSurfaces,
   repairFloorPlan,
+  validatePlan,
   VARIANTS_PER_PROJECT,
 } from "@/lib/floorPlanEngine";
 import type { FloorPlan, FloorPlanVariant } from "@/lib/floorPlanEngine";import {
@@ -204,7 +205,7 @@ export default function PlanGenerator() {
   // dans les murs, accès à toute pièce (2D et 3D partagent les mêmes données).
   const allVariants: FloorPlanVariant[] = useMemo(() => {
     if (!project) return [];
-    return generateFloorPlans({
+    const planInput = {
       category: project.category as string,
       surface: project.surface ?? 120,
       floors: Math.max(1, Math.min(5, project.floors ?? inferFloorsFromCategory(project.category))),
@@ -223,15 +224,22 @@ export default function PlanGenerator() {
       plotArea: project.surfaceTotale ?? undefined,
       pools: project.pools ?? undefined,
       garages: project.garages ?? undefined,
-    }).map((variant) => ({
-      ...variant,
-      floors: variant.floors.map((f) =>
-        repairFloorPlan({
-          ...f,
-          rooms: f.rooms.map((r) => ({ ...r, doors: [...r.doors], windows: [...r.windows] })),
-        }),
-      ),
-    }));
+    };
+    // Réparation puis REVALIDATION sur la géométrie réellement affichée : la
+    // note et les contrôles de circulation portent toujours sur le plan
+    // visible (2D = 3D), jamais sur un état intermédiaire.
+    return generateFloorPlans(planInput).map((variant) => {
+      const repaired: FloorPlanVariant = {
+        ...variant,
+        floors: variant.floors.map((f) =>
+          repairFloorPlan({
+            ...f,
+            rooms: f.rooms.map((r) => ({ ...r, doors: [...r.doors], windows: [...r.windows] })),
+          }),
+        ),
+      };
+      return { ...repaired, validation: validatePlan(repaired, planInput) };
+    });
   }, [project, planWorks, worksEligible]);
 
   const variants = allVariants;
@@ -1073,6 +1081,29 @@ function VariantCard({
               </span>
             ))}
           </div>
+          {v.circulation && v.circulation.corridors > 0 && (
+            <p className="text-[10px] tabular-nums text-muted-foreground">
+              Circulations : {v.circulation.corridors} espace
+              {v.circulation.corridors > 1 ? "s" : ""} · largeur libre mini{" "}
+              {v.circulation.minCorridorWidth.toFixed(2)} m
+              {v.circulation.corridors > 0 &&
+                v.circulation.minCorridorWidth >= 1
+                ? " (objectif atteint)"
+                : ""}
+            </p>
+          )}
+          {v.circulation && v.circulation.notes.length > 0 && (
+            <div className="rounded-md border border-amber-500/25 bg-amber-500/[0.05] px-2.5 py-1.5">
+              <p className="text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                Points de vigilance circulation
+              </p>
+              <ul className="list-disc space-y-0.5 pl-4 text-[10px] text-muted-foreground">
+                {v.circulation.notes.slice(0, 2).map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {v.issues.length > 0 && (
             <ul className="text-[10px] text-muted-foreground list-disc pl-4 space-y-0.5">
               {v.issues.slice(0, 4).map((issue) => (

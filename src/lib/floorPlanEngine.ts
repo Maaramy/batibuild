@@ -48,6 +48,12 @@ import {
   type FoodServiceEvacuation,
 } from "./evacuationPlan";
 import {
+  analyzeCirculation,
+  optimizeCirculation,
+  summarizeCirculation,
+  type CirculationSummary,
+} from "./circulationEngine";
+import {
   SANITARY_DEPTH_MAX,
   SANITARY_DEPTH_MIN,
   SANITARY_DOOR_WIDTH,
@@ -230,6 +236,11 @@ export interface PlanValidation {
   cafe?: CafeValidation;
   /** Contrôles propres au type « Restaurant » (absents pour les autres types). */
   restaurant?: RestaurantValidation;
+  /**
+   * Contrôle géométrique de la circulation (cheminements réels, largeurs de
+   * passage mesurées, portes praticables) — synthèse de tous les niveaux.
+   */
+  circulation?: CirculationSummary;
 }
 
 /** Espaces extérieurs aménagés, TOUJOURS hors du bâtiment. */
@@ -2651,25 +2662,40 @@ function doubleExposureLayout<T extends { target: number }>(
     }
   }
   const frac = Math.min(0.72, Math.max(0.28, s1 / total));
+  /**
+   * Axe de découpe d'une bande : juxtaposer les pièces sur la façade tant que
+   * la bande est assez large ; sinon les empiler, pour qu'aucune pièce (et
+   * surtout aucun couloir ou hall) ne descende sous 0,90 m de large.
+   */
+  const bandAxis = (band: Rect, along: "x" | "y"): "x" | "y" => {
+    if (along === "x") return band.w >= 2.2 || band.h < 2.6 ? "x" : "y";
+    return band.h >= 2.2 || band.w < 2.6 ? "y" : "x";
+  };
   if (axis === "y") {
     const cut = round3(Math.max(1.2, Math.min(rect.h - 1.2, rect.h * frac)));
+    const top: Rect = { x: rect.x, y: rect.y, w: rect.w, h: cut };
+    const bottom: Rect = {
+      x: rect.x,
+      y: round3(rect.y + cut),
+      w: rect.w,
+      h: round3(rect.h - cut),
+    };
     return [
-      ...stripLayout({ x: rect.x, y: rect.y, w: rect.w, h: cut }, g1, "x"),
-      ...stripLayout(
-        { x: rect.x, y: round3(rect.y + cut), w: rect.w, h: round3(rect.h - cut) },
-        g2,
-        "x",
-      ),
+      ...stripLayout(top, g1, bandAxis(top, "x")),
+      ...stripLayout(bottom, g2, bandAxis(bottom, "x")),
     ];
   }
   const cut = round3(Math.max(1.2, Math.min(rect.w - 1.2, rect.w * frac)));
+  const left: Rect = { x: rect.x, y: rect.y, w: cut, h: rect.h };
+  const right: Rect = {
+    x: round3(rect.x + cut),
+    y: rect.y,
+    w: round3(rect.w - cut),
+    h: rect.h,
+  };
   return [
-    ...stripLayout({ x: rect.x, y: rect.y, w: cut, h: rect.h }, g1, "y"),
-    ...stripLayout(
-      { x: round3(rect.x + cut), y: rect.y, w: round3(rect.w - cut), h: rect.h },
-      g2,
-      "y",
-    ),
+    ...stripLayout(left, g1, bandAxis(left, "y")),
+    ...stripLayout(right, g2, bandAxis(right, "y")),
   ];
 }
 
@@ -3050,6 +3076,32 @@ export function validatePlan(
     }
   }
   if (!circulationOk) score -= 12;
+
+  // 4 bis. Circulation géométrique réelle : cheminements praticables entre
+  // toutes les pièces, largeurs de couloir mesurées, portes accessibles. Une
+  // pièce essentielle inaccessible rend le plan NON validé.
+  const circulationReports = variant.floors.map((fp) =>
+    analyzeCirculation(fp, {
+      category: input.category,
+      requireEntry: entranceRequired && fp.level === 0,
+    }),
+  );
+  const circulation = summarizeCirculation(circulationReports);
+  const circulationIssues = circulationReports.flatMap((r) => r.issues);
+  const criticalCirculation = circulationIssues.filter(
+    (issue) => issue.severity === "critical",
+  );
+  const warningCirculation = circulationIssues.filter(
+    (issue) => issue.severity === "warning",
+  );
+  if (criticalCirculation.length > 0) {
+    circulationOk = false;
+    issues.push(...criticalCirculation.map((issue) => issue.message));
+    score -= Math.min(20, 8 + criticalCirculation.length * 2);
+  }
+  // Les points de vigilance (couloir sous 1,00 m, porte étroite, accès par une
+  // pièce privée…) restent affichés dans `circulation.notes` : ils sont
+  // informatifs et ne pénalisent pas la note du plan.
 
   // 5. Structure : chaque niveau porte sa propre emprise (un étage peut être
   //    plus petit que celui du dessous) mais jamais plus grand — aucun
@@ -3463,6 +3515,7 @@ export function validatePlan(
     surfacesOk,
     score: Math.max(40, Math.min(100, Math.round(score))),
     issues: [...new Set(issues)].slice(0, 8),
+    circulation,
     ...(cafe ? { cafe } : {}),
     ...(restaurant ? { restaurant } : {}),
   };
@@ -5235,6 +5288,19 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
     });
     const surfaces = computeSurfaces(floors, site, totalBuilt);
 
+    // Optimisation de la circulation AVANT validation : pièces mal desservies
+    // raccordées, entrée garantie au rez-de-chaussée, portes sans débouché ou
+    // superposées corrigées. Seules des portes sont ajoutées/déplacées :
+    // aucune dimension, aucune surface et aucune fonction ne changent.
+    const entryRequired =
+      kind !== "pool" && kind !== "kitchen" && kind !== "bathroom";
+    for (const fp of floors) {
+      optimizeCirculation(fp, {
+        category: input.category,
+        requireEntry: entryRequired && fp.level === 0,
+      });
+    }
+
     const variant: FloorPlanVariant = {
       id: `plan-v${v + 1}`,
       name: `Variante ${v + 1} · ${profile.style}`,
@@ -5469,6 +5535,10 @@ export function repairFloorPlan(plan: FloorPlan): FloorPlan {
       width,
     });
   }
+
+  // 7) Circulation : raccordement des pièces restées sans cheminement, sans
+  //    toucher aux dimensions ni aux baies déjà validées.
+  optimizeCirculation(plan, { repairOpenings: false });
 
   return plan;
 }
