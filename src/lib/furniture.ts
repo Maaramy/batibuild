@@ -3,9 +3,11 @@
 // ----------------------------------------------------------------------------
 // Génère, pour chaque pièce d'un plan, des primitives géométriques (rectangles,
 // cercles, lignes) représentant le mobilier : lits + chevets + armoire, canapé +
-// table basse + meuble TV, cuisine équipée (plan de travail, évier, plaque,
-// frigo, table), sanitaires (baignoire/douche, lavabo, WC), bureau, voitures,
-// postes open-space, table de réunion, rayonnages…
+// table basse + meuble TV + coin repas, cuisine équipée (plan de travail,
+// évier, plaque, frigo, table), sanitaires (baignoire/douche, lavabo, WC),
+// hall d'entrée (meuble, patères, tapis), buanderie (lave-linge,
+// sèche-linge, bac), bureau, voitures, postes open-space, table de réunion,
+// rayonnages…
 // Les placements respectent les dégagements de portes (arc de gissement) et
 // évitent les fenêtres pour les meubles hauts. Déterministe, sans dépendance.
 // ============================================================================
@@ -211,6 +213,48 @@ function spanEndMid(span: Iv, len: number, wallTotal: number): number {
   return span.a < wallTotal - span.b ? span.a + len / 2 : span.b - len / 2;
 }
 
+/** Un meuble déjà posé occupe-t-il la boîte ? (tapis et lignes ignorés) */
+function overlapsPlaced(out: Prim[], b: Box, gap = 0.12): boolean {
+  return out.some((p) => {
+    if (p.t === "l") return false;
+    if (p.t === "r" && p.dash && p.noFill) return false;
+    const box: Box =
+      p.t === "r"
+        ? { x: p.x, y: p.y, w: p.w, h: p.h }
+        : { x: p.x - p.r, y: p.y - p.r, w: p.r * 2, h: p.r * 2 };
+    return (
+      b.x + b.w + gap > box.x &&
+      box.x + box.w + gap > b.x &&
+      b.y + b.h + gap > box.y &&
+      box.y + box.h + gap > b.y
+    );
+  });
+}
+
+/** Table + chaises, au premier emplacement libre qui les accueille entièrement. */
+function placeDiningTable(room: PlanRoom, out: Prim[], tw: number, th: number): boolean {
+  if (tw < 1.0 || th < 0.7) return false;
+  for (const fy of [0.5, 0.34, 0.66]) {
+    for (const fx of [0.5, 0.3, 0.7]) {
+      const cx = room.x + room.w * fx;
+      const cy = room.y + room.h * fy;
+      const table: Box = { x: cx - tw / 2, y: cy - th / 2, w: tw, h: th };
+      // Dégagement des chaises sur les deux longs côtés.
+      const withChairs: Box = { x: table.x, y: table.y - 0.52, w: tw, h: th + 1.04 };
+      if (!inside(room, withChairs) || overlapsPlaced(out, withChairs, 0.12)) continue;
+      out.push(R(table, { m: "wood", ht: 0.74, rx: 0.06 }));
+      const seats = Math.max(2, Math.min(3, Math.floor(tw / 0.62)));
+      for (let i = 0; i < seats; i++) {
+        const px = table.x + (tw * (i + 1)) / (seats + 1);
+        out.push(C(px, table.y - 0.32, 0.2, { m: "fabric", ht: 0.45 }));
+        out.push(C(px, table.y + th + 0.32, 0.2, { m: "fabric", ht: 0.45 }));
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 // ── Chambre : lit + chevets + armoire + coin bureau ──────────────────────────
 
 function genChambre(room: PlanRoom, out: Prim[]) {
@@ -316,17 +360,33 @@ function genChambre(room: PlanRoom, out: Prim[]) {
 
 // ── Séjour : canapé + table basse + tapis + meuble TV ────────────────────────
 
-function genSejour(room: PlanRoom, out: Prim[]) {
-  const walls = wallsByLength(room);
-  const wall = walls[0];
-  const span = bestSpan(room, wall, 1.6);
-  if (!span) return;
-
-  const avail = span.b - span.a - 0.2;
-  const sofaLen = Math.min(Math.max(avail * 0.55, 1.6), 3.0);
+function genSejour(room: PlanRoom, out: Prim[], plan?: FloorPlan) {
+  // Le mur le plus long d'un séjour traversant peut être saturé de portes :
+  // on essaie tous les murs avant de laisser la pièce sans mobilier.
+  let wall: WallSide | null = null;
+  let span: Iv | null = null;
+  let sofaLen = 0;
+  let sofa: Box | null = null;
+  for (const candidate of wallsByLength(room)) {
+    const free = bestSpan(room, candidate, 1.6);
+    if (!free) continue;
+    const avail = free.b - free.a - 0.2;
+    const len = Math.min(Math.max(avail * 0.55, 1.6), 3.0);
+    const placed = pushIf(
+      room,
+      out,
+      againstWall(room, candidate, (free.a + free.b) / 2, 0.05, 0.88, len),
+      { m: "fabric", ht: 0.75, rx: 0.09 },
+    );
+    if (!placed) continue;
+    wall = candidate;
+    span = free;
+    sofaLen = len;
+    sofa = placed;
+    break;
+  }
+  if (!wall || !span || !sofa) return;
   const mid = (span.a + span.b) / 2;
-  const sofa = againstWall(room, wall, mid, 0.05, 0.88, sofaLen);
-  if (!pushIf(room, out, sofa, { m: "fabric", ht: 0.75, rx: 0.09 })) return;
 
   // Accoudoirs + dossier
   if (sofaLen >= 2) {
@@ -364,16 +424,16 @@ function genSejour(room: PlanRoom, out: Prim[]) {
     { m: "wood", ht: 0.4, rx: 0.04 },
   );
 
-  // Meuble TV sur le mur opposé
+  // Meuble TV face au canapé, puis sur le premier autre mur libre : le mur
+  // opposé peut être entièrement occupé par les portes.
   const opp: WallSide = wall === "N" ? "S" : wall === "S" ? "N" : wall === "W" ? "E" : "W";
-  const os = bestSpan(room, opp, 1.2, { win: true }) ?? bestSpan(room, opp, 1.2);
-  if (os) {
-    pushIf(
-      room,
-      out,
-      againstWall(room, opp, (os.a + os.b) / 2, 0.03, 0.38, Math.min(os.b - os.a - 0.12, 1.8)),
-      { m: "wood", ht: 0.5 },
-    );
+  for (const candidate of [opp, ...wallsByLength(room).filter((w) => w !== opp && w !== wall)]) {
+    const os =
+      bestSpan(room, candidate, 1.2, { win: true }) ?? bestSpan(room, candidate, 1.2);
+    if (!os) continue;
+    const len = Math.min(os.b - os.a - 0.12, 1.8);
+    if (!pushIf(room, out, againstWall(room, candidate, (os.a + os.b) / 2, 0.03, 0.38, len), { m: "wood", ht: 0.5 })) continue;
+    break;
   }
 
   // Fauteuil dans les grands séjours
@@ -383,20 +443,56 @@ function genSejour(room: PlanRoom, out: Prim[]) {
     const ay = horiz ? (wall === "N" ? room.y + 1.75 : room.y + room.h - 1.75) : room.y + span.a + sofaLen + 0.55;
     out.push(C(ax, ay, 0.38, { m: "fabric", ht: 0.7 }));
   }
+
+  // Coin repas dans un grand séjour qui n'a pas de salle à manger dédiée.
+  const hasDiningRoom = plan?.rooms.some(
+    (r) => r.id !== room.id && r.label.toLowerCase().includes("manger"),
+  );
+  if (room.area >= 22 && !hasDiningRoom) {
+    placeDiningTable(room, out, Math.min(1.6, room.w * 0.4), 0.9);
+  }
 }
+
+/** Plaque de cuisson 4 feux posée sur un plan de travail. */
+function pushHob(room: PlanRoom, out: Prim[], wall: WallSide, mid: number, CD: number): boolean {
+  const hob = againstWall(room, wall, mid, 0.02 + (CD - 0.52) / 2, 0.52, 0.52);
+  if (!pushIf(room, out, hob, { m: "metal", ht: 0.92 })) return false;
+  const hx = hob.x + hob.w / 2;
+  const hy = hob.y + hob.h / 2;
+  for (const dx of [-0.125, 0.125])
+    for (const dy of [-0.125, 0.125])
+      out.push(C(hx + dx, hy + dy, 0.082, { flat: true, noFill: true }));
+  return true;
+}
+
 // ── Cuisine équipée : plan de travail en L, évier, plaque, frigo, table ──────
 
 function genCuisine(room: PlanRoom, out: Prim[]) {
   const CD = 0.6; // profondeur plan de travail
-  const walls = wallsByLength(room);
-  const P = walls[0];
-  const adjacents: WallSide[] =
-    P === "N" || P === "S" ? ["W", "E"] : ["N", "S"];
-  const doorsOn = (w: WallSide) => room.doors.filter((d) => d.wall === w).length;
-  const S_ = [...adjacents].sort((a, b) => doorsOn(a) - doorsOn(b))[0];
+  // Mur principal : le premier mur (du plus long au plus court) qui laisse
+  // 1,40 m libres entre les portes.
+  let P: WallSide | null = null;
+  let spanP: Iv | null = null;
+  for (const wall of wallsByLength(room)) {
+    const span = bestSpan(room, wall, 1.4);
+    if (!span) continue;
+    P = wall;
+    spanP = span;
+    break;
+  }
+  if (!P || !spanP) return;
 
-  const spanP = bestSpan(room, P, 1.4);
-  if (!spanP) return;
+  const adjacents: WallSide[] = P === "N" || P === "S" ? ["W", "E"] : ["N", "S"];
+  const doorsOn = (w: WallSide) => room.doors.filter((d) => d.wall === w).length;
+  // Retours d'angle possibles, du plus dégagé au plus encombré.
+  const runs = adjacents
+    .map((wall) => ({ wall, span: bestSpan(room, wall, 0.8) }))
+    .filter((r): r is { wall: WallSide; span: Iv } => r.span !== null)
+    .sort(
+      (a, b) =>
+        b.span.b - b.span.a - (a.span.b - a.span.a) || doorsOn(a.wall) - doorsOn(b.wall),
+    );
+  const S_ = runs[0]?.wall ?? adjacents[0];
 
   // Quel bout du mur P touche le mur secondaire S_ ?
   const cornerNearStart =
@@ -420,51 +516,38 @@ function genCuisine(room: PlanRoom, out: Prim[]) {
   const fridge = againstWall(room, P, fridgeMid, 0.02, 0.66, 0.72);
   pushIf(room, out, fridge, { m: "metal", ht: 1.85 });
 
-  // Run secondaire (retour d'angle) + plaque de cuisson
-  const totalS = wallLen(room, S_);
-  const skip = CD + 0.08;
-  const startAlong = cornerAlong(S_, P) ? skip : 0.06;
-  const spanS = bestSpan(room, S_, 0.8);
-  if (spanS) {
-    const from = Math.max(startAlong, spanS.a + 0.04);
-    const len = Math.min(1.7, spanS.b - 0.04 - from);
-    if (len >= 0.8) {
-      const midS = from + len / 2;
-      const counterS = againstWall(room, S_, midS, 0.02, CD, len);
-      pushIf(room, out, counterS, { m: "white", ht: 0.92 });
-      // Plaque 4 feux au centre du retour
-      const hobC = againstWall(room, S_, midS, 0.02 + (CD - 0.52) / 2, 0.52, 0.52);
-      pushIf(room, out, hobC, { m: "metal", ht: 0.92 });
-      const hcx = hobC.x + hobC.w / 2;
-      const hcy = hobC.y + hobC.h / 2;
-      for (const dx of [-0.125, 0.125])
-        for (const dy of [-0.125, 0.125])
-          out.push(C(hcx + dx, hcy + dy, 0.082, { flat: true, noFill: true }));
-    }
+  // Retour d'angle + plaque de cuisson : on essaie les deux murs adjacents,
+  // le premier qui offre une longueur utile suffisante (frigo et portes pris
+  // en compte) reçoit le plan de travail secondaire et les 4 feux.
+  let hobPlaced = false;
+  for (const { wall: runWall, span: spanS } of runs) {
+    const totalS = wallLen(room, runWall);
+    // Le point d'origine du mur adjacent touche-t-il le mur principal ?
+    const atStart = cornerAlong(runWall, P);
+    const lo = atStart ? CD + 0.08 : 0.08;
+    const hi = atStart ? totalS - 0.08 : totalS - (CD + 0.08);
+    const from = Math.max(lo, spanS.a + 0.04);
+    const len = Math.min(1.7, Math.min(spanS.b, hi) - 0.04 - from);
+    if (len < 0.8) continue;
+    const midS = from + len / 2;
+    const counterS = againstWall(room, runWall, midS, 0.02, CD, len);
+    if (!pushIf(room, out, counterS, { m: "white", ht: 0.92 })) continue;
+    hobPlaced = pushHob(room, out, runWall, midS, CD);
+    break;
   }
+  // Sans retour d'angle possible, les 4 feux prennent place sur le plan de
+  // travail principal : une cuisine équipée ne peut pas en être dépourvue.
+  if (!hobPlaced) pushHob(room, out, P, (spanP.a + spanP.b) / 2, CD);
   function cornerAlong(w: WallSide, ofWall: WallSide): boolean {
     // Le début du mur w (coordonnée 0) touche-t-il le mur ofWall ?
-    if (w === "N") return ofWall === "W";
-    if (w === "S") return ofWall === "W";
     if (w === "W") return ofWall === "N";
-    return ofWall === "N"; // E
+    if (w === "E") return ofWall === "N";
+    return ofWall === "W"; // N / S
   }
-  void totalS;
 
-  // Table + chaises si la cuisine est assez grande
-  if (room.area >= 12) {
-    const tw = 1.15;
-    const th = 0.75;
-    const shiftX = P === "W" ? CD + 0.55 : P === "E" ? -(CD + 0.55) : 0;
-    const shiftY = P === "N" ? CD + 0.55 : P === "S" ? -(CD + 0.55) : 0;
-    const cx = room.x + room.w / 2 + shiftX;
-    const cy = room.y + room.h / 2 + shiftY;
-    const tbl: Box = { x: cx - tw / 2, y: cy - th / 2, w: tw, h: th };
-    if (inside(room, tbl)) {
-      out.push(R(tbl, { m: "wood", ht: 0.74, rx: 0.04 }));
-      out.push(C(cx - tw / 2 - 0.28, cy, 0.2, { m: "wood", ht: 0.45 }));
-      out.push(C(cx + tw / 2 + 0.28, cy, 0.2, { m: "wood", ht: 0.45 }));
-    }
+  // Table + chaises si la cuisine est assez grande pour les accueillir.
+  if (room.area >= 11) {
+    placeDiningTable(room, out, Math.min(1.15, room.w - 1.4), 0.75);
   }
 }
 
@@ -1172,6 +1255,111 @@ function genPlonge(room: PlanRoom, out: Prim[]) {
   }
 }
 
+// ── Hall d'entrée : meuble à chaussures, patères et tapis ───────────────────
+
+function genHall(room: PlanRoom, out: Prim[]) {
+  // Meuble d'entrée (chaussures + vide-poche) sur le premier mur libre.
+  for (const wall of wallsByLength(room)) {
+    const span = bestSpan(room, wall, 1.0);
+    if (!span) continue;
+    const len = Math.min(1.2, span.b - span.a - 0.1);
+    const bench = againstWall(room, wall, (span.a + span.b) / 2, 0.03, 0.35, len);
+    if (!pushIf(room, out, bench, { m: "wood", ht: 1.05 })) continue;
+    // Tiroirs / tablette du meuble.
+    if (bench.w >= bench.h) {
+      out.push(
+        L(bench.x + 0.1, bench.y + bench.h / 2, bench.x + bench.w - 0.1, bench.y + bench.h / 2),
+      );
+    } else {
+      out.push(
+        L(bench.x + bench.w / 2, bench.y + 0.1, bench.x + bench.w / 2, bench.y + bench.h - 0.1),
+      );
+    }
+    break;
+  }
+
+  // Tapis devant la porte d'entrée.
+  const door = room.doors[0];
+  if (door) {
+    pushIf(
+      room,
+      out,
+      againstWall(
+        room,
+        door.wall,
+        door.position + door.width / 2,
+        0.06,
+        0.55,
+        Math.max(0.5, Math.min(door.width - 0.1, 0.9)),
+      ),
+      { dash: true, noFill: true, flat: true },
+    );
+  }
+
+  // Patères / miroir sur un autre mur resté libre.
+  for (const wall of wallsByLength(room)) {
+    const span = bestSpan(room, wall, 0.7);
+    if (!span) continue;
+    const peg = againstWall(room, wall, (span.a + span.b) / 2, 0.02, 0.12, 0.7);
+    if (!inside(room, peg) || overlapsPlaced(out, peg, 0.02)) continue;
+    out.push(R(peg, { m: "wood", ht: 1.4 }));
+    break;
+  }
+}
+
+// ── Buanderie : lave-linge, sèche-linge, bac et ballon d'eau chaude ─────────
+
+function genBuanderie(room: PlanRoom, out: Prim[]) {
+  // Colonne de lavage : deux appareils de 60 cm côte à côte.
+  let applianceWall: WallSide | null = null;
+  for (const wall of wallsByLength(room)) {
+    const span = bestSpan(room, wall, 1.26);
+    if (!span) continue;
+    const start = span.a + 0.04;
+    const boxes: Box[] = [];
+    for (let i = 0; i < 2; i++) {
+      const box = againstWall(room, wall, start + 0.31 + i * 0.64, 0.03, 0.62, 0.62);
+      if (!inside(room, box)) {
+        boxes.length = 0;
+        break;
+      }
+      boxes.push(box);
+    }
+    if (boxes.length < 2) continue;
+    boxes.forEach((box) => {
+      out.push(R(box, { m: "white", ht: 0.86, rx: 0.04 }));
+      out.push(C(box.x + box.w / 2, box.y + box.h / 2, 0.19, { flat: true, noFill: true }));
+    });
+    applianceWall = wall;
+    break;
+  }
+
+  // Bac / évier de buanderie sur un autre mur, hors des appareils.
+  for (const wall of wallsByLength(room)) {
+    if (wall === applianceWall) continue;
+    const span = bestSpan(room, wall, 0.6);
+    if (!span) continue;
+    const sink = againstWall(room, wall, (span.a + span.b) / 2, 0.03, 0.46, 0.56);
+    if (!inside(room, sink) || overlapsPlaced(out, sink, 0.04)) continue;
+    out.push(R(sink, { m: "metal", ht: 0.88, rx: 0.04 }));
+    out.push(C(sink.x + sink.w / 2, sink.y + sink.h / 2, 0.035, { flat: true, noFill: true }));
+    break;
+  }
+
+  // Ballon d'eau chaude dans un angle resté libre.
+  const corners: Box[] = [
+    { x: room.x + 0.08, y: room.y + 0.08, w: 0.4, h: 0.4 },
+    { x: room.x + room.w - 0.48, y: room.y + 0.08, w: 0.4, h: 0.4 },
+    { x: room.x + 0.08, y: room.y + room.h - 0.48, w: 0.4, h: 0.4 },
+    { x: room.x + room.w - 0.48, y: room.y + room.h - 0.48, w: 0.4, h: 0.4 },
+  ];
+  for (const corner of corners) {
+    if (!inside(room, corner) || overlapsPlaced(out, corner, 0.06)) continue;
+    out.push(C(corner.x + corner.w / 2, corner.y + corner.h / 2, 0.18, { m: "white", ht: 1.5 }));
+    break;
+  }
+}
+
 // ── Dispatch par nature de pièce ─────────────────────────────────────────────
 
 export function roomFurniture(room: PlanRoom, plan?: FloorPlan): Prim[] {
@@ -1182,7 +1370,7 @@ export function roomFurniture(room: PlanRoom, plan?: FloorPlan): Prim[] {
       break;
     case "sejour":
       if (room.label.toLowerCase().includes("manger")) genSalleManger(room, out);
-      else genSejour(room, out);
+      else genSejour(room, out, plan);
       break;
     case "cuisine":
       genCuisine(room, out);
@@ -1193,6 +1381,12 @@ export function roomFurniture(room: PlanRoom, plan?: FloorPlan): Prim[] {
       break;
     case "wc":
       genWc(room, out);
+      break;
+    case "hall":
+      genHall(room, out);
+      break;
+    case "buanderie":
+      genBuanderie(room, out);
       break;
     case "bureau":
       genBureau(room, out);
@@ -1242,7 +1436,7 @@ export function roomFurniture(room: PlanRoom, plan?: FloorPlan): Prim[] {
       );
       break;
     default:
-      // couloir, hall, escalier, vestiaire, polyvalent : circulation libre
+      // couloir, escalier, vestiaire, polyvalent : circulation libre
       break;
   }
   return out;
