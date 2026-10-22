@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { Link } from "react-router";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -49,11 +48,7 @@ import {
   type TechnicalPlanContext,
   type TechnicalPlanKind,
 } from "@/lib/technicalPlanEngine";
-import {
-  buildTechnicalCostSync,
-  priceQuantities,
-  type DqeLotLike,
-} from "@/lib/technicalPlanPricing";
+import { priceQuantities, type DqeLotLike } from "@/lib/technicalPlanPricing";
 import { downloadTechnicalPlanPdf } from "@/lib/technicalPlanPdf";
 import { cn } from "@/lib/utils";
 
@@ -81,9 +76,6 @@ export interface TechnicalPlansPanelProps {
   savedPlans?: SavedTechnicalPlan[];
   initialVariantId?: string | null;
 }
-
-const TND = (n: number) =>
-  `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(n)} TND`;
 
 const ALL_LAYERS = {
   architecture: true,
@@ -231,10 +223,6 @@ export function TechnicalPlansPanel({
   const scopeQuantities: QuantityLine[] =
     scope === "building" ? aggregateQuantities : technical?.quantities ?? [];
   const lots = project.dqe?.lots ?? [];
-  const costSync = useMemo(
-    () => buildTechnicalCostSync({ kind, quantities: aggregateQuantities, lots }),
-    [kind, aggregateQuantities, lots],
-  );
   const priced = useMemo(() => priceQuantities(scopeQuantities, lots), [scopeQuantities, lots]);
 
   const saved = savedPlans?.find(
@@ -952,99 +940,6 @@ export function TechnicalPlansPanel({
         </CardContent>
       </Card>
 
-      {/* ── Synchronisation des coûts ── */}
-      <Card
-        className={cn(
-          "border",
-          costSync.overForfait ? "border-amber-500/40" : "border-emerald-500/25",
-        )}
-      >
-        <CardHeader className="pb-2 pt-4 px-4 sm:px-5">
-          <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-bold tracking-tight">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            Coûts de construction — vérification sans double comptage
-            <Badge variant="outline" className="ml-auto text-[10px]">
-              {isPlumbing ? "Plomberie" : "Électricité"}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 sm:px-5 pb-4 space-y-3">
-          <div className="grid gap-2 sm:grid-cols-3">
-            <Stat
-              label="Déjà comptabilisé (lots)"
-              value={TND(costSync.existingSubtotal)}
-              detail={`dont fournitures ${TND(costSync.existingSupplySubtotal)}`}
-            />
-            <Stat
-              label="Valorisation technique"
-              value={TND(costSync.technicalTotal)}
-              detail={`${costSync.pricedCount} postes valorisés`}
-              highlight
-            />
-            <Stat
-              label="Écart fournitures"
-              value={`${costSync.delta >= 0 ? "+" : ""}${TND(costSync.delta)}`}
-              detail={
-                costSync.overForfait ? "À arbitrer dans le Quantitatif" : "Cohérent avec le lot"
-              }
-              tone={costSync.overForfait ? "warn" : "ok"}
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            {costSync.existingLots.map((lot) => (
-              <Badge key={lot.id} variant="outline" className="text-[10px]">
-                {lot.name} · {TND(lot.subtotal)}
-              </Badge>
-            ))}
-            {!costSync.existingLots.length && (
-              <Badge
-                variant="outline"
-                className="border-amber-500/40 text-[10px] text-amber-700"
-              >
-                Aucun lot Plomberie / Électricité enregistré
-              </Badge>
-            )}
-          </div>
-
-          {costSync.missingPrices.length > 0 && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/[0.05] px-3 py-2">
-              <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-                <AlertTriangle className="h-3.5 w-3.5" /> Prix non configurés — aucune valeur
-                inventée
-              </p>
-              <p className="mt-1 text-[10px] leading-snug text-amber-800 dark:text-amber-200">
-                {costSync.missingPrices.slice(0, 8).join(" · ")}
-                {costSync.missingPrices.length > 8
-                  ? ` · +${costSync.missingPrices.length - 8} autres`
-                  : ""}
-              </p>
-            </div>
-          )}
-
-          <ul className="space-y-1 text-[10px] leading-snug text-muted-foreground">
-            {costSync.notes.map((note) => (
-              <li key={note} className="flex items-start gap-1.5">
-                <Info className="mt-0.5 h-3 w-3 shrink-0" />
-                <span>{note}</span>
-              </li>
-            ))}
-          </ul>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button asChild size="sm" variant="outline" className="h-8 text-[11px]">
-              <Link to={`/dashboard/project/${projectId}`}>Ouvrir le Quantitatif détaillé</Link>
-            </Button>
-          </div>
-
-          <p className="rounded-md border border-border/60 bg-muted/30 px-2.5 py-1.5 text-[9px] leading-snug text-muted-foreground">
-            Les totaux TTC et sous-totaux du Quantitatif détaillé restent la source de vérité : ce
-            plan ne les modifie pas silencieusement. Les calibres, diamètres et pentes doivent être
-            vérifiés par un professionnel qualifié avant travaux.
-          </p>
-        </CardContent>
-      </Card>
-
       <p className="px-2 text-center text-[10px] leading-snug text-muted-foreground/70">
         Proposition technique générée automatiquement à partir du plan architectural du projet.
         Elle ne constitue pas un plan d'exécution certifié : une vérification par un professionnel
@@ -1117,34 +1012,5 @@ function SwitchRow({
       <span>{label}</span>
       <Switch checked={checked} onCheckedChange={onChange} />
     </label>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  detail,
-  highlight,
-  tone,
-}: {
-  label: string;
-  value: string;
-  detail?: string;
-  highlight?: boolean;
-  tone?: "ok" | "warn";
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-lg border bg-background/70 px-3 py-2",
-        highlight && "border-primary/30 bg-primary/[0.04]",
-        tone === "warn" && "border-amber-500/30 bg-amber-500/[0.05]",
-        tone === "ok" && "border-emerald-500/25 bg-emerald-500/[0.04]",
-      )}
-    >
-      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-sm font-bold tabular-nums">{value}</p>
-      {detail && <p className="text-[9px] text-muted-foreground">{detail}</p>}
-    </div>
   );
 }
