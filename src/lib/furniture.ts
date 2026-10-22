@@ -10,7 +10,13 @@
 // évitent les fenêtres pour les meubles hauts. Déterministe, sans dépendance.
 // ============================================================================
 
-import type { PlanRoom, WallSide } from "./floorPlanEngine";
+import type { FloorPlan, PlanRoom, WallSide } from "./floorPlanEngine";
+import {
+  cafeCounterPlacement,
+  cafeDoorClearances,
+  cafeRectsOverlap,
+  type CafeRect,
+} from "./cafePlan";
 
 // ── Primitives ───────────────────────────────────────────────────────────────
 
@@ -829,9 +835,138 @@ function genVente(room: PlanRoom, out: Prim[]) {
   }
 }
 
+// ── Salle café : comptoir intégré + tables et chaises ───────────────────────
+//
+// Le comptoir est un ÉQUIPEMENT de la salle (jamais une pièce) : il est adossé
+// au mur de l'espace de préparation lorsqu'il existe, avec le plan de travail
+// et le passage du personnel derrière, puis les tables et chaises sont
+// réparties autour sans bloquer le comptoir, les portes ni les allées.
+
+function inflate(r: CafeRect, d: number): CafeRect {
+  return { x: r.x - d, y: r.y - d, w: r.w + 2 * d, h: r.h + 2 * d };
+}
+
+function clampToRoom(room: PlanRoom, r: CafeRect): CafeRect {
+  const x = Math.max(r.x, room.x);
+  const y = Math.max(r.y, room.y);
+  const right = Math.min(r.x + r.w, room.x + room.w);
+  const bottom = Math.min(r.y + r.h, room.y + room.h);
+  return { x, y, w: Math.max(0, right - x), h: Math.max(0, bottom - y) };
+}
+
+function genSalleCafe(room: PlanRoom, plan: FloorPlan, out: Prim[]) {
+  const placement = cafeCounterPlacement(room, plan.rooms, plan);
+  if (!placement) return;
+  const { counter, worktop, staffAisle } = placement;
+
+  // Plan de travail adossé au mur, derrière le comptoir.
+  pushIf(room, out, worktop, { m: "metal", ht: 0.9 });
+  // Ligne de crédence (étagère haute).
+  if (worktop.w >= worktop.h) {
+    out.push(
+      L(
+        worktop.x + 0.06,
+        worktop.y + worktop.h / 2,
+        worktop.x + worktop.w - 0.06,
+        worktop.y + worktop.h / 2,
+      ),
+    );
+  } else {
+    out.push(
+      L(
+        worktop.x + worktop.w / 2,
+        worktop.y + 0.06,
+        worktop.x + worktop.w / 2,
+        worktop.y + worktop.h - 0.06,
+      ),
+    );
+  }
+
+  // Comptoir client (le bar), dans la même surface que la salle.
+  pushIf(room, out, counter, { m: "wood", ht: 1.05, rx: 0.04 });
+  if (counter.w >= counter.h) {
+    out.push(L(counter.x + 0.08, counter.y + 0.12, counter.x + counter.w - 0.08, counter.y + 0.12));
+  } else {
+    out.push(L(counter.x + 0.12, counter.y + 0.08, counter.x + 0.12, counter.y + counter.h - 0.08));
+  }
+
+  // Équipements sur le plan de travail : machine à café et caisse.
+  const along = worktop.w >= worktop.h;
+  const machine: CafeRect = along
+    ? { x: worktop.x + 0.12, y: worktop.y + 0.06, w: 0.42, h: Math.max(0.2, worktop.h - 0.12) }
+    : { x: worktop.x + 0.06, y: worktop.y + 0.12, w: Math.max(0.2, worktop.w - 0.12), h: 0.42 };
+  pushIf(room, out, machine, { m: "metal", ht: 0.52 });
+  const till: CafeRect = along
+    ? {
+        x: worktop.x + worktop.w - 0.44,
+        y: worktop.y + 0.08,
+        w: 0.32,
+        h: Math.max(0.2, worktop.h - 0.16),
+      }
+    : {
+        x: worktop.x + 0.08,
+        y: worktop.y + worktop.h - 0.44,
+        w: Math.max(0.2, worktop.w - 0.16),
+        h: 0.32,
+      };
+  pushIf(room, out, till, { m: "white", ht: 0.18 });
+
+  // Zones interdites aux tables : comptoir, travail, passage personnel, allée
+  // client et débattement des portes (aucun accès bloqué).
+  const forbidden: CafeRect[] = [
+    inflate(counter, 0.15),
+    inflate(worktop, 0.15),
+    inflate(staffAisle, 0.1),
+    inflate(clampToRoom(room, placement.clientAisle), 0.15),
+    ...cafeDoorClearances(room).map((r) => inflate(r, 0.1)),
+  ];
+
+  const size = 0.6;
+  const chair = 0.42;
+  const freeArea = Math.max(0, room.area - placement.counterArea);
+  const maxTables = Math.max(1, Math.min(12, Math.floor(freeArea / 4.2)));
+  const tables: CafeRect[] = [];
+
+  const clearOfForbidden = (r: CafeRect) => !forbidden.some((z) => cafeRectsOverlap(r, z));
+  const clearOfTables = (r: CafeRect) =>
+    !tables.some((t) => cafeRectsOverlap(inflate(r, 0.1), inflate(t, 0.55)));
+
+  const margin = 0.5;
+  for (let y = room.y + margin; y + size <= room.y + room.h - margin; y += 1.7) {
+    for (let x = room.x + margin; x + size <= room.x + room.w - margin; x += 1.7) {
+      if (tables.length >= maxTables) break;
+      const table: CafeRect = { x, y, w: size, h: size };
+      if (!clearOfForbidden(table) || !clearOfTables(table)) continue;
+
+      // Chaises de part et d'autre de la table, uniquement si elles restent
+      // dans la salle et hors des zones de circulation protégées.
+      const horizontal: CafeRect[] = [
+        { x: table.x - chair - 0.06, y: y + (size - chair) / 2, w: chair, h: chair },
+        { x: table.x + size + 0.06, y: y + (size - chair) / 2, w: chair, h: chair },
+      ];
+      const vertical: CafeRect[] = [
+        { x: x + (size - chair) / 2, y: table.y - chair - 0.06, w: chair, h: chair },
+        { x: x + (size - chair) / 2, y: table.y + size + 0.06, w: chair, h: chair },
+      ];
+      const chairs = [horizontal, vertical].find((set) =>
+        set.every(
+          (c) => inside(room, c) && clearOfForbidden(c) && !cafeRectsOverlap(c, table),
+        ),
+      );
+      if (!chairs) continue;
+
+      tables.push(table);
+      pushIf(room, out, table, { m: "wood", ht: 0.74, rx: 0.08 });
+      for (const c of chairs) {
+        out.push(C(c.x + c.w / 2, c.y + c.h / 2, chair / 2, { m: "fabric", ht: 0.45 }));
+      }
+    }
+  }
+}
+
 // ── Dispatch par nature de pièce ─────────────────────────────────────────────
 
-export function roomFurniture(room: PlanRoom): Prim[] {
+export function roomFurniture(room: PlanRoom, plan?: FloorPlan): Prim[] {
   const out: Prim[] = [];
   switch (room.kind) {
     case "chambre":
@@ -872,6 +1007,9 @@ export function roomFurniture(room: PlanRoom): Prim[] {
       break;
     case "vente":
       genVente(room, out);
+      break;
+    case "salle_cafe":
+      if (plan) genSalleCafe(room, plan, out);
       break;
     case "local_technique":
       // Groupe de filtration + pompe du bassin.

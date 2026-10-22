@@ -61,6 +61,7 @@ const ROOM_COLORS_3D: Record<RoomKind, number> = {
   vestiaire: 0xd8cdf5,
   // — Restauration —
   salle_client: 0xf6e6a0,
+  salle_cafe: 0xf6e6a0,
   comptoir: 0xf5c890,
   cuisine_pro: 0xf3b8b8,
   plonge: 0xaee6f0,

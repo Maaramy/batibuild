@@ -974,6 +974,7 @@ const SOCKET_COUNTS: Record<RoomKind, number> = {
   vestiaire: 1,
   polyvalent: 4,
   salle_client: 6,
+  salle_cafe: 8,
   comptoir: 4,
   cuisine_pro: 8,
   plonge: 2,

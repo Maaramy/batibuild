@@ -90,6 +90,7 @@ const DAY_KINDS = new Set<RoomKind>([
   "polyvalent",
   "terrasse",
   "attente",
+  "salle_cafe",
 ]);
 const CIRCULATION_KINDS = new Set<RoomKind>(["couloir", "escalier", "hall"]);
 
@@ -103,6 +104,7 @@ const HABITABLE_KINDS = new Set<RoomKind>([
   "reception",
   "polyvalent",
   "salle_client",
+  "salle_cafe",
   "comptoir",
 ]);
 

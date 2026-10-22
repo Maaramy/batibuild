@@ -66,7 +66,7 @@ const ROOM_COLORS_3D: Record<RoomKind, number> = {
   reception: 0xf0e3ae, openspace: 0xbde6d4, reunion: 0xf2c9dd,
   sanitaire: 0xaee6f0, hall: 0xe4e4e0, stockage: 0xf6d6b8,
   logistique: 0xf6dcc2, vestiaire: 0xd8cdf5,
-  salle_client: 0xf6e6a0, comptoir: 0xf5c890, cuisine_pro: 0xf3b8b8,
+  salle_client: 0xf6e6a0, salle_cafe: 0xf6e6a0, comptoir: 0xf5c890, cuisine_pro: 0xf3b8b8,
   plonge: 0xaee6f0, chambre_froide: 0xbde6f0, terrasse: 0xc8e8b8,  attente: 0xe0d0f0,
   polyvalent: 0xdfe3e8,
   patio: 0xc8e8b8,

@@ -12,6 +12,15 @@
 // ============================================================================
 
 import { normalizeLevelSurfaces } from "./buildingLevels";
+import {
+  CAFE_SALLE_SHARE_MAX,
+  CAFE_SALLE_SHARE_MIN,
+  cafeCounterPlacement,
+  cafeDoorClearances,
+  cafeRectsOverlap,
+  cafeSalleShare,
+  isCafeCategory,
+} from "./cafePlan";
 
 // ── Types publics ───────────────────────────────────────────────────────────
 
@@ -36,6 +45,8 @@ export type RoomKind =
   | "polyvalent"
   // — Restauration (café / restaurant) —
   | "salle_client"
+  /** Salle de café : salle unique des clients, comptoir inclus (jamais une pièce séparée). */
+  | "salle_cafe"
   | "comptoir"
   | "cuisine_pro"
   | "plonge"
@@ -105,6 +116,20 @@ export interface FloorPlan {
   area: number;
 }
 
+export interface CafeValidation {
+  /** Part de la surface couverte occupée par la salle café (0–1). */
+  salleShare: number;
+  /** Salle café entre 70 % et 80 % de la surface couverte. */
+  salleShareOk: boolean;
+  /** Comptoir entièrement situé dans la salle café. */
+  counterInsideSalle: boolean;
+  /** Comptoir non compté comme pièce (aucune surface ajoutée au total). */
+  counterCountedOnce: boolean;
+  /** Salle, préparation, réserve et sanitaires accessibles, comptoir hors des portes. */
+  accessOk: boolean;
+  ok: boolean;
+}
+
 export interface PlanValidation {
   dimensionsOk: boolean;
   noOverlap: boolean;
@@ -118,6 +143,8 @@ export interface PlanValidation {
   /** Note de conformité sur 100 */
   score: number;
   issues: string[];
+  /** Contrôles propres au type « Café » (absents pour les autres types). */
+  cafe?: CafeValidation;
 }
 
 /** Espaces extérieurs aménagés, TOUJOURS hors du bâtiment. */
@@ -299,6 +326,7 @@ export const PLAN_ROOM_COLORS: Record<RoomKind, string> = {
   polyvalent: "#f5f5f4",
   // — Restauration —
   salle_client: "#fef9c3",
+  salle_cafe: "#fef3c7",
   comptoir: "#fed7aa",
   cuisine_pro: "#fef3c7",
   plonge: "#cffafe",
@@ -333,6 +361,7 @@ export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
   polyvalent: "Espace polyvalent",
   // — Restauration —
   salle_client: "Salle client",
+  salle_cafe: "Salle café",
   comptoir: "Comptoir / Bar",
   cuisine_pro: "Cuisine pro",
   plonge: "Plonge",
@@ -871,6 +900,100 @@ function restorationProgram(
   return items;
 }
 
+// ── Programme CAFÉ (règles propres au type « Café ») ─────────────────────────
+
+/**
+ * Programme d'une salle de café.
+ *
+ * La SALLE CAFÉ (clients, comptoir inclus) occupe 70 % à 80 % de la surface
+ * couverte — cible 75 %. Le solde (20 à 30 %) est réparti entre l'espace de
+ * préparation, la plonge, la réserve, les sanitaires clients, le WC PMR et la
+ * circulation technique. Le comptoir n'est PAS une pièce : il est dessiné dans
+ * la salle (voir `cafePlan.cafeCounterPlacement`) et sa surface n'entre jamais
+ * dans le total.
+ *
+ * Les cibles sont exprimées dans la surface réelle du niveau : leur somme vaut
+ * exactement cette surface, donc le découpage BSP restitue la part de salle
+ * demandée sans redistribuer de surface.
+ */
+function cafeProgram(area: number): ProgramItem[] {
+  const salleShare = cafeSalleShare(area);
+  const serviceBudget = area * (1 - salleShare);
+
+  // Répartition du solde. Les deux petites pièces sont plafonnées à des
+  // surfaces crédibles (un WC PMR n'a pas besoin de 8 m²) : le surplus reste
+  // dans l'espace de préparation, jamais dans la salle — la part de salle
+  // reste ainsi strictement dans la fourchette 70–80 %.
+  const prep = serviceBudget * 0.34;
+  const plonge = serviceBudget * 0.09;
+  const reserve = serviceBudget * 0.17;
+  const sanitaires = serviceBudget * 0.13;
+  const pmr = Math.min(serviceBudget * 0.09, 3.8);
+  const circulation = Math.min(serviceBudget * 0.18, 8);
+  const surplus = serviceBudget * 0.27 - pmr - circulation;
+
+  const preparation = prep + surplus;
+  const salle =
+    area - (preparation + plonge + reserve + sanitaires + pmr + circulation);
+
+  return [
+    {
+      kind: "salle_cafe",
+      label: "Salle café",
+      target: salle,
+      min: 20,
+      priority: 20,
+      habitable: true,
+      unique: true,
+    },
+    {
+      kind: "cuisine_pro",
+      label: "Espace de préparation",
+      target: preparation,
+      min: 3.5,
+      priority: 18,
+      habitable: true,
+      unique: true,
+    },
+    {
+      kind: "stockage",
+      label: "Réserve",
+      target: reserve,
+      min: 1.5,
+      priority: 12,
+      unique: true,
+    },
+    {
+      kind: "sanitaire",
+      label: "Sanitaires clients",
+      target: sanitaires,
+      min: 1.2,
+      priority: 12,
+    },
+    {
+      kind: "wc",
+      label: "WC PMR",
+      target: pmr,
+      min: 1.1,
+      priority: 11,
+    },
+    {
+      kind: "plonge",
+      label: "Plonge",
+      target: plonge,
+      min: 1,
+      priority: 9,
+    },
+    {
+      kind: "couloir",
+      label: "Circulation technique",
+      target: circulation,
+      min: 1,
+      priority: 7,
+    },
+  ];
+}
+
 // ── Programmes spécifiques par typologie de projet ──────────────────────────
 
 /** Appartement en collectif : un niveau, entrée, séjour, cuisine, chambres. */
@@ -1270,6 +1393,7 @@ const CIRCULATION_KINDS = new Set<RoomKind>([
   "openspace",
   "attente",
   "salle_client",
+  "salle_cafe",
 ]);
 const PRIVATE_KINDS = new Set<RoomKind>([
   "chambre",
@@ -1289,6 +1413,7 @@ const HABITABLE_KINDS = new Set<RoomKind>([
   "reception",
   "polyvalent",
   "salle_client",
+  "salle_cafe",
   "comptoir",
   "attente",
   "vente",
@@ -1488,7 +1613,7 @@ function addOpenings(
     if (side === "W") return Math.abs(r.x) < TOL;
     return Math.abs(r.x + r.w - level.length) < TOL;
   };
-  const publicKinds: RoomKind[] = ["hall", "sejour", "reception", "openspace"];
+  const publicKinds: RoomKind[] = ["hall", "sejour", "reception", "openspace", "salle_cafe"];
   let entry: PlanRoom | undefined;
   if (isGroundFloor) {
     const facades: WallSide[] = [profile.mainFacade, "S", "E", "W", "N"];
@@ -1880,6 +2005,13 @@ function buildLevel(
    * liaison verticale reste réelle. Absente ⇒ dimensionnée sur le niveau.
    */
   stair?: { w: number; h: number },
+  /**
+   * Distribution « pleine emprise » (café) : aucun patio, hall ou couloir
+   * découpé par le parti architectural. La salle café occupe alors exactement
+   * la part calculée du niveau, et le solde est réparti en BSP entre les
+   * locaux de service — sans surface perdue ni dédoublement.
+   */
+  flatLayout = false,
 ): FloorPlan {
   const plan: FloorPlan = {
     level: levelIdx,
@@ -1920,7 +2052,7 @@ function buildLevel(
   );
   const mainZone = baseZones[mainIdx];
   const strategy: LayoutStrategy =
-    levelIdx === 0 ? profile.layout : "bsp";
+    flatLayout || levelIdx > 0 ? "bsp" : profile.layout;
   // Une zone sans pièce laisserait un trou dans le niveau : chaque zone du
   // parti doit pouvoir recevoir au moins une pièce.
   const extraZones = Math.max(0, baseZones.length - 1);
@@ -2581,6 +2713,92 @@ export function validatePlan(
   }
   if (!surfacesOk) score -= 10;
 
+  // 9. RÈGLES PROPRES AU CAFÉ (aucune autre typologie n'est concernée)
+  //    · salle café entre 70 % et 80 % de la surface couverte ;
+  //    · comptoir entièrement dans la salle, jamais une pièce ;
+  //    · comptoir jamais compté deux fois (aucune surface ajoutée au total) ;
+  //    · salle, préparation, réserve et sanitaires accessibles, comptoir hors
+  //      du débattement des portes.
+  let cafe: CafeValidation | undefined;
+  if (isCafeCategory(input.category)) {
+    const fp = variant.floors[0];
+    const rooms = fp.rooms.filter((r) => !r.exterior);
+    const covered = rooms.reduce((a, r) => a + r.area, 0);
+    const salles = rooms.filter((r) => r.kind === "salle_cafe");
+    const salle = salles[0] ?? null;
+    const salleShare = salle && covered > 0 ? salle.area / covered : 0;
+    const salleShareOk =
+      !!salle &&
+      salles.length === 1 &&
+      salleShare >= CAFE_SALLE_SHARE_MIN - 0.005 &&
+      salleShare <= CAFE_SALLE_SHARE_MAX + 0.005;
+
+    const placement = salle ? cafeCounterPlacement(salle, rooms, fp) : null;
+    const counterInsideSalle =
+      !!salle &&
+      !!placement &&
+      placement.counter.x >= salle.x - G &&
+      placement.counter.y >= salle.y - G &&
+      placement.counter.x + placement.counter.w <= salle.x + salle.w + G &&
+      placement.counter.y + placement.counter.h <= salle.y + salle.h + G;
+
+    const surfacesExactes =
+      fp.area > 0 && Math.abs(covered - fp.area) / fp.area <= 0.02;
+    const counterCountedOnce =
+      !!salle &&
+      !!placement &&
+      !rooms.some((r) => r.kind === "comptoir") &&
+      placement.counterArea <= salle.area + G &&
+      surfacesExactes;
+
+    const accessKinds = new Set<RoomKind>([
+      "salle_cafe",
+      "cuisine_pro",
+      "stockage",
+      "sanitaire",
+      "wc",
+      "plonge",
+    ]);
+    const accessibleRooms = rooms.filter((r) => accessKinds.has(r.kind));
+    const accessOk =
+      !!salle &&
+      salle.doors.some((d) => d.isEntry) &&
+      accessibleRooms.length >= 4 &&
+      accessibleRooms.every((r) => r.doors.length > 0) &&
+      !!placement &&
+      cafeDoorClearances(salle).every(
+        (clearance) => !cafeRectsOverlap(clearance, placement.counter),
+      );
+
+    if (!salleShareOk) {
+      score -= 20;
+      issues.push(
+        `Salle café : ${Math.round(salleShare * 100)} % de la surface couverte (70–80 % requis)`,
+      );
+    }
+    if (!counterInsideSalle) {
+      score -= 15;
+      issues.push("Comptoir hors de la salle café");
+    }
+    if (!counterCountedOnce) {
+      score -= 15;
+      issues.push("Comptoir compté deux fois ou surface de la salle incohérente");
+    }
+    if (!accessOk) {
+      score -= 10;
+      issues.push("Accès insuffisant : salle, préparation, réserve ou sanitaires");
+    }
+
+    cafe = {
+      salleShare: Math.round(salleShare * 1000) / 1000,
+      salleShareOk,
+      counterInsideSalle,
+      counterCountedOnce,
+      accessOk,
+      ok: salleShareOk && counterInsideSalle && counterCountedOnce && accessOk,
+    };
+  }
+
   return {
     dimensionsOk,
     noOverlap,
@@ -2591,6 +2809,7 @@ export function validatePlan(
     surfacesOk,
     score: Math.max(40, Math.min(100, Math.round(score))),
     issues: [...new Set(issues)].slice(0, 8),
+    ...(cafe ? { cafe } : {}),
   };
 }
 
@@ -3475,7 +3694,10 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
     isPool ? 12 : isRenovationSpace ? 4 : 18,
     input.surface || (isPool ? 32 : isRenovationSpace ? 10 : 90),
   );
-  const levels = structuralLevels(kind, input.floors ?? 1);
+  // Un café est un local de plain-pied : la règle de salle (70–80 % de la
+  // surface couverte) porte sur le seul niveau réellement généré.
+  const cafe = isCafeCategory(input.category);
+  const levels = cafe ? 1 : structuralLevels(kind, input.floors ?? 1);
   const family = familyForCategory(input.category);
   // Surface couverte RÉELLE de chaque niveau : `surface` est la surface du
   // rez-de-chaussée, `input.levelSurfaces` porte celle des étages. Elle n'est
@@ -3597,6 +3819,25 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
         floors.push(buildLevel(0, 1, L, W, items, seed, profile, true));
       } else if (kind === "shop") {
         floors.push(buildLevel(0, 1, L, W, shopProgram(levelAreas[0]), seed, profile));
+      } else if (cafe) {
+        // Café : salle unique des clients (comptoir inclus) + locaux de
+        // service, sur la totalité de l'emprise réelle du niveau.
+        const levelFootprint = footprintFor(levelAreas[0]);
+        const levelArea = round3(levelFootprint.length * levelFootprint.width);
+        floors.push(
+          buildLevel(
+            0,
+            1,
+            levelFootprint.length,
+            levelFootprint.width,
+            cafeProgram(levelArea),
+            seed,
+            profile,
+            false,
+            undefined,
+            true,
+          ),
+        );
       } else if (kind === "office" || kind === "warehouse" || kind === "restaurant") {
         for (let lvl = 0; lvl < levels; lvl++) {
           const levelFootprint = footprintFor(levelAreas[lvl]);
@@ -3606,10 +3847,7 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
               ? commercialProgram(levelArea)
               : kind === "warehouse"
                 ? logisticsProgram(levelArea)
-                : restorationProgram(
-                    levelArea,
-                    input.category === "restaurant" ? "restaurant" : "cafe",
-                  );
+                : restorationProgram(levelArea, "restaurant");
           floors.push(
             buildLevel(
               lvl,

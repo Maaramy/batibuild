@@ -51,6 +51,7 @@ const ROOM_TINT: Record<string, string> = {
   patio: "#84cc16",
   buanderie: "#64748b",
   vente: "#f59e0b",
+  salle_cafe: "#f59e0b",
   bassin: "#0ea5e9",
   local_technique: "#78716c",
 };
