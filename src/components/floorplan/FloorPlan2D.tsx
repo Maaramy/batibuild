@@ -1,24 +1,27 @@
 import { useId, useMemo, useRef, useState } from "react";
-import type { FloorPlan } from "@/lib/floorPlanEngine";
+import type { FloorPlan, PlanRoom } from "@/lib/floorPlanEngine";
 import { FurnitureLayer } from "./FurnitureLayer";
+import { PLAN_MATERIALS as M } from "@/lib/planPresentation";
 import { cn } from "@/lib/utils";
 
 // ============================================================================
-// PLAN 2D STYLE « DESSIN D'ARCHITECTE »
-// Poché des murs (double trait fusionné), trame millimétrée légère, chaînes de
-// cotes avec traits obliques, portes à vantail + arc, fenêtres triple trait,
-// rose des vents et étiquettes pièces NOM + surface + dimensions.
+// PLAN 2D STYLE « MAQUETTE D'ARCHITECTE »
+// Même identité graphique que la vue 3D et la feuille de présentation :
+// sols bois clair / pierre / béton, murs blancs à double trait, mobilier
+// matériel, étiquettes pièces lisibles, enseigne verte « ENTRÉE PRINCIPALE »
+// au-dessus de la porte d'entrée (avec habillage bois) et signalétique rouge
+// « SORTIE DE SECOURS » avec cheminement vers l'extérieur.
 // Sélection de pièces : clic/tap → onSelectRoom (synchro 2D ↔ 3D) ; la pièce
 // sélectionnée est surlignée. Perçage des murs élargi pour des ouvertures
 // propres (pas de chevauchement poché/ouverture).
 // ============================================================================
 
-const INK = "#1c1917"; // trait d'encre (murs, cotes)
-const PAPER = "#fdfdfb"; // fond papier
-const GRID = "#e7e5e4"; // trame
-const DIMC = "#78716c"; // cotes
-const SEL = "#7c3aed"; // sélection
-const EXIT = "#b91c1c"; // sortie de secours
+const INK = M.ink; // trait d'encre (murs, cotes)
+const PAPER = M.paper; // fond papier
+const DIMC = M.muted; // cotes
+const SEL = M.selection; // sélection
+const EXIT = M.exit; // sortie de secours
+const ENTRY = M.entry; // entrée principale
 
 /** Bornes du zoom du plan 2D : jamais plus petit que le plan entier, jamais
  *  au-delà de 3× (au-delà, les cotes deviennent illisibles et le plan se
@@ -28,40 +31,24 @@ export const PLAN_ZOOM_MIN = 1;
 export const PLAN_ZOOM_MAX = 3;
 export const PLAN_ZOOM_STEP = 0.25;
 
-/** Teintes très légères par nature de pièce (remplissage ~14 %). */
-const ROOM_TINT: Record<string, string> = {
-  sejour: "#f59e0b",
-  cuisine: "#ef4444",
-  chambre: "#3b82f6",
-  sdb: "#06b6d4",
-  wc: "#6366f1",
-  couloir: "#a1a1aa",
-  escalier: "#c026d3",
-  bureau: "#22c55e",
-  garage: "#6b7280",
-  reception: "#ca8a04",
-  openspace: "#10b981",
-  reunion: "#ec4899",
-  sanitaire: "#06b6d4",
-  hall: "#a1a1aa",
-  stockage: "#f97316",
-  logistique: "#ea580c",
-  vestiaire: "#8b5cf6",
-  polyvalent: "#94a3b8",
-  patio: "#84cc16",
-  buanderie: "#64748b",
-  vente: "#f59e0b",
-  salle_cafe: "#f59e0b",
-  salle_client: "#f59e0b",
-  comptoir: "#d97706",
-  cuisine_pro: "#ef4444",
-  plonge: "#06b6d4",
-  chambre_froide: "#0ea5e9",
-  attente: "#a855f7",
-  terrasse: "#84cc16",
-  bassin: "#0ea5e9",
-  local_technique: "#78716c",
-};
+/**
+ * Matière du sol par nature de pièce : parquet chêne clair partout où l'on vit,
+ * pierre claire dans les pièces d'eau, béton pour les annexes et terrasses,
+ * pelouse pour les extérieurs non couverts, eau pour le bassin. Même palette
+ * que le rendu 3D : un plan et sa maquette restent visuellement identiques.
+ */
+type FloorKind = "oak" | "stone" | "concrete" | "grass" | "water";
+
+const STONE_KINDS = new Set(["sdb", "wc", "sanitaire", "plonge", "buanderie", "chambre_froide"]);
+const CONCRETE_KINDS = new Set(["garage", "local_technique", "terrasse", "logistique"]);
+
+export function roomFloorKind(room: PlanRoom): FloorKind {
+  if (room.kind === "bassin") return "water";
+  if (room.exterior || room.kind === "patio") return "grass";
+  if (STONE_KINDS.has(room.kind)) return "stone";
+  if (CONCRETE_KINDS.has(room.kind)) return "concrete";
+  return "oak";
+}
 
 export interface FloorPlan2DProps {
   plan: FloorPlan;
@@ -87,7 +74,25 @@ export function FloorPlan2D({
   className,
 }: FloorPlan2DProps) {
   const clipId = useId();
-  const gridId = useId();
+  const oakId = useId();
+  const stoneId = useId();
+  const concreteId = useId();
+  const grassId = useId();
+  const shadowId = useId();
+  const floorUrl = (room: PlanRoom) => {
+    switch (roomFloorKind(room)) {
+      case "stone":
+        return `url(#${stoneId})`;
+      case "concrete":
+        return `url(#${concreteId})`;
+      case "grass":
+        return `url(#${grassId})`;
+      case "water":
+        return "#BAE0EF";
+      default:
+        return `url(#${oakId})`;
+    }
+  };
   const svgRef = useRef<SVGSVGElement>(null);
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
@@ -233,13 +238,49 @@ export function FloorPlan2D({
     >
       {/* ── Papier + emprise ── */}
       <rect x={-PAD / 2} y={-PAD / 2} width={W + PAD} height={H + PAD} rx={3} fill={PAPER} />
+      <defs>
+        {/* Parquet chêne : lames larges, veinage discret. */}
+        <pattern id={oakId} width={S * 1.5} height={S * 0.22} patternUnits="userSpaceOnUse">
+          <rect width={S * 1.5} height={S * 0.22} fill={M.oak} />
+          <path
+            d={`M 0 ${S * 0.11} H ${S * 1.5} M ${S * 0.75} 0 V ${S * 0.22}`}
+            stroke={M.oakDark}
+            strokeWidth={0.45}
+            opacity={0.45}
+            fill="none"
+          />
+          <path d={`M 0 ${S * 0.05} H ${S * 1.5}`} stroke={M.oakLight} strokeWidth={0.9} opacity={0.55} />
+        </pattern>
+        {/* Pierre claire : carrelage 40 cm, joints fins. */}
+        <pattern id={stoneId} width={S * 0.8} height={S * 0.8} patternUnits="userSpaceOnUse">
+          <rect width={S * 0.8} height={S * 0.8} fill={M.stone} />
+          <path d={`M 0 0 H ${S * 0.8} V ${S * 0.8}`} stroke={M.stoneEdge} strokeWidth={0.6} fill="none" />
+        </pattern>
+        {/* Béton : dalle mate. */}
+        <pattern id={concreteId} width={S} height={S} patternUnits="userSpaceOnUse">
+          <rect width={S} height={S} fill={M.concrete} />
+          <circle cx={S * 0.28} cy={S * 0.34} r={0.55} fill="#C7C2B7" opacity={0.5} />
+          <circle cx={S * 0.72} cy={S * 0.61} r={0.45} fill="#E2DED5" opacity={0.6} />
+        </pattern>
+        {/* Pelouse : extérieurs non couverts. */}
+        <pattern id={grassId} width={S * 0.5} height={S * 0.5} patternUnits="userSpaceOnUse">
+          <rect width={S * 0.5} height={S * 0.5} fill={M.grass} opacity={0.55} />
+          <path
+            d={`M ${S * 0.14} ${S * 0.4} q 1 -3 2 0 M ${S * 0.36} ${S * 0.22} q 1 -3 2 0`}
+            stroke="#8CA36F"
+            strokeWidth={0.6}
+            fill="none"
+            opacity={0.6}
+          />
+        </pattern>
+        <filter id={shadowId} x="-18%" y="-18%" width="136%" height="136%">
+          <feDropShadow dx="0.5" dy="0.9" stdDeviation="0.11" floodColor={M.ink} floodOpacity="0.2" />
+        </filter>
+      </defs>
       <clipPath id={clipId}>
         <rect x={0} y={0} width={W} height={H} />
       </clipPath>
-      <pattern id={gridId} width={S} height={S} patternUnits="userSpaceOnUse">
-        <path d={`M ${S} 0 L 0 0 0 ${S}`} fill="none" stroke={GRID} strokeWidth={0.6} />
-      </pattern>
-      <rect x={0} y={0} width={W} height={H} fill={`url(#${gridId})`} />
+      <rect x={0} y={0} width={W} height={H} fill={PAPER} />
 
       {/* ── Passe 1 : remplissages de pièces (teinte légère) ── */}
       <g clipPath={`url(#${clipId})`}>
@@ -250,14 +291,7 @@ export function FloorPlan2D({
             y={r.y * S}
             width={r.w * S}
             height={r.h * S}
-            fill={
-              r.kind === "bassin"
-                ? "#bae6fd"
-                : r.exterior
-                  ? ROOM_TINT.patio
-                  : ROOM_TINT[r.kind] ?? ROOM_TINT.polyvalent
-            }
-            opacity={r.kind === "bassin" ? 0.9 : r.exterior ? 0.24 : 0.13}
+            fill={floorUrl(r)}
           />
         ))}
         {/* Bassin : lignes d'eau (lecture immédiate du plan de piscine) */}
@@ -314,36 +348,94 @@ export function FloorPlan2D({
       </g>
 
       {/* ── Passe 1b : aménagement intérieur (mobilier) ── */}
-      <g clipPath={`url(#${clipId})`}>
+      <g clipPath={`url(#${clipId})`} filter={`url(#${shadowId})`}>
         <FurnitureLayer plan={plan} S={S} />
       </g>
 
-      {/* ── Passe 2 : poché des murs (traits fusionnés) ── */}
+      {/* ── Passe 2 : murs blancs pochés, trait d'encre sur chaque face ── */}
       <g clipPath={`url(#${clipId})`}>
-        {rooms.map((r) => (
-          <rect
-            key={`w-${r.id}`}
-            x={r.x * S}
-            y={r.y * S}
-            width={r.w * S}
-            height={r.h * S}
-            fill="none"
-            stroke={r.kind === "bassin" ? "#0284c7" : r.exterior ? "#4d7c0f" : INK}
-            strokeWidth={r.kind === "bassin" ? 1.6 : r.exterior ? 1.1 : INT}
-            strokeDasharray={r.kind === "bassin" ? undefined : r.exterior ? "4 3" : undefined}
-          />
-        ))}
+        {rooms.map((r) => {
+          if (r.kind === "bassin") {
+            return (
+              <rect
+                key={`w-${r.id}`}
+                x={r.x * S}
+                y={r.y * S}
+                width={r.w * S}
+                height={r.h * S}
+                fill="none"
+                stroke="#0284c7"
+                strokeWidth={1.6}
+              />
+            );
+          }
+          if (r.exterior) {
+            return (
+              <rect
+                key={`w-${r.id}`}
+                x={r.x * S}
+                y={r.y * S}
+                width={r.w * S}
+                height={r.h * S}
+                fill="none"
+                stroke="#7F9268"
+                strokeWidth={1.1}
+                strokeDasharray="4 3"
+              />
+            );
+          }
+          const band = INT;
+          return (
+            <g key={`w-${r.id}`}>
+              <rect
+                x={r.x * S}
+                y={r.y * S}
+                width={r.w * S}
+                height={r.h * S}
+                fill="none"
+                stroke={M.wall}
+                strokeWidth={band + 1.4}
+              />
+              <rect
+                x={r.x * S + band / 2}
+                y={r.y * S + band / 2}
+                width={Math.max(0, r.w * S - band)}
+                height={Math.max(0, r.h * S - band)}
+                fill="none"
+                stroke={INK}
+                strokeWidth={0.85}
+              />
+            </g>
+          );
+        })}
       </g>
-      {/* Murs extérieurs plus épais (simple margelle pour un bassin) */}
-      <rect
-        x={0}
-        y={0}
-        width={W}
-        height={H}
-        fill="none"
-        stroke={INK}
-        strokeWidth={plan.rooms.some((r) => r.kind === "bassin") ? 1.2 : EXT}
-      />
+      {/* Murs extérieurs : 20 cm, faces d'encre, aucun cadre parasite */}
+      {plan.rooms.some((r) => r.kind === "bassin") ? (
+        <rect x={0} y={0} width={W} height={H} fill="none" stroke={INK} strokeWidth={1.2} />
+      ) : (
+        <>
+          <rect
+            x={0}
+            y={0}
+            width={W}
+            height={H}
+            fill="none"
+            stroke={M.wall}
+            strokeWidth={EXT + 1.4}
+            clipPath={`url(#${clipId})`}
+          />
+          <rect
+            x={EXT / 2}
+            y={EXT / 2}
+            width={Math.max(0, W - EXT)}
+            height={Math.max(0, H - EXT)}
+            fill="none"
+            stroke={INK}
+            strokeWidth={0.95}
+          />
+          <rect x={0} y={0} width={W} height={H} fill="none" stroke={INK} strokeWidth={1.1} />
+        </>
+      )}
 
       {/* ── Passe 3 : ouvertures (percées dans le poché) ── */}
       <g clipPath={`url(#${clipId})`}>
@@ -433,17 +525,36 @@ export function FloorPlan2D({
                 fontSize={nameSize}
                 fontWeight={700}
                 letterSpacing={0.8}
-                fill="#292524"
+                fill={M.ink}
+                stroke={M.paper}
+                strokeWidth={2.2}
+                paintOrder="stroke"
               >
                 {r.label.toUpperCase()}
               </text>
               {big && (
                 <>
-                  <text x={cx} y={cy + nameSize + 4} fontSize={nameSize - 1.5} fill="#57534e">
+                  <text
+                    x={cx}
+                    y={cy + nameSize + 4}
+                    fontSize={nameSize - 1.5}
+                    fill="#4C443A"
+                    stroke={M.paper}
+                    strokeWidth={1.8}
+                    paintOrder="stroke"
+                  >
                     {r.area.toFixed(2)} m²
                   </text>
                   {(r.w * S > 86 && r.h * S > 52) && (
-                    <text x={cx} y={cy + nameSize + 15} fontSize={nameSize - 2.5} fill="#79716b">
+                    <text
+                      x={cx}
+                      y={cy + nameSize + 15}
+                      fontSize={nameSize - 2.5}
+                      fill={M.muted}
+                      stroke={M.paper}
+                      strokeWidth={1.6}
+                      paintOrder="stroke"
+                    >
                       {r.w.toFixed(2)} × {r.h.toFixed(2)} m
                     </text>
                   )}
@@ -465,7 +576,92 @@ export function FloorPlan2D({
       {/* ── Rose des vents ── */}
       <NorthArrow cx={W + PAD * 0.55} cy={-PAD * 0.45} r={11} />
 
-      {/* Sortie de secours : ouverture repérée près de son mur extérieur */}
+      {/* ── Entrée principale : habillage bois + enseigne verte ── */}
+      {rooms.map((r) =>
+        r.doors.filter((d) => d.isEntry).map((d, i) => {
+          const horizontal = d.wall === "N" || d.wall === "S";
+          const cx = horizontal
+            ? (r.x + d.position + d.width / 2) * S
+            : (d.wall === "W" ? r.x : r.x + r.w) * S;
+          const cy = horizontal
+            ? (d.wall === "N" ? r.y : r.y + r.h) * S
+            : (r.y + d.position + d.width / 2) * S;
+          const outward = d.wall === "N" || d.wall === "W" ? -1 : 1;
+          const doorHalf = (d.width * S) / 2 + 4;
+          // Pergola bois : lames parallèles juste devant la porte, jamais sur
+          // une circulation technique ni une porte de secours.
+          const slats = 5;
+          const wood = (
+            <g>
+              <rect
+                x={horizontal ? cx - doorHalf : cx + outward * 2}
+                y={horizontal ? cy + outward * 2 : cy - doorHalf}
+                width={horizontal ? doorHalf * 2 : 6}
+                height={horizontal ? 6 : doorHalf * 2}
+                rx={1}
+                fill={M.wood}
+              />
+              {Array.from({ length: slats }, (_, k) => {
+                const t = (k + 0.5) / slats;
+                return horizontal ? (
+                  <line
+                    key={k}
+                    x1={cx - doorHalf + doorHalf * 2 * t}
+                    y1={cy + outward * 2.4}
+                    x2={cx - doorHalf + doorHalf * 2 * t}
+                    y2={cy + outward * 7.6}
+                    stroke={M.woodDark}
+                    strokeWidth={0.6}
+                  />
+                ) : (
+                  <line
+                    key={k}
+                    x1={cx + outward * 2.4}
+                    y1={cy - doorHalf + doorHalf * 2 * t}
+                    x2={cx + outward * 7.6}
+                    y2={cy - doorHalf + doorHalf * 2 * t}
+                    stroke={M.woodDark}
+                    strokeWidth={0.6}
+                  />
+                );
+              })}
+            </g>
+          );
+          // Enseigne posée à l'extérieur, au-delà des chaînes de cotes.
+          const signX = horizontal ? cx : cx + outward * 34;
+          const signY = horizontal ? cy + outward * 34 : cy;
+          return (
+            <g key={`e-${r.id}-${i}`} pointerEvents="none">
+              {wood}
+              <g transform={horizontal ? undefined : `rotate(-90 ${signX} ${signY})`}>
+                <rect
+                  x={signX - 42}
+                  y={signY - 7}
+                  width={84}
+                  height={14}
+                  rx={2.6}
+                  fill={ENTRY}
+                  stroke="#FFFFFF"
+                  strokeWidth={0.7}
+                />
+                <text
+                  x={signX}
+                  y={signY + 2.3}
+                  textAnchor="middle"
+                  fontSize={6.3}
+                  fontWeight={700}
+                  letterSpacing={0.5}
+                  fill="#FFFFFF"
+                >
+                  ENTRÉE PRINCIPALE
+                </text>
+              </g>
+            </g>
+          );
+        }),
+      )}
+
+      {/* ── Sortie de secours : signalétique rouge + cheminement extérieur ── */}
       {rooms.map((r) =>
         r.doors.filter((d) => d.isEmergency).map((d, i) => {
           const horizontal = d.wall === "N" || d.wall === "S";
@@ -475,52 +671,57 @@ export function FloorPlan2D({
           const cy = horizontal
             ? (d.wall === "N" ? r.y : r.y + r.h) * S
             : (r.y + d.position + d.width / 2) * S;
-          if (d.width * S < 16) return null;
-          const anchor = d.wall === "W" ? "end" : d.wall === "E" ? "start" : "middle";
-          const x = d.wall === "W" ? cx - 5 : d.wall === "E" ? cx + 5 : cx;
-          // Mention complète, sur deux lignes pour rester lisible le long du mur.
-          const firstY = d.wall === "N" ? cy - 15 : d.wall === "S" ? cy + 10 : cy - 1;
+          if (d.width * S < 14) return null;
+          const outward = d.wall === "N" || d.wall === "W" ? -1 : 1;
+          const signX = horizontal ? cx : cx + outward * 34;
+          const signY = horizontal ? cy + outward * 34 : cy;
+          // Cheminement continu vers l'extérieur : flèche depuis le seuil.
+          const fromX = horizontal ? cx : cx + outward * 4;
+          const fromY = horizontal ? cy + outward * 4 : cy;
+          const toX = horizontal ? cx : cx + outward * 19;
+          const toY = horizontal ? cy + outward * 19 : cy;
           return (
             <g key={`x-${r.id}-${i}`} pointerEvents="none">
-              <text
-                x={x}
-                y={firstY}
-                textAnchor={anchor}
-                fontSize={6.5}
-                fontWeight={700}
-                letterSpacing={0.6}
+              <line
+                x1={fromX}
+                y1={fromY}
+                x2={toX}
+                y2={toY}
+                stroke={EXIT}
+                strokeWidth={1.4}
+                strokeDasharray="3 2"
+              />
+              <path
+                d={
+                  horizontal
+                    ? `M ${toX} ${toY} l -2.6 ${outward * -4.4} l 5.2 0 z`
+                    : `M ${toX} ${toY} l ${outward * -4.4} -2.6 l 0 5.2 z`
+                }
                 fill={EXIT}
-              >
-                SORTIE DE
-              </text>
-              <text
-                x={x}
-                y={firstY + 8}
-                textAnchor={anchor}
-                fontSize={6.5}
-                fontWeight={700}
-                letterSpacing={0.6}
-                fill={EXIT}
-              >
-                SECOURS
-              </text>
-            </g>
-          );
-        }),
-      )}
-
-      {/* Flèche d'entrée : sous la première porte isEntry trouvée */}
-      {rooms.map((r) =>
-        r.doors.filter((d) => d.isEntry).map((d, i) => {
-          const ex = (d.wall === "N" || d.wall === "S" ? r.x + d.position + d.width / 2 : d.wall === "W" ? r.x : r.x + r.w) * S;
-          const ey = (d.wall === "N" ? r.y : d.wall === "S" ? r.y + r.h : r.y + d.position + d.width / 2) * S;
-          return (
-            <g key={`e-${r.id}-${i}`}>
-              <line x1={ex} y1={ey + 16} x2={ex} y2={ey + 5} stroke={INK} strokeWidth={1.2} />
-              <path d={`M ${ex} ${ey + 3} l -3 6 l 6 0 z`} fill={INK} />
-              <text x={ex} y={ey + 26} textAnchor="middle" fontSize={7.5} fontWeight={600} letterSpacing={1} fill={DIMC}>
-                ENTRÉE
-              </text>
+              />
+              <g transform={horizontal ? undefined : `rotate(-90 ${signX} ${signY})`}>
+                <rect
+                  x={signX - 42}
+                  y={signY - 7}
+                  width={84}
+                  height={14}
+                  rx={2.6}
+                  fill={EXIT}
+                  stroke="#FFFFFF"
+                  strokeWidth={0.7}
+                />
+                <text
+                  x={signX}
+                  y={signY + 2.3}
+                  textAnchor="middle"
+                  fontSize={6.3}
+                  fontWeight={700}
+                  letterSpacing={0.5}
+                  fill="#FFFFFF"
+                >
+                  SORTIE DE SECOURS
+                </text>
+              </g>
             </g>
           );
         }),

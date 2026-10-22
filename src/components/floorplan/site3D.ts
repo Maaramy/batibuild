@@ -33,6 +33,38 @@ export function buildSiteScene(
   // Aucune limite de parcelle filaire : le jardin s'arrête naturellement sur
   // le sol, sans trait sombre autour de la maquette.
 
+  // ── Végétation de parcelle (maquette) ──────────────────────────────────
+  // Quelques arbres aux angles du jardin, jamais dans l'emprise bâtie. Ils
+  // donnent l'échelle et le rendu « maquette paysagée » de la référence.
+  const trunkMat = track(new THREE.MeshStandardMaterial({ color: 0x8a6a48, roughness: 0.95 }));
+  const leafMat = track(new THREE.MeshStandardMaterial({ color: 0x7f9a63, roughness: 0.95 }));
+  const leafLightMat = track(new THREE.MeshStandardMaterial({ color: 0x94ad78, roughness: 0.95 }));
+  for (const [tx, ty] of [
+    [0.08, 0.1],
+    [0.92, 0.14],
+    [0.1, 0.9],
+    [0.9, 0.86],
+  ]) {
+    const wx = tx * site.plot.length;
+    const wy = ty * site.plot.width;
+    const insideBuilding =
+      wx > b.x - 0.8 && wx < b.x + b.w + 0.8 && wy > b.y - 0.8 && wy < b.y + b.h + 0.8;
+    if (insideBuilding) continue;
+    const { x, z } = local(wx, wy);
+    const trunk = new THREE.Mesh(track(new THREE.CylinderGeometry(0.1, 0.14, 1.4, 8)), trunkMat);
+    trunk.position.set(x, 0.62, z);
+    trunk.castShadow = shadows;
+    group.add(trunk);
+    const crown = new THREE.Mesh(track(new THREE.IcosahedronGeometry(0.95, 1)), leafMat);
+    crown.position.set(x, 1.85, z);
+    crown.castShadow = shadows;
+    group.add(crown);
+    const crown2 = new THREE.Mesh(track(new THREE.IcosahedronGeometry(0.62, 1)), leafLightMat);
+    crown2.position.set(x - 0.45, 2.25, z + 0.3);
+    crown2.castShadow = shadows;
+    group.add(crown2);
+  }
+
   // ── Patios : espaces extérieurs intégrés au volume ───────────────────────
   for (const patio of site.patios ?? []) {
     const c = local(patio.x + patio.w / 2, patio.y + patio.h / 2);

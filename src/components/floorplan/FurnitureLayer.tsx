@@ -3,16 +3,17 @@ import { roomFurniture, type MatTag, type Prim } from "@/lib/furniture";
 
 // ============================================================================
 // CALQUE MOBILIER (SVG) — rendu du mobilier généré par lib/furniture.ts
-// Style « dessin d'architecte » : remplissages très clairs + traits fins encre.
+// Style « maquette d'architecte » : bois de chêne, textiles lin, appareils
+// blancs et inox, traits fins. Même palette que les meubles de la vue 3D.
 // ============================================================================
 
-const INK_F = "#44403c";
+const INK_F = "#6B5B47";
 
 const MAT_FILL: Record<MatTag, string> = {
-  wood: "#faf3e2",
-  fabric: "#eef2fb",
-  white: "#ffffff",
-  metal: "#eef1f4",
+  wood: "#D9B183",
+  fabric: "#E9E0CD",
+  white: "#FDFCF9",
+  metal: "#D5DBDE",
 };
 
 export function FurnitureLayer({ plan, S }: { plan: FloorPlan; S: number }) {

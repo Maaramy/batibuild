@@ -56,13 +56,13 @@ import {
   repairFloorPlan,
   VARIANTS_PER_PROJECT,
 } from "@/lib/floorPlanEngine";
-import type { FloorPlan, FloorPlanVariant } from "@/lib/floorPlanEngine";
-import {
+import type { FloorPlan, FloorPlanVariant } from "@/lib/floorPlanEngine";import {
   FloorPlan2D,
   PLAN_ZOOM_MAX,
   PLAN_ZOOM_MIN,
   PLAN_ZOOM_STEP,
 } from "@/components/floorplan/FloorPlan2D";
+import { PlanSheet } from "@/components/floorplan/PlanSheet";
 import { PlanZoomButtons } from "@/components/floorplan/PlanZoomButtons";
 import { FloorPlan3D } from "@/components/floorplan/FloorPlan3D";
 import { SiteLegend, SitePlan2D } from "@/components/floorplan/SitePlan2D";
@@ -425,13 +425,16 @@ export default function PlanGenerator() {
             </Card>
 
             {/* ── Grille des variantes ── */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            {/* Une variante par ligne : le plan garde un grand format et le
+                panneau d'information reste à sa droite sur ordinateur. */}
+            <div className="grid grid-cols-1 gap-5">
               {variants.map((variant, i) => (
                 <VariantCard
                   key={variant.id}
                   variant={variant}
                   index={i}
                   projectName={project.name}
+                  category={project.category as string}
                   allow3D={allow3D}
                   isReference={selectedPlanId === variant.id}
                   selecting={savingPlanId === variant.id}
@@ -534,6 +537,7 @@ function VariantCard({
   variant,
   index,
   projectName,
+  category,
   allow3D = false,
   isReference = false,
   selecting = false,
@@ -543,6 +547,8 @@ function VariantCard({
   variant: FloorPlanVariant;
   index: number;
   projectName: string;
+  /** Type de projet : pilote le panneau d'information et la légende. */
+  category?: string;
   /** Vue 3D autorisée pour ce type de projet (RDC uniquement). */
   allow3D?: boolean;
   isReference?: boolean;
@@ -674,145 +680,151 @@ function VariantCard({
         </CardHeader>
 
         <CardContent className="px-4 space-y-3">
-          {/* Sélecteur de vue + niveau */}
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <Tabs value={view} onValueChange={(val) => setView(val as "2d" | "mass" | "3d")}>
-              <TabsList className="h-7">
-                <TabsTrigger value="2d" className="text-[11px] h-6 px-2.5">Plan 2D</TabsTrigger>
-                <TabsTrigger value="mass" className="text-[11px] h-6 px-2.5 gap-1">
-                  <MapIcon className="h-3 w-3" /> Plan de masse
-                </TabsTrigger>
-                {allow3D && floor.level === 0 && (
-                  <TabsTrigger value="3d" className="text-[11px] h-6 px-2.5">Vue 3D</TabsTrigger>
+          {/* Feuille de présentation commune : plan à gauche, panneau
+              d'information à droite (sous le plan sur mobile). */}
+          <PlanSheet
+            plan={floor}
+            category={category}
+            projectName={projectName}
+            variantName={variant.name}
+            showThumbnail={allow3D}
+            viewSwitch={
+              <Tabs value={view} onValueChange={(val) => setView(val as "2d" | "mass" | "3d")}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="2d" className="h-7 px-2.5 text-[11px]">
+                    Plan 2D
+                  </TabsTrigger>
+                  <TabsTrigger value="mass" className="h-7 gap-1 px-2.5 text-[11px]">
+                    <MapIcon className="h-3 w-3" /> Plan de masse
+                  </TabsTrigger>
+                  {allow3D && floor.level === 0 && (
+                    <TabsTrigger value="3d" className="h-7 px-2.5 text-[11px]">
+                      Vue 3D
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+              </Tabs>
+            }
+            levelSwitch={
+              variant.floors.length > 1 ? (
+                <div className="flex items-center gap-1">
+                  {variant.floors.map((f) => (
+                    <button
+                      key={f.level}
+                      onClick={() => {
+                        setFloorIdx(f.level);
+                        // Nouveau niveau = plan entier : jamais un cadrage
+                        // hérité du niveau précédent.
+                        setZoom2d(1);
+                        setZoom3d(null);
+                        // Aucune vue 3D pour les niveaux R+1 et supérieurs :
+                        // l'étage s'affiche en plan 2D.
+                        if (f.level !== 0 && view === "3d") setView("2d");
+                      }}
+                      aria-pressed={f.level === floorIdx}
+                      className={cn(
+                        "h-7 rounded-md border px-2 text-[10px] font-medium transition-colors cursor-pointer",
+                        f.level === floorIdx
+                          ? "border-transparent bg-[#23201C] text-white"
+                          : "border-[#DCD2BF] bg-white/70 text-[#6E6559] hover:border-[#B07A45] hover:text-[#23201C]",
+                      )}
+                    >
+                      {f.level === 0 ? "RDC" : `R+${f.level}`}
+                    </button>
+                  ))}
+                </div>
+              ) : undefined
+            }
+            controls={
+              view !== "mass" ? (
+                <PlanZoomButtons
+                  canZoomIn={is3D || zoom2d < PLAN_ZOOM_MAX}
+                  canZoomOut={is3D || zoom2d > PLAN_ZOOM_MIN}
+                  onZoomIn={() => {
+                    if (is3D) request3dZoom("in");
+                    else
+                      setZoom2d((z) =>
+                        Math.min(PLAN_ZOOM_MAX, Math.round((z + PLAN_ZOOM_STEP) * 100) / 100),
+                      );
+                  }}
+                  onZoomOut={() => {
+                    if (is3D) request3dZoom("out");
+                    else
+                      setZoom2d((z) =>
+                        Math.max(PLAN_ZOOM_MIN, Math.round((z - PLAN_ZOOM_STEP) * 100) / 100),
+                      );
+                  }}
+                  onReset={() => {
+                    if (is3D) request3dZoom("fit");
+                    else setZoom2d(1);
+                  }}
+                  resetLabel={is3D ? "Recadrer la vue 3D" : "Afficher le plan entier"}
+                />
+              ) : undefined
+            }
+          >
+            {view === "mass" ? (
+              <div className="space-y-2 p-2">
+                <div className="rounded-md border bg-white p-1 shadow-sm">
+                  <SitePlan2D site={variant.site} />
+                </div>
+                <SiteLegend site={variant.site} />
+                <div className="grid grid-cols-3 gap-1.5 text-center">
+                  <div className="rounded-md border bg-[#FBF9F5] px-2 py-1.5">
+                    <p className="text-[9px] uppercase tracking-wide text-[#6E6559]">Parcelle</p>
+                    <p className="text-xs font-semibold tabular-nums">{variant.site.plot.area.toFixed(0)} m²</p>
+                  </div>
+                  <div className="rounded-md border bg-[#FBF9F5] px-2 py-1.5">
+                    <p className="text-[9px] uppercase tracking-wide text-[#6E6559]">Bâti au sol</p>
+                    <p className="text-xs font-semibold tabular-nums">{variant.surfaces.groundBuilt.toFixed(0)} m²</p>
+                  </div>
+                  <div className="rounded-md border bg-[#FBF9F5] px-2 py-1.5">
+                    <p className="text-[9px] uppercase tracking-wide text-[#6E6559]">Jardin</p>
+                    <p className="text-xs font-semibold tabular-nums">{variant.surfaces.garden.toFixed(0)} m²</p>
+                  </div>
+                </div>
+                <p className="flex items-start gap-1.5 text-[10px] leading-relaxed text-[#6E6559]">
+                  <Compass className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>{variant.site.orientationLabel}.</span>
+                </p>
+                {variant.site.constraints.length > 0 && (
+                  <div className="space-y-1 rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-2.5 py-2">
+                    <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                      Contraintes de parcelle
+                    </p>
+                    <ul className="list-disc space-y-0.5 pl-4 text-[10px] leading-relaxed text-amber-800/90 dark:text-amber-200/80">
+                      {variant.site.constraints.map((c) => (
+                        <li key={c}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
-              </TabsList>
-            </Tabs>
-            {variant.floors.length > 1 && (
-              <div className="flex items-center gap-1">
-                {variant.floors.map((f) => (
-                  <button
-                    key={f.level}
-                    onClick={() => {
-                      setFloorIdx(f.level);
-                      // Nouveau niveau = plan entier : jamais un cadrage
-                      // hérité du niveau précédent.
-                      setZoom2d(1);
-                      setZoom3d(null);
-                      // Aucune vue 3D pour les niveaux R+1 et supérieurs :
-                      // l'étage s'affiche en plan 2D.
-                      if (f.level !== 0 && view === "3d") setView("2d");
-                    }}
-                    className={cn(
-                      "h-6 px-2 rounded-md text-[10px] font-medium border transition-colors cursor-pointer",
-                      f.level === floorIdx
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background text-muted-foreground border-border hover:border-primary/40",
-                    )}
-                  >
-                    {f.level === 0 ? "RDC" : `R+${f.level}`}
-                  </button>
-                ))}
               </div>
-            )}
-          </div>
-
-          {/* Barre d'outils du plan : aide gestuelle à gauche, zoom à droite
-              (mêmes boutons ronds que les plans de plomberie / électricité). */}
-          {view !== "mass" && (
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] leading-snug text-muted-foreground">
-                {!is3D
-                  ? "Glissez ou pincez le plan · boutons pour zoomer"
-                  : "Faites tourner la maquette · pincez ou boutons pour zoomer"}
-              </p>
-              <PlanZoomButtons
-                canZoomIn={is3D || zoom2d < PLAN_ZOOM_MAX}
-                canZoomOut={is3D || zoom2d > PLAN_ZOOM_MIN}
-                onZoomIn={() => {
-                  if (is3D) request3dZoom("in");
-                  else
-                    setZoom2d((z) =>
-                      Math.min(PLAN_ZOOM_MAX, Math.round((z + PLAN_ZOOM_STEP) * 100) / 100),
-                    );
-                }}
-                onZoomOut={() => {
-                  if (is3D) request3dZoom("out");
-                  else
-                    setZoom2d((z) =>
-                      Math.max(PLAN_ZOOM_MIN, Math.round((z - PLAN_ZOOM_STEP) * 100) / 100),
-                    );
-                }}
-                onReset={() => {
-                  if (is3D) request3dZoom("fit");
-                  else setZoom2d(1);
-                }}
-                resetLabel={is3D ? "Recadrer la vue 3D" : "Afficher le plan entier"}
-              />
-            </div>
-          )}
-
-          {/* Plan 2D, plan de masse ou 3D — sélection de pièce synchronisée */}
-          {view === "mass" ? (
-            <div className="space-y-2">
-              <div className="rounded-md border bg-white p-1 shadow-sm">
-                <SitePlan2D site={variant.site} />
+            ) : !is3D ? (
+              // Le plan reste dans sa carte : le clic sur une pièce sélectionne
+              // la pièce (synchro 2D ↔ 3D) et n'ouvre plus aucun plein écran.
+              <div className="relative">
+                <FloorPlan2D
+                  // Un nouveau niveau repart d'un plan entier (aucun
+                  // déplacement hérité du niveau précédent).
+                  key={`${variant.id}-${floor.level}`}
+                  plan={floor}
+                  selectedRoomId={selectedRoomId}
+                  onSelectRoom={setSelectedRoomId}
+                  zoom={zoom2d}
+                  onZoomChange={setZoom2d}
+                />
               </div>
-              <SiteLegend site={variant.site} />
-              <div className="grid grid-cols-3 gap-1.5 text-center">
-                <div className="rounded-md border bg-background/70 px-2 py-1.5">
-                  <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Parcelle</p>
-                  <p className="text-xs font-semibold tabular-nums">{variant.site.plot.area.toFixed(0)} m²</p>
-                </div>
-                <div className="rounded-md border bg-background/70 px-2 py-1.5">
-                  <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Bâti au sol</p>
-                  <p className="text-xs font-semibold tabular-nums">{variant.surfaces.groundBuilt.toFixed(0)} m²</p>
-                </div>
-                <div className="rounded-md border bg-background/70 px-2 py-1.5">
-                  <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Jardin</p>
-                  <p className="text-xs font-semibold tabular-nums">{variant.surfaces.garden.toFixed(0)} m²</p>
-                </div>
-              </div>
-              <p className="text-[10px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
-                <Compass className="h-3 w-3 mt-0.5 shrink-0" />
-                <span>{variant.site.orientationLabel}.</span>
-              </p>
-              {variant.site.constraints.length > 0 && (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-2.5 py-2 space-y-1">
-                  <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">
-                    Contraintes de parcelle
-                  </p>
-                  <ul className="list-disc pl-4 space-y-0.5 text-[10px] leading-relaxed text-amber-800/90 dark:text-amber-200/80">
-                    {variant.site.constraints.map((c) => (
-                      <li key={c}>{c}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          ) : !is3D ? (
-            // Le plan reste dans sa carte : le clic sur une pièce sélectionne
-            // la pièce (synchro 2D ↔ 3D) et n'ouvre plus aucun plein écran.
-            <div className="relative">
-              <FloorPlan2D
-                // Un nouveau niveau repart d'un plan entier (aucun
-                // déplacement hérité du niveau précédent).
-                key={`${variant.id}-${floor.level}`}
+            ) : (
+              <FloorPlan3D
                 plan={floor}
+                site={variant.site}
                 selectedRoomId={selectedRoomId}
                 onSelectRoom={setSelectedRoomId}
-                zoom={zoom2d}
-                onZoomChange={setZoom2d}
+                zoomAction={zoom3d}
               />
-            </div>
-          ) : (
-            <FloorPlan3D
-              plan={floor}
-              site={variant.site}
-              selectedRoomId={selectedRoomId}
-              onSelectRoom={setSelectedRoomId}
-              zoomAction={zoom3d}
-            />
-          )}
+            )}
+          </PlanSheet>
 
           {/* Info pièce sélectionnée (synchro 2D ↔ 3D) — masquée en plan de masse */}
           {view !== "mass" && selectedRoom && (

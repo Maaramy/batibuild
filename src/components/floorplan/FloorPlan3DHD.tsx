@@ -52,29 +52,31 @@ export type QualityLevel = "high" | "medium" | "low";
 /** Mode visuel : sobre architectural ou détaillé réaliste. */
 export type RenderStyle = "architectural" | "realistic";
 
+// Palette maquette : chêne clair, lin, appareils blancs, inox brossé. Même
+// famille de matières que le plan 2D et la vignette de présentation.
 const FURN_COLORS_3D: Record<MatTag, number> = {
-  wood: 0xc8a06a,
-  fabric: 0x8ea3c8,
-  white: 0xf2f2ee,
-  metal: 0xb9c2cc,
+  wood: 0xd9b183,
+  fabric: 0xe9e0cd,
+  white: 0xfaf8f3,
+  metal: 0xc9d1d6,
 };
 
-const ROOM_COLORS_3D: Record<RoomKind, number> = {
-  sejour: 0xf5d9a8, cuisine: 0xf3b8b8, chambre: 0xb9d4f5,
-  sdb: 0xaee6f0, wc: 0xc7cbf5, couloir: 0xe4e4e0,
-  escalier: 0xecd3f2, bureau: 0xbfe8c5, garage: 0xd6d3cd,
-  reception: 0xf0e3ae, openspace: 0xbde6d4, reunion: 0xf2c9dd,
-  sanitaire: 0xaee6f0, hall: 0xe4e4e0, stockage: 0xf6d6b8,
-  logistique: 0xf6dcc2, vestiaire: 0xd8cdf5,
-  salle_client: 0xf6e6a0, salle_cafe: 0xf6e6a0, comptoir: 0xf5c890, cuisine_pro: 0xf3b8b8,
-  plonge: 0xaee6f0, chambre_froide: 0xbde6f0, terrasse: 0xc8e8b8,  attente: 0xe0d0f0,
-  polyvalent: 0xdfe3e8,
-  patio: 0xc8e8b8,
-  buanderie: 0xdde3ea,
-  vente: 0xf7e0a0,
-  bassin: 0x5fc8f0,
-  local_technique: 0xd7dde5,
-};
+/** Nature du sol 3D : parquet chêne, pierre claire, béton ou pelouse. */
+type Floor3DKind = "oak" | "stone" | "concrete" | "grass";
+
+const STONE_KINDS_3D = new Set<RoomKind>([
+  "sdb", "wc", "sanitaire", "plonge", "buanderie", "chambre_froide",
+]);
+const CONCRETE_KINDS_3D = new Set<RoomKind>([
+  "garage", "local_technique", "terrasse", "logistique",
+]);
+
+function floorKind3D(room: { kind: RoomKind; exterior?: boolean }): Floor3DKind {
+  if (room.exterior || room.kind === "patio") return "grass";
+  if (STONE_KINDS_3D.has(room.kind)) return "stone";
+  if (CONCRETE_KINDS_3D.has(room.kind)) return "concrete";
+  return "oak";
+}
 
 // ── Détection de capacités (netteté vs performance) ─────────────────────────
 
@@ -361,15 +363,16 @@ export function FloorPlan3DHD({
     renderer.shadowMap.enabled = shadowsOn;
     if (shadowsOn) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    // Exposition légèrement relevée : blancs nets, aucune zone grise.
+    renderer.toneMappingExposure = 1.06;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(renderer.domElement);
     if (pm) setPerformanceMode(true);
 
     // ── Éclairage 3 points léger (pas de noir, pas de cramé) ───────────────
-    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    scene.add(new THREE.HemisphereLight(0xdfeaff, 0xb8b09a, 0.5));
-    const sun = new THREE.DirectionalLight(0xfff2dc, 1.55);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.62));
+    scene.add(new THREE.HemisphereLight(0xdfeaff, 0xb8b09a, 0.55));
+    const sun = new THREE.DirectionalLight(0xfff2dc, 1.6);
     sun.position.set(-L * 1.1, Math.max(L, W) * 1.4, W * 0.7);
     if (shadowsOn) {
       sun.castShadow = true;
@@ -481,6 +484,11 @@ export function FloorPlan3DHD({
     }
 
     const halfE = EXT_T / 2;
+    // Chant de coupe des murs (maquette « dollhouse ») : fine bande plus
+    // claire sur le dessus de chaque mur, sans modifier la hauteur utile.
+    const capMat = track(
+      new THREE.MeshStandardMaterial({ color: 0xefe9dd, roughness: 0.92 }),
+    );
     for (const side of isPoolPlan ? [] : sides) {
       const openings = mergeIntervals(side.openings.map((o) => ({ a: o.a, b: o.b }))).map((iv) => ({
         ...iv,
@@ -501,6 +509,13 @@ export function FloorPlan3DHD({
         else if (side.key === "S") pushBox(len, y1 - y0, EXT_T, mid, (y0 + y1) / 2, W - halfE, mat);
         else if (side.key === "W") pushBox(EXT_T, y1 - y0, len, halfE, (y0 + y1) / 2, mid, mat);
         else pushBox(EXT_T, y1 - y0, len, L - halfE, (y0 + y1) / 2, mid, mat);
+        if (Math.abs(y1 - WALL_H) < 1e-6) {
+          const capH = 0.05;
+          if (side.key === "N") pushBox(len + 0.02, capH, EXT_T + 0.02, mid, WALL_H + capH / 2, halfE, capMat);
+          else if (side.key === "S") pushBox(len + 0.02, capH, EXT_T + 0.02, mid, WALL_H + capH / 2, W - halfE, capMat);
+          else if (side.key === "W") pushBox(EXT_T + 0.02, capH, len + 0.02, halfE, WALL_H + capH / 2, mid, capMat);
+          else pushBox(EXT_T + 0.02, capH, len + 0.02, L - halfE, WALL_H + capH / 2, mid, capMat);
+        }
       };
 
       for (const piece of solidPieces) place(piece.a, piece.b, 0, WALL_H, wallMat);
@@ -571,6 +586,20 @@ export function FloorPlan3DHD({
       }
     }
 
+    // Chant de coupe des cloisons : lecture immédiate des murs blancs, comme
+    // sur la maquette de référence.
+    for (const seg of wallSegs) {
+      pushBox(
+        seg.size[0] + 0.02,
+        0.05,
+        seg.size[2] + 0.02,
+        seg.pos[0],
+        WALL_H + 0.025,
+        seg.pos[2],
+        capMat,
+      );
+    }
+
     const flushBatches = () => {
       for (const [mat, geos] of batches) {
         if (geos.length === 0) continue;
@@ -612,16 +641,42 @@ export function FloorPlan3DHD({
     }
 
     // ── Sols de pièces (1 mesh cliquable / pièce) ──────────────────────────
-    const floorMatCache = new Map<number, THREE.MeshStandardMaterial>();
+    // Matières identiques à la feuille de présentation : parquet chêne dans
+    // les espaces de vie, pierre claire dans les pièces d'eau, béton pour les
+    // annexes et terrasses, pelouse pour les extérieurs non couverts.
+    const floorTextures: Record<Floor3DKind, THREE.Texture> = {
+      oak: track(makePlankTexture()),
+      stone: track(makeStoneTexture()),
+      concrete: track(makeConcreteTexture()),
+      grass: track(makeGrassTexture()),
+    };
+    const floorMatCache = new Map<string, THREE.MeshStandardMaterial>();
+    const floorMaterialFor = (r: { kind: RoomKind; w: number; h: number; exterior?: boolean }) => {
+      const kind = floorKind3D(r);
+      const tile = kind === "oak" ? 2.4 : 1.6;
+      const rx = Math.max(1, Math.round(r.w / tile));
+      const rz = Math.max(1, Math.round(r.h / tile));
+      const key = `${kind}:${rx}x${rz}`;
+      let mat = floorMatCache.get(key);
+      if (!mat) {
+        const tex = track(floorTextures[kind].clone());
+        tex.needsUpdate = true;
+        tex.repeat.set(rx, rz);
+        mat = track(
+          new THREE.MeshStandardMaterial({
+            map: tex,
+            roughness: kind === "oak" ? 0.72 : 0.9,
+            metalness: 0,
+          }),
+        );
+        floorMatCache.set(key, mat);
+      }
+      return mat;
+    };
     const roomMeshes = new Map<string, { cx: number; cz: number; w: number; h: number }>();
     for (const r of plan.rooms) {
       if (r.kind === "bassin") continue; // géométrie de bassin dédiée plus bas
-      const color = ROOM_COLORS_3D[r.kind] ?? ROOM_COLORS_3D.polyvalent;
-      let mat = floorMatCache.get(color);
-      if (!mat) {
-        mat = track(new THREE.MeshStandardMaterial({ color, roughness: 0.82 }));
-        floorMatCache.set(color, mat);
-      }
+      const mat = floorMaterialFor(r);
       const geo = track(new THREE.BoxGeometry(Math.max(r.w - INT_T, 0.25), 0.06, Math.max(r.h - INT_T, 0.25)));
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(r.x + r.w / 2, 0.03, r.y + r.h / 2);
@@ -705,16 +760,22 @@ export function FloorPlan3DHD({
     }
     building.add(labelGroup);
 
-    // ── Signalétique « SORTIE DE SECOURS » au-dessus de chaque issue ───────
-    const exitSigns = plan.rooms.flatMap((r) =>
-      r.doors.filter((d) => d.isEmergency).map((d) => ({ r, d })),
+    // ── Signalétique : « ENTRÉE PRINCIPALE » (vert) et « SORTIE DE SECOURS » (rouge) ──
+    const signs = plan.rooms.flatMap((r) =>
+      r.doors
+        .filter((d) => d.isEntry || d.isEmergency)
+        .map((d) => ({ r, d, entry: !!d.isEntry })),
     );
-    if (exitSigns.length > 0) {
-      const sign = makeExitSignTexture();
-      track(sign.texture);
-      track(sign.material);
-      const signGeo = track(new THREE.PlaneGeometry(1.74, 0.4));
-      for (const { r, d } of exitSigns) {
+    if (signs.length > 0) {
+      const entrySign = makeEntrySignTexture();
+      const exitSign = makeExitSignTexture();
+      track(entrySign.texture);
+      track(entrySign.material);
+      track(exitSign.texture);
+      track(exitSign.material);
+      const entryGeo = track(new THREE.PlaneGeometry(1.74, 0.36));
+      const exitGeo = track(new THREE.PlaneGeometry(1.74, 0.36));
+      for (const { r, d, entry } of signs) {
         const horizontal = d.wall === "N" || d.wall === "S";
         const x = horizontal
           ? r.x + d.position + d.width / 2
@@ -726,8 +787,8 @@ export function FloorPlan3DHD({
             ? r.y - 0.06
             : r.y + r.h + 0.06
           : r.y + d.position + d.width / 2;
-        const mesh = new THREE.Mesh(signGeo, sign.material);
-        mesh.position.set(x, DOOR_H + 0.34, z);
+        const mesh = new THREE.Mesh(entry ? entryGeo : exitGeo, entry ? entrySign.material : exitSign.material);
+        mesh.position.set(x, DOOR_H + 0.36, z);
         mesh.rotation.y =
           d.wall === "N"
             ? Math.PI
@@ -737,6 +798,66 @@ export function FloorPlan3DHD({
                 ? Math.PI / 2
                 : -Math.PI / 2;
         building.add(mesh);
+      }
+    }
+
+    // ── Habillage bois de l'entrée principale (façade uniquement) ─────────
+    // Deux poteaux, un auvent à lames et un seuil bois encadrent l'entrée.
+    // Aucun bois sur les circulations techniques ni sur la porte de secours.
+    const woodMat = track(new THREE.MeshStandardMaterial({ color: 0xb07a45, roughness: 0.62 }));
+    const woodDarkMat = track(new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.7 }));
+    const addWoodBox = (sx: number, sy: number, sz: number, cx: number, cy: number, cz: number, dark = false) => {
+      const mesh = new THREE.Mesh(
+        track(new THREE.BoxGeometry(sx, sy, sz)),
+        dark ? woodDarkMat : woodMat,
+      );
+      mesh.position.set(cx, cy, cz);
+      mesh.castShadow = shadowsOn;
+      mesh.receiveShadow = shadowsOn;
+      building.add(mesh);
+    };
+    const postH = DOOR_H + 0.32;
+    for (const r of plan.rooms) {
+      for (const d of r.doors.filter((x) => x.isEntry)) {
+        const onExterior =
+          (d.wall === "N" && r.y < TOL) ||
+          (d.wall === "S" && Math.abs(r.y + r.h - W) < TOL) ||
+          (d.wall === "W" && r.x < TOL) ||
+          (d.wall === "E" && Math.abs(r.x + r.w - L) < TOL);
+        if (!onExterior) continue;
+        const horizontal = d.wall === "N" || d.wall === "S";
+        const outward = d.wall === "N" || d.wall === "W" ? -1 : 1;
+        const start = (horizontal ? r.x : r.y) + d.position;
+        const wallCoord = horizontal
+          ? d.wall === "N"
+            ? r.y
+            : r.y + r.h
+          : d.wall === "W"
+            ? r.x
+            : r.x + r.w;
+        const offset = 0.24;
+        const mid = start + d.width / 2;
+        if (horizontal) {
+          for (const px of [start - 0.11, start + d.width + 0.11]) {
+            addWoodBox(0.12, postH, 0.12, px, postH / 2, wallCoord + outward * offset);
+          }
+          addWoodBox(d.width + 0.62, 0.09, 0.95, mid, postH + 0.045, wallCoord + outward * 0.5);
+          for (let k = 0; k < 6; k++) {
+            const t = (k + 0.5) / 6;
+            addWoodBox(0.035, 0.02, 0.92, start - 0.25 + (d.width + 0.5) * t, postH + 0.1, wallCoord + outward * 0.5, true);
+          }
+          addWoodBox(d.width + 0.5, 0.05, 0.82, mid, 0.025, wallCoord + outward * 0.46);
+        } else {
+          for (const pz of [start - 0.11, start + d.width + 0.11]) {
+            addWoodBox(0.12, postH, 0.12, wallCoord + outward * offset, postH / 2, pz);
+          }
+          addWoodBox(0.95, 0.09, d.width + 0.62, wallCoord + outward * 0.5, postH + 0.045, mid);
+          for (let k = 0; k < 6; k++) {
+            const t = (k + 0.5) / 6;
+            addWoodBox(0.92, 0.02, 0.035, wallCoord + outward * 0.5, postH + 0.1, start - 0.25 + (d.width + 0.5) * t, true);
+          }
+          addWoodBox(0.82, 0.05, d.width + 0.5, wallCoord + outward * 0.46, 0.025, mid);
+        }
       }
     }
 
@@ -783,6 +904,33 @@ export function FloorPlan3DHD({
       mesh.castShadow = shadowsOn;
       mesh.receiveShadow = shadowsOn;
       building.add(mesh);
+    }
+
+    // ── Végétation intérieure (maquette) ───────────────────────────
+    // Une plante dans les grandes pièces de vie : même ponctuation végétale
+    // que la maquette de référence, sans surcharge visuelle.
+    const foliageMat = track(new THREE.MeshStandardMaterial({ color: 0x6f8b57, roughness: 0.88 }));
+    const foliageLightMat = track(new THREE.MeshStandardMaterial({ color: 0x86a06a, roughness: 0.9 }));
+    const potMat = track(new THREE.MeshStandardMaterial({ color: 0xe6dfd2, roughness: 0.75 }));
+    const leafRooms = new Set<RoomKind>([
+      "sejour", "salle_cafe", "salle_client", "reception", "openspace", "attente", "hall",
+    ]);
+    for (const r of plan.rooms) {
+      if (r.exterior || !leafRooms.has(r.kind) || r.area < 12) continue;
+      const px = r.x + r.w - 0.6;
+      const pz = r.y + r.h - 0.6;
+      const pot = new THREE.Mesh(track(new THREE.CylinderGeometry(0.17, 0.13, 0.32, 14)), potMat);
+      pot.position.set(px, 0.22, pz);
+      pot.castShadow = shadowsOn;
+      building.add(pot);
+      const bush = new THREE.Mesh(track(new THREE.IcosahedronGeometry(0.34, 1)), foliageMat);
+      bush.position.set(px, 0.72, pz);
+      bush.castShadow = shadowsOn;
+      building.add(bush);
+      const bush2 = new THREE.Mesh(track(new THREE.IcosahedronGeometry(0.22, 1)), foliageLightMat);
+      bush2.position.set(px - 0.18, 0.92, pz + 0.12);
+      bush2.castShadow = shadowsOn;
+      building.add(bush2);
     }
 
     // ── Surbrillance de sélection ──────────────────────────────────────────
@@ -930,10 +1078,11 @@ export function FloorPlan3DHD({
     <div className={cn("relative group", className)}>
       <div
         ref={containerRef}
+        style={{ background: "#FBFAF7" }}
         className={cn(
           // Fond d'atelier clair dans tous les thèmes : aucune bande sombre
           // ne doit encadrer la maquette 3D.
-          "w-full rounded-lg overflow-hidden bg-gradient-to-b from-sky-50 via-white to-emerald-50 touch-none",
+          "w-full rounded-lg overflow-hidden touch-none",
           compact ? "h-[165px] sm:h-[195px]" : "h-[320px] sm:h-[400px]",
         )}
       />
@@ -1016,13 +1165,13 @@ function ToolBtn({
 
 // ── Textures canvas haute résolution (nettes, filtres propres) ──────────────
 
-/** Panneau « SORTIE DE SECOURS » posé au-dessus des portes de secours. */
-function makeExitSignTexture() {
+/** Enseigne normalisée : fond plein, liseré blanc, mention en capitales. */
+function makeSignTexture(text: string, background: string) {
   const canvas = document.createElement("canvas");
-  canvas.width = 640;
+  canvas.width = 768;
   canvas.height = 160;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#b91c1c";
+  ctx.fillStyle = background;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 6;
@@ -1030,16 +1179,16 @@ function makeExitSignTexture() {
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  let fontSize = 82;
+  let fontSize = 88;
   ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
   while (
-    ctx.measureText("SORTIE DE SECOURS").width > canvas.width - 60 &&
+    ctx.measureText(text).width > canvas.width - 60 &&
     fontSize > 40
   ) {
     fontSize -= 4;
     ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
   }
-  ctx.fillText("SORTIE DE SECOURS", canvas.width / 2, canvas.height / 2 + 4);
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 4);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
@@ -1048,6 +1197,133 @@ function makeExitSignTexture() {
     side: THREE.DoubleSide,
   });
   return { canvas, texture, material };
+}
+
+/** Panneau « SORTIE DE SECOURS » posé au-dessus des portes de secours. */
+function makeExitSignTexture() {
+  return makeSignTexture("SORTIE DE SECOURS", "#B3261E");
+}
+
+/** Enseigne verte « ENTRÉE PRINCIPALE » au-dessus de la porte d'entrée. */
+function makeEntrySignTexture() {
+  return makeSignTexture("ENTRÉE PRINCIPALE", "#15803D");
+}
+
+// ── Textures de sol (parquet, pierre, béton, pelouse) ──────────────────────
+
+function finishTexture(canvas: HTMLCanvasElement) {
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
+/** Parquet chêne clair : lames de 18 cm, veinage doux. */
+function makePlankTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#E6C9A2";
+  ctx.fillRect(0, 0, 512, 512);
+  const rows = 8;
+  const rowH = 512 / rows;
+  for (let i = 0; i < rows; i++) {
+    const y = i * rowH;
+    ctx.fillStyle = i % 2 === 0 ? "#EAD0AB" : "#E3C49B";
+    ctx.fillRect(0, y, 512, rowH);
+    ctx.strokeStyle = "rgba(160,120,74,0.35)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(512, y);
+    ctx.stroke();
+    // Joint de bout décalé d'une rangée à l'autre.
+    const joint = ((i * 173) % 512 + 512) % 512;
+    ctx.beginPath();
+    ctx.moveTo(joint, y);
+    ctx.lineTo(joint, y + rowH);
+    ctx.stroke();
+    // Veinage : quelques fibres très légères.
+    ctx.strokeStyle = "rgba(176,132,84,0.18)";
+    ctx.lineWidth = 1;
+    for (let g = 1; g < 4; g++) {
+      const gy = y + (rowH * g) / 4 + ((i * 7 + g * 3) % 5);
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.bezierCurveTo(140, gy - 3, 330, gy + 3, 512, gy);
+      ctx.stroke();
+    }
+  }
+  return finishTexture(canvas);
+}
+
+/** Pierre claire : carrelage 60 cm, joints fins. */
+function makeStoneTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#EDE8DD";
+  ctx.fillRect(0, 0, 512, 512);
+  ctx.strokeStyle = "#D6CDBC";
+  ctx.lineWidth = 3;
+  for (let i = 0; i <= 2; i++) {
+    const p = (i * 512) / 2;
+    ctx.beginPath();
+    ctx.moveTo(p, 0);
+    ctx.lineTo(p, 512);
+    ctx.moveTo(0, p);
+    ctx.lineTo(512, p);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "rgba(255,255,255,0.35)";
+  for (let i = 0; i < 60; i++) {
+    const x = (i * 97) % 512;
+    const y = (i * 151) % 512;
+    ctx.fillRect(x, y, 2, 2);
+  }
+  return finishTexture(canvas);
+}
+
+/** Béton : dalle mate, grain fin. */
+function makeConcreteTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#D7D3CA";
+  ctx.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < 900; i++) {
+    const x = (i * 137) % 512;
+    const y = (i * 271) % 512;
+    ctx.fillStyle = i % 3 === 0 ? "rgba(255,255,255,0.35)" : "rgba(120,114,104,0.18)";
+    ctx.fillRect(x, y, 1.5, 1.5);
+  }
+  return finishTexture(canvas);
+}
+
+/** Pelouse : extérieurs non couverts. */
+function makeGrassTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d")!;
+  ctx.fillStyle = "#A8BC8B";
+  ctx.fillRect(0, 0, 512, 512);
+  ctx.strokeStyle = "rgba(122,146,92,0.55)";
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 700; i++) {
+    const x = (i * 89) % 512;
+    const y = (i * 197) % 512;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + ((i % 3) - 1), y - 5 - (i % 4));
+    ctx.stroke();
+  }
+  return finishTexture(canvas);
 }
 
 function makeLabelTexture(label: string, area: number) {

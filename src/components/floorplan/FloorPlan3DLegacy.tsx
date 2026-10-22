@@ -35,10 +35,10 @@ const TOL = 0.02;
 
 /** Teintes du mobilier extrudé (bois, tissu, sanitaire blanc, électroménager). */
 const FURN_COLORS_3D: Record<MatTag, number> = {
-  wood: 0xc8a06a,
-  fabric: 0x8ea3c8,
-  white: 0xf2f2ee,
-  metal: 0xb9c2cc,
+  wood: 0xd9b183,
+  fabric: 0xe9e0cd,
+  white: 0xfaf8f3,
+  metal: 0xc9d1d6,
 };
 
 const ROOM_COLORS_3D: Record<RoomKind, number> = {
@@ -543,16 +543,22 @@ export function FloorPlan3DLegacy({
     }
     building.add(labelGroup);
 
-    // ── Signalétique « SORTIE DE SECOURS » au-dessus de chaque issue ───────
-    const exitSigns = plan.rooms.flatMap((r) =>
-      r.doors.filter((d) => d.isEmergency).map((d) => ({ r, d })),
+    // ── Signalétique : entrée principale (vert) et secours (rouge) ─────────
+    const signs = plan.rooms.flatMap((r) =>
+      r.doors
+        .filter((d) => d.isEntry || d.isEmergency)
+        .map((d) => ({ r, d, entry: !!d.isEntry })),
     );
-    if (exitSigns.length > 0) {
-      const sign = makeExitSignTexture();
-      track(sign.texture);
-      track(sign.material);
-      const signGeo = track(new THREE.PlaneGeometry(1.74, 0.4));
-      for (const { r, d } of exitSigns) {
+    if (signs.length > 0) {
+      const exitSign = makeExitSignTexture();
+      const entrySign = makeEntrySignTexture();
+      track(exitSign.texture);
+      track(exitSign.material);
+      track(entrySign.texture);
+      track(entrySign.material);
+      const exitGeo = track(new THREE.PlaneGeometry(1.74, 0.4));
+      const entryGeo = track(new THREE.PlaneGeometry(1.74, 0.36));
+      for (const { r, d, entry } of signs) {
         const horizontal = d.wall === "N" || d.wall === "S";
         const x = horizontal
           ? r.x + d.position + d.width / 2
@@ -564,8 +570,11 @@ export function FloorPlan3DLegacy({
             ? r.y - 0.06
             : r.y + r.h + 0.06
           : r.y + d.position + d.width / 2;
-        const mesh = new THREE.Mesh(signGeo, sign.material);
-        mesh.position.set(x, DOOR_H + 0.34, z);
+        const mesh = new THREE.Mesh(
+          entry ? entryGeo : exitGeo,
+          entry ? entrySign.material : exitSign.material,
+        );
+        mesh.position.set(x, DOOR_H + 0.36, z);
         mesh.rotation.y =
           d.wall === "N"
             ? Math.PI
@@ -824,13 +833,13 @@ function ToolBtn({
 
 // ── Texture d'étiquette (nom + surface) dessinée sur canvas ─────────────────
 
-/** Panneau « SORTIE DE SECOURS » posé au-dessus des portes de secours. */
-function makeExitSignTexture() {
+/** Enseigne normalisée (fond plein, liseré blanc, mention en capitales). */
+function makeSignTexture(text: string, background: string) {
   const canvas = document.createElement("canvas");
-  canvas.width = 640;
+  canvas.width = 768;
   canvas.height = 160;
   const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#b91c1c";
+  ctx.fillStyle = background;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 6;
@@ -838,16 +847,13 @@ function makeExitSignTexture() {
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  let fontSize = 82;
+  let fontSize = 88;
   ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
-  while (
-    ctx.measureText("SORTIE DE SECOURS").width > canvas.width - 60 &&
-    fontSize > 40
-  ) {
+  while (ctx.measureText(text).width > canvas.width - 60 && fontSize > 40) {
     fontSize -= 4;
     ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`;
   }
-  ctx.fillText("SORTIE DE SECOURS", canvas.width / 2, canvas.height / 2 + 4);
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 4);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
@@ -856,6 +862,16 @@ function makeExitSignTexture() {
     side: THREE.DoubleSide,
   });
   return { canvas, texture, material };
+}
+
+/** Panneau « SORTIE DE SECOURS » posé au-dessus des portes de secours. */
+function makeExitSignTexture() {
+  return makeSignTexture("SORTIE DE SECOURS", "#B3261E");
+}
+
+/** Enseigne verte « ENTRÉE PRINCIPALE » au-dessus de la porte d'entrée. */
+function makeEntrySignTexture() {
+  return makeSignTexture("ENTRÉE PRINCIPALE", "#15803D");
 }
 
 function makeLabelTexture(label: string, area: number) {
