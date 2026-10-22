@@ -23,16 +23,31 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     }
   });
 
+  it("Groupe D — les 5 locaux professionnels ont le rapport complet", () => {
+    for (const type of [
+      "local_commercial",
+      "bureau",
+      "entrepot",
+      "restaurant",
+      "cafe",
+    ]) {
+      expect(keys(type), type).toEqual([
+        "cost",
+        "plans",
+        "materials",
+        "execution",
+      ]);
+    }
+  });
+
   it("Groupes B et C — seule la section « Coût estimatif » est présente", () => {
     for (const type of [
       "extension_batiment",
       "piscine",
-      "restaurant",
-      "cafe",
       "renovation_cuisine",
-      "local_commercial",
-      "bureau",
+      "renovation_salle_de_bain",
       "peinture_interieure",
+      "electricite_complete",
       "plomberie_complete",
       "cloture",
     ]) {
@@ -41,7 +56,7 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
   });
 
   it("Groupes B et C — les autres étapes ne réapparaissent jamais, même flags activés", () => {
-    for (const type of ["piscine", "bureau"]) {
+    for (const type of ["piscine", "peinture_interieure"]) {
       const modules = visibleReportModules(allEnabled, type);
       expect(modules.map((m) => m.key), type).toEqual(["cost"]);
       expect(modules.map((m) => m.label), type).toEqual(["Coût estimatif"]);
@@ -50,8 +65,15 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
 
   it("le groupe est déduit du type, sans sélection manuelle", () => {
     expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(4);
+    expect(REPORT_MODULE_KEYS_BY_GROUP.D).toHaveLength(4);
     expect(REPORT_MODULE_KEYS_BY_GROUP.B).toHaveLength(1);
     expect(REPORT_MODULE_KEYS_BY_GROUP.C).toHaveLength(1);
+    expect(reportModuleKeysForGroup("D")).toEqual([
+      "cost",
+      "plans",
+      "materials",
+      "execution",
+    ]);
     expect(reportModuleKeysForGroup("B")).toEqual(["cost"]);
     expect(reportModuleKeysForGroup("C")).toEqual(["cost"]);
   });
@@ -65,7 +87,7 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     expect(
       visibleReportModules(
         (flag) => flag !== "construction_cost_estimation",
-        "bureau",
+        "peinture_interieure",
       ),
     ).toEqual([]);
   });
@@ -73,7 +95,7 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
   it("le nombre de rapports disponibles d'un projet Groupe C ne dépasse jamais 1", () => {
     const project = {
       _id: "p1",
-      category: "bureau",
+      category: "peinture_interieure",
       surface: 120,
       costEstimate: {},
     };

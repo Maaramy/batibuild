@@ -2,10 +2,10 @@
 // « AIDE À LA DÉCISION » — RÈGLE D'ACCÈS (partagée frontend ↔ backend)
 // ----------------------------------------------------------------------------
 // Deux conditions OBLIGATOIRES, vérifiées SIMULTANÉMENT :
-//   1. le projet appartient au GROUPE A — classification centrale de
-//      `projectJourney` (`projectJourneyGroup`) ; l'étape est ABSENTE des
-//      parcours des groupes B et C (coût estimatif → mise en relation
-//      uniquement) ;
+//   1. le projet appartient au parcours COMPLET (groupes A et D) —
+//      classification centrale de `projectJourney` (`projectJourneyGroup`) ;
+//      l'étape est ABSENTE des parcours des groupes B et C (coût estimatif →
+//      mise en relation uniquement) ;
 //   2. le client dispose d'un abonnement CLIENT PRO actif, valide et NON
 //      expiré (instantané `getUserSubscriptionStatus`, source de vérité).
 //
@@ -27,7 +27,11 @@
 // donc pas cette fonctionnalité (contrairement aux fonctionnalités de base).
 // ============================================================================
 
-import { projectJourneyGroup, type ProjectJourneyGroup } from "./projectJourney";
+import {
+  isFullJourneyGroup,
+  projectJourneyGroup,
+  type ProjectJourneyGroup,
+} from "./projectJourney";
 
 /** Motif de refus (utilisé pour choisir le message affiché). */
 export type DecisionSupportDenyReason =
@@ -45,7 +49,7 @@ export type DecisionSupportAccessReason = "ok" | DecisionSupportDenyReason;
 export interface DecisionSupportAccess {
   allowed: boolean;
   reason: DecisionSupportAccessReason;
-  /** Groupe du projet (A = étape présente, B et C = absente). */
+  /** Groupe du projet (A et D = étape présente, B et C = absente). */
   group: ProjectJourneyGroup;
   /** Invitation à passer à l'abonnement Client Pro (compte gratuit / essai). */
   upgradeRequired: boolean;
@@ -71,7 +75,7 @@ export interface DecisionSupportAccessInput {
    * `false` → refus, aucune donnée du projet ne doit être exposée.
    */
   owned?: boolean;
-  /** Type de projet enregistré (détermine le groupe A / B / C du parcours). */
+  /** Type de projet enregistré (détermine le groupe A / B / C / D du parcours). */
   category: string | null | undefined;
   /** Instantané serveur — `null` si indisponible. */
   subscription: DecisionSupportSubscription | null;
@@ -114,7 +118,7 @@ export function evaluateDecisionSupportAccess(
 
   // 3. Groupes B et C → l'étape n'existe pas dans ces parcours (coût estimatif
   //    puis mise en relation uniquement).
-  if (group !== "A") return deny("group_not_eligible", group);
+  if (!isFullJourneyGroup(group)) return deny("group_not_eligible", group);
 
   // 4. Admin / modérateur → accès toujours accordé (même règle que `access.ts`).
   if (input.isAdmin) {

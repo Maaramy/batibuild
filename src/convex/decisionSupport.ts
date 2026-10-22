@@ -191,7 +191,7 @@ export const saveBudgetAnalysis = mutation({
     result: v.any(),
   },
   handler: async (ctx, { projectId, budgetAvailable, result }) => {
-    // Écriture protégée : groupe A + Client Pro actif, vérifiés côté serveur.
+    // Écriture protégée : groupes A / D + Client Pro actif, vérifiés côté serveur.
     const owned = await requireDecisionSupport(ctx, projectId)
     const existing = await ctx.db
       .query('budgetAnalyses')

@@ -4,7 +4,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
 import { getUserSubscriptionStatus } from "./subscriptionStatus";
-import { projectJourneyGroup } from "../lib/projectJourney";
+import { isFullJourneyGroup, projectJourneyGroup } from "../lib/projectJourney";
 import {
   evaluateDecisionSupportAccess,
   type DecisionSupportAccessReason,
@@ -19,8 +19,9 @@ import {
 // l'interface (query réactive ci-dessous).
 //
 // Les deux conditions sont vérifiées SIMULTANÉMENT, à chaque appel :
-//   1. projet du GROUPE A — classification centrale (`projectJourneyGroup`) ;
-//      l'étape est absente des parcours des groupes B et C ;
+//   1. projet du parcours COMPLET (groupes A et D) — classification centrale
+//      (`projectJourneyGroup`) ; l'étape est absente des parcours des groupes
+//      B et C ;
 //   2. abonnement CLIENT PRO actif, valide et non expiré — instantané
 //      recalculé côté serveur par `getUserSubscriptionStatus` (aucune date ni
 //      forfait fournis par le navigateur).
@@ -59,8 +60,9 @@ export function decisionSupportAccessError(reason: DecisionSupportAccessReason):
  * Charge le projet + l'utilisateur et calcule la décision d'accès.
  *
  * L'instantané d'abonnement n'est lu que lorsqu'il peut changer la décision
- * (utilisateur connecté, projet possédé, groupe A) : les refus évidents (non
- * connecté, projet d'autrui, groupes B et C) ne coûtent aucune lecture.
+ * (utilisateur connecté, projet possédé, parcours complet) : les refus
+ * évidents (non connecté, projet d'autrui, groupes B et C) ne coûtent aucune
+ * lecture.
  */
 export async function resolveDecisionSupport(
   ctx: QueryCtx | MutationCtx,
@@ -72,7 +74,7 @@ export async function resolveDecisionSupport(
   const owned = !!project && !!user && (project.userId === user._id || isAdmin);
 
   const snapshot =
-    user && owned && projectJourneyGroup(project.category) === "A"
+    user && owned && isFullJourneyGroup(projectJourneyGroup(project.category))
       ? await getUserSubscriptionStatus(ctx, user._id)
       : null;
 

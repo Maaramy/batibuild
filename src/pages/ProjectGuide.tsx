@@ -100,10 +100,10 @@ export default function ProjectGuide() {
   const allProjects = useMemo(() => projectsQuery ?? [], [projectsQuery]);
   const [projectId, setProjectId] = useState<string | null>(paramProject);
 
-  // « Exécution & Suivi » n'appartient qu'au parcours du groupe A : seuls ces
-  // projets sont proposés ici. Un projet des groupes B ou C (coût estimatif →
-  // mise en relation) conserve toutes ses données, mais ne peut pas ouvrir
-  // cette étape, même par une URL directe.
+  // « Exécution & Suivi » n'appartient qu'aux parcours complets (groupes A et
+  // D) : seuls ces projets sont proposés ici. Un projet des groupes B ou C
+  // (coût estimatif → mise en relation) conserve toutes ses données, mais ne
+  // peut pas ouvrir cette étape, même par une URL directe.
   const projects = useMemo(
     () => allProjects.filter((p) => canAccessJourneyStep(p.category, "execution")),
     [allProjects],

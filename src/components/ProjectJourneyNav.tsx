@@ -38,9 +38,9 @@ import { cn } from "@/lib/utils";
  * revient à l'étape précédente ; le parcours complet n'est jamais déroulé en
  * même temps.
  *
- *   - les étapes viennent de `@/lib/projectJourney` (groupe A : coût → aide à
- *     la décision → plans IA → mise en relation → exécution & suivi ; groupes
- *     B et C : coût → mise en relation uniquement) et sont filtrées par les
+ *   - les étapes viennent de `@/lib/projectJourney` (groupes A et D : coût →
+ *     aide à la décision → plans IA → mise en relation → exécution & suivi ;
+ *     groupes B et C : coût → mise en relation uniquement) et sont filtrées par les
  *     feature flags de l'administration — une étape désactivée disparaît et le
  *     total est recalculé automatiquement ;
  *   - l'icône PDF de chaque étape télécharge le rapport DÉJÀ GÉNÉRÉ à partir des

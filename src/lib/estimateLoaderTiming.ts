@@ -3,7 +3,7 @@
  *
  * Animation d'introduction de 4 000 ms exactement, répartie sur les étapes du
  * parcours réellement affiché. La répartition dépend du nombre d'étapes du
- * groupe du projet (5 pour le groupe A, 2 pour les groupes B et C) et la durée
+ * groupe du projet (5 pour les groupes A et D, 2 pour les groupes B et C) et la durée
  * totale reste fixe, indépendante de la durée réelle du calcul.
  * La logique est pure (aucun timer) afin d'être testable.
  */
@@ -12,7 +12,7 @@
 export const ESTIMATE_INTRO_MS = 4000;
 
 /**
- * Étapes du parcours complet, dans l'ordre officiel du Journey (Groupe A).
+ * Étapes du parcours complet, dans l'ordre officiel du Journey (groupes A et D).
  * Sert de repli lorsque le groupe du projet n'est pas encore connu ; les pages
  * qui le connaissent passent la liste exacte (`costEstimateLoadingSteps`).
  */

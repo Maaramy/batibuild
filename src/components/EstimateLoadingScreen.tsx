@@ -37,7 +37,7 @@ import {
  * Animation d'introduction de 4 secondes exactement (voir
  * `@/lib/estimateLoaderTiming`), parallèle au calcul réel : elle présente le
  * logo officiel BatiBuild et les étapes du parcours Journey du projet (5 pour
- * le groupe A, 2 pour les groupes B et C), puis rend la main dès que
+ * les groupes A et D, 2 pour les groupes B et C), puis rend la main dès que
  * l'animation ET le calcul sont terminés.
  *
  * Aucune donnée n'est inventée : si le calcul dépasse 4 s, l'animation se

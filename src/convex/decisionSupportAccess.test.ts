@@ -11,7 +11,7 @@ const modules = import.meta.glob("./**/*.*s");
 
 // ============================================================================
 // « AIDE À LA DÉCISION » — accès vérifié CÔTÉ SERVEUR
-//   • projet des GROUPES A ou B (étape absente du parcours du groupe C) ;
+//   • projet des GROUPES A ou D (étape absente des parcours B et C) ;
 //   • abonnement CLIENT PRO actif, valide et non expiré.
 //
 // Les tests couvrent les 7 scénarios obligatoires : ils appellent directement
@@ -184,17 +184,31 @@ describe("getProjectDecisionSupportAccess — scénarios obligatoires", () => {
     }
   });
 
-  it("1 ter. Restaurant, café, piscine et extension (Groupe B) → étape absente du parcours", async () => {
+  it("1 ter. Locaux professionnels (Groupe D) → accès Client Pro autorisé", async () => {
     const userId = await createUser(t);
     const user = asUser(t, userId);
 
     for (const category of [
+      "local_commercial",
+      "bureau",
+      "entrepot",
       "restaurant",
       "cafe",
-      "piscine",
-      "extension_batiment",
-      "local_commercial",
     ]) {
+      const projectId = await createProject(t, userId, category);
+      const access = await user.query(
+        api.decisionSupportAccess.getProjectDecisionSupportAccess,
+        { projectId },
+      );
+      expect(access, category).toMatchObject({ allowed: true, reason: "ok", group: "D" });
+    }
+  });
+
+  it("1 quater. Piscine et extension (Groupe B) → étape absente du parcours", async () => {
+    const userId = await createUser(t);
+    const user = asUser(t, userId);
+
+    for (const category of ["piscine", "extension_batiment", "renovation_cuisine"]) {
       const projectId = await createProject(t, userId, category);
       const access = await user.query(
         api.decisionSupportAccess.getProjectDecisionSupportAccess,
@@ -259,7 +273,7 @@ describe("getProjectDecisionSupportAccess — scénarios obligatoires", () => {
 
   it("4. Groupe C + Client Pro actif → accès refusé (étape absente du parcours, aucune donnée)", async () => {
     const userId = await createUser(t);
-    const projectId = await createProject(t, userId, "bureau");
+    const projectId = await createProject(t, userId, "peinture_interieure");
     const user = asUser(t, userId);
 
     const access = await user.query(api.decisionSupportAccess.getProjectDecisionSupportAccess, {
@@ -390,7 +404,7 @@ describe("getProjectDecisionSupportAccess — cohérence de l'abonnement", () =>
   it("l'administrateur conserve l'accès (bypass de test), jamais pour les groupes B et C", async () => {
     const adminId = await createUser(t, { plan: null, role: "admin" });
     const projectA = await createProject(t, adminId, "villa");
-    const projectC = await createProject(t, adminId, "bureau");
+    const projectC = await createProject(t, adminId, "peinture_interieure");
     const admin = asUser(t, adminId);
 
     expect(

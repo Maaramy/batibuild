@@ -2,7 +2,7 @@
 // AIDE À LA DÉCISION — module « Intelligence prédictive IA »
 // ----------------------------------------------------------------------------
 // Copilote financier & achats du projet. Le module est affiché sur la page
-// DÉDIÉE « Aide à la décision » (étape n°2 du parcours du groupe A) : il a
+// DÉDIÉE « Aide à la décision » (étape n°2 des parcours A et D) : il a
 // été retiré de la page de résultat « Coût estimatif ».
 //
 // • AUCUN CHARGEMENT AUTOMATIQUE : à l'arrivée, le module n'affiche ni écran

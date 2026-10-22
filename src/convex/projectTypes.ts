@@ -10,10 +10,11 @@
 //   renovation_salle_de_bain, peinture_interieure, piscine,
 //   restaurant, cafe, electricite_complete, plomberie_complete
 //
-// Le parcours du projet (groupes A, B et C) est défini séparément dans
-// `src/lib/projectJourney.ts` : le groupe A (avec plans architecturaux AI)
-// regroupe 10 types, le groupe B (sans plans AI) 8 types, et tous les autres
-// types appartiennent au groupe C.
+// Le parcours du projet (groupes A à D) est défini séparément dans
+// `src/lib/projectJourney.ts` : les groupes A (10 types résidentiels) et D
+// (5 locaux professionnels : local commercial, bureau, entrepôt, restaurant,
+// café) ont le parcours complet avec plans architecturaux AI, le groupe B
+// (sans plans AI) 4 types, et tous les autres types appartiennent au groupe C.
 //
 // Chaque type dispose d'un gabarit DQE spécifique dans dqeEngine.ts.
 // ============================================================================
@@ -179,9 +180,9 @@ export const CATEGORY_DEFAULT_FLOORS: Record<string, number> = {
 /**
  * Le type de projet autorise-t-il plusieurs niveaux ?
  *
- * Indépendant du GROUPE du parcours (groupe A / groupe B) : un restaurant, un
- * café ou une rénovation complète appartiennent au parcours complet mais sont
- * des projets de plain-pied. Le champ « Nombre de niveaux » reste donc masqué
+ * Indépendant du GROUPE du parcours (A, B, C ou D) : un restaurant, un café
+ * (groupe D) ou une rénovation complète (groupe A) appartiennent au parcours
+ * complet mais sont des projets de plain-pied. Le champ « Nombre de niveaux » reste donc masqué
  * pour les types listés dans `SINGLE_LEVEL_TYPES`, sans changer le parcours.
  */
 export function isMultiLevelCategory(category: string | null | undefined): boolean {

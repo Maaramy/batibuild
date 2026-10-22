@@ -1260,8 +1260,8 @@ export default function ProjectDetail() {
 
   // Progression proposée à la fin du chargement : l'étape qui suit réellement
   // « Coût estimatif » dans le parcours du groupe du projet — « Aide à la
-  // décision » (groupe A) ou « Mise en relation » (groupes B et C). Le parcours
-  // est recalculé depuis le type enregistré : jamais un parcours générique.
+  // décision » (groupes A et D) ou « Mise en relation » (groupes B et C). Le
+  // parcours est recalculé depuis le type enregistré : jamais un parcours générique.
   const journeySteps = buildProjectJourney(project.category, project._id, journeyFlags);
   const costStepIndex = journeySteps.findIndex((s) => s.key === "cost");
   const nextJourneyStep =

@@ -1,7 +1,7 @@
 // ============================================================================
 // AIDE À LA DÉCISION — page dédiée (copilote budget & achats)
 // ----------------------------------------------------------------------------
-// Page individuelle du parcours du projet (groupe A, étape n°2). Elle affiche
+// Page individuelle du parcours du projet (groupes A et D, étape n°2). Elle affiche
 // le module de budget (« Capacité de construction ») sur les données déjà
 // enregistrées du projet — aucune analyse n'est relancée ici.
 //
@@ -86,7 +86,7 @@ export default function DecisionSupport() {
   );
 
   // ── Autorisation d'accès — décision calculée CÔTÉ SERVEUR ────────────────
-  // « Aide à la décision » = projets du GROUPE A + abonnement CLIENT PRO actif
+  // « Aide à la décision » = projets des GROUPES A et D + abonnement CLIENT PRO actif
   // et non expiré. La même décision protège les queries/mutations du module :
   // cette vérification couvre le rechargement, l'accès direct à l'URL et
   // l'ouverture d'un projet existant. Aucune donnée du module n'est rendue
@@ -177,7 +177,7 @@ export default function DecisionSupport() {
     <main className="min-h-screen bg-background pb-12">
       {/* Parcours du projet — l'étape « Aide à la décision » est mise en avant
           (route dédiée), avec « Étape précédente : Coût estimatif » et
-          « Suivant → : Plans architecturaux AI » (parcours du groupe A). */}
+          « Suivant → : Plans architecturaux AI » (parcours complet A / D). */}
       <ProjectJourneyNav
         projectId={id}
         category={project?.category}

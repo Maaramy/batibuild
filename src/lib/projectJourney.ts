@@ -10,17 +10,21 @@
  * projet enregistré (`category`). Le nom du projet, sa description ou le
  * parcours choisi par l'utilisateur n'interviennent jamais :
  *
- *   - **Groupe A** — projets avec plans architecturaux AI (5 étapes) :
- *     Maison, Appartement, Villa, Immeuble, Local, Studio, Duplex, Résidence
- *     touristique, Projet immobilier neuf, Rénovation complète.
+ *   - **Groupes A et D** — parcours complet avec plans architecturaux AI
+ *     (5 étapes) :
+ *     * Groupe A : Maison, Appartement, Villa, Immeuble, Local, Studio,
+ *       Duplex, Résidence touristique, Projet immobilier neuf, Rénovation
+ *       complète ;
+ *     * Groupe D (locaux professionnels) : Local commercial, Bureau, Entrepôt,
+ *       Restaurant, Café.
  *       1. Coût estimatif
  *       2. Aide à la décision (Client Pro)
  *       3. Plans architecturaux AI
  *       4. Mise en relation
  *       5. Exécution & Suivi
  *   - **Groupes B et C** — parcours simplifié (2 étapes) :
- *     * Groupe B : Local commercial, Entrepôt, Café, Restaurant, Rénovation
- *       cuisine, Rénovation salle de bain, Piscine, Extension bâtiment ;
+ *     * Groupe B : Rénovation cuisine, Rénovation salle de bain, Piscine,
+ *       Extension bâtiment ;
  *     * Groupe C : tous les autres projets.
  *       1. Coût estimatif
  *       2. Mise en relation
@@ -30,7 +34,7 @@
  *
  * Les distinctions suivantes sont IMPÉRATIVES et reposent sur une comparaison
  * de type canonique (jamais sur une recherche de sous-chaîne) :
- *   « Local » (A) ≠ « Local commercial » (B) ;
+ *   « Local » (A) ≠ « Local commercial » (D) ;
  *   « Rénovation complète » (A) ≠ « Rénovation cuisine » / « Rénovation salle
  *   de bain » (B) ;
  *   « Extension bâtiment » (B).
@@ -38,9 +42,9 @@
  * Un projet n'appartient qu'à UN seul groupe. Une étape absente du groupe n'est
  * jamais rendue : ni libellé, ni lien, ni indicateur de progression. Les étapes
  * réservées sont également refusées en accès direct (`canAccessJourneyStep`,
- * utilisé par les pages Plans, Aide à la décision et Exécution). Seul le
- * groupe A conserve les cinq étapes ; les groupes B et C partagent exactement
- * le même parcours en deux étapes.
+ * utilisé par les pages Plans, Aide à la décision et Exécution). Les groupes A
+ * et D conservent les cinq étapes ; les groupes B et C partagent exactement le
+ * même parcours en deux étapes.
  *
  * Chaque lien conserve le contexte du projet (`?project=…` ou `/:id`) : la
  * navigation ne recrée jamais de projet et ne perd aucune donnée.
@@ -57,7 +61,10 @@
 
 import { resolveProjectType } from "../convex/projectTypes";
 
-export type ProjectJourneyGroup = "A" | "B" | "C";
+export type ProjectJourneyGroup = "A" | "B" | "C" | "D";
+
+/** Groupes au parcours complet (5 étapes, dont les plans architecturaux AI). */
+export const FULL_JOURNEY_GROUPS: readonly ProjectJourneyGroup[] = ["A", "D"];
 
 /** Clé d'un module de rapport PDF du Journey (voir `reportRegistry`). */
 export type ProjectJourneyReportKey =
@@ -151,7 +158,7 @@ export const PROJECT_JOURNEY_GROUP_A: readonly string[] = [
   "appartement",
   "villa",
   "immeuble",
-  // « Local » (projet de bâtiment) — DISTINCT de « Local commercial » (B).
+  // « Local » (projet de bâtiment) — DISTINCT de « Local commercial » (D).
   "local",
   "studio",
   "duplex",
@@ -161,16 +168,28 @@ export const PROJECT_JOURNEY_GROUP_A: readonly string[] = [
 ];
 
 /**
+ * Groupe D — locaux professionnels : parcours complet en 5 étapes, identique
+ * à celui du groupe A (coût estimatif → aide à la décision → plans
+ * architecturaux AI → mise en relation → exécution & suivi).
+ *
+ * Ces cinq types sont des bâtiments à usage professionnel : plans AI et
+ * accompagnement de chantier leur sont aussi utiles qu'à un logement.
+ */
+export const PROJECT_JOURNEY_GROUP_D: readonly string[] = [
+  // « Local commercial » — DISTINCT de « Local » (A).
+  "local_commercial",
+  "bureau",
+  "entrepot",
+  "restaurant",
+  "cafe",
+];
+
+/**
  * Groupe B — projets au parcours simplifié (2 étapes) : coût estimatif puis
  * mise en relation. Aucune étape intermédiaire (aide à la décision, plans
  * architecturaux AI, exécution & suivi).
  */
 export const PROJECT_JOURNEY_GROUP_B: readonly string[] = [
-  // « Local commercial » — DISTINCT de « Local » (A).
-  "local_commercial",
-  "entrepot",
-  "cafe",
-  "restaurant",
   "renovation_cuisine",
   "renovation_salle_de_bain",
   "piscine",
@@ -232,9 +251,19 @@ export function projectJourneyGroup(
 ): ProjectJourneyGroup {
   const canonical = journeyCategory(category);
   if (PROJECT_JOURNEY_GROUP_A.includes(canonical)) return "A";
+  if (PROJECT_JOURNEY_GROUP_D.includes(canonical)) return "D";
   if (PROJECT_JOURNEY_GROUP_B.includes(canonical)) return "B";
-  // Tout type absent des deux listes appartient au groupe C.
+  // Tout type absent des autres listes appartient au groupe C.
   return "C";
+}
+
+/**
+ * Ce groupe suit-il le parcours complet (5 étapes) ?
+ * Source unique des gardes « étape présente dans le parcours » côté pages et
+ * côté serveur (aide à la décision, rapports PDF, actions rapides).
+ */
+export function isFullJourneyGroup(group: ProjectJourneyGroup): boolean {
+  return FULL_JOURNEY_GROUPS.includes(group);
 }
 
 /**
@@ -247,15 +276,16 @@ export function projectJourneyGroup(
 export const JOURNEY_STEP_GROUPS: Partial<
   Record<ProjectJourneyStepKey, readonly ProjectJourneyGroup[]>
 > = {
-  cost: ["A", "B", "C"],
+  cost: ["A", "B", "C", "D"],
   // Les groupes B et C s'arrêtent au coût estimatif puis à la mise en relation.
-  decision: ["A"],
-  plans: ["A"],
-  consult: ["A", "B", "C"],
-  execution: ["A"],
+  // Les groupes A et D ont le parcours complet.
+  decision: ["A", "D"],
+  plans: ["A", "D"],
+  consult: ["A", "B", "C", "D"],
+  execution: ["A", "D"],
 };
 
-/** Étapes réservées au parcours complet (groupe A) — plans architecturaux AI. */
+/** Étapes réservées au parcours complet (groupes A et D) — plans AI. */
 export const GROUP_A_ONLY_STEPS = ["plans"] as const;
 
 /** Une étape est-elle autorisée pour ce projet ? (source unique) */
@@ -293,6 +323,13 @@ export const COST_ESTIMATE_LOADING_STEPS: Record<
   readonly string[]
 > = {
   A: [
+    "Coût estimatif",
+    "Aide à la décision",
+    "Plans architecturaux AI",
+    "Mise en relation",
+    "Exécution & Suivi",
+  ],
+  D: [
     "Coût estimatif",
     "Aide à la décision",
     "Plans architecturaux AI",
@@ -361,7 +398,7 @@ export function buildProjectJourney(
     reportKey: "cost",
   };
 
-  // ── Aide à la décision (groupe A uniquement) — page DÉDIÉE
+  // ── Aide à la décision (groupes A et D uniquement) — page DÉDIÉE
   // (`DECISION_PAGE_PATH`) qui affiche uniquement le résultat déjà généré par
   // l'Intelligence prédictive. Elle reste réservée aux abonnés Client Pro : la
   // restriction d'abonnement est vérifiée côté serveur
@@ -376,7 +413,7 @@ export function buildProjectJourney(
     reportKey: null,
   };
 
-  // ── Plans architecturaux AI (groupe A uniquement). La page et les plans
+  // ── Plans architecturaux AI (groupes A et D uniquement). La page et les plans
   // exploitent les dimensions et surfaces enregistrées du projet.
   const plans: ProjectJourneyStep = {
     key: "plans",
@@ -396,7 +433,7 @@ export function buildProjectJourney(
     reportKey: null,
   };
 
-  // ── Exécution & suivi (groupe A uniquement) — suivi de l'avancement, du
+  // ── Exécution & suivi (groupes A et D uniquement) — suivi de l'avancement, du
   // budget et de l'exécution du projet sélectionné.
   const execution: ProjectJourneyStep = {
     key: "execution",
@@ -411,11 +448,11 @@ export function buildProjectJourney(
   // « Exécution & Suivi » : elles ne sont ni rendues, ni atteignables (le
   // bouton « Suivant » du coût estimatif ouvre directement la mise en
   // relation).
-  if (group !== "A") {
+  if (!isFullJourneyGroup(group)) {
     return filterDisabledSteps([cost, consult], flags);
   }
 
-  // Groupe A — parcours complet en 5 étapes, dans l'ordre obligatoire :
+  // Groupes A et D — parcours complet en 5 étapes, dans l'ordre obligatoire :
   //   Coût estimatif → Aide à la décision → Plans architecturaux AI →
   //   Mise en relation → Exécution & Suivi.
   return filterDisabledSteps([cost, decision, plans, consult, execution], flags);

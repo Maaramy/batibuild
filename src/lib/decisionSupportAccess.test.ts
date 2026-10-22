@@ -7,8 +7,8 @@ import {
 
 // ============================================================================
 // « AIDE À LA DÉCISION » — règle d'accès (deux conditions simultanées)
-//   • projet du GROUPE A (classification centrale du Project Journey) ;
-//     l'étape est absente des parcours des groupes B et C ;
+//   • projet du parcours COMPLET (groupes A et D, classification centrale du
+//     Project Journey) ; l'étape est absente des parcours des groupes B et C ;
 //   • abonnement CLIENT PRO actif, valide et non expiré.
 // ============================================================================
 
@@ -98,7 +98,7 @@ describe("evaluateDecisionSupportAccess — scénarios obligatoires", () => {
   });
 
   it("5 bis. Groupe C + Client Pro actif → refusé (étape absente du parcours)", () => {
-    const res = access("bureau", ACTIVE_PRO);
+    const res = access("peinture_interieure", ACTIVE_PRO);
     expect(res.allowed).toBe(false);
     expect(res.reason).toBe("group_not_eligible");
     expect(res.group).toBe("C");
@@ -137,12 +137,22 @@ describe("evaluateDecisionSupportAccess — cas limites", () => {
     }
   });
 
-  it("les 8 types du groupe B ne sont pas éligibles, même avec un Client Pro actif", () => {
+  it("les 5 types du groupe D sont éligibles avec un Client Pro actif", () => {
     for (const type of [
       "local_commercial",
+      "bureau",
       "entrepot",
-      "cafe",
       "restaurant",
+      "cafe",
+    ]) {
+      const res = access(type, ACTIVE_PRO);
+      expect(res.allowed, type).toBe(true);
+      expect(res.group, type).toBe("D");
+    }
+  });
+
+  it("les 4 types du groupe B ne sont pas éligibles, même avec un Client Pro actif", () => {
+    for (const type of [
       "renovation_cuisine",
       "renovation_salle_de_bain",
       "piscine",
@@ -154,7 +164,6 @@ describe("evaluateDecisionSupportAccess — cas limites", () => {
 
   it("les types du groupe C ne sont pas éligibles, même avec un Client Pro actif", () => {
     for (const type of [
-      "bureau",
       "peinture_interieure",
       "electricite_complete",
       "plomberie_complete",
@@ -165,11 +174,11 @@ describe("evaluateDecisionSupportAccess — cas limites", () => {
     }
   });
 
-  it("reconnaît les anciens slugs de projet (maison_r_plus_1 → groupe A, atelier → groupe B)", () => {
+  it("reconnaît les anciens slugs de projet (maison_r_plus_1 → A, atelier → D)", () => {
     expect(access("maison_r_plus_1", ACTIVE_PRO).allowed).toBe(true);
     expect(access("maison_r_plus_2", ACTIVE_PRO).allowed).toBe(true);
-    // « atelier » reste classé groupe B : parcours simplifié, étape absente.
-    expect(access("atelier", ACTIVE_PRO).allowed).toBe(false);
+    // « atelier » est un ancien entrepôt : local professionnel (groupe D).
+    expect(access("atelier", ACTIVE_PRO).allowed).toBe(true);
   });
 
   it("type absent ou inconnu → groupe C, donc refusé", () => {
@@ -221,7 +230,9 @@ describe("evaluateDecisionSupportAccess — cas limites", () => {
   it("administrateur / modérateur → bypass de test, comme les autres modules", () => {
     expect(access("villa", null, { isAdmin: true }).allowed).toBe(true);
     // Le bypass ne contourne jamais la restriction de type de projet.
-    expect(access("bureau", null, { isAdmin: true }).allowed).toBe(false);
+    expect(access("peinture_interieure", null, { isAdmin: true }).allowed).toBe(
+      false,
+    );
   });
 });
 

@@ -305,7 +305,7 @@ createRoot(document.getElementById("root")!).render(
                   }
                 />
                 {/* « Aide à la décision » — page dédiée de l'Intelligence
-                    prédictive IA (étape n°2 du parcours du groupe A). Le module
+                    prédictive IA (étape n°2 des parcours A et D). Le module
                     n'est plus affiché en extension du résultat « Coût
                     estimatif » : il vit sur cette page. */}
                 <Route

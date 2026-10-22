@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
  *
  * Affiché quand un projet ouvre directement l'URL d'une étape absente de son
  * parcours : « Plans architecturaux AI » et « Exécution & Suivi » pour les
- * groupes B et C (l'aide à la décision a son propre écran de refus).
+ * groupes B et C (seuls les groupes A et D ont ces étapes ; l'aide à la
+ * décision a son propre écran de refus).
  *
  * Aucune donnée du projet n'est recalculée ni supprimée : le projet, son
  * estimation, ses scénarios et son historique restent intacts. L'écran propose
