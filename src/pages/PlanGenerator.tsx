@@ -37,7 +37,8 @@ import {
   normalizeLegacyCategory,
 } from "@/convex/projectTypes";
 import { isComplementaryWorkEligible } from "@/lib/customWorksCatalog";
-import { allowsPlan3D } from "@/lib/plan3dAccess";
+import { allowsPlan3D, allowsPlan3DBuilding } from "@/lib/plan3dAccess";
+import { planBuildingLabel } from "@/lib/planPresentation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,6 +64,7 @@ import type { FloorPlan, FloorPlanVariant } from "@/lib/floorPlanEngine";import 
 import { PlanSheet } from "@/components/floorplan/PlanSheet";
 import { PlanZoomButtons } from "@/components/floorplan/PlanZoomButtons";
 import { FloorPlan3D } from "@/components/floorplan/FloorPlan3D";
+import { FloorPlan3DBuilding } from "@/components/floorplan/FloorPlan3DBuilding";
 import { SiteLegend, SitePlan2D } from "@/components/floorplan/SitePlan2D";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { cn } from "@/lib/utils";
@@ -205,7 +207,7 @@ export default function PlanGenerator() {
     return generateFloorPlans({
       category: project.category as string,
       surface: project.surface ?? 120,
-      floors: Math.max(1, Math.min(4, project.floors ?? inferFloorsFromCategory(project.category))),
+      floors: Math.max(1, Math.min(5, project.floors ?? inferFloorsFromCategory(project.category))),
       // Surfaces couvertes réelles de chaque niveau enregistrées sur le projet :
       // le RDC et les étages gardent leurs propres surfaces (100 m² + 80 m²).
       levelSurfaces: project.levelSurfaces ?? undefined,
@@ -276,9 +278,10 @@ export default function PlanGenerator() {
     [projectId, savingPlanId, selectProjectPlan, simulateAnalysis],
   );
 
-  // Vue 3D : uniquement maison / villa / studio / appartement, et jamais pour
-  // les niveaux R+1 et supérieurs (voir `@/lib/plan3dAccess`). Les plans 2D et
-  // de masse restent disponibles pour tous les types et tous les niveaux.
+  // Vue 3D : logements autorisés + locaux professionnels du Groupe D, À TOUS
+  // LES NIVEAUX (RDC, R+1, R+2…). Une vue 3D globale du bâtiment s'ajoute dès
+  // deux niveaux (voir `@/lib/plan3dAccess`). Les plans 2D et de masse restent
+  // disponibles pour tous les types et tous les niveaux.
   const allow3D = useMemo(
     () => allowsPlan3D(project?.category as string | undefined),
     [project?.category],
@@ -473,7 +476,7 @@ function VariantCard({
   projectName: string;
   /** Type de projet : pilote le panneau d'information et la légende. */
   category?: string;
-  /** Vue 3D autorisée pour ce type de projet (RDC uniquement). */
+  /** Vue 3D autorisée pour ce type de projet, à chaque niveau. */
   allow3D?: boolean;
   isReference?: boolean;
   selecting?: boolean;
@@ -481,7 +484,7 @@ function VariantCard({
   onOpenTechnical?: (variantId: string, kind: "plomberie" | "electricite") => void;
 }) {
   const [floorIdx, setFloorIdx] = useState(0);
-  const [view, setView] = useState<"2d" | "mass" | "3d">("2d");
+  const [view, setView] = useState<"2d" | "mass" | "3d" | "building">("2d");
   // Zoom du plan 2D (glisser / pincer / boutons) et commandes de caméra 3D.
   // Aucun changement de dimensions ni de surfaces.
   const [zoom2d, setZoom2d] = useState(1);
@@ -499,9 +502,12 @@ function VariantCard({
   // met en surbrillance dans l'autre (même identifiant de pièce).
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const floor: FloorPlan = variant.floors[Math.min(floorIdx, variant.floors.length - 1)];
-  // Vue 3D effective : type autorisé ET niveau RDC. Les étages R+1 et suivants
-  // restent en 2D, même pour une maison, une villa, un studio ou un appartement.
-  const is3D = view === "3d" && allow3D && floor.level === 0;
+  // Vues 3D effectives : chaque niveau a SA vue 3D (RDC comme R+1, R+2…), et
+  // la vue globale n'existe qu'à partir de deux niveaux réels. Un type non
+  // autorisé retombe toujours sur le plan 2D.
+  const building3D = allow3D && allowsPlan3DBuilding(category, variant.floors.length);
+  const isBuilding3D = view === "building" && building3D;
+  const is3D = (view === "3d" && allow3D) || isBuilding3D;
   // Tableau des surfaces INTÉRIEURES : le patio extérieur est présenté dans
   // le plan de masse et la catégorie « extérieure », jamais dans le bâti.
   const surfaces = useMemo(() => {
@@ -515,6 +521,18 @@ function VariantCard({
   const builtLevelArea = useMemo(
     () => floor.rooms.filter((r) => !r.exterior).reduce((s, r) => s + r.area, 0),
     [floor],
+  );
+  // Surface couverte réelle du bâtiment entier = somme des niveaux (aucune
+  // surface dupliquée ni divisée). Affichée uniquement en vue 3D globale.
+  const buildingTotalArea = useMemo(
+    () =>
+      variant.floors.reduce(
+        (total, level) =>
+          total +
+          level.rooms.filter((r) => !r.exterior).reduce((sum, room) => sum + room.area, 0),
+        0,
+      ),
+    [variant.floors],
   );
   const analysis = useMemo(() => analyzeFloorPlan(floor), [floor]);
   const floorLabel =
@@ -607,27 +625,51 @@ function VariantCard({
           {/* Feuille de présentation commune : plan à gauche, panneau
               d'information à droite (sous le plan sur mobile). */}
           <PlanSheet
-            plan={floor}
+            plan={isBuilding3D ? variant.floors[0] : floor}
             category={category}
             projectName={projectName}
             variantName={variant.name}
             showThumbnail={allow3D}
             viewSwitch={
-              <Tabs value={view} onValueChange={(val) => setView(val as "2d" | "mass" | "3d")}>
-                <TabsList className="h-8">
+              <Tabs
+                value={view}
+                onValueChange={(val) => {
+                  // La vue globale décrit le bâtiment depuis son RDC : on
+                  // aligne le niveau sélectionné et on recadre la caméra.
+                  if (val === "building") {
+                    setFloorIdx(0);
+                    setZoom3d(null);
+                  }
+                  setView(val as "2d" | "mass" | "3d" | "building");
+                }}
+              >
+                <TabsList className="h-auto flex-wrap">
                   <TabsTrigger value="2d" className="h-7 px-2.5 text-[11px]">
                     Plan 2D
                   </TabsTrigger>
                   <TabsTrigger value="mass" className="h-7 gap-1 px-2.5 text-[11px]">
                     <MapIcon className="h-3 w-3" /> Plan de masse
                   </TabsTrigger>
-                  {allow3D && floor.level === 0 && (
+                  {allow3D && (
                     <TabsTrigger value="3d" className="h-7 px-2.5 text-[11px]">
                       Vue 3D
                     </TabsTrigger>
                   )}
+                  {building3D && (
+                    <TabsTrigger value="building" className="h-7 px-2.5 text-[11px]">
+                      Vue 3D globale
+                    </TabsTrigger>
+                  )}
                 </TabsList>
               </Tabs>
+            }
+            levelLabelOverride={
+              isBuilding3D ? planBuildingLabel(variant.floors.length) : undefined
+            }
+            building={
+              isBuilding3D
+                ? { floors: variant.floors.length, area: buildingTotalArea }
+                : undefined
             }
             levelSwitch={
               variant.floors.length > 1 ? (
@@ -641,9 +683,9 @@ function VariantCard({
                         // hérité du niveau précédent.
                         setZoom2d(1);
                         setZoom3d(null);
-                        // Aucune vue 3D pour les niveaux R+1 et supérieurs :
-                        // l'étage s'affiche en plan 2D.
-                        if (f.level !== 0 && view === "3d") setView("2d");
+                        // Un niveau choisi depuis la vue globale ouvre SA vue
+                        // 3D ; la 2D reste la 2D. Aucun retour forcé en 2D.
+                        if (view === "building") setView("3d");
                       }}
                       aria-pressed={f.level === floorIdx}
                       className={cn(
@@ -687,10 +729,10 @@ function VariantCard({
               ) : undefined
             }
             planTools={
-              (view !== "mass" && selectedRoom) || onOpenTechnical ? (
+              (!isBuilding3D && view !== "mass" && selectedRoom) || onOpenTechnical ? (
                 <div className="space-y-2">
                   {/* Info pièce sélectionnée (synchro 2D ↔ 3D) — masquée en plan de masse */}
-                  {view !== "mass" && selectedRoom && (
+                  {!isBuilding3D && view !== "mass" && selectedRoom && (
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-violet-500/30 bg-violet-500/[0.05] px-3 py-2">
                       <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
                         {selectedRoom.label}
@@ -772,6 +814,15 @@ function VariantCard({
                   </div>
                 )}
               </div>
+            ) : isBuilding3D ? (
+              // Vue d'ensemble : tous les niveaux empilés à leur cote réelle.
+              <FloorPlan3DBuilding
+                plans={variant.floors}
+                site={variant.site}
+                category={category}
+                zoomAction={zoom3d}
+                lite={variant.floors.length > 3}
+              />
             ) : !is3D ? (
               // Le plan reste dans sa carte : le clic sur une pièce sélectionne
               // la pièce (synchro 2D ↔ 3D) et n'ouvre plus aucun plein écran.

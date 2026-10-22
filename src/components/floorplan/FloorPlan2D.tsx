@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 // Même identité graphique que la vue 3D et la feuille de présentation :
 // sols bois clair / pierre / béton, murs blancs à double trait, mobilier
 // matériel, étiquettes pièces lisibles, enseigne verte « ENTRÉE PRINCIPALE »
-// au-dessus de la porte d'entrée (avec habillage bois) et signalétique rouge
+// au-dessus de la porte d'entrée (avec habillage bois) et signalétique verte
 // « SORTIE DE SECOURS » avec cheminement vers l'extérieur.
 // Sélection de pièces : clic/tap → onSelectRoom (synchro 2D ↔ 3D) ; la pièce
 // sélectionnée est surlignée. Perçage des murs élargi pour des ouvertures
@@ -661,7 +661,7 @@ export function FloorPlan2D({
         }),
       )}
 
-      {/* ── Sortie de secours : signalétique rouge + cheminement extérieur ── */}
+      {/* ── Sortie de secours : signalétique verte + cheminement extérieur ── */}
       {rooms.map((r) =>
         r.doors.filter((d) => d.isEmergency).map((d, i) => {
           const horizontal = d.wall === "N" || d.wall === "S";

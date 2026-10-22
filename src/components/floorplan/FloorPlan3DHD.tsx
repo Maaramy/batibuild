@@ -30,8 +30,14 @@ import {
 } from "lucide-react";
 import type { FloorPlan, RoomKind, SitePlan } from "@/lib/floorPlanEngine";
 import { buildSiteScene } from "./site3D";
-import { courtyardWindows, cutSegment } from "./interiorWalls";
+import {
+  doorLeafRotation,
+  interiorOpenings3D,
+  mergeOpenings3D,
+  solidSpans3D,
+} from "@/lib/plan3DOpenings";
 import { roomFurniture, type MatTag } from "@/lib/furniture";
+import { planNature } from "@/lib/planPresentation";
 import { cn } from "@/lib/utils";
 
 // ── Constantes architecturales (identiques au legacy : même géométrie) ──────
@@ -546,42 +552,58 @@ export function FloorPlan3DHD({
     }
     const isInterior = (v: number, max: number) => v > TOL && Math.abs(v - max) > TOL;
     const wallSegs: { pos: [number, number, number]; size: [number, number, number] }[] = [];
-    // Fenêtres donnant sur un patio : percées dans la cloison réelle (mêmes
-    // données que la 2D), jamais reportées sur une façade extérieure.
-    const courtyard = courtyardWindows(plan);
+    // Portes et fenêtres des cloisons : mêmes ouvertures que le plan 2D.
+    const interior = interiorOpenings3D(plan);
+    const buildInteriorCut = (
+      axis: "x" | "z",
+      line: number,
+      segment: { a: number; b: number },
+      openings: { a: number; b: number; kind: "door" | "window" }[],
+    ) => {
+      const onLine = mergeOpenings3D(openings).filter(
+        (op) => op.b > segment.a + TOL && op.a < segment.b - TOL,
+      );
+      for (const solid of solidSpans3D(segment.a, segment.b, onLine)) {
+        if (axis === "x") {
+          pushBox(INT_T, WALL_H, solid.b - solid.a, line, WALL_H / 2, (solid.a + solid.b) / 2, wallMat);
+        } else {
+          pushBox(solid.b - solid.a, WALL_H, INT_T, (solid.a + solid.b) / 2, WALL_H / 2, line, wallMat);
+        }
+      }
+      for (const cut of onLine) {
+        const mid = (cut.a + cut.b) / 2;
+        const len = cut.b - cut.a;
+        if (cut.kind === "window") {
+          if (axis === "x") {
+            pushBox(INT_T, WIN_SILL, len, line, WIN_SILL / 2, mid, wallMat);
+            pushBox(INT_T, WALL_H - WIN_TOP, len, line, (WIN_TOP + WALL_H) / 2, mid, wallMat);
+            pushBox(INT_T * 0.35, WIN_TOP - WIN_SILL, len, line, (WIN_SILL + WIN_TOP) / 2, mid, glassMat);
+          } else {
+            pushBox(len, WIN_SILL, INT_T, mid, WIN_SILL / 2, line, wallMat);
+            pushBox(len, WALL_H - WIN_TOP, INT_T, mid, (WIN_TOP + WALL_H) / 2, line, wallMat);
+            pushBox(len, WIN_TOP - WIN_SILL, INT_T * 0.35, mid, (WIN_SILL + WIN_TOP) / 2, line, glassMat);
+          }
+        } else if (axis === "x") {
+          // Linteau : l'ouverture de porte reste entièrement praticable.
+          pushBox(INT_T, WALL_H - DOOR_H, len, line, (DOOR_H + WALL_H) / 2, mid, wallMat);
+        } else {
+          pushBox(len, WALL_H - DOOR_H, INT_T, mid, (DOOR_H + WALL_H) / 2, line, wallMat);
+        }
+      }
+    };
     for (const [x, segs] of vMap) {
       if (!isInterior(x, L)) continue;
-      const openings = courtyard.vertical.filter((o) => Math.abs(o.line - x) < TOL);
+      const openings = interior.vertical.get(x) ?? [];
       for (const seg of mergeIntervals(segs)) {
-        const { solids, cuts } = cutSegment(seg.a, seg.b, openings);
-        for (const solid of solids) {
-          pushBox(INT_T, WALL_H, solid.b - solid.a, x, WALL_H / 2, (solid.a + solid.b) / 2, wallMat);
-        }
-        for (const cut of cuts) {
-          const mid = (cut.a + cut.b) / 2;
-          const len = cut.b - cut.a;
-          pushBox(INT_T, WIN_SILL, len, x, WIN_SILL / 2, mid, wallMat);
-          pushBox(INT_T, WALL_H - WIN_TOP, len, x, (WIN_TOP + WALL_H) / 2, mid, wallMat);
-          pushBox(INT_T * 0.35, WIN_TOP - WIN_SILL, len, x, (WIN_SILL + WIN_TOP) / 2, mid, glassMat);
-        }
+        buildInteriorCut("x", x, seg, openings);
         wallSegs.push({ pos: [x, WALL_H / 2, (seg.a + seg.b) / 2], size: [INT_T, WALL_H, seg.b - seg.a] });
       }
     }
     for (const [z, segs] of hMap) {
       if (!isInterior(z, W)) continue;
-      const openings = courtyard.horizontal.filter((o) => Math.abs(o.line - z) < TOL);
+      const openings = interior.horizontal.get(z) ?? [];
       for (const seg of mergeIntervals(segs)) {
-        const { solids, cuts } = cutSegment(seg.a, seg.b, openings);
-        for (const solid of solids) {
-          pushBox(solid.b - solid.a, WALL_H, INT_T, (solid.a + solid.b) / 2, WALL_H / 2, z, wallMat);
-        }
-        for (const cut of cuts) {
-          const mid = (cut.a + cut.b) / 2;
-          const len = cut.b - cut.a;
-          pushBox(len, WIN_SILL, INT_T, mid, WIN_SILL / 2, z, wallMat);
-          pushBox(len, WALL_H - WIN_TOP, INT_T, mid, (WIN_TOP + WALL_H) / 2, z, wallMat);
-          pushBox(len, WIN_TOP - WIN_SILL, INT_T * 0.35, mid, (WIN_SILL + WIN_TOP) / 2, z, glassMat);
-        }
+        buildInteriorCut("z", z, seg, openings);
         wallSegs.push({ pos: [(seg.a + seg.b) / 2, WALL_H / 2, z], size: [seg.b - seg.a, WALL_H, INT_T] });
       }
     }
@@ -615,6 +637,26 @@ export function FloorPlan3DHD({
       batches.clear();
     };
     flushBatches();
+
+    // ── Battants de portes intérieures (32° d'ouverture) ──────────────────
+    for (const door of isPoolPlan ? [] : interior.doors) {
+      const leafW = Math.max(0.4, door.width - 0.04);
+      const leafH = DOOR_H - 0.06;
+      const vertical = door.wall === "W" || door.wall === "E";
+      const geo = track(new THREE.BoxGeometry(
+        vertical ? 0.045 : leafW,
+        leafH,
+        vertical ? leafW : 0.045,
+      ));
+      geo.translate(vertical ? 0 : leafW / 2, leafH / 2, vertical ? leafW / 2 : 0);
+      const leaf = new THREE.Mesh(geo, doorMat);
+      if (vertical) leaf.position.set(door.line, 0.02, door.a);
+      else leaf.position.set(door.a, 0.02, door.line);
+      leaf.rotation.y = doorLeafRotation(door);
+      leaf.castShadow = shadowsOn;
+      leaf.receiveShadow = shadowsOn;
+      building.add(leaf);
+    }
 
     // ── Arêtes architecturales (contours discrets, style maquette) ─────────
     const archiEdges = new THREE.Group();
@@ -760,7 +802,7 @@ export function FloorPlan3DHD({
     }
     building.add(labelGroup);
 
-    // ── Signalétique : « ENTRÉE PRINCIPALE » (vert) et « SORTIE DE SECOURS » (rouge) ──
+    // ── Signalétique : « ENTRÉE PRINCIPALE » et « SORTIE DE SECOURS » (vertes) ──
     const signs = plan.rooms.flatMap((r) =>
       r.doors
         .filter((d) => d.isEntry || d.isEmergency)
@@ -817,7 +859,9 @@ export function FloorPlan3DHD({
       building.add(mesh);
     };
     const postH = DOOR_H + 0.32;
-    for (const r of plan.rooms) {
+    // Pas de pergola sur un entrepôt : le type de projet ne s'y prête pas.
+    const pergolaRooms = planNature(plan) === "entrepot" ? [] : plan.rooms;
+    for (const r of pergolaRooms) {
       for (const d of r.doors.filter((x) => x.isEntry)) {
         const onExterior =
           (d.wall === "N" && r.y < TOL) ||
@@ -878,7 +922,7 @@ export function FloorPlan3DHD({
       arr.push(geo);
     };
     for (const r of plan.rooms) {
-      for (const p of roomFurniture(r)) {
+      for (const p of roomFurniture(r, plan)) {
         if (p.t === "l") continue;
         if (p.t === "c") {
           if (p.flat || p.r < 0.03) continue;
@@ -1201,7 +1245,7 @@ function makeSignTexture(text: string, background: string) {
 
 /** Panneau « SORTIE DE SECOURS » posé au-dessus des portes de secours. */
 function makeExitSignTexture() {
-  return makeSignTexture("SORTIE DE SECOURS", "#B3261E");
+  return makeSignTexture("SORTIE DE SECOURS", "#15803D");
 }
 
 /** Enseigne verte « ENTRÉE PRINCIPALE » au-dessus de la porte d'entrée. */

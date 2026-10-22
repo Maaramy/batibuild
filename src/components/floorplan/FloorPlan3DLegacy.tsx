@@ -7,8 +7,18 @@ import {
 } from "lucide-react";
 import type { FloorPlan, RoomKind, SitePlan } from "@/lib/floorPlanEngine";
 import { buildSiteScene } from "./site3D";
-import { courtyardWindows, cutSegment } from "./interiorWalls";
+import {
+  doorLeafRotation,
+  interiorOpenings3D,
+  mergeOpenings3D,
+  solidSpans3D,
+} from "@/lib/plan3DOpenings";
 import { roomFurniture, type MatTag } from "@/lib/furniture";
+import {
+  planFloorFinish,
+  planNature,
+  type PlanFloorFinish,
+} from "@/lib/planPresentation";
 import { cn } from "@/lib/utils";
 
 // ============================================================================
@@ -447,40 +457,57 @@ export function FloorPlan3DLegacy({
       }
     }
     const isInterior = (v: number, max: number) => v > TOL && Math.abs(v - max) > TOL;
-    // Fenêtres de cour / patio : percées dans la cloison (même donnée que 2D).
-    const courtyard = courtyardWindows(plan);
+    // Portes et fenêtres des cloisons : mêmes ouvertures que le plan 2D.
+    const interior = interiorOpenings3D(plan);
+    const buildInteriorCut = (
+      axis: "x" | "z",
+      line: number,
+      segment: { a: number; b: number },
+      openings: { a: number; b: number; kind: "door" | "window" }[],
+    ) => {
+      const onLine = mergeOpenings3D(openings).filter(
+        (op) => op.b > segment.a + TOL && op.a < segment.b - TOL,
+      );
+      for (const solid of solidSpans3D(segment.a, segment.b, onLine)) {
+        if (axis === "x") {
+          pushBox(INT_T, WALL_H, solid.b - solid.a, line, WALL_H / 2, (solid.a + solid.b) / 2, wallMat);
+        } else {
+          pushBox(solid.b - solid.a, WALL_H, INT_T, (solid.a + solid.b) / 2, WALL_H / 2, line, wallMat);
+        }
+      }
+      for (const cut of onLine) {
+        const mid = (cut.a + cut.b) / 2;
+        const len = cut.b - cut.a;
+        if (cut.kind === "window") {
+          if (axis === "x") {
+            pushBox(INT_T, WIN_SILL, len, line, WIN_SILL / 2, mid, wallMat);
+            pushBox(INT_T, WALL_H - WIN_TOP, len, line, (WIN_TOP + WALL_H) / 2, mid, wallMat);
+            pushBox(INT_T * 0.35, WIN_TOP - WIN_SILL, len, line, (WIN_SILL + WIN_TOP) / 2, mid, glassMat);
+          } else {
+            pushBox(len, WIN_SILL, INT_T, mid, WIN_SILL / 2, line, wallMat);
+            pushBox(len, WALL_H - WIN_TOP, INT_T, mid, (WIN_TOP + WALL_H) / 2, line, wallMat);
+            pushBox(len, WIN_TOP - WIN_SILL, INT_T * 0.35, mid, (WIN_SILL + WIN_TOP) / 2, line, glassMat);
+          }
+        } else if (axis === "x") {
+          // Linteau : l'ouverture de porte reste entièrement praticable.
+          pushBox(INT_T, WALL_H - DOOR_H, len, line, (DOOR_H + WALL_H) / 2, mid, wallMat);
+        } else {
+          pushBox(len, WALL_H - DOOR_H, INT_T, mid, (DOOR_H + WALL_H) / 2, line, wallMat);
+        }
+      }
+    };
     for (const [x, segs] of vMap) {
       if (!isInterior(x, L)) continue;
-      const openings = courtyard.vertical.filter((o) => Math.abs(o.line - x) < TOL);
+      const openings = interior.vertical.get(x) ?? [];
       for (const seg of mergeIntervals(segs)) {
-        const { solids, cuts } = cutSegment(seg.a, seg.b, openings);
-        for (const solid of solids) {
-          pushBox(INT_T, WALL_H, solid.b - solid.a, x, WALL_H / 2, (solid.a + solid.b) / 2, wallMat);
-        }
-        for (const cut of cuts) {
-          const mid = (cut.a + cut.b) / 2;
-          const len = cut.b - cut.a;
-          pushBox(INT_T, WIN_SILL, len, x, WIN_SILL / 2, mid, wallMat);
-          pushBox(INT_T, WALL_H - WIN_TOP, len, x, (WIN_TOP + WALL_H) / 2, mid, wallMat);
-          pushBox(INT_T * 0.35, WIN_TOP - WIN_SILL, len, x, (WIN_SILL + WIN_TOP) / 2, mid, glassMat);
-        }
+        buildInteriorCut("x", x, seg, openings);
       }
     }
     for (const [z, segs] of hMap) {
       if (!isInterior(z, W)) continue;
-      const openings = courtyard.horizontal.filter((o) => Math.abs(o.line - z) < TOL);
+      const openings = interior.horizontal.get(z) ?? [];
       for (const seg of mergeIntervals(segs)) {
-        const { solids, cuts } = cutSegment(seg.a, seg.b, openings);
-        for (const solid of solids) {
-          pushBox(solid.b - solid.a, WALL_H, INT_T, (solid.a + solid.b) / 2, WALL_H / 2, z, wallMat);
-        }
-        for (const cut of cuts) {
-          const mid = (cut.a + cut.b) / 2;
-          const len = cut.b - cut.a;
-          pushBox(len, WIN_SILL, INT_T, mid, WIN_SILL / 2, z, wallMat);
-          pushBox(len, WALL_H - WIN_TOP, INT_T, mid, (WIN_TOP + WALL_H) / 2, z, wallMat);
-          pushBox(len, WIN_TOP - WIN_SILL, INT_T * 0.35, mid, (WIN_SILL + WIN_TOP) / 2, z, glassMat);
-        }
+        buildInteriorCut("z", z, seg, openings);
       }
     }
 
@@ -497,11 +524,43 @@ export function FloorPlan3DLegacy({
     }
     batches.clear();
 
+    // ── Battants de portes intérieures (32° d'ouverture) ──────────────────
+    for (const door of interior.doors) {
+      const leafW = Math.max(0.4, door.width - 0.04);
+      const leafH = DOOR_H - 0.06;
+      const vertical = door.wall === "W" || door.wall === "E";
+      const geo = track(new THREE.BoxGeometry(
+        vertical ? 0.045 : leafW,
+        leafH,
+        vertical ? leafW : 0.045,
+      ));
+      geo.translate(vertical ? 0 : leafW / 2, leafH / 2, vertical ? leafW / 2 : 0);
+      const leaf = new THREE.Mesh(geo, doorMat);
+      if (vertical) leaf.position.set(door.line, 0.02, door.a);
+      else leaf.position.set(door.a, 0.02, door.line);
+      leaf.rotation.y = doorLeafRotation(door);
+      leaf.castShadow = !lite;
+      leaf.receiveShadow = !lite;
+      building.add(leaf);
+    }
+
     // ── Sols de pièces : 1 mesh cliquable par pièce (sélection 2D ↔ 3D) ────
+    // Matières adaptées à l'usage réel du bâtiment : parquet chêne en habitat,
+    // pierre en commerce, béton en entrepôt / réserve, pelouse à l'extérieur.
+    const FINISH_COLORS_3D: Record<PlanFloorFinish, number> = {
+      oak: 0xe6c9a2,
+      stone: 0xe9e4d9,
+      concrete: 0xd7d3ca,
+      grass: 0xa8bc8b,
+    };
+    const nature = planNature(plan);
     const floorMatCache = new Map<number, THREE.MeshStandardMaterial>();
     const roomMeshes = new Map<string, { cx: number; cz: number; w: number; h: number }>();
     for (const r of plan.rooms) {
-      const color = ROOM_COLORS_3D[r.kind] ?? ROOM_COLORS_3D.polyvalent;
+      const color =
+        nature === "residentiel" || nature === "piscine"
+          ? ROOM_COLORS_3D[r.kind] ?? ROOM_COLORS_3D.polyvalent
+          : FINISH_COLORS_3D[planFloorFinish(r, nature)];
       let mat = floorMatCache.get(color);
       if (!mat) {
         mat = track(new THREE.MeshStandardMaterial({ color, roughness: 0.8 }));
@@ -543,7 +602,7 @@ export function FloorPlan3DLegacy({
     }
     building.add(labelGroup);
 
-    // ── Signalétique : entrée principale (vert) et secours (rouge) ─────────
+    // ── Signalétique : entrée principale et sortie de secours (vertes) ─────
     const signs = plan.rooms.flatMap((r) =>
       r.doors
         .filter((d) => d.isEntry || d.isEmergency)
@@ -587,6 +646,90 @@ export function FloorPlan3DLegacy({
       }
     }
 
+    // ── Habillage bois / pergola de l'entrée principale (façade) ───────────
+    // Poteaux, poutre et lames de couverture, sans jamais bloquer la porte,
+    // les fenêtres ou les circulations.
+    const woodMat = track(new THREE.MeshStandardMaterial({ color: 0xb07a45, roughness: 0.62 }));
+    const woodDarkMat = track(new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.7 }));
+    const postH = DOOR_H + 0.34;
+    // Pas de pergola sur un entrepôt : le type de projet ne s'y prête pas.
+    for (const r of nature === "entrepot" ? [] : plan.rooms) {
+      for (const d of r.doors.filter((x) => x.isEntry)) {
+        const onEnvelope =
+          (d.wall === "N" && r.y < TOL) ||
+          (d.wall === "S" && Math.abs(r.y + r.h - W) < TOL) ||
+          (d.wall === "W" && r.x < TOL) ||
+          (d.wall === "E" && Math.abs(r.x + r.w - L) < TOL);
+        if (!onEnvelope) continue;
+        const horizontal = d.wall === "N" || d.wall === "S";
+        const outward = d.wall === "N" || d.wall === "W" ? -1 : 1;
+        const start = (horizontal ? r.x : r.y) + d.position;
+        const wallCoord = horizontal
+          ? d.wall === "N"
+            ? r.y
+            : r.y + r.h
+          : d.wall === "W"
+            ? r.x
+            : r.x + r.w;
+        const mid = start + d.width / 2;
+        const addWood = (
+          sx: number,
+          sy: number,
+          sz: number,
+          cx: number,
+          cy: number,
+          cz: number,
+          dark = false,
+        ) => {
+          const mesh = new THREE.Mesh(
+            track(new THREE.BoxGeometry(sx, sy, sz)),
+            dark ? woodDarkMat : woodMat,
+          );
+          mesh.position.set(cx, cy, cz);
+          mesh.castShadow = !lite;
+          mesh.receiveShadow = !lite;
+          building.add(mesh);
+        };
+        if (horizontal) {
+          for (const px of [start - 0.11, start + d.width + 0.11]) {
+            addWood(0.12, postH, 0.12, px, postH / 2, wallCoord + outward * 0.3);
+          }
+          addWood(d.width + 0.62, 0.09, 1.05, mid, postH + 0.045, wallCoord + outward * 0.56);
+          for (let k = 0; k < 6; k++) {
+            const t = (k + 0.5) / 6;
+            addWood(
+              0.035,
+              0.02,
+              1.0,
+              start - 0.25 + (d.width + 0.5) * t,
+              postH + 0.1,
+              wallCoord + outward * 0.56,
+              true,
+            );
+          }
+          addWood(d.width + 0.5, 0.05, 0.92, mid, 0.025, wallCoord + outward * 0.5);
+        } else {
+          for (const pz of [start - 0.11, start + d.width + 0.11]) {
+            addWood(0.12, postH, 0.12, wallCoord + outward * 0.3, postH / 2, pz);
+          }
+          addWood(1.05, 0.09, d.width + 0.62, wallCoord + outward * 0.56, postH + 0.045, mid);
+          for (let k = 0; k < 6; k++) {
+            const t = (k + 0.5) / 6;
+            addWood(
+              1.0,
+              0.02,
+              0.035,
+              wallCoord + outward * 0.56,
+              postH + 0.1,
+              start - 0.25 + (d.width + 0.5) * t,
+              true,
+            );
+          }
+          addWood(0.92, 0.05, d.width + 0.5, wallCoord + outward * 0.5, 0.025, mid);
+        }
+      }
+    }
+
     // Aucun tracé de cote ni de cadrage sombre autour de la maquette : les
     // dimensions restent sur le plan 2D, la vue 3D reste propre.
 
@@ -607,7 +750,7 @@ export function FloorPlan3DLegacy({
       arr.push(geo);
     };
     for (const r of plan.rooms) {
-      for (const p of roomFurniture(r)) {
+      for (const p of roomFurniture(r, plan)) {
         if (p.t === "l") continue;
         if (p.t === "c") {
           if (p.flat || p.r < 0.03) continue;
@@ -866,7 +1009,7 @@ function makeSignTexture(text: string, background: string) {
 
 /** Panneau « SORTIE DE SECOURS » posé au-dessus des portes de secours. */
 function makeExitSignTexture() {
-  return makeSignTexture("SORTIE DE SECOURS", "#B3261E");
+  return makeSignTexture("SORTIE DE SECOURS", "#15803D");
 }
 
 /** Enseigne verte « ENTRÉE PRINCIPALE » au-dessus de la porte d'entrée. */

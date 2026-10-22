@@ -127,8 +127,11 @@ describe("PlanSheet — identité graphique commune", () => {
     expect(planHasExteriorThumbnail("studio")).toBe(true);
     expect(planHasExteriorThumbnail("appartement")).toBe(true);
     expect(planHasExteriorThumbnail("duplex")).toBe(true);
-    expect(planHasExteriorThumbnail("cafe")).toBe(false);
-    expect(planHasExteriorThumbnail("restaurant")).toBe(false);
-    expect(planHasExteriorThumbnail("local_commercial")).toBe(false);
+    // Groupe D : les locaux professionnels sont désormais rendus en 3D.
+    expect(planHasExteriorThumbnail("cafe")).toBe(true);
+    expect(planHasExteriorThumbnail("restaurant")).toBe(true);
+    expect(planHasExteriorThumbnail("local_commercial")).toBe(true);
+    expect(planHasExteriorThumbnail("bureau")).toBe(true);
+    expect(planHasExteriorThumbnail("entrepot")).toBe(true);
   });
 });

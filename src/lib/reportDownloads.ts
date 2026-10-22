@@ -144,7 +144,7 @@ export async function downloadPlansReport(project: ProjectLike): Promise<void> {
     surface,
     floors: Math.max(
       1,
-      Math.min(4, project.floors ?? inferFloorsFromCategory(project.category)),
+      Math.min(5, project.floors ?? inferFloorsFromCategory(project.category)),
     ),
     // Mêmes surfaces par niveau que la page des plans : le PDF ne peut pas
     // afficher d'autres surfaces que celles de l'écran.

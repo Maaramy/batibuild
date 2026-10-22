@@ -156,7 +156,6 @@ export const ROOM_ELIGIBLE_TYPES: string[] = [
 
 /** Types à un seul niveau (rez-de-chaussée imposé). */
 export const SINGLE_LEVEL_TYPES: string[] = [
-  "local_commercial", "entrepot", "bureau",
   "renovation_complete", "extension_batiment", "renovation_cuisine",
   "renovation_salle_de_bain",
   "piscine", "restaurant", "cafe",
@@ -194,8 +193,9 @@ export function isMultiLevelCategory(category: string | null | undefined): boole
 /**
  * Nombre de niveaux effectif pour le calcul de coût : valeur saisie par
  * l'utilisateur si fournie, sinon déduite du type de projet, sinon 1.
- * Les types à un seul niveau (local commercial, entrepôt, bureau) sont
- * toujours forcés à 1.
+ * Les types à un seul niveau (restaurant, café, rénovations, piscine) sont
+ * toujours forcés à 1 ; les locaux professionnels du Groupe D acceptent, eux,
+ * plusieurs niveaux (RDC, R+1, R+2…).
  */
 export function inferFloorsFromCategory(category: string | undefined | null): number {
   if (!category) return 1;
