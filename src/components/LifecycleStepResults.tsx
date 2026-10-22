@@ -54,6 +54,7 @@ import {
 } from "@/lib/floorPlanEngine";
 import { FloorPlan2D } from "@/components/floorplan/FloorPlan2D";
 import { FloorPlan3D } from "@/components/floorplan/FloorPlan3D";
+import { allowsPlan3DLevel } from "@/lib/plan3dAccess";
 import type { LifecycleShowcase } from "@/convex/lifecycleShowcase";
 
 // ============================================================================
@@ -587,14 +588,24 @@ function PlanResult({ data }: { data: LifecycleShowcase }) {
     ],
   );
 
+  // La phase « Vue 3D » n'est proposée que pour un type de projet autorisé et
+  // au RDC (voir `@/lib/plan3dAccess`) : aucun plan 3D interdit n'est généré.
+  const phases = useMemo(
+    () =>
+      allowsPlan3DLevel(data.project.category, 0)
+        ? PLAN_PHASES
+        : PLAN_PHASES.filter((p) => p.key !== "3d"),
+    [data.project.category],
+  );
+
   useEffect(() => {
     if (reduceMotion) return;
     const id = window.setTimeout(
-      () => setPhaseIndex((i) => (i + 1) % PLAN_PHASES.length),
+      () => setPhaseIndex((i) => (i + 1) % phases.length),
       PLAN_PHASE_DURATIONS[phaseIndex] ?? 1800,
     );
     return () => window.clearTimeout(id);
-  }, [phaseIndex, reduceMotion]);
+  }, [phaseIndex, reduceMotion, phases.length]);
 
   // Un nouveau cycle de pièces à chaque retour à la phase « Plan 2D ».
   useEffect(() => {
@@ -648,7 +659,7 @@ function PlanResult({ data }: { data: LifecycleShowcase }) {
       {/* Animation compacte : plan 2D → pièces → dimensions → vue 3D réelle */}
       <div className="rounded-xl border border-sky-500/20 bg-sky-500/[0.04] p-2.5">
         <div className="mb-2 flex flex-wrap items-center gap-1">
-          {PLAN_PHASES.map((p, i) => (
+          {phases.map((p, i) => (
             <span
               key={p.key}
               className={cn(

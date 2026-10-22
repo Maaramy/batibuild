@@ -39,6 +39,7 @@ import {
   normalizeLegacyCategory,
 } from "@/convex/projectTypes";
 import { isComplementaryWorkEligible } from "@/lib/customWorksCatalog";
+import { allowsPlan3D } from "@/lib/plan3dAccess";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -299,6 +300,14 @@ export default function PlanGenerator() {
     [variants],
   );
 
+  // Vue 3D : uniquement maison / villa / studio / appartement, et jamais pour
+  // les niveaux R+1 et supérieurs (voir `@/lib/plan3dAccess`). Les plans 2D et
+  // de masse restent disponibles pour tous les types et tous les niveaux.
+  const allow3D = useMemo(
+    () => allowsPlan3D(project?.category as string | undefined),
+    [project?.category],
+  );
+
   // Étape réservée au Groupe A (seul groupe avec plans architecturaux AI) : un
   // projet des groupes B ou C ne peut pas ouvrir cette page, même via une URL
   // directe ou enregistrée. Aucune donnée n'est supprimée ni recalculée :
@@ -423,6 +432,7 @@ export default function PlanGenerator() {
                   variant={variant}
                   index={i}
                   projectName={project.name}
+                  allow3D={allow3D}
                   isReference={selectedPlanId === variant.id}
                   selecting={savingPlanId === variant.id}
                   onSelectPlan={() => handleSelectPlan(variant)}
@@ -524,6 +534,7 @@ function VariantCard({
   variant,
   index,
   projectName,
+  allow3D = false,
   isReference = false,
   selecting = false,
   onSelectPlan,
@@ -532,6 +543,8 @@ function VariantCard({
   variant: FloorPlanVariant;
   index: number;
   projectName: string;
+  /** Vue 3D autorisée pour ce type de projet (RDC uniquement). */
+  allow3D?: boolean;
   isReference?: boolean;
   selecting?: boolean;
   onSelectPlan?: () => void;
@@ -556,6 +569,9 @@ function VariantCard({
   // met en surbrillance dans l'autre (même identifiant de pièce).
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const floor: FloorPlan = variant.floors[Math.min(floorIdx, variant.floors.length - 1)];
+  // Vue 3D effective : type autorisé ET niveau RDC. Les étages R+1 et suivants
+  // restent en 2D, même pour une maison, une villa, un studio ou un appartement.
+  const is3D = view === "3d" && allow3D && floor.level === 0;
   // Tableau des surfaces INTÉRIEURES : le patio extérieur est présenté dans
   // le plan de masse et la catégorie « extérieure », jamais dans le bâti.
   const surfaces = useMemo(() => {
@@ -663,7 +679,9 @@ function VariantCard({
                 <TabsTrigger value="mass" className="text-[11px] h-6 px-2.5 gap-1">
                   <MapIcon className="h-3 w-3" /> Plan de masse
                 </TabsTrigger>
-                <TabsTrigger value="3d" className="text-[11px] h-6 px-2.5">Vue 3D</TabsTrigger>
+                {allow3D && floor.level === 0 && (
+                  <TabsTrigger value="3d" className="text-[11px] h-6 px-2.5">Vue 3D</TabsTrigger>
+                )}
               </TabsList>
             </Tabs>
             {variant.floors.length > 1 && (
@@ -677,6 +695,9 @@ function VariantCard({
                       // hérité du niveau précédent.
                       setZoom2d(1);
                       setZoom3d(null);
+                      // Aucune vue 3D pour les niveaux R+1 et supérieurs :
+                      // l'étage s'affiche en plan 2D.
+                      if (f.level !== 0 && view === "3d") setView("2d");
                     }}
                     className={cn(
                       "h-6 px-2 rounded-md text-[10px] font-medium border transition-colors cursor-pointer",
@@ -697,32 +718,32 @@ function VariantCard({
           {view !== "mass" && (
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] leading-snug text-muted-foreground">
-                {view === "2d"
+                {!is3D
                   ? "Glissez ou pincez le plan · boutons pour zoomer"
                   : "Faites tourner la maquette · pincez ou boutons pour zoomer"}
               </p>
               <PlanZoomButtons
-                canZoomIn={view === "3d" || zoom2d < PLAN_ZOOM_MAX}
-                canZoomOut={view === "3d" || zoom2d > PLAN_ZOOM_MIN}
+                canZoomIn={is3D || zoom2d < PLAN_ZOOM_MAX}
+                canZoomOut={is3D || zoom2d > PLAN_ZOOM_MIN}
                 onZoomIn={() => {
-                  if (view === "3d") request3dZoom("in");
+                  if (is3D) request3dZoom("in");
                   else
                     setZoom2d((z) =>
                       Math.min(PLAN_ZOOM_MAX, Math.round((z + PLAN_ZOOM_STEP) * 100) / 100),
                     );
                 }}
                 onZoomOut={() => {
-                  if (view === "3d") request3dZoom("out");
+                  if (is3D) request3dZoom("out");
                   else
                     setZoom2d((z) =>
                       Math.max(PLAN_ZOOM_MIN, Math.round((z - PLAN_ZOOM_STEP) * 100) / 100),
                     );
                 }}
                 onReset={() => {
-                  if (view === "3d") request3dZoom("fit");
+                  if (is3D) request3dZoom("fit");
                   else setZoom2d(1);
                 }}
-                resetLabel={view === "3d" ? "Recadrer la vue 3D" : "Afficher le plan entier"}
+                resetLabel={is3D ? "Recadrer la vue 3D" : "Afficher le plan entier"}
               />
             </div>
           )}
@@ -765,7 +786,7 @@ function VariantCard({
                 </div>
               )}
             </div>
-          ) : view === "2d" ? (
+          ) : !is3D ? (
             // Le plan reste dans sa carte : le clic sur une pièce sélectionne
             // la pièce (synchro 2D ↔ 3D) et n'ouvre plus aucun plein écran.
             <div className="relative">
