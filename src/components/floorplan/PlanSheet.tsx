@@ -83,6 +83,8 @@ export interface PlanSheetProps {
   levelSwitch?: ReactNode;
   /** Commandes de zoom du plan (loupe +, loupe −, recadrage). */
   controls?: ReactNode;
+  /** Contenu placé juste sous l'aide au zoom (pièce sélectionnée, accès techniques). */
+  planTools?: ReactNode;
   /** Plan 2D, 3D ou plan de masse. */
   children: ReactNode;
   /** Vignette extérieure : typologies compatibles uniquement. */
@@ -98,6 +100,7 @@ export function PlanSheet({
   viewSwitch,
   levelSwitch,
   controls,
+  planTools,
   children,
   showThumbnail = planHasExteriorThumbnail(category),
   className,
@@ -173,6 +176,7 @@ export function PlanSheet({
               {controls}
             </div>
           )}
+          {planTools && <div className="mt-2">{planTools}</div>}
         </div>
 
         {/* ── Panneau d'information latéral ── */}

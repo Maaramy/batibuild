@@ -686,6 +686,54 @@ function VariantCard({
                 />
               ) : undefined
             }
+            planTools={
+              (view !== "mass" && selectedRoom) || onOpenTechnical ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Info pièce sélectionnée (synchro 2D ↔ 3D) — masquée en plan de masse */}
+                  {view !== "mass" && selectedRoom && (
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-violet-500/30 bg-violet-500/[0.05] px-3 py-2">
+                      <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+                        {selectedRoom.label}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                        {selectedRoom.area.toFixed(2)} m²
+                      </span>
+                      <span className="text-[10px] text-muted-foreground tabular-nums">
+                        {selectedRoom.w.toFixed(2)} × {selectedRoom.h.toFixed(2)} m
+                      </span>
+                      <button
+                        type="button"
+                        className="ml-auto text-[10px] font-medium text-violet-600 hover:underline cursor-pointer"
+                        onClick={() => setSelectedRoomId(null)}
+                      >
+                        Désélectionner
+                      </button>
+                    </div>
+                  )}
+                  {/* Accès directs aux plans techniques, au plus près du plan */}
+                  {onOpenTechnical && (
+                    <div className="ml-auto flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 gap-1 px-2 text-[10px] text-sky-700 hover:bg-sky-500/10 hover:text-sky-800 dark:text-sky-300"
+                        onClick={() => onOpenTechnical(variant.id, "plomberie")}
+                      >
+                        <Droplets className="h-3.5 w-3.5" /> Plomberie
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 gap-1 px-2 text-[10px] text-amber-700 hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-300"
+                        onClick={() => onOpenTechnical(variant.id, "electricite")}
+                      >
+                        <Zap className="h-3.5 w-3.5" /> Électricité
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : undefined
+            }
           >
             {view === "mass" ? (
               <div className="space-y-2 p-2">
@@ -750,28 +798,6 @@ function VariantCard({
             )}
           </PlanSheet>
 
-          {/* Info pièce sélectionnée (synchro 2D ↔ 3D) — masquée en plan de masse */}
-          {view !== "mass" && selectedRoom && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-violet-500/30 bg-violet-500/[0.05] px-3 py-2">
-              <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
-                {selectedRoom.label}
-              </span>
-              <span className="text-[10px] text-muted-foreground tabular-nums">
-                {selectedRoom.area.toFixed(2)} m²
-              </span>
-              <span className="text-[10px] text-muted-foreground tabular-nums">
-                {selectedRoom.w.toFixed(2)} × {selectedRoom.h.toFixed(2)} m
-              </span>
-              <button
-                type="button"
-                className="ml-auto text-[10px] font-medium text-violet-600 hover:underline cursor-pointer"
-                onClick={() => setSelectedRoomId(null)}
-              >
-                Désélectionner
-              </button>
-            </div>
-          )}
-
           {/* Actions : sélection du plan de référence, export PDF, analyse */}
           <div className="flex flex-wrap items-center gap-2">
             {onSelectPlan && (
@@ -817,26 +843,6 @@ function VariantCard({
                 )}
               />
             </Button>
-            {onOpenTechnical && (
-              <div className="ml-auto flex items-center gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 gap-1 px-2 text-[10px] text-sky-700 hover:bg-sky-500/10 hover:text-sky-800 dark:text-sky-300"
-                  onClick={() => onOpenTechnical(variant.id, "plomberie")}
-                >
-                  <Droplets className="h-3.5 w-3.5" /> Plomberie
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 gap-1 px-2 text-[10px] text-amber-700 hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-300"
-                  onClick={() => onOpenTechnical(variant.id, "electricite")}
-                >
-                  <Zap className="h-3.5 w-3.5" /> Électricité
-                </Button>
-              </div>
-            )}
           </div>
 
           {/* Les trois catégories de surfaces — jamais additionnées */}
