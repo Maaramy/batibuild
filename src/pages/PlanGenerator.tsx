@@ -688,10 +688,10 @@ function VariantCard({
             }
             planTools={
               (view !== "mass" && selectedRoom) || onOpenTechnical ? (
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="space-y-2">
                   {/* Info pièce sélectionnée (synchro 2D ↔ 3D) — masquée en plan de masse */}
                   {view !== "mass" && selectedRoom && (
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-violet-500/30 bg-violet-500/[0.05] px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-violet-500/30 bg-violet-500/[0.05] px-3 py-2">
                       <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
                         {selectedRoom.label}
                       </span>
@@ -712,7 +712,7 @@ function VariantCard({
                   )}
                   {/* Accès directs aux plans techniques, au plus près du plan */}
                   {onOpenTechnical && (
-                    <div className="ml-auto flex items-center gap-1">
+                    <div className="flex items-center justify-end gap-1">
                       <Button
                         size="sm"
                         variant="ghost"
