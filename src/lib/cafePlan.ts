@@ -15,8 +15,9 @@
 //     comptoir (plan de travail + passage) et rejoint la préparation par la
 //     porte de ce mur, jamais bloquée par le mobilier.
 //
-// Aucun autre type de projet n'utilise ces règles : le restaurant conserve son
-// programme et son comptoir-bar actuels.
+// Aucun autre type de projet n'utilise ces règles : le restaurant a son propre
+// module (`restaurantPlan.ts`, salle à 60 %) et les autres typologies sont
+// inchangées.
 // ============================================================================
 
 import type { FloorPlan, PlanRoom, WallSide } from "./floorPlanEngine";

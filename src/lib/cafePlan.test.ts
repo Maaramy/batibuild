@@ -265,12 +265,13 @@ describe("validation automatique — les règles café sont réellement contrôl
 });
 
 describe("aucun autre type de projet n'est modifié", () => {
-  it("le restaurant conserve son programme et son comptoir-bar", () => {
+  it("le restaurant suit ses propres règles, sans validation café", () => {
     for (const variant of generateFloorPlans({ category: "restaurant", surface: 120, floors: 1 })) {
       const rooms = variant.floors[0].rooms;
-      expect(rooms.some((r) => r.kind === "comptoir")).toBe(true);
       expect(rooms.some((r) => r.kind === "salle_cafe")).toBe(false);
+      expect(rooms.some((r) => r.kind === "salle_client")).toBe(true);
       expect(variant.validation.cafe).toBeUndefined();
+      expect(variant.validation.restaurant).toBeTruthy();
     }
   });
 

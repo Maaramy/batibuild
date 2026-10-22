@@ -52,6 +52,13 @@ const ROOM_TINT: Record<string, string> = {
   buanderie: "#64748b",
   vente: "#f59e0b",
   salle_cafe: "#f59e0b",
+  salle_client: "#f59e0b",
+  comptoir: "#d97706",
+  cuisine_pro: "#ef4444",
+  plonge: "#06b6d4",
+  chambre_froide: "#0ea5e9",
+  attente: "#a855f7",
+  terrasse: "#84cc16",
   bassin: "#0ea5e9",
   local_technique: "#78716c",
 };

@@ -17,6 +17,8 @@ import {
   cafeRectsOverlap,
   type CafeRect,
 } from "./cafePlan";
+import { restaurantCounterPlacement } from "./restaurantPlan";
+
 
 // ── Primitives ───────────────────────────────────────────────────────────────
 
@@ -964,6 +966,212 @@ function genSalleCafe(room: PlanRoom, plan: FloorPlan, out: Prim[]) {
   }
 }
 
+// ── Salle de restauration : bar intégré + tables et chaises ────────────────
+//
+// Le bar est un ÉQUIPEMENT de la salle (jamais une pièce). Il est adossé au mur
+// de la cuisine professionnelle, avec le plan de travail et le passage du
+// personnel derrière, le passe-plat dans le mur, puis les tables réparties
+// autour sans bloquer le bar, les portes ni les allées de circulation.
+
+function genSalleRestaurant(room: PlanRoom, plan: FloorPlan, out: Prim[]) {
+  const placement = restaurantCounterPlacement(room, plan.rooms, plan);
+  if (!placement) return;
+  const { counter, worktop, staffAisle, passePlat } = placement;
+
+  // Passe / plan de travail adossé au mur de cuisine (transfert des plats).
+  pushIf(room, out, worktop, { m: "metal", ht: 0.92 });
+  const along = worktop.w >= worktop.h;
+  out.push(
+    along
+      ? L(
+          worktop.x + 0.08,
+          worktop.y + worktop.h / 2,
+          worktop.x + worktop.w - 0.08,
+          worktop.y + worktop.h / 2,
+        )
+      : L(
+          worktop.x + worktop.w / 2,
+          worktop.y + 0.08,
+          worktop.x + worktop.w / 2,
+          worktop.y + worktop.h - 0.08,
+        ),
+  );
+
+  // Passe-plat : percement du mur de cuisine, au-dessus du plan de travail.
+  if (passePlat) {
+    pushIf(room, out, passePlat.rect, { m: "metal", ht: 1.15 });
+  }
+
+  // Bar côté clients, dans la même surface que la salle.
+  pushIf(room, out, counter, { m: "wood", ht: 1.1, rx: 0.04 });
+  pushIf(
+    room,
+    out,
+    along
+      ? { x: counter.x + 0.06, y: counter.y + 0.1, w: counter.w - 0.12, h: 0.12 }
+      : { x: counter.x + 0.1, y: counter.y + 0.06, w: 0.12, h: counter.h - 0.12 },
+    { m: "white", ht: 1.12 },
+  );
+
+  // Zones interdites aux tables : bar, plan de travail, passage du personnel,
+  // allée client et débattement des portes (aucun accès bloqué).
+  const forbidden: CafeRect[] = [
+    inflate(counter, 0.2),
+    inflate(worktop, 0.15),
+    inflate(staffAisle, 0.1),
+    inflate(clampToRoom(room, placement.clientAisle), 0.15),
+    ...cafeDoorClearances(room).map((r) => inflate(r, 0.1)),
+  ];
+
+  const size = 0.8;
+  const chair = 0.45;
+  const freeArea = Math.max(0, room.area - placement.counterArea);
+  // Densité de salle : ~4,5 m² par table de 4 couverts, allées comprises.
+  const maxTables = Math.max(1, Math.min(24, Math.floor(freeArea / 4.5)));
+  const tables: CafeRect[] = [];
+  const clearOfForbidden = (r: CafeRect) => !forbidden.some((z) => cafeRectsOverlap(r, z));
+  const clearOfTables = (r: CafeRect) =>
+    !tables.some((t) => cafeRectsOverlap(inflate(r, 0.12), inflate(t, 0.45)));
+
+  const margin = 0.55;
+  const pitch = 2.1;
+  for (let y = room.y + margin; y + size <= room.y + room.h - margin; y += pitch) {
+    for (let x = room.x + margin; x + size <= room.x + room.w - margin; x += pitch) {
+      if (tables.length >= maxTables) break;
+      const table: CafeRect = { x, y, w: size, h: size };
+      if (!clearOfForbidden(table) || !clearOfTables(table)) continue;
+
+      // Quatre couverts autour de la table (0,80 m). Si la place manque sur
+      // un axe, on se rabat sur deux chaises, puis on abandonne la table.
+      const horizontal: CafeRect[] = [
+        { x: table.x - chair - 0.08, y: y + (size - chair) / 2, w: chair, h: chair },
+        { x: table.x + size + 0.08, y: y + (size - chair) / 2, w: chair, h: chair },
+      ];
+      const vertical: CafeRect[] = [
+        { x: x + (size - chair) / 2, y: table.y - chair - 0.08, w: chair, h: chair },
+        { x: x + (size - chair) / 2, y: table.y + size + 0.08, w: chair, h: chair },
+      ];
+      const fits = (set: CafeRect[]) =>
+        set.every(
+          (c) => inside(room, c) && clearOfForbidden(c) && !cafeRectsOverlap(c, table),
+        );
+      const chairs = fits([...horizontal, ...vertical])
+        ? [...horizontal, ...vertical]
+        : [horizontal, vertical].filter(fits).flat();
+      if (chairs.length < 2) continue;
+
+      tables.push(table);
+      pushIf(room, out, table, { m: "wood", ht: 0.74, rx: 0.06 });
+      for (const c of chairs) {
+        out.push(C(c.x + c.w / 2, c.y + c.h / 2, chair / 2, { m: "fabric", ht: 0.46 }));
+      }
+    }
+  }
+}
+
+// ── Cuisine professionnelle : préparation, cuisson, lavage, stockage ────────
+
+function genCuisinePro(room: PlanRoom, out: Prim[]) {
+  const walls = wallsByLength(room);
+  const used = new Set<WallSide>();
+  const CD = 0.65;
+
+  for (const wall of walls) {
+    if (used.size >= 2) break;
+    const span = bestSpan(room, wall, 1.2);
+    if (!span) continue;
+    const len = Math.min(span.b - span.a - 0.06, 4.4);
+    if (len < 1.2) continue;
+    const mid = (span.a + span.b) / 2;
+    const run = againstWall(room, wall, mid, 0.02, CD, len);
+    if (!pushIf(room, out, run, { m: "metal", ht: 0.92 })) continue;
+    used.add(wall);
+
+    if (used.size === 1) {
+      // Cuisson : fourneau 4 feux + plaque, à proximité du passe-plat.
+      const hob = againstWall(
+        room,
+        wall,
+        mid - len * 0.22,
+        0.02 + (CD - 0.56) / 2,
+        0.56,
+        0.56,
+      );
+      if (pushIf(room, out, hob, { m: "metal", ht: 0.96 })) {
+        const hx = hob.x + hob.w / 2;
+        const hy = hob.y + hob.h / 2;
+        for (const dx of [-0.13, 0.13]) {
+          for (const dy of [-0.13, 0.13]) {
+            out.push(C(hx + dx, hy + dy, 0.085, { flat: true, noFill: true }));
+          }
+        }
+      }
+      // Lavage : bac double sur le même plan de travail.
+      const sink = againstWall(
+        room,
+        wall,
+        mid + len * 0.26,
+        0.02 + (CD - 0.46) / 2,
+        0.46,
+        0.82,
+      );
+      if (pushIf(room, out, sink, { m: "white", ht: 0.92, rx: 0.04 })) {
+        if (sink.w >= sink.h) {
+          out.push(
+            L(sink.x + sink.w / 2, sink.y + 0.05, sink.x + sink.w / 2, sink.y + sink.h - 0.05),
+          );
+        } else {
+          out.push(
+            L(sink.x + 0.05, sink.y + sink.h / 2, sink.x + sink.w - 0.05, sink.y + sink.h / 2),
+          );
+        }
+      }
+    }
+  }
+
+  // Stockage / froid : armoires et frigos sur un mur libre, hors fenêtres.
+  for (const wall of walls) {
+    if (used.has(wall)) continue;
+    const span = bestSpan(room, wall, 1.3, { win: true });
+    if (!span) continue;
+    const len = Math.min(span.b - span.a - 0.1, 3.2);
+    if (len < 0.9) continue;
+    pushIf(
+      room,
+      out,
+      againstWall(room, wall, (span.a + span.b) / 2, 0.02, 0.7, len),
+      { m: "metal", ht: 2 },
+    );
+    break;
+  }
+}
+
+function genPlonge(room: PlanRoom, out: Prim[]) {
+  for (const wall of wallsByLength(room)) {
+    const span = bestSpan(room, wall, 1);
+    if (!span) continue;
+    const len = Math.min(span.b - span.a - 0.06, 2.8);
+    if (len < 0.9) continue;
+    const run = againstWall(room, wall, (span.a + span.b) / 2, 0.02, 0.62, len);
+    if (!pushIf(room, out, run, { m: "metal", ht: 0.92 })) continue;
+
+    // Double bac + lave-vaisselle professionnel.
+    const sink = againstWall(room, wall, span.a + len * 0.34, 0.02 + 0.08, 0.46, 0.8);
+    if (pushIf(room, out, sink, { m: "white", ht: 0.92, rx: 0.04 })) {
+      out.push(
+        L(sink.x + sink.w / 2, sink.y + 0.05, sink.x + sink.w / 2, sink.y + sink.h - 0.05),
+      );
+    }
+    pushIf(
+      room,
+      out,
+      againstWall(room, wall, span.a + len * 0.74, 0.02 + 0.07, 0.6, 0.6),
+      { m: "metal", ht: 0.85 },
+    );
+    return;
+  }
+}
+
 // ── Dispatch par nature de pièce ─────────────────────────────────────────────
 
 export function roomFurniture(room: PlanRoom, plan?: FloorPlan): Prim[] {
@@ -1010,6 +1218,18 @@ export function roomFurniture(room: PlanRoom, plan?: FloorPlan): Prim[] {
       break;
     case "salle_cafe":
       if (plan) genSalleCafe(room, plan, out);
+      break;
+    case "salle_client":
+      if (plan) genSalleRestaurant(room, plan, out);
+      break;
+    case "cuisine_pro":
+      genCuisinePro(room, out);
+      break;
+    case "plonge":
+      genPlonge(room, out);
+      break;
+    case "chambre_froide":
+      genStockage(room, out);
       break;
     case "local_technique":
       // Groupe de filtration + pompe du bassin.

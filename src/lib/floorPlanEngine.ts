@@ -21,6 +21,17 @@ import {
   cafeSalleShare,
   isCafeCategory,
 } from "./cafePlan";
+import {
+  RESTAURANT_SALLE_SHARE,
+  RESTAURANT_SALLE_SHARE_MAX,
+  RESTAURANT_SALLE_SHARE_MIN,
+  isRestaurantCategory,
+  restaurantCounterPlacement,
+  restaurantCounterToKitchen,
+  restaurantDoorClearances,
+  restaurantKitchenNeighbour,
+  restaurantRectsOverlap,
+} from "./restaurantPlan";
 
 // ── Types publics ───────────────────────────────────────────────────────────
 
@@ -130,6 +141,26 @@ export interface CafeValidation {
   ok: boolean;
 }
 
+export interface RestaurantValidation {
+  /** Part de la surface couverte occupée par la salle de restauration (0–1). */
+  salleShare: number;
+  /** Salle entre 55 % et 65 % de la surface couverte (cible 60 %). */
+  salleShareOk: boolean;
+  /** Bar entièrement situé dans la salle de restauration. */
+  counterInsideSalle: boolean;
+  /** Bar non compté comme pièce (aucune surface ajoutée au total). */
+  counterCountedOnce: boolean;
+  /** Cuisine professionnelle mitoyenne du bar, à moins de 2 m. */
+  kitchenNearCounter: boolean;
+  /** Porte de service directe salle ↔ cuisine (passe-plat ou porte). */
+  serviceLinkOk: boolean;
+  /** Passe-plat percé dans le mur de cuisine, au-dessus du bar. */
+  passePlatOk: boolean;
+  /** Salle, cuisine, plonge, réserve et sanitaires accessibles. */
+  accessOk: boolean;
+  ok: boolean;
+}
+
 export interface PlanValidation {
   dimensionsOk: boolean;
   noOverlap: boolean;
@@ -145,6 +176,8 @@ export interface PlanValidation {
   issues: string[];
   /** Contrôles propres au type « Café » (absents pour les autres types). */
   cafe?: CafeValidation;
+  /** Contrôles propres au type « Restaurant » (absents pour les autres types). */
+  restaurant?: RestaurantValidation;
 }
 
 /** Espaces extérieurs aménagés, TOUJOURS hors du bâtiment. */
@@ -360,7 +393,7 @@ export const PLAN_ROOM_LABELS: Record<RoomKind, string> = {
   vestiaire: "Vestiaire",
   polyvalent: "Espace polyvalent",
   // — Restauration —
-  salle_client: "Salle client",
+  salle_client: "Salle de restauration",
   salle_cafe: "Salle café",
   comptoir: "Comptoir / Bar",
   cuisine_pro: "Cuisine pro",
@@ -781,123 +814,120 @@ function logisticsProgram(area: number): ProgramItem[] {
   return items;
 }
 
-function restorationProgram(
-  area: number,
-  type: "cafe" | "restaurant",
-): ProgramItem[] {
-  // Ratios du zonage restauration (marche en avant + ERP)
-  const clientPct = type === "cafe" ? 0.38 : 0.35;   // Salle client
-  const servicePct = 0.42;                              // Cuisine + plonge + stockage + vestiaires
-  const circPct = 0.08;                                 // Couloirs / circulations
-  const sanitPct = 0.12;                                // Sanitaires H/F/PMR
+// ── Programme RESTAURANT (règles propres au type « Restaurant ») ────────────
 
-  const clientArea = area * clientPct;
-  const serviceArea = area * servicePct;
-  const circArea = area * circPct;
-  const sanitArea = area * sanitPct;
+/**
+ * Programme d'un restaurant professionnel.
+ *
+ * La SALLE DE RESTAURATION (clients, bar inclus) occupe exactement 60 % de la
+ * surface couverte. Le solde (40 %) est réparti entre la cuisine professionnelle
+ * (près de 16 % du total), la plonge, la chambre froide, la réserve, les
+ * vestiaires, les sanitaires H/F/PMR et la circulation de service.
+ *
+ * Le bar n'est PAS une pièce : il est dessiné dans la salle (voir
+ * `restaurantPlan.restaurantCounterPlacement`) et sa surface n'entre jamais
+ * dans le total. Les cibles somment exactement à la surface du niveau, donc le
+ * découpage BSP restitue la part de salle demandée sans redistribuer de surface.
+ */
+function restaurantProgram(area: number): ProgramItem[] {
+  const salle = area * RESTAURANT_SALLE_SHARE;
+  const serviceBudget = area - salle;
+  const part = (pct: number) => serviceBudget * pct;
 
-  const items: ProgramItem[] = [];
+  // Répartition du solde de service (40 %). Les petites pièces sont plafonnées
+  // à des surfaces crédibles ; le surplus reste dans la cuisine professionnelle,
+  // jamais dans la salle : la part de salle reste strictement à 60 %.
+  const plonge = part(0.1);
+  const chambreFroide = part(0.09);
+  const reserve = part(0.09);
+  const vestiaire = part(0.08);
+  const sanH = part(0.08);
+  const sanF = part(0.08);
+  const pmr = Math.min(part(0.06), 3.6);
+  const circulation = Math.min(part(0.06), 6);
+  const cuisine =
+    serviceBudget -
+    (plonge + chambreFroide + reserve + vestiaire + sanH + sanF + pmr + circulation);
 
-  // ── Zone client ──
-  items.push({
-    kind: "salle_client",
-    label: type === "cafe" ? "Salle café" : "Salle de restauration",
-    target: clientArea * 0.65,
-    min: 18,
-    priority: 20,
-    habitable: true,
-    unique: true,
-  });
-  items.push({
-    kind: "comptoir",
-    label: type === "cafe" ? "Comptoir café" : "Bar / Comptoir",
-    target: clientArea * 0.25,
-    min: 6,
-    priority: 18,
-    habitable: true,
-    unique: true,
-  });
-  items.push({
-    kind: "attente",
-    label: "Zone d'accueil",
-    target: clientArea * 0.10,
-    min: 4,
-    priority: 14,
-    habitable: true,
-  });
-
-  // ── Zone service (marche en avant) ──
-  items.push({
-    kind: "cuisine_pro",
-    label: "Cuisine professionnelle",
-    target: serviceArea * 0.40,
-    min: 12,
-    priority: 19,
-    habitable: true,
-    unique: true,
-  });
-  items.push({
-    kind: "plonge",
-    label: "Plonge",
-    target: serviceArea * 0.12,
-    min: 4,
-    priority: 13,
-  });
-  items.push({
-    kind: "chambre_froide",
-    label: "Stockage / Frigos",
-    target: serviceArea * 0.18,
-    min: 5,
-    priority: 12,
-  });
-  items.push({
-    kind: "stockage",
-    label: "Stockage sec",
-    target: serviceArea * 0.12,
-    min: 4,
-    priority: 10,
-  });
-  items.push({
-    kind: "vestiaire",
-    label: "Vestiaires personnel",
-    target: serviceArea * 0.10,
-    min: 4,
-    priority: 8,
-  });
-
-  // ── Circulations ──
-  items.push({
-    kind: "couloir",
-    label: "Couloir service",
-    target: circArea,
-    min: 3,
-    priority: 7,
-  });
-
-  // ── Sanitaires (H / F / PMR) ──
-  items.push({
-    kind: "sanitaire",
-    label: "Sanitaires Hommes",
-    target: sanitArea * 0.35,
-    min: 3,
-    priority: 11,
-  });
-  items.push({
-    kind: "sanitaire",
-    label: "Sanitaires Femmes",
-    target: sanitArea * 0.35,
-    min: 3,
-    priority: 11,
-  });
-  items.push({
-    kind: "wc",
-    label: "WC PMR",
-    target: sanitArea * 0.30,
-    min: 2.5,
-    priority: 11,
-  });
-
-  return items;
+  return [
+    {
+      kind: "salle_client",
+      label: "Salle de restauration",
+      target: salle,
+      min: 25,
+      priority: 20,
+      habitable: true,
+      unique: true,
+    },
+    {
+      kind: "cuisine_pro",
+      label: "Cuisine professionnelle",
+      target: cuisine,
+      min: 6,
+      priority: 19,
+      habitable: true,
+      unique: true,
+    },
+    {
+      kind: "plonge",
+      label: "Plonge",
+      target: plonge,
+      min: 1.5,
+      priority: 12,
+      unique: true,
+    },
+    {
+      kind: "chambre_froide",
+      label: "Chambre froide / réserves",
+      target: chambreFroide,
+      min: 1.5,
+      priority: 11,
+      unique: true,
+    },
+    {
+      kind: "stockage",
+      label: "Réserve sèche",
+      target: reserve,
+      min: 1.5,
+      priority: 10,
+      unique: true,
+    },
+    {
+      kind: "vestiaire",
+      label: "Vestiaires personnel",
+      target: vestiaire,
+      min: 1.2,
+      priority: 8,
+    },
+    {
+      kind: "sanitaire",
+      label: "Sanitaires Femmes",
+      target: sanH,
+      min: 1.2,
+      priority: 9,
+    },
+    {
+      kind: "sanitaire",
+      label: "Sanitaires Hommes",
+      target: sanF,
+      min: 1.2,
+      priority: 9,
+    },
+    {
+      kind: "wc",
+      label: "WC PMR",
+      target: pmr,
+      min: 1.1,
+      priority: 9,
+    },
+    {
+      kind: "couloir",
+      label: "Couloir de service",
+      target: circulation,
+      min: 1,
+      priority: 7,
+    },
+  ];
 }
 
 // ── Programme CAFÉ (règles propres au type « Café ») ─────────────────────────
@@ -1613,7 +1643,14 @@ function addOpenings(
     if (side === "W") return Math.abs(r.x) < TOL;
     return Math.abs(r.x + r.w - level.length) < TOL;
   };
-  const publicKinds: RoomKind[] = ["hall", "sejour", "reception", "openspace", "salle_cafe"];
+  const publicKinds: RoomKind[] = [
+    "hall",
+    "sejour",
+    "reception",
+    "openspace",
+    "salle_cafe",
+    "salle_client",
+  ];
   let entry: PlanRoom | undefined;
   if (isGroundFloor) {
     const facades: WallSide[] = [profile.mainFacade, "S", "E", "W", "N"];
@@ -2799,6 +2836,160 @@ export function validatePlan(
     };
   }
 
+  // 10. RÈGLES PROPRES AU RESTAURANT (aucune autre typologie n'est concernée)
+  //     · salle de restauration à 60 % de la surface couverte (55–65 admis) ;
+  //     · bar entièrement dans la salle, jamais une pièce ni une surface en plus ;
+  //     · cuisine professionnelle mitoyenne du bar, à moins de 2 m, avec porte
+  //       de service directe et passe-plat ;
+  //     · salle, cuisine, plonge, réserve et sanitaires accessibles, bar hors
+  //       du débattement des portes.
+  let restaurant: RestaurantValidation | undefined;
+  if (isRestaurantCategory(input.category)) {
+    const fp = variant.floors[0];
+    const rooms = fp.rooms.filter((r) => !r.exterior);
+    const covered = rooms.reduce((a, r) => a + r.area, 0);
+    const salles = rooms.filter((r) => r.kind === "salle_client");
+    const salle = salles[0] ?? null;
+    const salleShare = salle && covered > 0 ? salle.area / covered : 0;
+    const salleShareOk =
+      !!salle &&
+      salles.length === 1 &&
+      salleShare >= RESTAURANT_SALLE_SHARE_MIN - 0.005 &&
+      salleShare <= RESTAURANT_SALLE_SHARE_MAX + 0.005;
+
+    const kitchen = salle ? restaurantKitchenNeighbour(salle, rooms) : null;
+    const placement = salle ? restaurantCounterPlacement(salle, rooms, fp) : null;
+    const counterInsideSalle =
+      !!salle &&
+      !!placement &&
+      placement.counter.x >= salle.x - G &&
+      placement.counter.y >= salle.y - G &&
+      placement.counter.x + placement.counter.w <= salle.x + salle.w + G &&
+      placement.counter.y + placement.counter.h <= salle.y + salle.h + G;
+
+    const surfacesExactes =
+      fp.area > 0 && Math.abs(covered - fp.area) / fp.area <= 0.02;
+    const counterCountedOnce =
+      !!salle &&
+      !!placement &&
+      !rooms.some((r) => r.kind === "comptoir") &&
+      placement.counterArea <= salle.area + G &&
+      surfacesExactes;
+
+    const distance = placement ? restaurantCounterToKitchen(placement) : null;
+    const kitchenNearCounter =
+      !!kitchen &&
+      !!placement &&
+      placement.kitchen === kitchen &&
+      distance !== null &&
+      distance <= 2;
+
+    // Porte de service : la salle ET la cuisine partagent une ouverture sur
+    // leur mur mitoyen (même position, donnée unique).
+    const link = salle && kitchen ? sharedBoundary(salle, kitchen) : null;
+    const opensOn = (room: PlanRoom, wall: WallSide, from: number, to: number) =>
+      room.doors.some(
+        (d) =>
+          d.wall === wall &&
+          d.position < to + 0.05 &&
+          d.position + d.width > from - 0.05,
+      );
+    const serviceLinkOk =
+      !!placement?.passePlat ||
+      (!!link &&
+        !!salle &&
+        !!kitchen &&
+        opensOn(salle, link.wallA, link.startA, link.startA + link.len) &&
+        opensOn(kitchen, link.wallB, link.startB, link.startB + link.len));
+
+    // Passe-plat : présent, large d'au moins 1 m et entièrement contenu dans
+    // le linéaire du bar (le transfert des plats tombe sur le plan de travail).
+    let passePlatOk = false;
+    if (salle && placement?.passePlat) {
+      const horizontal = placement.wall === "N" || placement.wall === "S";
+      const runStart = horizontal
+        ? placement.counter.x - salle.x
+        : placement.counter.y - salle.y;
+      const runLen = horizontal ? placement.counter.w : placement.counter.h;
+      const p = placement.passePlat;
+      passePlatOk =
+        !!placement.kitchen &&
+        p.width >= 0.9 &&
+        p.position >= runStart - G &&
+        p.position + p.width <= runStart + runLen + G;
+    }
+
+    const accessKinds = new Set<RoomKind>([
+      "salle_client",
+      "cuisine_pro",
+      "plonge",
+      "stockage",
+      "chambre_froide",
+      "sanitaire",
+      "wc",
+    ]);
+    const accessibleRooms = rooms.filter((r) => accessKinds.has(r.kind));
+    const accessOk =
+      !!salle &&
+      salle.doors.some((d) => d.isEntry) &&
+      accessibleRooms.length >= 5 &&
+      accessibleRooms.every((r) => r.doors.length > 0) &&
+      !!placement &&
+      restaurantDoorClearances(salle).every(
+        (clearance) => !restaurantRectsOverlap(clearance, placement.counter),
+      );
+
+    if (!salleShareOk) {
+      score -= 20;
+      issues.push(
+        `Salle de restauration : ${Math.round(salleShare * 100)} % de la surface couverte (60 % requis, 55–65 % admis)`,
+      );
+    }
+    if (!counterInsideSalle) {
+      score -= 15;
+      issues.push("Bar hors de la salle de restauration");
+    }
+    if (!counterCountedOnce) {
+      score -= 15;
+      issues.push("Bar compté deux fois ou surface de la salle incohérente");
+    }
+    if (!kitchenNearCounter) {
+      score -= 10;
+      issues.push("Cuisine professionnelle trop éloignée du bar (accès de service)");
+    }
+    if (!serviceLinkOk) {
+      score -= 10;
+      issues.push("Aucune liaison de service directe salle ↔ cuisine");
+    }
+    if (!passePlatOk) {
+      score -= 5;
+      issues.push("Passe-plat absent du mur de cuisine");
+    }
+    if (!accessOk) {
+      score -= 10;
+      issues.push("Accès insuffisant : salle, cuisine, plonge, réserve ou sanitaires");
+    }
+
+    restaurant = {
+      salleShare: Math.round(salleShare * 1000) / 1000,
+      salleShareOk,
+      counterInsideSalle,
+      counterCountedOnce,
+      kitchenNearCounter,
+      serviceLinkOk,
+      passePlatOk,
+      accessOk,
+      ok:
+        salleShareOk &&
+        counterInsideSalle &&
+        counterCountedOnce &&
+        kitchenNearCounter &&
+        serviceLinkOk &&
+        passePlatOk &&
+        accessOk,
+    };
+  }
+
   return {
     dimensionsOk,
     noOverlap,
@@ -2810,6 +3001,7 @@ export function validatePlan(
     score: Math.max(40, Math.min(100, Math.round(score))),
     issues: [...new Set(issues)].slice(0, 8),
     ...(cafe ? { cafe } : {}),
+    ...(restaurant ? { restaurant } : {}),
   };
 }
 
@@ -2855,9 +3047,9 @@ function conceptNote(
                         : fam === "commercial"
                           ? "L'accueil filtre naturellement les flux vers l'espace de travail ouvert et les bureaux fermés, avec les salles de réunion en profondeur."
                           : isResto
-                            ? "La zone client " +
-                              (input.category === "cafe" ? "salle café + comptoir" : "salle de restauration + bar") +
-                              " occupe la façade principale, séparée de la cuisine professionnelle par un couloir de service respectant la marche en avant. Les sanitaires H/F/PMR sont accessibles depuis la salle client sans croiser la zone de production."
+                            ? input.category === "cafe"
+                              ? "La zone client salle café + comptoir occupe la façade principale, séparée de l'espace de préparation par un couloir de service respectant la marche en avant. Les sanitaires H/F/PMR sont accessibles depuis la salle sans croiser la zone de production."
+                              : "La salle de restauration occupe 60 % de la surface couverte et la façade principale ; le bar, adossé à la cuisine professionnelle, est inclus dans cette surface. Le passe-plat et la porte de service relient directement la production au bar, sans traversée de la salle, et les sanitaires H/F/PMR restent accessibles sans croiser la zone de production."
                             : "Le hall de stockage occupe le cœur du bâtiment, desservi directement par la zone logistique et les locaux d'exploitation.";
   const strengths = [
     "aucun chevauchement entre pièces et aucune pièce hors emprise",
@@ -3680,6 +3872,81 @@ function computeSurfaces(
 // ── API principale ──────────────────────────────────────────────────────────
 
 /**
+ * Liaison de service directe salle de restauration ↔ cuisine professionnelle.
+ *
+ * La marche en avant impose un accès de service court entre la production et
+ * la salle. Sur un mur assez long, une porte franchie (0,90 m) est replacée en
+ * bout de mur : le bar conserve le linéaire utile, dans l'axe du passe-plat.
+ * Sur un mur trop court pour la porte ET le bar, le passe-plat tient lieu
+ * d'ouverture de service : la porte de circulation entre les deux pièces est
+ * retirée (la cuisine reste desservie par le couloir de service) et le bar
+ * occupe tout le mur. Aucune surface n'est modifiée dans les deux cas.
+ */
+function linkRestaurantService(plan: FloorPlan): void {
+  const salle = plan.rooms.find((r) => r.kind === "salle_client");
+  const cuisine = plan.rooms.find((r) => r.kind === "cuisine_pro");
+  if (!salle || !cuisine) return;
+  const shared = sharedBoundary(salle, cuisine);
+  if (!shared) return;
+
+  const width = 0.9;
+  const start = shared.startA;
+  const end = shared.startA + shared.len;
+  const endB = shared.startB + shared.len;
+  // Le bar doit conserver au moins 2 m de linéaire à côté de la porte.
+  const keepsBarRun = shared.len - width - 0.35 >= 2;
+
+  // La porte de circulation posée entre ces deux pièces est replacée en bout
+  // de mur mitoyen : au centre, elle coupait le linéaire du bar en deux.
+  const clashes = (
+    doors: { wall: WallSide; position: number; width: number }[],
+    wall: WallSide,
+    from: number,
+    to: number,
+  ) =>
+    doors.some(
+      (d) =>
+        d.wall === wall && d.position < to + 0.05 && d.position + d.width > from - 0.05,
+    );
+  const inRange = (
+    d: { position: number; width: number },
+    from: number,
+    to: number,
+  ) => d.position < to && d.position + d.width > from;
+  const otherSalle = salle.doors.filter(
+    (d) => !(d.wall === shared.wallA && inRange(d, start, end)),
+  );
+  const otherCuisine = cuisine.doors.filter(
+    (d) => !(d.wall === shared.wallB && inRange(d, shared.startB, endB)),
+  );
+
+  if (!keepsBarRun) {
+    // Mur court : on libère tout le linéaire pour le bar, mais uniquement si la
+    // cuisine conserve une autre porte (accès par le couloir de service).
+    const cuisineKeepsAccess = otherCuisine.length > 0;
+    if (cuisineKeepsAccess) {
+      salle.doors = otherSalle;
+      cuisine.doors = otherCuisine;
+    }
+    return;
+  }
+
+  for (const offset of [0.25, shared.len - width - 0.25]) {
+    if (offset < 0.08) continue;
+    const a = start + offset;
+    const b = shared.startB + offset;
+    if (a + width > end) continue;
+    if (b + width > endB) continue;
+    if (clashes(otherSalle, shared.wallA, a, a + width)) continue;
+    if (clashes(otherCuisine, shared.wallB, b, b + width)) continue;
+    salle.doors = [...otherSalle, { wall: shared.wallA, position: round3(a), width }];
+    cuisine.doors = [...otherCuisine, { wall: shared.wallB, position: round3(b), width }];
+    return;
+  }
+  // Aucune extrémité libre : la porte existante est conservée telle quelle.
+}
+
+/**
  * Génère les 10 variantes de plans d'architecte pour un projet.
  * Déterministe : le même projet produit toujours les mêmes plans.
  */
@@ -3694,10 +3961,12 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
     isPool ? 12 : isRenovationSpace ? 4 : 18,
     input.surface || (isPool ? 32 : isRenovationSpace ? 10 : 90),
   );
-  // Un café est un local de plain-pied : la règle de salle (70–80 % de la
-  // surface couverte) porte sur le seul niveau réellement généré.
+  // Un café et un restaurant sont des locaux de plain-pied (le formulaire ne
+  // propose d'ailleurs aucun étage pour ces types) : la règle de part de salle
+  // porte sur la seule surface réellement couverte.
   const cafe = isCafeCategory(input.category);
-  const levels = cafe ? 1 : structuralLevels(kind, input.floors ?? 1);
+  const restaurant = isRestaurantCategory(input.category);
+  const levels = cafe || restaurant ? 1 : structuralLevels(kind, input.floors ?? 1);
   const family = familyForCategory(input.category);
   // Surface couverte RÉELLE de chaque niveau : `surface` est la surface du
   // rez-de-chaussée, `input.levelSurfaces` porte celle des étages. Elle n'est
@@ -3838,16 +4107,35 @@ export function generateFloorPlans(input: FloorPlanInput): FloorPlanVariant[] {
             true,
           ),
         );
-      } else if (kind === "office" || kind === "warehouse" || kind === "restaurant") {
+      } else if (kind === "restaurant") {
+        // Restaurant : salle de restauration à 60 % de la surface couverte,
+        // bar intégré à la salle et cuisine professionnelle mitoyenne (une
+        // seule géométrie, consommée par le plan 2D, le mobilier et les
+        // surfaces). Le plan est de plain-pied, comme le prévoit le formulaire.
+        const levelFootprint = footprintFor(levelAreas[0]);
+        const levelArea = round3(levelFootprint.length * levelFootprint.width);
+        const plan = buildLevel(
+          0,
+          1,
+          levelFootprint.length,
+          levelFootprint.width,
+          restaurantProgram(levelArea),
+          seed,
+          profile,
+          false,
+          undefined,
+          true,
+        );
+        linkRestaurantService(plan);
+        floors.push(plan);
+      } else if (kind === "office" || kind === "warehouse") {
         for (let lvl = 0; lvl < levels; lvl++) {
           const levelFootprint = footprintFor(levelAreas[lvl]);
           const levelArea = round3(levelFootprint.length * levelFootprint.width);
           const items =
             kind === "office"
               ? commercialProgram(levelArea)
-              : kind === "warehouse"
-                ? logisticsProgram(levelArea)
-                : restorationProgram(levelArea, "restaurant");
+              : logisticsProgram(levelArea);
           floors.push(
             buildLevel(
               lvl,

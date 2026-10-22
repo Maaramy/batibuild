@@ -91,6 +91,7 @@ const DAY_KINDS = new Set<RoomKind>([
   "terrasse",
   "attente",
   "salle_cafe",
+  "salle_client",
 ]);
 const CIRCULATION_KINDS = new Set<RoomKind>(["couloir", "escalier", "hall"]);
 
