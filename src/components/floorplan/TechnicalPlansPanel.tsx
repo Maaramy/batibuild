@@ -900,14 +900,12 @@ export function TechnicalPlansPanel({
         </CardHeader>
         <CardContent className="px-4 sm:px-5 pb-4">
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[560px] text-[11px]">
+            <table className="w-full text-[11px] sm:text-xs">
               <thead className="bg-muted/40 text-left text-[9px] uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-3 py-1.5 font-semibold">Poste</th>
-                  <th className="px-2 py-1.5 font-semibold">Quantité</th>
-                  <th className="px-2 py-1.5 font-semibold">Unité</th>
-                  <th className="px-2 py-1.5 font-semibold">P.U.</th>
-                  <th className="px-2 py-1.5 font-semibold">Montant</th>
+                  <th className="w-[58%] px-3 py-1.5 font-semibold sm:w-1/2">Poste</th>
+                  <th className="w-[22%] px-2 py-1.5 text-right font-semibold">Quantité</th>
+                  <th className="w-[20%] px-2 py-1.5 font-semibold sm:pr-3">Unité</th>
                 </tr>
               </thead>
               <tbody>
@@ -924,7 +922,7 @@ export function TechnicalPlansPanel({
                 })}
                 {!priced.length && (
                   <tr>
-                    <td colSpan={5} className="px-3 py-4 text-center text-xs text-muted-foreground">
+                    <td colSpan={3} className="px-3 py-4 text-center text-xs text-muted-foreground">
                       Aucune quantité disponible pour ce niveau.
                     </td>
                   </tr>
@@ -934,8 +932,8 @@ export function TechnicalPlansPanel({
           </div>
           <p className="mt-2 text-[10px] leading-snug text-muted-foreground">
             Les quantités sont calculées à partir des tracés réels du plan (longueurs, appareils,
-            points, raccords). Les prix proviennent exclusivement du référentiel configuré dans
-            BatiBuild : un prix absent est signalé, jamais inventé.
+            points, raccords). Les prix unitaires et les montants restent consultables dans le
+            Quantitatif détaillé du projet.
           </p>
         </CardContent>
       </Card>
@@ -963,8 +961,6 @@ function FragmentRow({
     label: string;
     quantity: number;
     unit: string;
-    unitPrice: number | null;
-    total: number | null;
   };
 }) {
   return (
@@ -972,27 +968,19 @@ function FragmentRow({
       {groupStart && (
         <tr className="bg-muted/25">
           <td
-            colSpan={5}
+            colSpan={3}
             className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground"
           >
             {group}
           </td>
         </tr>
       )}
-      <tr className="border-t border-border/50">
-        <td className="px-3 py-1.5">{q.label}</td>
-        <td className="px-2 py-1.5 tabular-nums">{q.quantity.toLocaleString("fr-FR")}</td>
-        <td className="px-2 py-1.5 text-muted-foreground">{q.unit}</td>
-        <td className="px-2 py-1.5 tabular-nums">
-          {q.unitPrice != null ? q.unitPrice.toLocaleString("fr-FR") : "—"}
+      <tr className="border-t border-border/50 align-top">
+        <td className="px-3 py-1.5 break-words">{q.label}</td>
+        <td className="px-2 py-1.5 text-right tabular-nums">
+          {q.quantity.toLocaleString("fr-FR")}
         </td>
-        <td className="px-2 py-1.5 tabular-nums">
-          {q.total != null ? (
-            q.total.toLocaleString("fr-FR", { maximumFractionDigits: 2 })
-          ) : (
-            <span className="text-[9px] font-medium text-amber-600">Prix non configuré</span>
-          )}
-        </td>
+        <td className="px-2 py-1.5 text-muted-foreground sm:pr-3">{q.unit}</td>
       </tr>
     </>
   );
