@@ -107,9 +107,6 @@ export const PROJECT_TYPE_SPECIALTIES: Record<string, string[]> = {
     "salle_de_bain", "plomberie", "carrelage", "electricite", "isolation",
     "second_oeuvre",
   ],
-  peinture_interieure: [
-    "peinture", "second_oeuvre", "isolation",
-  ],
   piscine: [
     "piscines", "terrassement", "macconnerie", "beton", "etancheite",
     "plomberie", "electricite", "jardins", "marbre",

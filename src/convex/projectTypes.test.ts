@@ -70,8 +70,8 @@ describe("projectHasPool — piscine réellement présente dans le projet", () =
   });
 });
 
-describe("PROJECT_TYPES — catalogue officiel (21 types)", () => {
-  it("contient exactement les 21 types de projet du catalogue", () => {
+describe("PROJECT_TYPES — catalogue officiel (20 types)", () => {
+  it("contient exactement les 20 types de projet du catalogue", () => {
     expect(PROJECT_TYPES).toEqual([
       "maison",
       "villa",
@@ -88,7 +88,6 @@ describe("PROJECT_TYPES — catalogue officiel (21 types)", () => {
       "extension_batiment",
       "renovation_cuisine",
       "renovation_salle_de_bain",
-      "peinture_interieure",
       "piscine",
       "restaurant",
       "cafe",
@@ -99,6 +98,11 @@ describe("PROJECT_TYPES — catalogue officiel (21 types)", () => {
     // du catalogue officiel.
     expect(PROJECT_TYPES).not.toContain("maison_r_plus_1");
     expect(PROJECT_TYPES).not.toContain("maison_r_plus_2");
+    // Le type « Peinture » a été retiré : plus sélectionnable, mais les
+    // projets existants conservent leur libellé et leur recalcul.
+    expect(PROJECT_TYPES).not.toContain("peinture_interieure");
+    expect(projectTypeLabel("peinture_interieure")).toBe("Peinture intérieure");
+    expect(resolveProjectType("peinture_interieure")).toBe("projet_neuf");
   });
 
   it("chaque type possède un libellé, une icône et un groupe d'affichage", () => {

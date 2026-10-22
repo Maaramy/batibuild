@@ -46,7 +46,6 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
       "piscine",
       "renovation_cuisine",
       "renovation_salle_de_bain",
-      "peinture_interieure",
       "electricite_complete",
       "plomberie_complete",
       "cloture",
@@ -56,7 +55,7 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
   });
 
   it("Groupes B et C — les autres étapes ne réapparaissent jamais, même flags activés", () => {
-    for (const type of ["piscine", "peinture_interieure"]) {
+    for (const type of ["piscine", "electricite_complete"]) {
       const modules = visibleReportModules(allEnabled, type);
       expect(modules.map((m) => m.key), type).toEqual(["cost"]);
       expect(modules.map((m) => m.label), type).toEqual(["Coût estimatif"]);
@@ -87,7 +86,7 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     expect(
       visibleReportModules(
         (flag) => flag !== "construction_cost_estimation",
-        "peinture_interieure",
+        "electricite_complete",
       ),
     ).toEqual([]);
   });
@@ -95,7 +94,7 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
   it("le nombre de rapports disponibles d'un projet Groupe C ne dépasse jamais 1", () => {
     const project = {
       _id: "p1",
-      category: "peinture_interieure",
+      category: "electricite_complete",
       surface: 120,
       costEstimate: {},
     };

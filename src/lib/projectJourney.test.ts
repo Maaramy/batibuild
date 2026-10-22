@@ -114,11 +114,7 @@ describe("projectJourneyGroup — classification centrale", () => {
   });
 
   it("classe en groupe C tous les autres types du catalogue", () => {
-    for (const type of [
-      "peinture_interieure",
-      "electricite_complete",
-      "plomberie_complete",
-    ]) {
+    for (const type of ["electricite_complete", "plomberie_complete"]) {
       expect(projectJourneyGroup(type), type).toBe("C");
       expect(buildProjectJourney(type, PID).map((s) => s.key), type).toEqual(
         GROUP_C_KEYS,
@@ -199,7 +195,7 @@ describe("projectJourneyGroup — classification centrale", () => {
       expect(projectJourneyGroup("maison"), name).toBe("A");
       expect(projectJourneyGroup("renovation_cuisine"), name).toBe("B");
       expect(projectJourneyGroup("bureau"), name).toBe("D");
-      expect(projectJourneyGroup("peinture_interieure"), name).toBe("C");
+      expect(projectJourneyGroup("electricite_complete"), name).toBe("C");
     }
   });
 
@@ -257,7 +253,7 @@ describe("buildProjectJourney — ordre obligatoire des étapes", () => {
   });
 
   it("Groupes B et C — 2 étapes : coût estimatif puis mise en relation", () => {
-    for (const type of [...EXPECTED_GROUP_B, "peinture_interieure"]) {
+    for (const type of [...EXPECTED_GROUP_B, "electricite_complete"]) {
       const steps = buildProjectJourney(type, PID);
       expect(steps.map((s) => s.label), type).toEqual(GROUP_B_LABELS);
       expect(steps.map((s) => s.key), type).toEqual(GROUP_B_KEYS);
@@ -271,7 +267,7 @@ describe("buildProjectJourney — ordre obligatoire des étapes", () => {
   });
 
   it("Groupe C — 2 étapes : coût estimatif puis mise en relation", () => {
-    for (const type of ["peinture_interieure", "electricite_complete", "type_inexistant"]) {
+    for (const type of ["electricite_complete", "plomberie_complete", "type_inexistant"]) {
       const steps = buildProjectJourney(type, PID);
       expect(steps.map((s) => s.label), type).toEqual(GROUP_C_LABELS);
       expect(steps.map((s) => s.key), type).toEqual(GROUP_C_KEYS);
@@ -284,7 +280,7 @@ describe("buildProjectJourney — ordre obligatoire des étapes", () => {
   });
 
   it("commence toujours par le coût estimatif et se termine par la mise en relation (groupe C)", () => {
-    const steps = buildProjectJourney("peinture_interieure", PID);
+    const steps = buildProjectJourney("electricite_complete", PID);
     expect(steps[0].href).toBe(`/dashboard/project/${PID}`);
     expect(steps[steps.length - 1].href).toBe(
       `/dashboard/professionals-directory?project=${PID}`,
@@ -405,7 +401,7 @@ describe("buildProjectJourney — liens, rapports et contexte du projet", () => 
   });
 
   it("chaque étape du groupe C pointe vers le module correspondant", () => {
-    const steps = buildProjectJourney("peinture_interieure", PID);
+    const steps = buildProjectJourney("electricite_complete", PID);
     expect(steps.map((s) => s.href)).toEqual([
       `/dashboard/project/${PID}`,
       `/dashboard/professionals-directory?project=${PID}`,
@@ -476,7 +472,7 @@ describe("canAccessJourneyStep — accès direct aux étapes", () => {
   });
 
   it("groupe C : décision, plans et exécution refusés", () => {
-    for (const type of ["peinture_interieure", "electricite_complete", "type_inexistant", null]) {
+    for (const type of ["electricite_complete", "plomberie_complete", "type_inexistant", null]) {
       expect(canAccessJourneyStep(type, "plans"), String(type)).toBe(false);
       expect(canAccessJourneyStep(type, "decision"), String(type)).toBe(false);
       expect(canAccessJourneyStep(type, "execution"), String(type)).toBe(false);
@@ -505,7 +501,7 @@ describe("canAccessJourneyStep — accès direct aux étapes", () => {
         "Exécution & Suivi",
       );
     }
-    for (const type of ["peinture_interieure", "electricite_complete", null]) {
+    for (const type of ["electricite_complete", "plomberie_complete", null]) {
       expect(costEstimateLoadingSteps(type), String(type)).toEqual(
         GROUP_C_LABELS,
       );
@@ -549,7 +545,7 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
       GROUP_D_KEYS,
     );
     expect(
-      buildProjectJourney("peinture_interieure", PID, null).map((s) => s.key),
+      buildProjectJourney("electricite_complete", PID, null).map((s) => s.key),
     ).toEqual(GROUP_C_KEYS);
   });
 
@@ -574,7 +570,7 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
       "consult",
     ]);
     expect(
-      buildProjectJourney("peinture_interieure", PID, flags).map((s) => s.key),
+      buildProjectJourney("electricite_complete", PID, flags).map((s) => s.key),
     ).toEqual(["consult"]);
   });
 

@@ -1,14 +1,18 @@
 // ============================================================================
-// CATALOGUE OFFICIEL DES TYPES DE PROJET (21 types)
+// CATALOGUE OFFICIEL DES TYPES DE PROJET (20 types)
 //
 // 11 types immobiliers :
 //   maison, villa, appartement, studio, duplex, immeuble,
 //   local_commercial, bureau, entrepot, residence_touristique, projet_neuf
 //
-// 10 types rénovation / travaux techniques :
+// 9 types rénovation / travaux techniques :
 //   renovation_complete, extension_batiment, renovation_cuisine,
-//   renovation_salle_de_bain, peinture_interieure, piscine,
-//   restaurant, cafe, electricite_complete, plomberie_complete
+//   renovation_salle_de_bain, piscine, restaurant, cafe,
+//   electricite_complete, plomberie_complete
+//
+// Le type « Peinture » (`peinture_interieure`) a été retiré du catalogue : il
+// n'est plus proposé à la création. Les projets existants conservent leur
+// libellé, leur gabarit DQE dédié et leur recalcul (voir les tables legacy).
 //
 // Le parcours du projet (groupes A à D) est défini séparément dans
 // `src/lib/projectJourney.ts` : les groupes A (10 types résidentiels) et D
@@ -40,7 +44,6 @@ export const PROJECT_TYPES = [
   "extension_batiment",
   "renovation_cuisine",
   "renovation_salle_de_bain",
-  "peinture_interieure",
   // Équipements extérieurs
   "piscine",
   // Hébergement & restauration
@@ -69,7 +72,6 @@ export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   extension_batiment: "Extension bâtiment",
   renovation_cuisine: "Rénovation Cuisine",
   renovation_salle_de_bain: "Rénovation salle de bain",
-  peinture_interieure: "Peinture",
   piscine: "Piscine",
   restaurant: "Restaurant",
   cafe: "Café",
@@ -94,7 +96,6 @@ export const PROJECT_TYPE_ICONS: Record<ProjectType, string> = {
   extension_batiment: "Expand",
   renovation_cuisine: "CookingPot",
   renovation_salle_de_bain: "ShowerHead",
-  peinture_interieure: "Paintbrush",
   piscine: "Waves",
   restaurant: "UtensilsCrossed",
   cafe: "Coffee",
@@ -122,7 +123,7 @@ export const PROJECT_TYPE_GROUPS: { key: string; label: string; types: ProjectTy
   {
     key: "renovation",
     label: "Rénovation & finition",
-    types: ["renovation_complete", "extension_batiment", "renovation_cuisine", "renovation_salle_de_bain", "peinture_interieure"],
+    types: ["renovation_complete", "extension_batiment", "renovation_cuisine", "renovation_salle_de_bain"],
   },
   {
     key: "equipements_exterieurs",
@@ -157,7 +158,7 @@ export const ROOM_ELIGIBLE_TYPES: string[] = [
 export const SINGLE_LEVEL_TYPES: string[] = [
   "local_commercial", "entrepot", "bureau",
   "renovation_complete", "extension_batiment", "renovation_cuisine",
-  "renovation_salle_de_bain", "peinture_interieure",
+  "renovation_salle_de_bain",
   "piscine", "restaurant", "cafe",
   "electricite_complete", "plomberie_complete",
 ];
@@ -350,7 +351,6 @@ export const ROOM_DEFAULTS: Record<
   extension_batiment: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
   renovation_cuisine: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
   renovation_salle_de_bain: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
-  peinture_interieure: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
   piscine: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "0", pools: "0" },
   restaurant: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "1", pools: "0" },
   cafe: { bedrooms: "0", bathrooms: "0", kitchens: "0", livingRooms: "0", garages: "0", wcs: "1", pools: "0" },
@@ -374,7 +374,9 @@ export const LEGACY_PROJECT_TYPE_MAP: Record<string, string> = {
   atelier: "entrepot",
   // Anciens types tourisme → types officiels
   maison_hote: "residence_touristique",
-  // Anciens types rénovation → types officiels (projet neuf associé)
+  // Anciens types rénovation → types officiels (projet neuf associé).
+  // « peinture_interieure » (type retiré du catalogue) reste mappé ici : les
+  // projets existants sont recalculés comme un projet neuf.
   renovation_complete: "projet_neuf",
   renovation_cuisine: "projet_neuf",
   renovation_salle_de_bain: "projet_neuf",

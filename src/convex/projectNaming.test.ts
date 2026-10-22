@@ -61,7 +61,7 @@ describe("nom automatique des projets — format", () => {
     ]);
   });
 
-  it("couvre les 21 types du catalogue, avec un nom en minuscules", () => {
+  it("couvre les 20 types du catalogue, avec un nom en minuscules", () => {
     for (const category of PROJECT_TYPES) {
       const name = formatProjectName(category, 1);
       const article = PROJECT_NAME_ARTICLES[category];

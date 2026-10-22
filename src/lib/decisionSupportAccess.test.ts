@@ -98,7 +98,7 @@ describe("evaluateDecisionSupportAccess — scénarios obligatoires", () => {
   });
 
   it("5 bis. Groupe C + Client Pro actif → refusé (étape absente du parcours)", () => {
-    const res = access("peinture_interieure", ACTIVE_PRO);
+    const res = access("electricite_complete", ACTIVE_PRO);
     expect(res.allowed).toBe(false);
     expect(res.reason).toBe("group_not_eligible");
     expect(res.group).toBe("C");
@@ -164,7 +164,6 @@ describe("evaluateDecisionSupportAccess — cas limites", () => {
 
   it("les types du groupe C ne sont pas éligibles, même avec un Client Pro actif", () => {
     for (const type of [
-      "peinture_interieure",
       "electricite_complete",
       "plomberie_complete",
       "cloture",
@@ -230,7 +229,7 @@ describe("evaluateDecisionSupportAccess — cas limites", () => {
   it("administrateur / modérateur → bypass de test, comme les autres modules", () => {
     expect(access("villa", null, { isAdmin: true }).allowed).toBe(true);
     // Le bypass ne contourne jamais la restriction de type de projet.
-    expect(access("peinture_interieure", null, { isAdmin: true }).allowed).toBe(
+    expect(access("electricite_complete", null, { isAdmin: true }).allowed).toBe(
       false,
     );
   });

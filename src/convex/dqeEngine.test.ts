@@ -94,9 +94,9 @@ describe("generateDqe — invariants de calcul (modèle Google Sheets)", () => {
   });
 });
 
-describe("generateDqe — les 21 types de projet génèrent un DQE", () => {
+describe("generateDqe — les 20 types de projet génèrent un DQE", () => {
   it("chaque type officiel produit au moins 2 lots et 5 lignes", () => {
-    expect(PROJECT_TYPES).toHaveLength(21);
+    expect(PROJECT_TYPES).toHaveLength(20);
     for (const cat of PROJECT_TYPES) {
       const dqe = run(cat);
       expect(dqe.lots.length, cat).toBeGreaterThanOrEqual(2);

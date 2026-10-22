@@ -11,7 +11,7 @@
 //     puis le type de projet en minuscules : « #1 Ma maison ».
 //   • Le déterminant est le SEUL élément qui ne peut pas être déduit
 //     mécaniquement du type : il est donc déclaré explicitement pour les
-//     21 types du catalogue officiel. Le nom, lui, est dérivé du libellé
+//     20 types du catalogue officiel. Le nom, lui, est dérivé du libellé
 //     officiel (PROJECT_TYPE_LABELS) pour rester synchrone avec le catalogue.
 //   • Le numéro n'est JAMAIS codé en dur : il est calculé à partir du compteur
 //     Convex (voir `allocateGeneratedProjectName` dans projects.ts), lui-même
@@ -47,7 +47,6 @@ export const PROJECT_NAME_ARTICLES: Record<ProjectType, ProjectNameArticle> = {
   extension_batiment: "Mon",
   renovation_cuisine: "Ma",
   renovation_salle_de_bain: "Ma",
-  peinture_interieure: "Ma",
   piscine: "Ma",
   restaurant: "Mon",
   cafe: "Mon",

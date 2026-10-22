@@ -24,7 +24,7 @@ import {
   CircleCheck,
   Home, Building, Briefcase, Store, Package,
   DoorOpen, Layers, Palmtree,
-  Hammer, Expand, CookingPot, ShowerHead, Paintbrush,
+  Hammer, Expand, CookingPot, ShowerHead,
   Waves, UtensilsCrossed, Coffee, Zap, Droplets,
 
 } from "lucide-react";
@@ -76,12 +76,11 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   entrepot: Package,
   residence_touristique: Palmtree,
   projet_neuf: HardHat,
-  // 10 types travaux spécialisés
+  // 9 types travaux spécialisés
   renovation_complete: Hammer,
   extension_batiment: Expand,
   renovation_cuisine: CookingPot,
   renovation_salle_de_bain: ShowerHead,
-  peinture_interieure: Paintbrush,
   piscine: Waves,
   restaurant: UtensilsCrossed,
   cafe: Coffee,

@@ -273,7 +273,7 @@ describe("getProjectDecisionSupportAccess — scénarios obligatoires", () => {
 
   it("4. Groupe C + Client Pro actif → accès refusé (étape absente du parcours, aucune donnée)", async () => {
     const userId = await createUser(t);
-    const projectId = await createProject(t, userId, "peinture_interieure");
+    const projectId = await createProject(t, userId, "electricite_complete");
     const user = asUser(t, userId);
 
     const access = await user.query(api.decisionSupportAccess.getProjectDecisionSupportAccess, {
@@ -404,7 +404,7 @@ describe("getProjectDecisionSupportAccess — cohérence de l'abonnement", () =>
   it("l'administrateur conserve l'accès (bypass de test), jamais pour les groupes B et C", async () => {
     const adminId = await createUser(t, { plan: null, role: "admin" });
     const projectA = await createProject(t, adminId, "villa");
-    const projectC = await createProject(t, adminId, "peinture_interieure");
+    const projectC = await createProject(t, adminId, "electricite_complete");
     const admin = asUser(t, adminId);
 
     expect(

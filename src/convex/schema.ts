@@ -136,7 +136,6 @@ export const PROJECT_CATEGORIES = [
   "extension_batiment",
   "renovation_cuisine",
   "renovation_salle_de_bain",
-  "peinture_interieure",
   // Équipements extérieurs
   "piscine",
   // Hébergement & restauration

@@ -33,7 +33,7 @@ import {
 import { PROJECT_TYPES, resolveProjectType } from "./projectTypes";
 
 describe("Besoins par type de projet", () => {
-  it("couvre les 21 types officiels du catalogue", () => {
+  it("couvre les 20 types officiels du catalogue", () => {
     for (const t of PROJECT_TYPES) {
       const s = PROJECT_TYPE_SPECIALTIES[t];
       expect(s, `spécialités manquantes pour ${t}`).toBeDefined();
@@ -57,10 +57,11 @@ describe("Besoins par type de projet", () => {
     expect(s).toContain("gros_oeuvre");
   });
 
-  it("peinture intérieure → peinture uniquement (pas de plomberie)", () => {
-    const s = projectTypeSpecialties("peinture_interieure");
-    expect(s).toContain("peinture");
-    expect(s).not.toContain("plomberie");
+  it("type « Peinture » retiré du catalogue → projets existants traités comme un projet neuf", () => {
+    expect(resolveProjectType("peinture_interieure")).toBe("projet_neuf");
+    expect(projectTypeSpecialties("peinture_interieure")).toEqual(
+      PROJECT_TYPE_SPECIALTIES["projet_neuf"],
+    );
   });
 
   it("résout les anciens slugs et les libellés libres", () => {
