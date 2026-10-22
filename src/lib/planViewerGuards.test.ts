@@ -78,9 +78,9 @@ describe("plans architecturaux — zoom loupe + / − sur les deux vues", () => 
       expect(source, file).not.toMatch(/dimGroup/);
       expect(source, file).not.toMatch(/makeTextSprite/);
       expect(source, file).not.toMatch(/dark:from-slate-9/);
-      // Fond d'atelier clair obligatoire : dégradé historique ou blanc cassé
-      // de la feuille de présentation (#FBFAF7).
-      expect(source, file).toMatch(/from-sky-50|#FBFAF7/);
+      // Fond d'atelier clair obligatoire : dégradé historique, blanc cassé de
+      // la feuille de présentation (#FBFAF7) ou feuille blanche (#FFFFFF).
+      expect(source, file).toMatch(/from-sky-50|#FBFAF7|#FFFFFF/);
     }
     expect(read("src/components/floorplan/site3D.ts")).not.toMatch(/boundary/);
   });

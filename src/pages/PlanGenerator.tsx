@@ -580,7 +580,9 @@ function VariantCard({
       transition={{ delay: index * 0.04, duration: 0.3 }}
     >
       {pdfGate.dialog}
-      <Card className="overflow-hidden">
+      {/* Carte du plan : fond blanc, AUCUN cadrage (ni bordure, ni ombre) —
+          la feuille de présentation se fond dans la page blanche. */}
+      <Card className="overflow-hidden border-0 bg-white shadow-none">
         <CardHeader className="pb-3 pt-4 px-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
