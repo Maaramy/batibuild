@@ -648,7 +648,7 @@ export function FloorPlan3DBuilding({
       // ── Mobilier et équipements par nature de pièce ──────────────────────
       for (const room of rooms) {
         if (room.exterior || room.kind === "escalier" || room.kind === "bassin") continue;
-        for (const prim of roomFurniture(room)) {
+        for (const prim of roomFurniture(room, plan)) {
           if (prim.t === "l") continue;
           const mat = furnMats[prim.m ?? "wood"];
           if (prim.t === "c") {

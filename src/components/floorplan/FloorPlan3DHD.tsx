@@ -872,7 +872,9 @@ export function FloorPlan3DHD({
       arr.push(geo);
     };
     for (const r of plan.rooms) {
-      for (const p of roomFurniture(r)) {
+      // Le plan complet est passé : comptoir, bar et tables des salles de
+      // café / restaurant ne sont placés qu'avec les circulations du niveau.
+      for (const p of roomFurniture(r, plan)) {
         if (p.t === "l") continue;
         if (p.t === "c") {
           if (p.flat || p.r < 0.03) continue;

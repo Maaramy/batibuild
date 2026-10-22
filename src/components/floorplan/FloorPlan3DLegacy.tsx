@@ -625,7 +625,9 @@ export function FloorPlan3DLegacy({
       arr.push(geo);
     };
     for (const r of plan.rooms) {
-      for (const p of roomFurniture(r)) {
+      // Le plan complet est passé : les salles de café / restaurant en ont
+      // besoin pour placer comptoir, bar et tables hors des circulations.
+      for (const p of roomFurniture(r, plan)) {
         if (p.t === "l") continue;
         if (p.t === "c") {
           if (p.flat || p.r < 0.03) continue;
