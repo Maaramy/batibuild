@@ -199,7 +199,15 @@ export function restaurantCounterPlacement(
     ]),
   ];
 
+  // Dégagements des portes de la salle : le bar ne doit jamais s'implanter
+  // dans le débattement d'une porte, y compris une entrée située sur un mur
+  // perpendiculaire (l'extrémité du bar arrive alors devant le battant).
+  const clearances = doorClearances(salle);
+  const inDoorSwing = (placement: RestaurantCounterPlacement) =>
+    clearances.some((c) => rectsOverlap(c, placement.counter));
+
   let best: RestaurantCounterPlacement | null = null;
+  let relaxed: RestaurantCounterPlacement | null = null;
   for (const wall of candidateWalls) {
     const spans = freeSpans(salle, wall);
     if (spans.length === 0) continue;
@@ -219,16 +227,29 @@ export function restaurantCounterPlacement(
       ),
     );
 
-    const start = span.a + (usable - length) / 2;
+    // Trois implantations possibles dans l'intervalle libre : centrée, en fin
+    // de mur (loin de l'entrée) puis en début de mur. La première qui ne
+    // coupe aucun débattement de porte est retenue.
+    const starts = [
+      span.a + (usable - length) / 2,
+      Math.max(span.a, span.b - length - 0.02),
+      Math.min(span.b - length, span.a + 0.02),
+    ];
     const kitchenNear = !!kitchen && sharedWall(salle, kitchen) === wall;
-    const placement = buildPlacement(salle, wall, start, length, staffAisle, kitchen, kitchenNear);
-    if (!placement) continue;
-    // Le mur de la cuisine est prioritaire : le bar s'y adosse dès qu'une
-    // implantation valide existe, quelle que soit sa longueur.
-    if (kitchenNear) return placement;
-    if (!best || placement.counterArea > best.counterArea) best = placement;
+    for (const start of starts) {
+      const placement = buildPlacement(salle, wall, start, length, staffAisle, kitchen, kitchenNear);
+      if (!placement) continue;
+      if (inDoorSwing(placement)) {
+        if (!relaxed || placement.counterArea > relaxed.counterArea) relaxed = placement;
+        continue;
+      }
+      // Le mur de la cuisine est prioritaire : le bar s'y adosse dès qu'une
+      // implantation valide existe, quelle que soit sa longueur.
+      if (kitchenNear) return placement;
+      if (!best || placement.counterArea > best.counterArea) best = placement;
+    }
   }
-  return best;
+  return best ?? relaxed;
 }
 
 function buildPlacement(

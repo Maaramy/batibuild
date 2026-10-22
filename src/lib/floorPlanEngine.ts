@@ -32,6 +32,17 @@ import {
   restaurantKitchenNeighbour,
   restaurantRectsOverlap,
 } from "./restaurantPlan";
+import {
+  SANITARY_DEPTH_MAX,
+  SANITARY_DEPTH_MIN,
+  SANITARY_DOOR_WIDTH,
+  SANITARY_MIN_WIDTH,
+  SANITARY_PMR_WIDTH,
+  isFoodPrepKind,
+  isSalleKind,
+  isSanitaryKind,
+  sanitaryAccessReport,
+} from "./sanitaryPlan";
 
 // ── Types publics ───────────────────────────────────────────────────────────
 
@@ -138,6 +149,10 @@ export interface CafeValidation {
   counterCountedOnce: boolean;
   /** Salle, préparation, réserve et sanitaires accessibles, comptoir hors des portes. */
   accessOk: boolean;
+  /** Sanitaires desservis par la salle, sans porte sur la production. */
+  sanitaryAccessOk: boolean;
+  /** WC accessible PMR (giration 1,50 m) lorsque la surface le permet. */
+  pmrOk: boolean;
   ok: boolean;
 }
 
@@ -158,6 +173,10 @@ export interface RestaurantValidation {
   passePlatOk: boolean;
   /** Salle, cuisine, plonge, réserve et sanitaires accessibles. */
   accessOk: boolean;
+  /** Sanitaires desservis par la salle, sans porte sur la production. */
+  sanitaryAccessOk: boolean;
+  /** WC accessible PMR (giration 1,50 m) lorsque la surface le permet. */
+  pmrOk: boolean;
   ok: boolean;
 }
 
@@ -1533,6 +1552,8 @@ function addFacadeDoor(
   side: WallSide,
   desiredWidth: number,
   flags: { isEntry?: boolean; isEmergency?: boolean } = {},
+  /** Position à essayer en premier (café / restaurant : entrée à l'écart du service). */
+  preferred?: number,
 ): boolean {
   const span = side === "N" || side === "S" ? room.w : room.h;
   const width = round3(Math.min(desiredWidth, span - 0.4));
@@ -1545,7 +1566,12 @@ function addFacadeDoor(
       (o) => pos >= o.position + o.width + 0.15 || pos + width <= o.position - 0.15,
     );
   };
-  const candidates = [span / 2 - width / 2, 0.2, span - width - 0.2];
+  const candidates = [
+    ...(preferred != null ? [preferred] : []),
+    span / 2 - width / 2,
+    0.2,
+    span - width - 0.2,
+  ];
   const position = candidates.find(free);
   if (position === undefined) return false;
   room.doors.push({
@@ -1689,6 +1715,40 @@ function addOpenings(
 
   const opposite: Record<WallSide, WallSide> = { N: "S", S: "N", E: "W", W: "E" };
 
+  /**
+   * Entrée d'un café / restaurant : l'extrémité du mur la plus éloignée de la
+   * zone de service (cuisine, plonge, sanitaires). Le débattement de la porte
+   * ne coupe ainsi jamais le linéaire du bar, adossé au mur de la cuisine.
+   * `undefined` = position libre (centre du mur).
+   */
+  const foodEntryOffset = (
+    salle: PlanRoom,
+    side: WallSide,
+  ): number | undefined => {
+    if (!isSalleKind(salle.kind)) return undefined;
+    let serviceWall: WallSide | null = null;
+    for (const r of rooms) {
+      if (r === salle || r.exterior) continue;
+      if (r.kind !== "cuisine_pro" && r.kind !== "plonge" && !isSanitaryKind(r.kind)) continue;
+      const shared = sharedBoundary(salle, r);
+      if (shared) {
+        serviceWall = shared.wallA;
+        break;
+      }
+    }
+    if (!serviceWall || serviceWall === side) return undefined;
+    const span = side === "N" || side === "S" ? salle.w : salle.h;
+    const margin = 0.2;
+    const farEnd = Math.max(margin, span - 1.1 - margin);
+    if ((serviceWall === "E" || serviceWall === "W") && (side === "N" || side === "S")) {
+      return serviceWall === "E" ? margin : farEnd;
+    }
+    if ((serviceWall === "N" || serviceWall === "S") && (side === "E" || side === "W")) {
+      return serviceWall === "N" ? farEnd : margin;
+    }
+    return undefined;
+  };
+
   // ── 2. Porte d'entrée principale sur la façade rue ───────────────────────
   let entrySide: WallSide | null = null;
   if (isGroundFloor && entry) {
@@ -1697,7 +1757,10 @@ function addOpenings(
         ? profile.mainFacade
         : (["S", "E", "W", "N"] as WallSide[]).find((s) => onFacade(entry!, s)) ?? "S";
     entrySide = side;
-    addFacadeDoor(entry, side, 1.1, { isEntry: true });
+    // Café / restaurant : l'entrée est décalée à l'extrémité du mur la plus
+    // éloignée de la zone de service (cuisine + sanitaires). Son débattement
+    // ne coupe alors jamais le linéaire du bar, adossé au mur de la cuisine.
+    addFacadeDoor(entry, side, 1.1, { isEntry: true }, foodEntryOffset(entry, side));
   }
 
   // ── 3. Porte de sortie de secours (rez-de-chaussée) ─────────────────────
@@ -1827,6 +1890,96 @@ function addOpenings(
   }
 }
 
+/**
+ * Sanitaires d'un café / restaurant : accès client depuis la salle.
+ *
+ *  · une porte sur le mur mitoyen de la salle est garantie (elle est ajoutée
+ *    sur les DEUX pièces, donc le plan 2D et le plan 3D partagent la même
+ *    ouverture) ;
+ *  · toutes les autres portes du sanitaire sont retirées : un WC ne se
+ *    traverse pas et n'ouvre ni sur la cuisine, ni sur la plonge, ni sur la
+ *    réserve ou la chambre froide (hygiène, marche en avant) ;
+ *  · un local ainsi privé de son accès reçoit une autre porte sur son plus
+ *    grand mur mitoyen non sanitaire : aucun local n'est jamais encloisonné.
+ */
+function ensureSanitaryDoors(plan: FloorPlan): void {
+  const salle = plan.rooms.find((r) => !r.exterior && isSalleKind(r.kind));
+  if (!salle) return;
+  const rooms = plan.rooms.filter((r) => !r.exterior);
+  const sanitary = rooms.filter((r) => isSanitaryKind(r.kind));
+  if (sanitary.length === 0) return;
+
+  const inRange = (
+    d: { position: number; width: number },
+    from: number,
+    to: number,
+  ) => d.position < to + 0.05 && d.position + d.width > from - 0.05;
+  const hasDoorOn = (
+    room: PlanRoom,
+    wall: WallSide,
+    from: number,
+    to: number,
+  ) => room.doors.some((d) => d.wall === wall && inRange(d, from, to));
+
+  // Aucun local ne doit rester encloisonné : si la porte retirée était le seul
+  // accès d'un local de service, une porte est reposée sur son plus grand mur
+  // mitoyen NON sanitaire (jamais à travers un WC).
+  const ensureAccess = (room: PlanRoom) => {
+    if (room.doors.length > 0) return;
+    const neighbours = rooms
+      .filter((r) => r !== room && !isSanitaryKind(r.kind))
+      .map((r) => ({ room: r, shared: sharedBoundary(room, r) }))
+      .filter((x): x is { room: PlanRoom; shared: SharedBoundary } => !!x.shared)
+      .sort((a, b) => b.shared.len - a.shared.len);
+    if (neighbours.length > 0) {
+      addPairedDoor(room, neighbours[0].room, neighbours[0].shared, 0.9);
+      return;
+    }
+    const vertical = room.h > room.w;
+    const len = vertical ? room.h : room.w;
+    const width = Math.min(0.8, len - 0.3);
+    if (width < 0.5) return;
+    room.doors.push({
+      wall: vertical ? "E" : "S",
+      position: round3((len - width) / 2),
+      width: round3(width),
+    });
+  };
+
+  for (const room of sanitary) {
+    const toSalle = sharedBoundary(salle, room);
+    // 1. Porte client : percée dans le mur de la salle si elle n'y est pas.
+    //    `sharedBoundary(salle, room)` donne le mur côté salle (`wallA`) et le
+    //    mur correspondant côté sanitaire (`wallB`).
+    const clientDoor = (shared: SharedBoundary) =>
+      hasDoorOn(room, shared.wallB, shared.startB, shared.startB + shared.len);
+    if (toSalle && !clientDoor(toSalle)) {
+      addPairedDoor(salle, room, toSalle, SANITARY_DOOR_WIDTH);
+    }
+    if (!toSalle || !clientDoor(toSalle)) continue;
+
+    // 2. Le sanitaire n'ouvre plus que sur la salle.
+    for (const other of rooms) {
+      if (other === room || other === salle) continue;
+      const shared = sharedBoundary(room, other);
+      if (!shared) continue;
+      const from = shared.startA;
+      const to = shared.startA + shared.len;
+      if (!hasDoorOn(room, shared.wallA, from, to)) continue;
+      room.doors = room.doors.filter(
+        (d) => !(d.wall === shared.wallA && inRange(d, from, to)),
+      );
+      other.doors = other.doors.filter(
+        (d) =>
+          !(
+            d.wall === shared.wallB &&
+            inRange(d, shared.startB, shared.startB + shared.len)
+          ),
+      );
+      ensureAccess(other);
+    }
+  }
+}
 
 // ── Stratégies de distribution ──────────────────────────────────────────────
 //
@@ -1933,6 +2086,214 @@ function fillZones(
     );
   });
   return placed;
+}
+
+// ── Distribution café / restaurant : bloc sanitaire côté salle ───────────────
+
+/**
+ * Distribution « restauration » : salle en bande + local de service dont le
+ * BLOC SANITAIRE est adossé au mur de la salle.
+ *
+ * Le local de service (40 % d'un restaurant, 20 à 30 % d'un café) est découpé
+ * en repère local — `u` le long du mur mitoyen de la salle, `v` en profondeur :
+ *
+ *   v=0  ┌──────────── bloc sanitaires ───────────┬──── cuisine ────┐
+ *        │ WC / sanitaires (portes sur la salle)  │  (passe-plat)   │
+ *        ├────────────────── arrière du bloc ─────┤                 │
+ *        │        plonge · réserve · froid         │  arrière cuisine│
+ *        └─────────────────────────────────────────┴─────────────────┘
+ *
+ * Conséquences, sans jamais changer la surface du niveau :
+ *   • la salle garde exactement sa part (60 % / 70–75 %) ;
+ *   • la cuisine garde sa surface et son mur de service (passe-plat) ;
+ *   • chaque sanitaire ouvre sur la salle et sur elle seule, jamais sur la
+ *     production ; le bloc reste mitoyen de la cuisine ;
+ *   • les locaux de service restent accessibles depuis la cuisine (marche en
+ *     avant du personnel), donc la circulation client et la circulation de
+ *     service ne se croisent pas.
+ */
+function foodServiceLayout(zone: Rect, items: ProgramItem[]): Placed<ProgramItem>[] {
+  const fitted = fitProgram(items, zone.w * zone.h);
+  const fallback = () => bspLayout(zone, fitted);
+  const salle = fitted.find((i) => isSalleKind(i.kind));
+  const sanitary = fitted.filter((i) => isSanitaryKind(i.kind));
+  const kitchen = fitted.find((i) => i.kind === "cuisine_pro");
+  if (!salle || !kitchen || sanitary.length === 0) return fallback();
+
+  // 1. Bande de salle : même coupe que le BSP (axe long, part exacte de la
+  //    salle dans la surface du niveau) — la part de salle ne bouge pas.
+  const alongX = zone.w >= zone.h;
+  const along = alongX ? zone.w : zone.h;
+  const total = fitted.reduce((s, i) => s + i.target, 0) || zone.w * zone.h;
+  const minFrac = Math.min(0.4, 1.1 / Math.max(1, along));
+  const frac = Math.min(1 - minFrac, Math.max(minFrac, salle.target / total));
+  const cut = round3(along * frac);
+  const salleRect: Rect = alongX
+    ? { x: zone.x, y: zone.y, w: cut, h: zone.h }
+    : { x: zone.x, y: zone.y, w: zone.w, h: cut };
+  const service: Rect = alongX
+    ? { x: round3(zone.x + cut), y: zone.y, w: round3(zone.w - cut), h: zone.h }
+    : { x: zone.x, y: round3(zone.y + cut), w: zone.w, h: round3(zone.h - cut) };
+
+  // 2. Repère local : `u` le long du mur de la salle, `v` en profondeur.
+  const H = alongX ? service.h : service.w;
+  const W = alongX ? service.w : service.h;
+  const at = (u0: number, u1: number, v0: number, v1: number): Rect =>
+    alongX
+      ? {
+          x: round3(service.x + v0),
+          y: round3(service.y + u0),
+          w: round3(v1 - v0),
+          h: round3(u1 - u0),
+        }
+      : {
+          x: round3(service.x + u0),
+          y: round3(service.y + v0),
+          w: round3(u1 - u0),
+          h: round3(v1 - v0),
+        };
+
+  const sanitaryArea = sanitary.reduce((s, i) => s + i.target, 0);
+  const kitchenArea = kitchen.target;
+  // Largeur de mur minimale d'une cabine : en-dessous de 0,90 m, aucune porte
+  // ne tient dans le mur partagé avec la salle (mur mitoyen + battant).
+  const minRun = sanitary.length * SANITARY_MIN_WIDTH;
+  if (sanitaryArea <= 0 || H < 3.2 || W < 1.9) return fallback();
+
+  // 3. Profondeur du bloc : une demi-largeur du local, bornée à une cabine
+  //    crédible. Elle s'allonge si le mur est trop court (bloc compact) ou si
+  //    la cuisine manquerait de fronture pour le passe-plat.
+  let blockDepth = Math.min(SANITARY_DEPTH_MAX, Math.max(SANITARY_DEPTH_MIN, W * 0.5));
+  const depthToKeepKitchen = (W * sanitaryArea) / Math.max(0.01, W * H - kitchenArea);
+  blockDepth = Math.max(blockDepth, depthToKeepKitchen, sanitaryArea / Math.max(0.5, H - 2.2));
+  if (sanitaryArea / blockDepth < minRun) blockDepth = sanitaryArea / minRun;
+  // Le WC accessible exige 1,50 m de mur : si le bloc est trop profond pour
+  // tenir dans le linéaire disponible, il s'aplatit (jusqu'à la profondeur
+  // minimale d'une cabine) plutôt que de sacrifier l'accessibilité PMR.
+  const pmrRunNeed =
+    SANITARY_PMR_WIDTH + Math.max(0, sanitary.length - 1) * SANITARY_MIN_WIDTH;
+  if (
+    sanitary.some((i) => i.kind === "wc") &&
+    sanitaryArea / blockDepth < pmrRunNeed
+  ) {
+    const flattened = sanitaryArea / pmrRunNeed;
+    if (flattened >= SANITARY_DEPTH_MIN) blockDepth = flattened;
+  }
+  blockDepth = round3(blockDepth);
+  let blockRun = round3(Math.min(H - 1.2, sanitaryArea / blockDepth));
+  // Une bande arrière de moins de 0,90 m ne serait pas aménageable : le bloc
+  // occupe alors toute la profondeur du local (les cabines s'allongent).
+  if (W - blockDepth > 0.02 && W - blockDepth < 0.9) {
+    blockDepth = round3(W);
+    blockRun = round3(Math.min(H - 1.2, Math.max(minRun, sanitaryArea / blockDepth)));
+  }
+  if (blockRun < minRun - 0.05 || blockRun > H - 1) return fallback();
+
+  // 4. Cuisine : elle prend le mur de salle restant, sa profondeur découle de
+  //    sa surface (elle conserve donc sa proportion). Si la bande arrière
+  //    serait inutilisable, la cuisine occupe toute la profondeur et sa
+  //    largeur diminue : aucun couloir d'un demi-mètre n'est créé.
+  let kitchenRun = round3(H - blockRun);
+  let kitchenDepth = kitchenRun > 0.1 ? kitchenArea / kitchenRun : W;
+  if (kitchenDepth >= W - 0.9 || kitchenDepth > W) {
+    // Aucune bande arrière utilisable derrière la cuisine : elle occupe toute
+    // la profondeur et sa largeur diminue pour CONSERVER sa surface ; le solde
+    // du mur devient une colonne de service pleine profondeur.
+    kitchenDepth = round3(W);
+    kitchenRun = round3(
+      Math.min(H - blockRun, kitchenArea / Math.max(0.5, kitchenDepth)),
+    );
+  }
+  kitchenDepth = round3(kitchenDepth);
+  // Bande latérale résiduelle : si elle est trop étroite, elle revient au bloc
+  // sanitaire (qui reste ainsi adossé à la salle terminée par un mur plein).
+  const sideRun = round3(H - blockRun - kitchenRun);
+  if (sideRun > 0.02 && sideRun < 0.9) blockRun = round3(blockRun + sideRun);
+
+  // 5. Linéaire du bloc réparti entre les sanitaires. Le WC PMR reçoit 1,50 m
+  //    de large (giration) dès que le budget de surface le permet.
+  const pmr = sanitary.find((i) => i.kind === "wc") ?? null;
+  const othersSan = sanitary.filter((i) => i !== pmr);
+  const wanted = (i: ProgramItem) => Math.max(i.target / blockDepth, SANITARY_MIN_WIDTH);
+  const shareWidths = (wants: number[], run: number): number[] => {
+    const fixed: (number | null)[] = wants.map(() => null);
+    let free = wants.map((_, i) => i);
+    let remaining = run;
+    while (free.length > 0) {
+      const total = free.reduce((s, i) => s + Math.max(wants[i], 1e-4), 0) || free.length;
+      const small = free.filter(
+        (i) => (Math.max(wants[i], 1e-4) / total) * remaining < SANITARY_MIN_WIDTH,
+      );
+      if (small.length === 0) {
+        for (const i of free) fixed[i] = (Math.max(wants[i], 1e-4) / total) * remaining;
+        break;
+      }
+      if (remaining - small.length * SANITARY_MIN_WIDTH < (free.length - small.length) * SANITARY_MIN_WIDTH) {
+        // Mur trop court pour un plancher de cabine : répartition égale.
+        for (const i of free) fixed[i] = remaining / free.length;
+        break;
+      }
+      for (const i of small) {
+        fixed[i] = SANITARY_MIN_WIDTH;
+        remaining -= SANITARY_MIN_WIDTH;
+      }
+      free = free.filter((i) => !small.includes(i));
+    }
+    return fixed.map((v) => v ?? 0);
+  };
+  // Le WC PMR reçoit 1,50 m de large (giration) si les autres cabines gardent
+  // leur largeur minimale : sinon les sanitaires restent proportionnels.
+  let widths: number[];
+  const restRun = blockRun - SANITARY_PMR_WIDTH;
+  // Tolérance de 2 cm : le linéaire est arrondi au millimètre.
+  if (pmr && restRun >= othersSan.length * SANITARY_MIN_WIDTH - 0.02) {
+    const othersWidths = shareWidths(othersSan.map(wanted), restRun);
+    widths = sanitary.map((i) =>
+      i === pmr ? SANITARY_PMR_WIDTH : othersWidths[othersSan.indexOf(i)],
+    );
+  } else {
+    widths = shareWidths(sanitary.map(wanted), blockRun);
+  }
+  const blockRooms: Placed<ProgramItem>[] = [];
+  let cursor = 0;
+  sanitary.forEach((item, i) => {
+    const last = i === sanitary.length - 1;
+    const width = last ? round3(blockRun - cursor) : round3(widths[i] ?? 0);
+    if (width <= 0.2) return;
+    blockRooms.push({ item, rect: at(cursor, cursor + width, 0, blockDepth) });
+    cursor = round3(cursor + width);
+  });
+  if (blockRooms.length === 0) return fallback();
+
+  // 6. Cuisine : rect au contact de la salle, surface conservée.
+  const kitchenRect = at(
+    blockRun,
+    round3(blockRun + kitchenRun),
+    0,
+    kitchenDepth,
+  );
+
+  // 7. Locaux de service : derrière le bloc, derrière la cuisine et dans la
+  //    bande latérale éventuelle. Le mur est entièrement couvert.
+  const others = fitted.filter((i) => i !== salle && i !== kitchen && !isSanitaryKind(i.kind));
+  const otherRects: Rect[] = [];
+  if (W - blockDepth > 0.02) otherRects.push(at(0, blockRun, blockDepth, W));
+  if (kitchenRun > 0.1 && W - kitchenDepth > 0.02) {
+    otherRects.push(at(blockRun, round3(blockRun + kitchenRun), kitchenDepth, W));
+  }
+  if (H - (blockRun + kitchenRun) > 0.02) {
+    otherRects.push(at(round3(blockRun + kitchenRun), H, 0, W));
+  }
+  // Filet de sécurité : aucune pièce du programme ne doit disparaître faute
+  // de place (plan trop contraint) — on revient alors au découpage standard.
+  if (others.length > 0 && otherRects.length === 0) return fallback();
+
+  return [
+    { item: salle, rect: salleRect },
+    ...blockRooms,
+    { item: kitchen, rect: kitchenRect },
+    ...(others.length > 0 ? fillZones(otherRects, others, "bsp") : []),
+  ];
 }
 
 /** Cour intérieure : patio central + quatre bandes de pièces autour. */
@@ -2153,11 +2514,15 @@ function buildLevel(
         fitProgram(items, mainZone.w * mainZone.h),
         mainZone.w >= mainZone.h ? "x" : "y",
       )
-    : fillZones(
-        roomZones,
-        items,
-        strategy === "linear" && roomZones.length >= 2 ? "linear" : "bsp",
-      );
+    : flatLayout && roomZones.length === 1
+      ? // Café / restaurant : bloc sanitaire adossé à la salle (une seule
+        // géométrie, partagée par le 2D, le 3D et le tableau des surfaces).
+        foodServiceLayout(roomZones[0], items)
+      : fillZones(
+          roomZones,
+          items,
+          strategy === "linear" && roomZones.length >= 2 ? "linear" : "bsp",
+        );
   for (const p of placed) {
     plan.rooms.push(
       makeRoom(rid(), p.item.kind, p.item.label, p.rect.x, p.rect.y, p.rect.w, p.rect.h, p.item.habitable),
@@ -2208,6 +2573,10 @@ function buildLevel(
     mulberry32(variantSeed ^ (levelIdx * 7919)),
     profile,
   );
+
+  // WC et sanitaires d'un café / restaurant : porte client sur la salle,
+  // jamais sur la production (aucune autre typologie n'est concernée).
+  if (flatLayout) ensureSanitaryDoors(plan);
 
   // Filet de sécurité géométrique : aucune pièce ne doit dépasser l'emprise
   // (les arrondis au mm peuvent pousser un bord de ≤ 1 mm au-delà du mur).
@@ -2826,13 +3195,28 @@ export function validatePlan(
       issues.push("Accès insuffisant : salle, préparation, réserve ou sanitaires");
     }
 
+    // WC et sanitaires : accès client depuis la salle café, jamais depuis la
+    // préparation ; le WC accessible est signalé lorsqu'il est réalisable.
+    const sanitary = sanitaryAccessReport(salle, rooms);
+    if (!sanitary.ok) {
+      score -= 10;
+      issues.push(...sanitary.issues);
+    }
+
     cafe = {
       salleShare: Math.round(salleShare * 1000) / 1000,
       salleShareOk,
       counterInsideSalle,
       counterCountedOnce,
       accessOk,
-      ok: salleShareOk && counterInsideSalle && counterCountedOnce && accessOk,
+      sanitaryAccessOk: sanitary.ok,
+      pmrOk: sanitary.pmrOk,
+      ok:
+        salleShareOk &&
+        counterInsideSalle &&
+        counterCountedOnce &&
+        accessOk &&
+        sanitary.ok,
     };
   }
 
@@ -2970,6 +3354,15 @@ export function validatePlan(
       issues.push("Accès insuffisant : salle, cuisine, plonge, réserve ou sanitaires");
     }
 
+    // WC et sanitaires : accès client depuis la salle de restauration, jamais
+    // par la cuisine professionnelle ; le WC accessible est signalé lorsqu'il
+    // est réalisable dans la surface disponible.
+    const sanitary = sanitaryAccessReport(salle, rooms);
+    if (!sanitary.ok) {
+      score -= 10;
+      issues.push(...sanitary.issues);
+    }
+
     restaurant = {
       salleShare: Math.round(salleShare * 1000) / 1000,
       salleShareOk,
@@ -2979,6 +3372,8 @@ export function validatePlan(
       serviceLinkOk,
       passePlatOk,
       accessOk,
+      sanitaryAccessOk: sanitary.ok,
+      pmrOk: sanitary.pmrOk,
       ok:
         salleShareOk &&
         counterInsideSalle &&
@@ -2986,7 +3381,8 @@ export function validatePlan(
         kitchenNearCounter &&
         serviceLinkOk &&
         passePlatOk &&
-        accessOk,
+        accessOk &&
+        sanitary.ok,
     };
   }
 
@@ -3921,12 +4317,31 @@ function linkRestaurantService(plan: FloorPlan): void {
   );
 
   if (!keepsBarRun) {
-    // Mur court : on libère tout le linéaire pour le bar, mais uniquement si la
-    // cuisine conserve une autre porte (accès par le couloir de service).
-    const cuisineKeepsAccess = otherCuisine.length > 0;
-    if (cuisineKeepsAccess) {
+    // Mur court : on libère tout le linéaire pour le bar. Le personnel conserve
+    // son accès à la cuisine par une porte de service sur son plus grand mur
+    // mitoyen non sanitaire (couloir, plonge, réserve…), percée si nécessaire.
+    const outsideLink = () =>
+      cuisine.doors.filter(
+        (d) => !(d.wall === shared.wallB && inRange(d, shared.startB, endB)),
+      );
+    if (outsideLink().length === 0) {
+      const neighbour = plan.rooms
+        .filter(
+          (r) =>
+            r !== cuisine &&
+            r !== salle &&
+            !r.exterior &&
+            !isSanitaryKind(r.kind) &&
+            r.kind !== "comptoir",
+        )
+        .map((r) => ({ room: r, shared: sharedBoundary(cuisine, r) }))
+        .filter((x): x is { room: PlanRoom; shared: SharedBoundary } => !!x.shared)
+        .sort((a, b) => b.shared.len - a.shared.len)[0];
+      if (neighbour) addPairedDoor(cuisine, neighbour.room, neighbour.shared, 0.9);
+    }
+    if (outsideLink().length > 0) {
       salle.doors = otherSalle;
-      cuisine.doors = otherCuisine;
+      cuisine.doors = outsideLink();
     }
     return;
   }
@@ -4286,10 +4701,22 @@ function clampOpening(
 export function repairFloorPlan(plan: FloorPlan): FloorPlan {
   const { rooms } = plan;
 
-  // 1) Bornes de l'emprise + surface minimale
+  // 1) Bornes de l'emprise + surface minimale.
+  //    Le plancher de 0,80 m n'est appliqué que si la pièce ne déborde pas sur
+  //    une voisine : élargir une cabine de 0,68 m collée à un local adjacent
+  //    changerait les surfaces du tableau (2D, 3D et quantitatif divergents).
+  const overlapsOther = (cand: { x: number; y: number; w: number; h: number }, self: PlanRoom) =>
+    rooms.some(
+      (o) =>
+        o !== self &&
+        Math.min(cand.x + cand.w, o.x + o.w) - Math.max(cand.x, o.x) > REPAIR_TOL &&
+        Math.min(cand.y + cand.h, o.y + o.h) - Math.max(cand.y, o.y) > REPAIR_TOL,
+    );
   for (const r of rooms) {
-    r.w = Math.max(0.8, Math.min(r.w, plan.length));
-    r.h = Math.max(0.8, Math.min(r.h, plan.width));
+    const w = Math.min(r.w, plan.length);
+    const h = Math.min(r.h, plan.width);
+    r.w = w < 0.8 && !overlapsOther({ ...r, w: 0.8 }, r) ? 0.8 : w;
+    r.h = h < 0.8 && !overlapsOther({ ...r, h: 0.8 }, r) ? 0.8 : h;
     r.x = clamp(r.x, plan.length - r.w);
     r.y = clamp(r.y, plan.width - r.h);
   }

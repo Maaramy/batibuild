@@ -207,7 +207,14 @@ export function cafeCounterPlacement(
     ]),
   ];
 
+  // Le comptoir ne s'implante jamais dans le débattement d'une porte de la
+  // salle, y compris une porte d'entrée située sur un mur perpendiculaire.
+  const clearances = cafeDoorClearances(salle);
+  const inDoorSwing = (placement: CafeCounterPlacement) =>
+    clearances.some((c) => cafeRectsOverlap(c, placement.counter));
+
   let best: CafeCounterPlacement | null = null;
+  let relaxed: CafeCounterPlacement | null = null;
   for (const wall of candidateWalls) {
     const isPrepWall = prepWalls.has(wall);
     const spans = freeSpans(salle, wall);
@@ -225,15 +232,25 @@ export function cafeCounterPlacement(
       Math.max(0.6, depth - CAFE_WORKTOP_DEPTH - CAFE_COUNTER_DEPTH - 0.9),
     );
 
-    const start = span.a + (usable - length) / 2;
-    const placement = buildPlacement(salle, wall, start, length, staffAisle);
-    if (!placement) continue;
-    // Le mur de la préparation est prioritaire : le comptoir s'y adosse dès
-    // qu'une implantation valide existe, quelle que soit sa longueur.
-    if (isPrepWall) return placement;
-    if (!best || placement.counterArea > best.counterArea) best = placement;
+    const starts = [
+      span.a + (usable - length) / 2,
+      Math.max(span.a, span.b - length - 0.01),
+      Math.min(span.b - length, span.a + 0.01),
+    ];
+    for (const start of starts) {
+      const placement = buildPlacement(salle, wall, start, length, staffAisle);
+      if (!placement) continue;
+      if (inDoorSwing(placement)) {
+        if (!relaxed || placement.counterArea > relaxed.counterArea) relaxed = placement;
+        continue;
+      }
+      // Le mur de la préparation est prioritaire : le comptoir s'y adosse dès
+      // qu'une implantation valide existe, quelle que soit sa longueur.
+      if (isPrepWall) return placement;
+      if (!best || placement.counterArea > best.counterArea) best = placement;
+    }
   }
-  return best;
+  return best ?? relaxed;
 }
 
 function buildPlacement(
