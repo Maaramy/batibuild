@@ -10,6 +10,7 @@ import { getCurrentUser } from "./users";
 //
 // Le statut de chaque rapport est déduit des DONNÉES RÉELLEMENT ENREGISTRÉES :
 //   • Coût estimatif  → `costEstimate` du projet ;
+//   • Aide à la décision → un budget réellement analysé (`budgetAnalyses`) ;
 //   • Matériaux AI    → une analyse `aiMaterialAnalyses` du couple
 //                       (utilisateur, projet) ;
 //   • Exécution & suivi → une feuille de route `projectRoadmaps` du projet.
@@ -31,7 +32,7 @@ export const getMyReportArtifacts = query({
 
     return await Promise.all(
       projects.map(async (project) => {
-        const [materials, roadmap] = await Promise.all([
+        const [materials, roadmap, budget] = await Promise.all([
           ctx.db
             .query("aiMaterialAnalyses")
             .withIndex("by_user_project", (q) =>
@@ -45,12 +46,19 @@ export const getMyReportArtifacts = query({
               q.eq("userId", user._id).eq("projectId", project._id),
             )
             .first(),
+          ctx.db
+            .query("budgetAnalyses")
+            .withIndex("by_project_user", (q) =>
+              q.eq("projectId", project._id).eq("userId", user._id),
+            )
+            .first(),
         ]);
 
         return {
           projectId: project._id,
           materialsAnalysisId: materials?._id ?? null,
           roadmapId: roadmap?._id ?? null,
+          budgetAnalysisId: budget?._id ?? null,
         };
       }),
     );

@@ -16,14 +16,27 @@
 
 import type { ConvexReactClient } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { inferFloorsFromCategory } from "@/convex/projectTypes";
 import {
+  inferFloorsFromCategory,
+  normalizeLegacyCategory,
+  projectTypeLabel,
+} from "@/convex/projectTypes";
+import {
+  BUDGET_SCENARIO_LABELS,
+  PERSONALIZED_SCENARIO_KEY,
+  PERSONALIZED_SCENARIO_LABEL,
   budgetScenarioFactor,
   computeQuantitatifTotals,
   overlayCustomizations,
   scaleDqeLots,
+  type BudgetScenarioKey,
   type QuantitatifCustomizationEntry,
 } from "@/convex/quantitatifCustomLogic";
+import { buildBudgetAnalysis } from "./budgetEngine";
+import { realBuiltArea } from "./buildingLevels";
+import { resolveEstimationBudget } from "./estimationBudget";
+import { exportDecisionSupportPdf } from "./decisionSupportPdf";
+import { regionLabel } from "./providerRegions";
 import { generateFloorPlans, repairFloorPlan } from "./floorPlanEngine";
 import { downloadFloorPlanPdf } from "./floorPlanPdf";
 import { generateMaterialReportPdf } from "./materialReportPdf";
@@ -197,6 +210,98 @@ export async function downloadMaterialsReport(
   const result = doc?.results?.recommend;
   if (!result) throw new Error("report-unavailable");
   generateMaterialReportPdf({ result });
+}
+
+/**
+ * Aide à la décision — rapport de capacité de construction.
+ *
+ * Le rapport est reconstruit à partir des MÊMES sources que la page :
+ * contexte budgétaire serveur (`getProjectBudgetContext`), budget réellement
+ * analysé (`getBudgetAnalysis`) et résolveur officiel des montants TTC. Aucun
+ * rapport n'est produit si aucun budget n'a encore été analysé.
+ */
+export async function downloadDecisionSupportReport(
+  convex: ConvexReactClient,
+  projectId: string,
+): Promise<void> {
+  const [project, context, saved, customization, customWorks] = await Promise.all([
+    convex.query(api.projects.getProject, { projectId: projectId as never }),
+    convex.query(api.decisionSupport.getProjectBudgetContext, {
+      projectId: projectId as never,
+    }),
+    convex.query(api.decisionSupport.getBudgetAnalysis, {
+      projectId: projectId as never,
+    }),
+    convex.query(api.quantitatifCustom.getCustomization, {
+      projectId: projectId as never,
+    }),
+    convex.query(api.customWorks.getProjectCustomWorks, {
+      projectId: projectId as never,
+    }),
+  ]);
+
+  const budgetAvailable = Number(saved?.budgetAvailable);
+  if (!project || !context || !Number.isFinite(budgetAvailable) || budgetAvailable <= 0) {
+    throw new Error("report-unavailable");
+  }
+
+  const surface = Number((project as ProjectLike)?.surface) || 0;
+  const floors = Number((project as ProjectLike)?.floors) || 1;
+  const builtSurface = surface > 0
+    ? realBuiltArea(surface, floors, (project as ProjectLike)?.levelSurfaces)
+    : 0;
+  const storedScenario = (project as ProjectLike)?.selectedScenario;
+  const baseScenario = (customization?.baseScenario ??
+    (["economique", "standard", "premium"].includes(storedScenario)
+      ? storedScenario
+      : "standard")) as BudgetScenarioKey;
+
+  // Même résolveur que la page : scénario affiché (y compris Personnalisé).
+  const budget = resolveEstimationBudget({
+    costEstimate: (project as ProjectLike)?.costEstimate ?? null,
+    dqeLots: ((project as ProjectLike)?.dqe?.lots ?? []) as any[],
+    builtSurface,
+    selectedScenario: storedScenario ?? null,
+    baseScenario,
+    modifications: (customization?.modifications ?? []) as any,
+    removedPostes: (customization?.removedPostes ?? []) as any,
+    complementaryWorks: (customWorks?.works ?? []) as any,
+  });
+
+  if (budget.selectedTotal <= 0) throw new Error("report-unavailable");
+
+  const scenarioLabel =
+    budget.selectedKey === PERSONALIZED_SCENARIO_KEY
+      ? PERSONALIZED_SCENARIO_LABEL
+      : BUDGET_SCENARIO_LABELS[budget.selectedKey as BudgetScenarioKey];
+
+  const analysis = buildBudgetAnalysis({
+    projectId,
+    userId: context.userId,
+    projectName: (project as ProjectLike)?.name ?? context.projectName ?? "Projet",
+    scenarioLabel,
+    projectTotal: budget.selectedTotal,
+    costPerM2: budget.selectedCostPerM2,
+    budgetAvailable,
+    breakdown: context.breakdown as any,
+    lots: context.lots as any,
+    surface: context.surface,
+  });
+  if (!analysis.available) throw new Error("report-unavailable");
+
+  const region = (project as ProjectLike)?.region
+    ? regionLabel((project as ProjectLike).region)
+    : "";
+  const projectContext = [
+    projectTypeLabel(normalizeLegacyCategory((project as ProjectLike)?.category)),
+    region,
+    context.surface ? `${context.surface} m²` : null,
+    scenarioLabel,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  exportDecisionSupportPdf({ analysis, projectContext });
 }
 
 /** Exécution & suivi — guide construction A-Z (feuille de route enregistrée). */

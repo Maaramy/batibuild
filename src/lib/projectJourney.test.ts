@@ -425,13 +425,13 @@ describe("buildProjectJourney — liens, rapports et contexte du projet", () => 
     ]);
   });
 
-  it("chaque étape porte la clé du rapport PDF associé (décision et mise en relation sans rapport)", () => {
+  it("chaque étape porte la clé du rapport PDF associé (mise en relation sans rapport)", () => {
     const byKey = Object.fromEntries(
       buildProjectJourney("maison", PID).map((s) => [s.key, s.reportKey ?? null]),
     );
     expect(byKey).toMatchObject({
       cost: "cost",
-      decision: null,
+      decision: "decision",
       plans: "plans",
       consult: null,
       execution: "execution",

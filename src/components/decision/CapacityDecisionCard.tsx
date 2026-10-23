@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronUp,
   Coins,
+  Download,
   Hammer,
   Info,
   Plus,
@@ -382,6 +383,8 @@ export interface CapacityDecisionCardProps {
    * montants des travaux enregistrés sont alors ignorés eux aussi.
    */
   complementaryWorksEnabled?: boolean;
+  /** Téléchargement du rapport PDF (contrôle forfait géré par la page). */
+  onDownloadPdf?: (analysis: BudgetAnalysis) => void;
 }
 
 /**
@@ -437,6 +440,7 @@ export function CapacityDecisionCard({
   lots,
   scenarioTotals,
   complementaryWorksEnabled = true,
+  onDownloadPdf,
 }: CapacityDecisionCardProps) {
   const [open, setOpen] = useState(true);
   const [deselected, setDeselected] = useState<Set<string>>(() => new Set());
@@ -635,6 +639,17 @@ export function CapacityDecisionCard({
                 ) : null}
               </div>
             </div>
+            {onDownloadPdf ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 shrink-0 gap-1.5 rounded-full px-3 text-xs"
+                onClick={() => onDownloadPdf(analysis)}
+              >
+                <Download className="h-3.5 w-3.5" />
+                Rapport PDF
+              </Button>
+            ) : null}
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-2.5 min-[380px]:grid-cols-2">

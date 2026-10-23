@@ -33,6 +33,9 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/feedback";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { usePdfGate } from "@/hooks/use-pdf-gate";
+import { exportDecisionSupportPdf } from "@/lib/decisionSupportPdf";
+import type { BudgetAnalysis } from "@/lib/budgetEngine";
 import {
   DECISION_SUPPORT_DENY_COPY,
   type DecisionSupportAccess,
@@ -61,6 +64,8 @@ export default function DecisionSupport() {
 
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // Téléchargement PDF : contrôle centralisé (forfait Client Pro).
+  const pdfGate = usePdfGate();
 
   // ── Aucun chargement automatique ────────────────────────────────────────
   // L'arrivée sur cette page ne lance aucune analyse et n'affiche aucun écran
@@ -161,6 +166,22 @@ export default function DecisionSupport() {
     ? REGION_LABELS[project.region] ?? project.region
     : undefined;
 
+  // Contexte affiché dans le rapport PDF (mêmes libellés que la page).
+  const decisionPdfContext = [
+    project ? projectTypeLabel(project.category) : null,
+    regionLabel,
+    builtSurface ? `${builtSurface} m²` : null,
+    scenarioLabel,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const handleDownloadDecisionPdf = (analysis: BudgetAnalysis) => {
+    pdfGate.requestPdfDownload(() => {
+      exportDecisionSupportPdf({ analysis, projectContext: decisionPdfContext });
+    });
+  };
+
   return (
     <main className="min-h-screen bg-background pb-12">
       {/* Parcours du projet — l'étape « Aide à la décision » est mise en avant
@@ -242,6 +263,8 @@ export default function DecisionSupport() {
           />
         ) : (
           /* ── Module budget / capacité de construction ── */
+          <>
+          {pdfGate.dialog}
           <DecisionSupportModule
             // Le module est remonté à chaque changement de projet : aucun
             // résultat, budget, erreur ni animation du projet précédent ne
@@ -257,7 +280,9 @@ export default function DecisionSupport() {
             scenarioLabel={scenarioLabel}
             scenarioTotals={scenarioTotals.length > 0 ? scenarioTotals : undefined}
             complementaryWorksEnabled={complementaryWorksEligible}
+            onDownloadPdf={handleDownloadDecisionPdf}
           />
+          </>
         )}
       </div>
     </main>

@@ -122,6 +122,8 @@ export interface DecisionSupportModuleProps {
   complementaryWorksEnabled?: boolean;
   /** Résultats du budget affichés ? (les cartes projet / saisie sont masquées.) */
   onBudgetResultsDisplayed?: (displayed: boolean) => void;
+  /** Rapport PDF de l'aide à la décision (contrôle forfait géré par la page). */
+  onDownloadPdf?: (analysis: BudgetAnalysis) => void;
 }
 
 export function DecisionSupportModule({
@@ -136,6 +138,7 @@ export function DecisionSupportModule({
   scenarioTotals,
   complementaryWorksEnabled,
   onBudgetResultsDisplayed,
+  onDownloadPdf,
 }: DecisionSupportModuleProps) {
   const { hash } = useLocation();
   // Même décision serveur que la page : GROUPE A + Client Pro actif. Aucune
@@ -646,6 +649,7 @@ export function DecisionSupportModule({
           projectId={projectId}
           projectTotal={projectTotal}
           scenarioLabel={scenarioLabel}
+          onDownloadPdf={onDownloadPdf}
           lots={budgetContext?.lots ?? undefined}
           scenarioTotals={scenarioTotals}
           complementaryWorksEnabled={complementaryWorksEnabled}

@@ -30,6 +30,7 @@ import {
 } from "@/lib/reportRegistry";
 import {
   downloadCostReport,
+  downloadDecisionSupportReport,
   downloadExecutionReport,
   downloadMaterialsReport,
   downloadPlansReport,
@@ -85,6 +86,7 @@ type ArtifactRow = {
   projectId: string;
   materialsAnalysisId: string | null;
   roadmapId: string | null;
+  budgetAnalysisId?: string | null;
 };
 
 type PendingModule = { label: string; href: string };
@@ -117,6 +119,7 @@ export default function ReportCenter() {
       map.set(row.projectId, {
         materialsAnalysisId: row.materialsAnalysisId,
         roadmapId: row.roadmapId,
+        budgetAnalysisId: row.budgetAnalysisId ?? null,
       });
     }
     return map;
@@ -146,6 +149,9 @@ export default function ReportCenter() {
           break;
         case "plans":
           await downloadPlansReport(project);
+          break;
+        case "decision":
+          await downloadDecisionSupportReport(convex, project._id);
           break;
         case "materials":
           if (!artifact?.materialsAnalysisId) throw new Error("report-unavailable");

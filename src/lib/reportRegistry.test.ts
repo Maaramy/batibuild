@@ -14,12 +14,24 @@ const keys = (category: string): ReportModuleKey[] =>
 
 describe("règle du rapport PDF selon le groupe du projet", () => {
   it("Groupe A — rapport complet, dans l'ordre du registre", () => {
-    expect(keys("villa")).toEqual(["cost", "plans", "materials", "execution"]);
+    expect(keys("villa")).toEqual([
+      "cost",
+      "plans",
+      "decision",
+      "materials",
+      "execution",
+    ]);
   });
 
   it("Groupe A — le studio, le local et la rénovation complète suivent le parcours complet", () => {
     for (const type of ["studio", "local", "renovation_complete"]) {
-      expect(keys(type), type).toEqual(["cost", "plans", "materials", "execution"]);
+      expect(keys(type), type).toEqual([
+        "cost",
+        "plans",
+        "decision",
+        "materials",
+        "execution",
+      ]);
     }
   });
 
@@ -34,6 +46,7 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
       expect(keys(type), type).toEqual([
         "cost",
         "plans",
+        "decision",
         "materials",
         "execution",
       ]);
@@ -63,13 +76,14 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
   });
 
   it("le groupe est déduit du type, sans sélection manuelle", () => {
-    expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(4);
-    expect(REPORT_MODULE_KEYS_BY_GROUP.D).toHaveLength(4);
+    expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(5);
+    expect(REPORT_MODULE_KEYS_BY_GROUP.D).toHaveLength(5);
     expect(REPORT_MODULE_KEYS_BY_GROUP.B).toHaveLength(1);
     expect(REPORT_MODULE_KEYS_BY_GROUP.C).toHaveLength(1);
     expect(reportModuleKeysForGroup("D")).toEqual([
       "cost",
       "plans",
+      "decision",
       "materials",
       "execution",
     ]);
@@ -101,8 +115,17 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     const statuses = reportStatuses(project, {
       materialsAnalysisId: "m1",
       roadmapId: "r1",
+      budgetAnalysisId: "b1",
     });
     const modules = visibleReportModules(allEnabled, project.category);
     expect(countAvailableReports(modules, statuses)).toBe(1);
+  });
+
+  it("Aide à la décision — rapport disponible seulement après une analyse de budget", () => {
+    const project = { _id: "p1", category: "maison", surface: 120, costEstimate: {} };
+    expect(reportStatuses(project, {}).decision).toBe("not_executed");
+    expect(reportStatuses(project, { budgetAnalysisId: "b1" }).decision).toBe(
+      "available",
+    );
   });
 });

@@ -25,6 +25,7 @@ vi.mock("@/convex/_generated/api", () => ({
       getCheapestSuppliers: "getSuppliers",
     },
     materials: { getMaterialPrices: "getPrices" },
+    access: { canDownloadPdf: "canDownloadPdf" },
     decisionSupport: {
       getProjectBudgetContext: "getBudgetContext",
       getBudgetAnalysis: "getBudgetAnalysis",

@@ -70,6 +70,7 @@ export const FULL_JOURNEY_GROUPS: readonly ProjectJourneyGroup[] = ["A", "D"];
 export type ProjectJourneyReportKey =
   | "cost"
   | "plans"
+  | "decision"
   | "materials"
   | "execution";
 
@@ -420,8 +421,8 @@ export function buildProjectJourney(
     label: "Aide à la décision",
     path: `/dashboard/decision/${pid}`,
     href: `/dashboard/decision/${pid}`,
-    // Aucun rapport PDF propre : l'étape affiche un résultat déjà calculé.
-    reportKey: null,
+    // Rapport PDF de l'analyse budgétaire (budget réellement analysé).
+    reportKey: "decision",
   };
 
   // ── Mise en relation — quatrième étape : annuaire des professionnels, contexte

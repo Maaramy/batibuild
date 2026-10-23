@@ -22,6 +22,7 @@ import {
 } from "@/lib/reportRegistry";
 import {
   downloadCostReport,
+  downloadDecisionSupportReport,
   downloadExecutionReport,
   downloadMaterialsReport,
   downloadPlansReport,
@@ -172,6 +173,7 @@ export function ProjectJourneyNav({
     return {
       materialsAnalysisId: row.materialsAnalysisId,
       roadmapId: row.roadmapId,
+      budgetAnalysisId: row.budgetAnalysisId,
     };
   }, [artifacts, projectId, hasProjectId]);
 
@@ -220,6 +222,9 @@ export function ProjectJourneyNav({
           break;
         case "plans":
           await downloadPlansReport(project);
+          break;
+        case "decision":
+          await downloadDecisionSupportReport(convex, project._id);
           break;
         case "materials":
           if (!artifact?.materialsAnalysisId) throw new Error("report-unavailable");

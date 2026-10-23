@@ -15,6 +15,7 @@
  */
 
 import {
+  BrainCircuit,
   Calculator,
   HardHat,
   Ruler,
@@ -27,6 +28,7 @@ import { projectJourneyGroup, type ProjectJourneyGroup } from "./projectJourney"
 export type ReportModuleKey =
   | "cost"
   | "plans"
+  | "decision"
   | "materials"
   | "execution";
 
@@ -76,6 +78,16 @@ export const REPORT_MODULES: readonly ReportModuleDef[] = [
     buildHref: (id) => `/dashboard/plans/${projectId(id)}`,
   },
   {
+    key: "decision",
+    label: "Aide à la décision",
+    description: "Capacité de construction — budget analysé, priorisation et recommandations.",
+    icon: BrainCircuit,
+    // Le rapport lit le coût estimatif du projet : désactiver l'estimation
+    // masque aussi logiquement ce rapport (aucune donnée à restituer).
+    flag: "construction_cost_estimation",
+    buildHref: (id) => `/dashboard/decision/${projectId(id)}`,
+  },
+  {
     key: "materials",
     label: "Matériaux AI",
     description: "Recommandations de matériaux, optimisation budgétaire et performance.",
@@ -105,6 +117,8 @@ export interface ProjectReportInput {
 export interface ProjectReportArtifacts {
   materialsAnalysisId?: string | null;
   roadmapId?: string | null;
+  /** Budget réellement analysé dans « Aide à la décision ». */
+  budgetAnalysisId?: string | null;
 }
 
 /** État de chaque rapport d'un projet, déduit uniquement de données réelles. */
@@ -118,6 +132,9 @@ export function reportStatuses(
     // Le plan IA est composé de façon déterministe à partir des dimensions du
     // projet : il est disponible dès que le projet porte une surface.
     plans: hasDimensions ? "available" : "not_executed",
+    // Aide à la décision : uniquement après une analyse de budget réellement
+    // enregistrée (jamais de rapport sans budget analysé).
+    decision: artifacts?.budgetAnalysisId ? "available" : "not_executed",
     materials: artifacts?.materialsAnalysisId ? "available" : "not_executed",
     execution: artifacts?.roadmapId ? "available" : "not_executed",
   };
@@ -146,8 +163,8 @@ export function reportStatuses(
  * il n'en crée jamais.
  */
 export const REPORT_MODULE_KEYS_BY_GROUP: Record<ProjectJourneyGroup, readonly ReportModuleKey[]> = {
-  A: ["cost", "plans", "materials", "execution"],
-  D: ["cost", "plans", "materials", "execution"],
+  A: ["cost", "plans", "decision", "materials", "execution"],
+  D: ["cost", "plans", "decision", "materials", "execution"],
   B: ["cost"],
   C: ["cost"],
 };

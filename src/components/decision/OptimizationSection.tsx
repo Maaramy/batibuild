@@ -69,6 +69,7 @@ export function OptimizationSection({
   scenarioTotals,
   projectContextLabel,
   complementaryWorksEnabled,
+  onDownloadPdf,
 }: {
   /** Plan d'optimisation calculé en amont — plus affiché sur cette page. */
   plan: OptimizationPlan;
@@ -102,6 +103,8 @@ export function OptimizationSection({
   projectContextLabel?: string;
   /** Travaux complémentaires accessibles (type de projet + surface ≥ 120 m²). */
   complementaryWorksEnabled?: boolean;
+  /** Rapport PDF de l'aide à la décision (contrôle forfait géré par la page). */
+  onDownloadPdf?: (analysis: BudgetAnalysis) => void;
 }) {
   // Maximum du curseur = total TTC du scénario actif (aucun plafond fixe).
   const scenarioTotal = budgetSliderMaxTnd(projectTotal);
@@ -251,6 +254,7 @@ export function OptimizationSection({
           lots={lots}
           scenarioTotals={scenarioTotals}
           complementaryWorksEnabled={complementaryWorksEnabled}
+          onDownloadPdf={onDownloadPdf}
         />
       ) : !budgetAnalyzing && !budgetAnalysisError && budgetAnalysis?.reason ? (
         <Card className="rounded-2xl border-border/60 bg-card">
