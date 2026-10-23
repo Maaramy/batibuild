@@ -212,6 +212,62 @@ describe("CapacityDecisionCard — études détaillées et rang de la main-d'œu
   });
 });
 
+describe("CapacityDecisionCard — carte du budget affichée / masquée", () => {
+  const toggle = () => undefined;
+
+  it("affiche « Voir budget » et l'œil ouvert quand la carte est masquée", () => {
+    const { analysis } = buildRealCase();
+    const html = renderToStaticMarkup(
+      <CapacityDecisionCard
+        analysis={analysis}
+        lots={REAL_LOTS}
+        complementaryWorksEnabled={false}
+        budgetVisible={false}
+        onToggleBudget={toggle}
+      />,
+    );
+
+    expect(html).toContain("Voir budget");
+    expect(html).not.toContain("Masquer budget");
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('aria-controls="budget-available-card"');
+    // Les résultats et le reste de la carte ne changent pas.
+    expect(html).toContain("Capacité de construction");
+    expect(html).toContain("Plan de construction selon votre budget");
+  });
+
+  it("affiche « Masquer budget » quand la carte est visible", () => {
+    const { analysis } = buildRealCase();
+    const html = renderToStaticMarkup(
+      <CapacityDecisionCard
+        analysis={analysis}
+        lots={REAL_LOTS}
+        complementaryWorksEnabled={false}
+        budgetVisible
+        onToggleBudget={toggle}
+      />,
+    );
+
+    expect(html).toContain("Masquer budget");
+    expect(html).not.toContain("Voir budget<");
+    expect(html).toContain('aria-expanded="true"');
+  });
+
+  it("n'affiche aucun bouton de budget sans gestionnaire fourni", () => {
+    const { analysis } = buildRealCase();
+    const html = renderToStaticMarkup(
+      <CapacityDecisionCard
+        analysis={analysis}
+        lots={REAL_LOTS}
+        complementaryWorksEnabled={false}
+      />,
+    );
+
+    expect(html).not.toContain("Voir budget");
+    expect(html).not.toContain("Masquer budget");
+  });
+});
+
 describe("CapacityDecisionCard — doublons de libellés dans le plan", () => {
   it("reproduit le cas signalé : le poste porte une sous-catégorie du même nom", () => {
     const { works } = buildCase();

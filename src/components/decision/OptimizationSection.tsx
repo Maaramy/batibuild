@@ -13,6 +13,13 @@
 // n'est plus affiché ici ; le plan d'optimisation reste calculé en amont par
 // le module parent.
 //
+// La carte de saisie du budget (« Quel est votre budget disponible ? ») est
+// MASQUÉE PAR DÉFAUT dès que des résultats existent : le bouton « Voir budget »
+// / « Masquer budget » placé dans l'en-tête de « Capacité de construction »
+// permet de l'afficher ou de la masquer à tout moment, sans rechargement et
+// sans jamais perdre la valeur saisie. Elle reste visible tant qu'aucune donnée
+// analysée n'existe (sinon l'analyse serait impossible) et pendant l'analyse.
+//
 // SEUL écran de chargement animé du parcours « Aide à la décision » : il est
 // affiché uniquement après le clic sur « Analyser mon budget avec l'IA »
 // (design, logo, animations et durée de 3 s inchangés). Aucun chargement
@@ -22,6 +29,7 @@
 // « Confiance » de la page « Coût de construction ».
 // ============================================================================
 
+import { useState } from "react";
 import { Coins, Info, Loader2, Sparkles } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,7 +51,10 @@ import {
 import type { OptimizationPlan } from "@/lib/optimizationEngine";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
 
-import { CapacityDecisionCard } from "@/components/decision/CapacityDecisionCard";
+import {
+  BudgetVisibilityToggle,
+  CapacityDecisionCard,
+} from "@/components/decision/CapacityDecisionCard";
 
 const NOOP = () => undefined;
 
@@ -120,11 +131,29 @@ export function OptimizationSection({
   const budgetValid =
     rangeAvailable && !budgetBelowMin && isBudgetAnalyzable(budgetNumber, scenarioTotal);
 
+  // ── Visibilité de la carte du budget ────────────────────────────────────
+  // `null` = choix de l'utilisateur non exprimé (état par défaut) : la carte est
+  // masquée dès qu'un résultat analysé est affiché, et visible tant qu'aucune
+  // analyse n'existe, pendant l'analyse et en cas d'erreur (sinon le curseur
+  // disparaîtrait alors qu'il est la seule action possible). Un clic sur le
+  // bouton fixe explicitement le choix — la valeur du budget n'est jamais
+  // réinitialisée.
+  const [budgetChoice, setBudgetChoice] = useState<boolean | null>(null);
+  const budgetAutoVisible =
+    budgetAnalysis === null || Boolean(budgetAnalyzing) || Boolean(budgetAnalysisError);
+  const budgetVisible = budgetChoice ?? budgetAutoVisible;
+  const toggleBudget = () => setBudgetChoice(!budgetVisible);
+
   return (
     <div className="space-y-4">
       {/* ── Budget disponible — curseur toujours ajustable, y compris après
-          l'analyse : les résultats se mettent à jour sans nouveau chargement. ── */}
-      <Card className="rounded-2xl border-border/60 bg-card shadow-elev-1">
+          l'analyse : les résultats se mettent à jour sans nouveau chargement.
+          Masquée par défaut dès que des résultats sont affichés. ── */}
+      {budgetVisible ? (
+      <Card
+        id="budget-available-card"
+        className="rounded-2xl border-border/60 bg-card shadow-elev-1"
+      >
         <CardContent className="p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -229,6 +258,7 @@ export function OptimizationSection({
           </div>
         </CardContent>
       </Card>
+      ) : null}
 
       {/* ── Chargement animé (même design que l'estimation) ── */}
       {budgetAnalyzing || budgetAnalysisError ? (
@@ -255,16 +285,21 @@ export function OptimizationSection({
           scenarioTotals={scenarioTotals}
           complementaryWorksEnabled={complementaryWorksEnabled}
           onDownloadPdf={onDownloadPdf}
+          budgetVisible={budgetVisible}
+          onToggleBudget={toggleBudget}
         />
       ) : !budgetAnalyzing && !budgetAnalysisError && budgetAnalysis?.reason ? (
         <Card className="rounded-2xl border-border/60 bg-card">
-          <CardContent className="flex items-start gap-2.5 p-4 sm:p-5">
+          <CardContent className="flex flex-wrap items-start gap-2.5 p-4 sm:p-5">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="text-sm font-semibold sm:text-base">Capacité de construction</h3>
               <p className="mt-1 text-xs leading-snug text-muted-foreground sm:text-[13px]">
                 {budgetAnalysis.reason}
               </p>
+            </div>
+            <div className="flex w-full items-center justify-end min-[420px]:w-auto">
+              <BudgetVisibilityToggle visible={budgetVisible} onToggle={toggleBudget} />
             </div>
           </CardContent>
         </Card>

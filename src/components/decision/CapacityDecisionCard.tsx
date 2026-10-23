@@ -22,6 +22,8 @@ import {
   ChevronUp,
   Coins,
   Download,
+  Eye,
+  EyeOff,
   Hammer,
   Info,
   Plus,
@@ -385,6 +387,44 @@ export interface CapacityDecisionCardProps {
   complementaryWorksEnabled?: boolean;
   /** Téléchargement du rapport PDF (contrôle forfait géré par la page). */
   onDownloadPdf?: (analysis: BudgetAnalysis) => void;
+  /**
+   * Carte « Quel est votre budget disponible ? » affichée ? Le bouton de
+   * l'en-tête bascule entre « Voir budget » et « Masquer budget » — aucun
+   * calcul n'est modifié, la valeur saisie reste intacte.
+   */
+  budgetVisible?: boolean;
+  /** Bascule l'affichage de la carte du budget (aucun rechargement). */
+  onToggleBudget?: () => void;
+}
+
+/**
+ * Bouton « Voir budget » / « Masquer budget » — mêmes couleurs, bordure,
+ * dimension et arrondi que les boutons déjà présents dans la carte.
+ */
+export function BudgetVisibilityToggle({
+  visible,
+  onToggle,
+}: {
+  visible: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="h-9 shrink-0 gap-1.5 rounded-full px-3 text-xs"
+      onClick={onToggle}
+      aria-expanded={visible}
+      aria-controls="budget-available-card"
+    >
+      {visible ? (
+        <EyeOff className="h-4 w-4 shrink-0" aria-hidden="true" />
+      ) : (
+        <Eye className="h-4 w-4 shrink-0" aria-hidden="true" />
+      )}
+      <span className="whitespace-nowrap">{visible ? "Masquer budget" : "Voir budget"}</span>
+    </Button>
+  );
 }
 
 /**
@@ -441,6 +481,8 @@ export function CapacityDecisionCard({
   scenarioTotals,
   complementaryWorksEnabled = true,
   onDownloadPdf,
+  budgetVisible = true,
+  onToggleBudget,
 }: CapacityDecisionCardProps) {
   const [open, setOpen] = useState(true);
   const [deselected, setDeselected] = useState<Set<string>>(() => new Set());
@@ -583,7 +625,7 @@ export function CapacityDecisionCard({
     <Card className="overflow-hidden rounded-2xl border-border/60 bg-card shadow-elev-1">
       <CardContent className="p-0">
         {/* ── En-tête ── */}
-        <div className="flex items-start gap-3 p-4 sm:p-5">
+        <div className="flex flex-wrap items-start gap-3 p-4 sm:p-5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Hammer className="h-5 w-5" />
           </div>
@@ -592,16 +634,24 @@ export function CapacityDecisionCard({
               Capacité de construction
             </h3>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 shrink-0 gap-1.5 rounded-full px-3 text-xs"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-          >
-            <span className="hidden min-[360px]:inline">{open ? "Masquer le détail" : "Voir le détail"}</span>
-            {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
+          {/* Bouton « Voir budget » / « Masquer budget » : même rang visuel que
+              « Voir le détail ». Sur mobile, les deux boutons passent sur leur
+              propre ligne, alignés à droite — aucun débordement. */}
+          <div className="flex w-full shrink-0 items-center justify-end gap-2 min-[420px]:w-auto">
+            {onToggleBudget ? (
+              <BudgetVisibilityToggle visible={budgetVisible} onToggle={onToggleBudget} />
+            ) : null}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 shrink-0 gap-1.5 rounded-full px-3 text-xs"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+            >
+              <span className="hidden min-[360px]:inline">{open ? "Masquer le détail" : "Voir le détail"}</span>
+              {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
 
         {/* ── Synthèse budgétaire ── */}

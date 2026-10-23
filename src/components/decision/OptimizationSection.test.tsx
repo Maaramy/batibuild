@@ -89,6 +89,10 @@ describe("OptimizationSection — curseur de budget", () => {
     // Radix peut rendre un input masqué interne, sans saisie utilisateur).
     expect(html).not.toContain('type="number"');
     expect(html).not.toContain("Plan de construction selon votre budget");
+    // Aucun résultat : la carte reste affichée et aucun bouton de bascule
+    // n'est nécessaire (il n'y aurait rien à réafficher).
+    expect(html).not.toContain("Voir budget");
+    expect(html).not.toContain("Masquer budget");
   });
 
   it("prend le total TTC du scénario actif comme maximum, sans plafond fixe", () => {
@@ -150,17 +154,20 @@ describe("OptimizationSection — curseur de budget", () => {
     expect(html).toContain("BatiBuild analyse votre budget");
   });
 
-  it("garde le curseur ajustable avec les résultats, sans chargement résiduel", () => {
+  it("masque la carte du budget dès que les résultats sont affichés", () => {
     const html = renderSection({
       budgetAnalysis: analysis(),
       budgetAvailable: 100_000,
     });
 
-    // Le curseur reste visible pour actualiser les résultats.
-    expect(html).toContain("Quel est votre budget disponible ?");
-    expect(html).toContain('data-slot="slider"');
-    expect(html).toContain(formatTndAmount(100_000));
-    // Les résultats (et le budget analysé) restent affichés directement.
+    // Carte de saisie masquée par défaut…
+    expect(html).not.toContain("Quel est votre budget disponible ?");
+    expect(html).not.toContain('data-slot="slider"');
+    // …mais accessible à tout moment via « Voir budget ».
+    expect(html).toContain("Voir budget");
+    expect(html).not.toContain("Masquer budget");
+    expect(html).toContain('aria-expanded="false"');
+    // Les résultats, eux, restent affichés directement.
     expect(html).toContain("Plan de construction selon votre budget");
     expect(html).toContain(formatTndAmount(PROJECT_TOTAL));
     expect(html).not.toContain("BatiBuild analyse votre budget");
