@@ -41,7 +41,6 @@ import {
   MapPin,
   Plus,
   Rocket,
-  Ruler,
   Sparkles,
   Target,
   Trash2,
@@ -434,7 +433,6 @@ export default function ProjectGuide() {
   // Contexte réel du projet : type, niveaux et surfaces issus des données.
   const levels = roadmap.execution?.levels ?? roadmap.project.levels ?? [];
   const levelSurfaces = levels.map((l) => `${l.label}${l.surface ? ` ${l.surface} m²` : ""}`).join(" · ");
-  const remainingBudget = roadmap.summary.plannedBudget - roadmap.summary.budgetConsumed;
 
   // Groupes du planning : phases d'exécution de la trame du type de projet.
   // Repli sur une phase unique pour une feuille de route enregistrée avant
@@ -502,41 +500,6 @@ export default function ProjectGuide() {
               <Download className="h-3.5 w-3.5" /> Rapport PDF
             </Button>
           </div>
-        </div>
-
-        {/* Contexte du projet — le type, la surface, les niveaux et le scénario
-            pilotent la trame d'exécution : ils restent visibles en permanence. */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          <ContextTile
-            icon={HardHat}
-            label="Type de projet"
-            value={roadmap.project.categoryLabel}
-            hint={`Trame : ${roadmap.execution?.label ?? "générique"}`}
-          />
-          <ContextTile
-            icon={Ruler}
-            label="Surface couverte"
-            value={roadmap.project.surface ? `${roadmap.project.surface} m²` : "—"}
-            hint={roadmap.project.surfaceTotale ? `Terrain : ${roadmap.project.surfaceTotale} m²` : undefined}
-          />
-          <ContextTile
-            icon={Layers}
-            label="Niveaux"
-            value={`${roadmap.project.floors ?? 1} niveau${(roadmap.project.floors ?? 1) > 1 ? "x" : ""}`}
-            hint={levelSurfaces || "RDC"}
-          />
-          <ContextTile
-            icon={Wallet}
-            label="Scénario budgétaire"
-            value={roadmap.project.scenarioLabel ?? activeScenario.label}
-            hint={fmtTnd(activeScenario.totalCost)}
-          />
-          <ContextTile
-            icon={CalendarRange}
-            label="Reste à dépenser"
-            value={fmtTnd(remainingBudget)}
-            hint={`${fmtTnd(roadmap.summary.budgetConsumed)} dépensés sur ${fmtTnd(roadmap.summary.plannedBudget)}`}
-          />
         </div>
 
         {/* Journey du projet — parcours linéaire persistant (PDF par étape +
@@ -1252,33 +1215,6 @@ export default function ProjectGuide() {
 }
 
 // ─── Petits composants ───────────────────────────────────────────────────────
-
-/** Tuile de contexte : type, surface, niveaux, scénario, budget. */
-function ContextTile({
-  icon: Icon,
-  label,
-  value,
-  hint,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-border/40 bg-background/50 p-2.5">
-      <p className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <Icon className="h-3 w-3 shrink-0" /> {label}
-      </p>
-      <p className="mt-0.5 text-xs font-bold leading-tight">{value}</p>
-      {hint && (
-        <p className="mt-0.5 truncate text-[9px] text-muted-foreground/70" title={hint}>
-          {hint}
-        </p>
-      )}
-    </div>
-  );
-}
 
 /** Statut calculé d'une tâche ou d'une phase (jamais enregistré en base). */
 function StatusBadge({ status }: { status: ExecutionTaskStatus }) {

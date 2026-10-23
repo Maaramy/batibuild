@@ -116,15 +116,11 @@ describe("page Exécution & Suivi — adaptation au type de projet", () => {
   it("affiche la trame villa, ses niveaux et les surfaces réelles du projet", () => {
     const html = renderToStaticMarkup(<ProjectGuide />);
 
-    // Contexte du projet réellement enregistré.
-    expect(html).toContain("Type de projet");
-    expect(html).toContain("Villa");
-    expect(html).toContain("180 m²");
-    expect(html).toContain("2 niveaux");
-    expect(html).toContain("RDC 180 m² · R+1 90 m²");
-    expect(html).toContain("Trame : Maison, villa et duplex");
-    // Scénario réellement choisi dans l'estimation.
-    expect(html).toContain("Premium");
+    // Les tuiles de contexte (type, surface, niveaux, scénario, reste à dépenser)
+    // ne sont plus affichées en haut de la page.
+    expect(html).not.toContain("Type de projet");
+    expect(html).not.toContain("Reste à dépenser");
+    expect(html).not.toContain("Scénario budgétaire");
 
     // Phase 08 adaptée au type de projet (et non un intitulé générique).
     expect(html).toContain("Construction neuve");
