@@ -232,7 +232,10 @@ export const TUNISIA_ADMIN_STEPS: AdminStep[] = [
   },
 ];
 
-// ─── Phase 08 — Étapes de construction (ordre logique) ──────────────────────
+// ─── Phase 08 — Étapes de construction (ancienne trame unique) ──────────────
+// ⚠️ Depuis les trames par type de projet, les étapes de travaux sont générées
+// par `roadmapPlaybooks.ts` (une trame par catégorie). Cette liste n'est plus
+// utilisée par le moteur : elle est conservée comme référence des intitulés.
 export interface ConstructionStepTemplate {
   id: string;
   order: number;
