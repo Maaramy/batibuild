@@ -13,7 +13,13 @@ import {
   type SiteControlData,
   type StepStatus,
 } from "./roadmapEngine";
-import { TUNISIA_ADMIN_STEPS, CONSTRUCTION_STEPS } from "./roadmapData";
+import { TUNISIA_ADMIN_STEPS } from "./roadmapData";
+import {
+  executionContextFromProject,
+  playbookForCategory,
+  resolvePlaybookTasks,
+} from "./roadmapPlaybooks";
+import { ensureCurrentRoadmap, ROADMAP_VERSION } from "./roadmapEngine";
 
 // ── Projet complet type (résultat d'estimation) ──
 function fullProject(): RoadmapProjectInput {
@@ -54,13 +60,21 @@ const minimalProject = (): RoadmapProjectInput => ({
 });
 
 describe("generateRoadmap", () => {
-  it("génère les 10 phases, 15 démarches et 18 étapes de construction", () => {
-    const r = generateRoadmap(fullProject());
+  it("génère les 10 phases, les démarches de la trame et les étapes du type de projet", () => {
+    const project = fullProject();
+    const r = generateRoadmap(project);
+    const expectedTasks = resolvePlaybookTasks(
+      playbookForCategory(project.category),
+      executionContextFromProject(project),
+    );
     expect(r.phases).toHaveLength(10);
+    // Une villa suit la trame « résidentiel » : toutes les démarches tunisiennes.
     expect(r.adminSteps).toHaveLength(TUNISIA_ADMIN_STEPS.length);
-    expect(r.construction).toHaveLength(CONSTRUCTION_STEPS.length);
+    expect(r.construction).toHaveLength(expectedTasks.length);
     expect(r.budget.scenarios).toHaveLength(3);
     expect(r.documents.length).toBeGreaterThanOrEqual(12);
+    expect(r.execution?.key).toBe("residentiel");
+    expect(r.execution?.phases.length).toBeGreaterThan(0);
   });
 
   it("ordonne les scénarios budgétaires : économique < standard < premium", () => {
@@ -147,7 +161,13 @@ describe("rebalanceBudgetRows (répartition modifiable en temps réel)", () => {
 describe("buildPlanning / estimateDurationDays", () => {
   it("enchaîne les tâches sans chevauchement et avec dépendances", () => {
     const tasks = buildPlanning(320000, 180, 2);
-    expect(tasks.length).toBe(CONSTRUCTION_STEPS.length);
+    const expected = resolvePlaybookTasks(playbookForCategory("maison"), {
+      surface: 180,
+      floors: 2,
+      hasPool: false,
+      hasExterior: true,
+    });
+    expect(tasks.length).toBe(expected.length);
     for (let i = 1; i < tasks.length; i++) {
       expect(tasks[i].startDay).toBe(tasks[i - 1].endDay);
       expect(tasks[i].dependencies).toContain(tasks[i - 1].id);
@@ -356,5 +376,199 @@ describe("suppression des imprévus", () => {
 
     // Idempotente : une seconde passe ne change plus rien
     expect(stripImprevusFromRoadmap(cleaned, input)).toEqual(cleaned);
+  });
+});
+
+// ============================================================================
+// STRUCTURES D'EXÉCUTION PAR TYPE DE PROJET
+// ----------------------------------------------------------------------------
+// Chaque type enregistré doit produire SA propre trame : phases, tâches,
+// démarches et études adaptées, sans jamais mélanger deux métiers.
+// ============================================================================
+
+describe("trames d'exécution par type de projet", () => {
+  const baseProject = (category: string, extra: Partial<RoadmapProjectInput> = {}): RoadmapProjectInput => ({
+    _id: `proj_${category}`,
+    name: `Projet ${category}`,
+    category,
+    region: "ariana",
+    surface: 100,
+    surfaceTotale: 300,
+    floors: 1,
+    costEstimate: {
+      totalCost: 120_000,
+      costPerSquareMeter: 1200,
+      breakdown: [
+        {
+          category: "gros_oeuvre",
+          label: "Gros œuvre",
+          estimatedCost: 60_000,
+          percentage: 50,
+          items: [
+            { name: "Béton dosé 350", quantity: 24, unit: "m³", unitPrice: 380, totalPrice: 9120 },
+            { name: "Acier HA", quantity: 1200, unit: "kg", unitPrice: 4, totalPrice: 4800 },
+          ],
+        },
+        { category: "second_oeuvre", label: "Second œuvre", estimatedCost: 60_000, percentage: 50 },
+      ],
+      budgetScenarios: {
+        economique: { totalCost: 102_000, costPerM2: 1020, label: "Économique", multiplier: 0.85 },
+        standard: { totalCost: 120_000, costPerM2: 1200, label: "Standard", multiplier: 1 },
+        premium: { totalCost: 156_000, costPerM2: 1560, label: "Premium", multiplier: 1.3 },
+      },
+    },
+    ...extra,
+  });
+
+  const titles = (r: ReturnType<typeof generateRoadmap>) => r.construction.map((c) => c.title).join(" | ");
+
+  const CATEGORIES = [
+    "maison",
+    "villa",
+    "appartement",
+    "studio",
+    "duplex",
+    "immeuble",
+    "local_commercial",
+    "bureau",
+    "entrepot",
+    "cafe",
+    "restaurant",
+    "residence_touristique",
+    "piscine",
+    "renovation_cuisine",
+    "renovation_salle_de_bain",
+  ] as const;
+
+  it.each(CATEGORIES)("« %s » : structure cohérente, unique et chiffrée", (category) => {
+    const project = baseProject(category);
+    const r = generateRoadmap(project);
+    const playbook = playbookForCategory(category);
+
+    expect(r.version).toBe(ROADMAP_VERSION);
+    expect(r.execution?.key).toBe(playbook.key);
+    expect(r.construction.length).toBeGreaterThan(0);
+    expect(r.planning.length).toBe(r.construction.length);
+
+    // Aucune tâche en double, aucun groupe vide.
+    const taskTitles = r.construction.map((c) => c.title);
+    expect(new Set(taskTitles).size).toBe(taskTitles.length);
+    expect(r.execution!.phases.every((p) => p.taskIds.length > 0)).toBe(true);
+    expect(r.execution!.phases.reduce((acc, p) => acc + p.taskIds.length, 0)).toBe(r.construction.length);
+
+    // Planning et étapes partagent les mêmes identifiants, dans le même ordre.
+    expect(r.planning.map((t) => t.id)).toEqual(r.construction.map((c) => c.id));
+    for (let i = 1; i < r.planning.length; i++) {
+      expect(r.planning[i].startDay).toBe(r.planning[i - 1].endDay);
+    }
+
+    // Budget réparti sans ajouter ni perdre un dinar.
+    const constructionBudget = r.construction.reduce((acc, c) => acc + c.budgetEstime, 0);
+    expect(Math.abs(constructionBudget - r.budget.totalCost)).toBeLessThanOrEqual(2);
+
+    // Les articles réellement chiffrés remontent en matériaux prévus.
+    expect(r.materials?.some((m) => m.name === "Béton dosé 350" && m.quantity === 24)).toBe(true);
+  });
+
+  it("n'utilise jamais la trame d'un autre type de projet", () => {
+    const piscine = generateRoadmap(baseProject("piscine", { surface: 32 }));
+    expect(titles(piscine)).toMatch(/Filtration/);
+    expect(titles(piscine)).not.toMatch(/Escalier|Charpente|Cloisons/);
+
+    const cuisine = generateRoadmap(baseProject("renovation_cuisine", { surface: 10 }));
+    expect(titles(cuisine)).toMatch(/Meubles et plan de travail/);
+    expect(titles(cuisine)).not.toMatch(/Terrassement|Fondations/);
+
+    const sdb = generateRoadmap(baseProject("renovation_salle_de_bain", { surface: 5 }));
+    expect(titles(sdb)).toMatch(/Étanchéité de la pièce humide/);
+    expect(titles(sdb)).not.toMatch(/Terrassement|Fondations/);
+
+    const restaurant = generateRoadmap(baseProject("restaurant", { surface: 150 }));
+    expect(titles(restaurant)).toMatch(/Extraction et ventilation de cuisine/);
+    expect(titles(restaurant)).toMatch(/Cuisine professionnelle/);
+
+    const cafe = generateRoadmap(baseProject("cafe", { surface: 80 }));
+    expect(titles(cafe)).toMatch(/Comptoir/);
+    expect(titles(cafe)).not.toMatch(/Cuisson|Chambre froide/);
+
+    const entrepot = generateRoadmap(baseProject("entrepot", { surface: 400 }));
+    expect(titles(entrepot)).toMatch(/portes industrielles/i);
+    expect(titles(entrepot)).not.toMatch(/Chambre froide|Cuisine/);
+
+    const studio = generateRoadmap(baseProject("studio", { surface: 25 }));
+    expect(titles(studio)).toMatch(/optimisation des espaces/);
+    expect(titles(studio)).not.toMatch(/Terrassement|Fondations/);
+  });
+
+  it("déplie les tâches par niveau avec les surfaces réelles (immeuble)", () => {
+    const project = baseProject("immeuble", {
+      surface: 300,
+      floors: 3,
+      levelSurfaces: [120, 90, 70],
+    });
+    const r = generateRoadmap(project);
+    const elevation = r.construction.filter((c) => c.title.startsWith("Structure et élévation —"));
+    expect(elevation).toHaveLength(3);
+    expect(elevation.map((c) => c.levelLabel)).toEqual(["RDC", "R+1", "R+2"]);
+    expect(elevation.map((c) => c.levelSurface)).toEqual([120, 90, 70]);
+    expect(titles(r)).toMatch(/Ascenseur/);
+    expect(r.execution?.levels.map((l) => l.surface)).toEqual([120, 90, 70]);
+  });
+
+  it("adapte les démarches et les études techniques au type de projet", () => {
+    const adminIds = (category: string) =>
+      generateRoadmap(baseProject(category)).adminSteps.map((a) => a.id);
+    const studyIds = (category: string) =>
+      generateRoadmap(baseProject(category)).phases.find((p) => p.id === "phase_03")!.items.map((i) => i.id);
+
+    // Une villa conserve le parcours administratif complet.
+    expect(adminIds("villa")).toContain("bornage");
+    expect(adminIds("villa")).toContain("geotechnique");
+
+    // Une rénovation de salle de bain n'a ni bornage ni étude géotechnique.
+    expect(adminIds("renovation_salle_de_bain")).not.toContain("bornage");
+    expect(adminIds("renovation_salle_de_bain")).not.toContain("geotechnique");
+    expect(studyIds("renovation_salle_de_bain")).not.toContain("geotechnique");
+    expect(studyIds("renovation_salle_de_bain")).toContain("plomberie");
+
+    // Un projet d'électricité ne liste que l'étude électrique.
+    expect(studyIds("electricite_complete")).toEqual(["electricite"]);
+  });
+
+  it("reprend le scénario budgétaire réellement choisi dans l'estimation", () => {
+    const standard = generateRoadmap(baseProject("maison"));
+    expect(standard.budget.selected).toBe("standard");
+
+    const premium = generateRoadmap(baseProject("maison", { selectedScenario: "premium" }));
+    expect(premium.budget.selected).toBe("premium");
+    expect(premium.budget.totalCost).toBe(156_000);
+    expect(premium.project.scenarioLabel).toBe("Premium");
+    // Les lots sont chiffrés sur le scénario retenu : aucun écart de budget.
+    expect(premium.construction.reduce((acc, c) => acc + c.budgetEstime, 0)).toBe(156_000);
+  });
+
+  it("préserve la progression d'une feuille de route déjà renseignée", () => {
+    const project = baseProject("maison");
+    const current = generateRoadmap(project);
+    current.planning[0] = { ...current.planning[0], progress: 40, status: "in_progress" };
+
+    // Le type change : la trame ne correspond plus, mais l'utilisateur a avancé.
+    const changed = ensureCurrentRoadmap(current, { ...project, category: "piscine" });
+    expect(changed).toBe(current);
+
+    // Feuille de route vierge : elle est régénérée avec la trame du nouveau type.
+    const fresh = generateRoadmap(project);
+    const upgraded = ensureCurrentRoadmap(fresh, { ...project, category: "piscine" });
+    expect(upgraded).not.toBe(fresh);
+    expect(upgraded.execution?.key).toBe("piscine");
+  });
+
+  it("conserve une structure commune (10 phases) tout en adaptant la phase 08", () => {
+    const piscine = generateRoadmap(baseProject("piscine"));
+    expect(piscine.phases).toHaveLength(10);
+    const phase08 = piscine.phases.find((p) => p.id === "phase_08")!;
+    expect(phase08.title).toBe("Construction de piscine");
+    expect(phase08.items.length).toBe(piscine.construction.length);
+    expect(phase08.items[0].detail).toMatch(/\d+ j/);
   });
 });

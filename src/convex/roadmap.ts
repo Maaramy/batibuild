@@ -13,7 +13,9 @@ import {
   buildSummary,
   buildNextSteps,
   buildOmissions,
+  buildExecution,
   buildSiteRiskAnalysis,
+  ensureCurrentRoadmap,
   phaseProgress,
   phaseStatus,
   rebalanceBudgetRows,
@@ -23,6 +25,7 @@ import {
   type RoadmapProjectInput,
   type StepStatus,
 } from "./roadmapEngine";
+import { executionContextFromProject, playbookForCategory } from "./roadmapPlaybooks";
 import { getCurrentUser } from "./users";
 import { requireClientProAccess } from "./access";
 
@@ -45,7 +48,11 @@ export const getRoadmap = query({
     // imprévus est ramenée au coût réel, puis ses champs calculés (budget,
     // résumé, risques) sont recalculés comme lors d'une mise à jour (Phase 05).
     const clean = stripImprevusFromRoadmap(stored, input);
-    const results = clean === stored ? stored : derive(clean, input);
+    // Trame obsolète (autre type de projet / ancienne version) : une feuille de
+    // route encore vierge est régénérée avec la trame du type réel, sans
+    // jamais écraser une progression déjà saisie.
+    const current = ensureCurrentRoadmap(clean, input);
+    const results = current === clean ? derive(clean, input) : derive(current, input);
     return { roadmapId: doc._id, input, results };
   },
 });
@@ -99,7 +106,14 @@ export const generateRoadmapForProject = mutation({
       surface: project.surface,
       surfaceTotale: project.surfaceTotale,
       floors: project.floors,
+      levelSurfaces: project.levelSurfaces,
       bedrooms: project.bedrooms,
+      bathrooms: project.bathrooms,
+      kitchens: project.kitchens,
+      livingRooms: project.livingRooms,
+      wcs: project.wcs,
+      pools: project.pools,
+      selectedScenario: project.selectedScenario,
       files: project.files?.map((f) => ({ name: f.name, type: f.type })) ?? [],
       aiAnalysis: project.aiAnalysis
         ? {
@@ -155,7 +169,10 @@ export const deleteRoadmap = mutation({
 
 // ─── Dérivation (recalcul des champs calculés après chaque mise à jour) ─────
 
-function derive(r: Roadmap, input: RoadmapProjectInput): Roadmap {
+function derive(stored: Roadmap, input: RoadmapProjectInput): Roadmap {
+  // Trame du type de projet : une feuille de route vierge générée avec une
+  // autre trame est remplacée avant tout calcul (progression préservée sinon).
+  const r = ensureCurrentRoadmap(stored, input);
   const phases = r.phases.map((p) => {
     if (p.id === "phase_04") {
       const items = r.adminSteps.map((a) => ({
@@ -171,7 +188,7 @@ function derive(r: Roadmap, input: RoadmapProjectInput): Roadmap {
       const items = r.construction.map((c) => ({
         id: c.id,
         label: c.title,
-        detail: `${c.dureeJours} jours · ${fmtTnd(c.budgetEstime)}`,
+        detail: `${c.phaseTitle ?? "Travaux"} · ${c.dureeJours} jours · ${fmtTnd(c.budgetEstime)}`,
         status: c.status,
       }));
       return { ...p, items, progress: phaseProgress(items), status: phaseStatus(items) };
@@ -187,7 +204,9 @@ function derive(r: Roadmap, input: RoadmapProjectInput): Roadmap {
   const progress = computeProgress(phases, r.planning, r.construction, r.adminSteps);
   const consumed = r.control.expenses.reduce((acc, e) => acc + e.amount, 0);
   const summary = {
-    ...buildSummary(input, budget, r.planning, progress),
+    // Le démarrage estimé reste celui enregistré : les échéances ne glissent pas
+    // à chaque modification (sinon « En retard » ne serait jamais détecté).
+    ...buildSummary(input, budget, r.planning, progress, r.summary?.startDate),
     budgetConsumed: consumed,
     budgetGap: consumed - budget.totalCost,
   };
@@ -211,7 +230,17 @@ function derive(r: Roadmap, input: RoadmapProjectInput): Roadmap {
     }),
   };
 
-  return { ...r, phases, budget, progress, summary, omissions, nextSteps, control };
+  // Phases d'exécution : avancement et budget recalculés depuis les étapes.
+  const execution = r.execution
+    ? buildExecution(
+        playbookForCategory(input.category),
+        executionContextFromProject(input),
+        r.construction,
+        r.planning,
+      )
+    : r.execution;
+
+  return { ...r, phases, budget, progress, summary, omissions, nextSteps, control, execution };
 }
 
 function assertOwner(doc: { userId: string }, user: { _id: string; role?: string | null }) {
@@ -223,6 +252,26 @@ async function loadOwned(ctx: any, roadmapId: string, user: { _id: string; role?
   if (!doc) throw new Error("Feuille de route introuvable.");
   assertOwner(doc, user);
   return doc;
+}
+
+/**
+ * Ajoute une entrée au journal des modifications (60 dernières), affiché dans
+ * l'onglet « Contrôle » du suivi. Aucune donnée métier n'est modifiée ici.
+ */
+function withHistory(r: Roadmap, action: string, detail?: string): Roadmap {
+  const entry = {
+    id: `hist_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    at: Date.now(),
+    action,
+    ...(detail ? { detail } : {}),
+  };
+  return {
+    ...r,
+    control: {
+      ...r.control,
+      history: [entry, ...(r.control.history ?? [])].slice(0, 60),
+    },
+  };
 }
 
 // ─── Suivi des phases ────────────────────────────────────────────────────────
@@ -237,8 +286,10 @@ export const togglePhaseItem = mutation({
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
-    const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
+    // Trame du type de projet : une feuille de route encore vierge est adaptée
+    // avant toute modification (une progression existante est conservée).
+    const r = ensureCurrentRoadmap(doc.results as Roadmap, input);
 
     const flip = (status: StepStatus): StepStatus => (status === "done" ? "todo" : "done");
 
@@ -255,14 +306,24 @@ export const togglePhaseItem = mutation({
       if (idx >= 0) {
         next.construction = [...next.construction];
         next.construction[idx] = { ...next.construction[idx], status: flip(next.construction[idx].status) };
-      }
-      // Synchronise la tâche de planning correspondante (même id)
-      const tIdx = next.planning.findIndex((t) => t.id === args.itemId);
-      if (tIdx >= 0) {
-        next.planning = [...next.planning];
-        const t = next.planning[tIdx];
-        const done = next.construction[idx].status === "done";
-        next.planning[tIdx] = { ...t, status: done ? "done" : "todo", progress: done ? 100 : 0 };
+        // Date réelle de fin : seule une étape cochée en porte une.
+        const doneNow = next.construction[idx].status === "done";
+        next.construction[idx] = {
+          ...next.construction[idx],
+          completedAt: doneNow ? Date.now() : undefined,
+        };
+        // Synchronise la tâche de planning correspondante (même id)
+        const tIdx = next.planning.findIndex((t) => t.id === args.itemId);
+        if (tIdx >= 0) {
+          next.planning = [...next.planning];
+          const t = next.planning[tIdx];
+          next.planning[tIdx] = {
+            ...t,
+            status: doneNow ? "done" : "todo",
+            progress: doneNow ? 100 : 0,
+            completedAt: doneNow ? Date.now() : undefined,
+          };
+        }
       }
     } else {
       const phase = next.phases.find((p) => p.id === args.phaseId);
@@ -274,7 +335,19 @@ export const togglePhaseItem = mutation({
       }
     }
 
-    const derived = derive(next, input);
+    const changedItem =
+      args.phaseId === "phase_04"
+        ? next.adminSteps.find((a) => a.id === args.itemId)
+        : args.phaseId === "phase_08"
+          ? next.construction.find((c) => c.id === args.itemId)
+          : next.phases.flatMap((p) => p.items).find((i) => i.id === args.itemId);
+    const doneNow = changedItem?.status === "done";
+    const label = changedItem && "title" in changedItem ? changedItem.title : changedItem?.label ?? args.itemId;
+
+    const derived = derive(
+      withHistory(next, doneNow ? "Étape terminée" : "Étape réouverte", label),
+      input,
+    );
     await ctx.db.patch(doc._id, { results: derived, updatedAt: Date.now() });
     return derived;
   },
@@ -290,20 +363,41 @@ export const updatePlanningTask = mutation({
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
-    const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
+    // Trame du type de projet : une feuille de route encore vierge est adaptée
+    // avant toute modification (une progression existante est conservée).
+    const r = ensureCurrentRoadmap(doc.results as Roadmap, input);
 
     const tIdx = r.planning.findIndex((t) => t.id === args.taskId);
     if (tIdx < 0) throw new Error("Tâche introuvable.");
     const planning = [...r.planning];
-    planning[tIdx] = { ...planning[tIdx], progress: Math.max(0, Math.min(100, Math.round(args.progress))), status: args.status };
+    const completedAt = args.status === "done" ? Date.now() : undefined;
+    planning[tIdx] = {
+      ...planning[tIdx],
+      progress: Math.max(0, Math.min(100, Math.round(args.progress))),
+      status: args.status,
+      completedAt,
+    };
 
     // Synchronise l'étape de construction correspondante
     const construction = r.construction.map((c) =>
-      c.id === args.taskId ? { ...c, status: args.status === "done" ? ("done" as StepStatus) : ("todo" as StepStatus) } : c,
+      c.id === args.taskId
+        ? {
+            ...c,
+            status: args.status === "done" ? ("done" as StepStatus) : ("todo" as StepStatus),
+            completedAt,
+          }
+        : c,
     );
 
-    const derived = derive({ ...r, planning, construction }, input);
+    const derived = derive(
+      withHistory(
+        { ...r, planning, construction },
+        args.status === "done" ? "Tâche terminée" : "Avancement mis à jour",
+        `${planning[tIdx].title} — ${planning[tIdx].progress} %`,
+      ),
+      input,
+    );
     await ctx.db.patch(doc._id, { results: derived, updatedAt: Date.now() });
     return derived;
   },
@@ -321,9 +415,19 @@ export const setBudgetScenario = mutation({
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
-    const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
-    const derived = derive({ ...r, budget: { ...r.budget, selected: args.scenario } }, input);
+    // Trame du type de projet : une feuille de route encore vierge est adaptée
+    // avant toute modification (une progression existante est conservée).
+    const r = ensureCurrentRoadmap(doc.results as Roadmap, input);
+    const scenarioLabel = r.budget.scenarios.find((s) => s.key === args.scenario)?.label ?? args.scenario;
+    const derived = derive(
+      withHistory(
+        { ...r, budget: { ...r.budget, selected: args.scenario } },
+        "Scénario budgétaire modifié",
+        scenarioLabel,
+      ),
+      input,
+    );
     await ctx.db.patch(doc._id, { results: derived, updatedAt: Date.now() });
     return derived;
   },
@@ -339,8 +443,10 @@ export const updateBudgetAllocation = mutation({
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
-    const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
+    // Trame du type de projet : une feuille de route encore vierge est adaptée
+    // avant toute modification (une progression existante est conservée).
+    const r = ensureCurrentRoadmap(doc.results as Roadmap, input);
 
     const scenarioIdx = r.budget.scenarios.findIndex((s) => s.key === r.budget.selected);
     const scenarios = [...r.budget.scenarios];
@@ -350,7 +456,14 @@ export const updateBudgetAllocation = mutation({
       rows: rebalanceBudgetRows(sc.rows, args.rowKey, args.pct, sc.totalCost),
     };
 
-    const derived = derive({ ...r, budget: { ...r.budget, scenarios } }, input);
+    const derived = derive(
+      withHistory(
+        { ...r, budget: { ...r.budget, scenarios } },
+        "Répartition budgétaire ajustée",
+        `${args.rowKey} — ${args.pct} %`,
+      ),
+      input,
+    );
     await ctx.db.patch(doc._id, { results: derived, updatedAt: Date.now() });
     return derived;
   },
@@ -367,10 +480,19 @@ export const addControlExpense = mutation({
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
-    const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
+    // Trame du type de projet : une feuille de route encore vierge est adaptée
+    // avant toute modification (une progression existante est conservée).
+    const r = ensureCurrentRoadmap(doc.results as Roadmap, input);
     const expense = { id: `exp_${Date.now()}_${Math.floor(Math.random() * 1000)}`, label: args.label, amount: args.amount, category: args.category, date: Date.now() };
-    const derived = derive({ ...r, control: { ...r.control, expenses: [...r.control.expenses, expense] } }, input);
+    const derived = derive(
+      withHistory(
+        { ...r, control: { ...r.control, expenses: [...r.control.expenses, expense] } },
+        "Dépense enregistrée",
+        `${args.label} — ${fmtTnd(args.amount)}`,
+      ),
+      input,
+    );
     await ctx.db.patch(doc._id, { results: derived, updatedAt: Date.now() });
     return derived;
   },
@@ -385,9 +507,19 @@ export const deleteControlExpense = mutation({
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
-    const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
-    const derived = derive({ ...r, control: { ...r.control, expenses: r.control.expenses.filter((e) => e.id !== args.expenseId) } }, input);
+    // Trame du type de projet : une feuille de route encore vierge est adaptée
+    // avant toute modification (une progression existante est conservée).
+    const r = ensureCurrentRoadmap(doc.results as Roadmap, input);
+    const removed = r.control.expenses.find((e) => e.id === args.expenseId);
+    const derived = derive(
+      withHistory(
+        { ...r, control: { ...r.control, expenses: r.control.expenses.filter((e) => e.id !== args.expenseId) } },
+        "Dépense supprimée",
+        removed ? `${removed.label} — ${fmtTnd(removed.amount)}` : undefined,
+      ),
+      input,
+    );
     await ctx.db.patch(doc._id, { results: derived, updatedAt: Date.now() });
     return derived;
   },
@@ -402,10 +534,19 @@ export const addControlIssue = mutation({
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
-    const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
+    // Trame du type de projet : une feuille de route encore vierge est adaptée
+    // avant toute modification (une progression existante est conservée).
+    const r = ensureCurrentRoadmap(doc.results as Roadmap, input);
     const issue = { id: `iss_${Date.now()}_${Math.floor(Math.random() * 1000)}`, title: args.title, severity: args.severity, description: args.description ?? "", status: "ouvert" as const, createdAt: Date.now() };
-    const derived = derive({ ...r, control: { ...r.control, issues: [issue, ...r.control.issues] } }, input);
+    const derived = derive(
+      withHistory(
+        { ...r, control: { ...r.control, issues: [issue, ...r.control.issues] } },
+        "Problème signalé",
+        args.title,
+      ),
+      input,
+    );
     await ctx.db.patch(doc._id, { results: derived, updatedAt: Date.now() });
     return derived;
   },
@@ -420,10 +561,20 @@ export const resolveControlIssue = mutation({
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
-    const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
+    // Trame du type de projet : une feuille de route encore vierge est adaptée
+    // avant toute modification (une progression existante est conservée).
+    const r = ensureCurrentRoadmap(doc.results as Roadmap, input);
     const issues = r.control.issues.map((i) => (i.id === args.issueId ? { ...i, status: i.status === "résolu" ? ("ouvert" as const) : ("résolu" as const) } : i));
-    const derived = derive({ ...r, control: { ...r.control, issues } }, input);
+    const issue = issues.find((i) => i.id === args.issueId);
+    const derived = derive(
+      withHistory(
+        { ...r, control: { ...r.control, issues } },
+        issue?.status === "résolu" ? "Problème résolu" : "Problème réouvert",
+        issue?.title,
+      ),
+      input,
+    );
     await ctx.db.patch(doc._id, { results: derived, updatedAt: Date.now() });
     return derived;
   },
@@ -438,17 +589,32 @@ export const addControlObservation = mutation({
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
-    const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
+    // Trame du type de projet : une feuille de route encore vierge est adaptée
+    // avant toute modification (une progression existante est conservée).
+    const r = ensureCurrentRoadmap(doc.results as Roadmap, input);
     const obs = { id: `obs_${Date.now()}_${Math.floor(Math.random() * 1000)}`, text: args.text, createdAt: Date.now() };
-    const derived = derive({ ...r, control: { ...r.control, observations: [obs, ...r.control.observations] } }, input);
+    const derived = derive(
+      withHistory(
+        { ...r, control: { ...r.control, observations: [obs, ...r.control.observations] } },
+        "Observation ajoutée",
+        args.text.slice(0, 80),
+      ),
+      input,
+    );
     await ctx.db.patch(doc._id, { results: derived, updatedAt: Date.now() });
     return derived;
   },
 });
 
 export const addControlPhoto = mutation({
-  args: { roadmapId: v.id("projectRoadmaps"), storageId: v.optional(v.id("_storage")), url: v.optional(v.string()), caption: v.string() },
+  args: {
+    roadmapId: v.id("projectRoadmaps"),
+    storageId: v.optional(v.id("_storage")),
+    url: v.optional(v.string()),
+    caption: v.string(),
+    stage: v.optional(v.union(v.literal("avant"), v.literal("pendant"), v.literal("apres"))),
+  },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");
@@ -456,10 +622,28 @@ export const addControlPhoto = mutation({
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
-    const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
-    const photo = { id: `ph_${Date.now()}_${Math.floor(Math.random() * 1000)}`, storageId: args.storageId, url: args.url, caption: args.caption, addedAt: Date.now() };
-    const derived = derive({ ...r, control: { ...r.control, photos: [...r.control.photos, photo] } }, input);
+    // Trame du type de projet : une feuille de route encore vierge est adaptée
+    // avant toute modification (une progression existante est conservée).
+    const r = ensureCurrentRoadmap(doc.results as Roadmap, input);
+    const photo = {
+      id: `ph_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      storageId: args.storageId,
+      url: args.url,
+      caption: args.caption,
+      addedAt: Date.now(),
+      stage: args.stage,
+    };
+    const stageLabel =
+      args.stage === "avant" ? "avant travaux" : args.stage === "apres" ? "après travaux" : "pendant les travaux";
+    const derived = derive(
+      withHistory(
+        { ...r, control: { ...r.control, photos: [...r.control.photos, photo] } },
+        "Photo ajoutée",
+        `${args.caption} — ${stageLabel}`,
+      ),
+      input,
+    );
     await ctx.db.patch(doc._id, { results: derived, updatedAt: Date.now() });
     return derived;
   },
@@ -474,9 +658,17 @@ export const deleteControlPhoto = mutation({
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Suivi de A à Z");
     const doc = await loadOwned(ctx, args.roadmapId, user);
-    const r = doc.results as Roadmap;
     const input = doc.input as RoadmapProjectInput;
-    const derived = derive({ ...r, control: { ...r.control, photos: r.control.photos.filter((p) => p.id !== args.photoId) } }, input);
+    // Trame du type de projet : une feuille de route encore vierge est adaptée
+    // avant toute modification (une progression existante est conservée).
+    const r = ensureCurrentRoadmap(doc.results as Roadmap, input);
+    const derived = derive(
+      withHistory(
+        { ...r, control: { ...r.control, photos: r.control.photos.filter((p) => p.id !== args.photoId) } },
+        "Photo supprimée",
+      ),
+      input,
+    );
     await ctx.db.patch(doc._id, { results: derived, updatedAt: Date.now() });
     return derived;
   },

@@ -36,10 +36,12 @@ import {
   FileText,
   Gauge,
   HardHat,
+  Layers,
   Loader2,
   MapPin,
   Plus,
   Rocket,
+  Ruler,
   Sparkles,
   Target,
   Trash2,
@@ -53,6 +55,21 @@ import type { Roadmap, RoadmapProjectInput } from "@/convex/roadmapEngine";
 import { exportRoadmapPdf } from "@/lib/roadmapReportPdf";
 import { fmtDate, fmtTnd } from "@/lib/projectGuideFormat";
 import { buildDocumentContent, downloadText } from "@/lib/projectGuideDocuments";
+import {
+  EXECUTION_STATUS_CLASSES,
+  EXECUTION_STATUS_LABELS,
+  doneTaskIds,
+  executionPhaseStatus,
+  executionTaskStatus,
+  type ExecutionTaskStatus,
+} from "@/lib/projectGuideStatus";
+import {
+  executionContextFromProject,
+  playbookForCategory,
+  resolvePlaybookTasks,
+} from "@/convex/roadmapPlaybooks";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const SCENARIO_STYLES: Record<string, { active: string; badge: string; dot: string }> = {
   economique: {
@@ -141,6 +158,7 @@ export default function ProjectGuide() {
   const [issue, setIssue] = useState({ title: "", severity: "warning" as "info" | "warning" | "critical", description: "" });
   const [observation, setObservation] = useState("");
   const [photoCaption, setPhotoCaption] = useState("");
+  const [photoStage, setPhotoStage] = useState<"avant" | "pendant" | "apres">("pendant");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -193,7 +211,7 @@ export default function ProjectGuide() {
       const res = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": file.type }, body: file });
       if (!res.ok) throw new Error("Upload échoué");
       const { storageId } = await res.json();
-      await addPhoto({ roadmapId, storageId, caption: photoCaption || file.name });
+      await addPhoto({ roadmapId, storageId, caption: photoCaption || file.name, stage: photoStage });
       toast.success("Photo ajoutée au suivi du chantier");
       setPhotoCaption("");
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -364,7 +382,15 @@ export default function ProjectGuide() {
                 {[
                   { label: "Phases A-Z", value: "10" },
                   { label: "Démarches TN", value: "15" },
-                  { label: "Étapes chantier", value: "18" },
+                  {
+                    label: "Tâches d'exécution",
+                    value: String(
+                      resolvePlaybookTasks(
+                        playbookForCategory(selectedProject.category),
+                        executionContextFromProject(selectedProject),
+                      ).length,
+                    ),
+                  },
                   { label: "Documents", value: "12" },
                 ].map((s) => (
                   <div key={s.label} className="rounded-lg border border-border/30 bg-muted/15 p-2.5 text-center">
@@ -373,6 +399,10 @@ export default function ProjectGuide() {
                   </div>
                 ))}
               </div>
+              <p className="text-center text-[10px] font-medium text-cyan-700 dark:text-cyan-400">
+                Trame « {playbookForCategory(selectedProject.category).label} » — phases, tâches et
+                équipements adaptés à ce type de projet.
+              </p>
               <Button className="w-full h-9 gap-1.5 text-xs bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white" onClick={handleGenerate} disabled={generating}>
                 {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
                 {generating ? "Génération…" : "Démarrer mon projet avec IA"}
@@ -390,7 +420,40 @@ export default function ProjectGuide() {
   // ── Feuille de route : tableau de bord ───────────────────────────────────
   const activeScenario = roadmap.budget.scenarios.find((s) => s.key === roadmap.budget.selected) ?? roadmap.budget.scenarios[1];
   const maxDays = Math.max(1, ...roadmap.planning.map((t) => t.endDay));
-  const nextTask = roadmap.planning.find((t) => t.status === "todo");
+
+  // Statuts calculés depuis les dates et dépendances réellement enregistrées.
+  const doneIds = doneTaskIds(roadmap.planning);
+  const taskStatusById = new Map(
+    roadmap.planning.map((t) => [
+      t.id,
+      executionTaskStatus(t, { startDate: roadmap.summary.startDate, doneTaskIds: doneIds }),
+    ]),
+  );
+  const nextTask = roadmap.planning.find((t) => taskStatusById.get(t.id) !== "done");
+
+  // Contexte réel du projet : type, niveaux et surfaces issus des données.
+  const levels = roadmap.execution?.levels ?? roadmap.project.levels ?? [];
+  const levelSurfaces = levels.map((l) => `${l.label}${l.surface ? ` ${l.surface} m²` : ""}`).join(" · ");
+  const remainingBudget = roadmap.summary.plannedBudget - roadmap.summary.budgetConsumed;
+
+  // Groupes du planning : phases d'exécution de la trame du type de projet.
+  // Repli sur une phase unique pour une feuille de route enregistrée avant
+  // l'arrivée des trames par type (la progression reste intacte).
+  const executionGroups = roadmap.execution?.phases?.length
+    ? roadmap.execution.phases
+    : [
+        {
+          key: "global" as const,
+          title: "Planning des travaux",
+          description: "Tâches enregistrées pour ce projet.",
+          taskIds: roadmap.planning.map((t) => t.id),
+          progress: 0,
+          status: "todo" as const,
+          startDay: 0,
+          endDay: maxDays,
+          budget: roadmap.summary.plannedBudget,
+        },
+      ];
 
   return (
     <main className="min-h-screen bg-background pb-10">
@@ -439,6 +502,41 @@ export default function ProjectGuide() {
               <Download className="h-3.5 w-3.5" /> Rapport PDF
             </Button>
           </div>
+        </div>
+
+        {/* Contexte du projet — le type, la surface, les niveaux et le scénario
+            pilotent la trame d'exécution : ils restent visibles en permanence. */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <ContextTile
+            icon={HardHat}
+            label="Type de projet"
+            value={roadmap.project.categoryLabel}
+            hint={`Trame : ${roadmap.execution?.label ?? "générique"}`}
+          />
+          <ContextTile
+            icon={Ruler}
+            label="Surface couverte"
+            value={roadmap.project.surface ? `${roadmap.project.surface} m²` : "—"}
+            hint={roadmap.project.surfaceTotale ? `Terrain : ${roadmap.project.surfaceTotale} m²` : undefined}
+          />
+          <ContextTile
+            icon={Layers}
+            label="Niveaux"
+            value={`${roadmap.project.floors ?? 1} niveau${(roadmap.project.floors ?? 1) > 1 ? "x" : ""}`}
+            hint={levelSurfaces || "RDC"}
+          />
+          <ContextTile
+            icon={Wallet}
+            label="Scénario budgétaire"
+            value={roadmap.project.scenarioLabel ?? activeScenario.label}
+            hint={fmtTnd(activeScenario.totalCost)}
+          />
+          <ContextTile
+            icon={CalendarRange}
+            label="Reste à dépenser"
+            value={fmtTnd(remainingBudget)}
+            hint={`${fmtTnd(roadmap.summary.budgetConsumed)} dépensés sur ${fmtTnd(roadmap.summary.plannedBudget)}`}
+          />
         </div>
 
         {/* Journey du projet — parcours linéaire persistant (PDF par étape +
@@ -598,76 +696,199 @@ export default function ProjectGuide() {
                 <Gantt roadmap={roadmap} />
               </CardContent>
             </Card>
-            <div className="space-y-1.5">
-              {roadmap.planning.map((task) => (
-                <Card key={task.id} className="border-border/40 bg-background/50">
-                  <CardContent className="p-2.5 sm:p-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className={`text-xs font-semibold truncate ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>{task.title}</p>
-                        <p className="text-[10px] text-muted-foreground flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
-                          <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> {task.durationDays} j</span>
-                          <span className="flex items-center gap-1"><CalendarRange className="h-2.5 w-2.5" /> J+{task.startDay} → J+{task.endDay}</span>
-                          <span>{task.responsible}</span>
-                          <span className="font-medium text-foreground/70">{fmtTnd(task.cost)}</span>
-                        </p>
+            <div className="space-y-3">
+              {executionGroups.map((group) => {
+                const groupTasks = roadmap.planning.filter((t) => group.taskIds.includes(t.id));
+                if (groupTasks.length === 0) return null;
+                const statuses = groupTasks.map((t) => taskStatusById.get(t.id) ?? "todo");
+                const progress = Math.round(groupTasks.reduce((a, t) => a + t.progress, 0) / groupTasks.length);
+                return (
+                  <Card key={group.key} className="border-border/40 bg-background/50">
+                    <CardHeader className="p-3 sm:p-4 pb-2">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold leading-tight">{group.title}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {groupTasks.length} tâche(s) · J+{group.startDay} → J+{group.endDay} ·{" "}
+                            {fmtTnd(groupTasks.reduce((a, t) => a + t.cost, 0))}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <StatusBadge status={executionPhaseStatus(statuses)} />
+                          <span className="text-[11px] font-bold tabular-nums">{progress}%</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <input
-                          type="range"
-                          min={0}
-                          max={100}
-                          step={10}
-                          value={task.progress}
-                          onChange={(e) => handleTaskProgress(task.id, Number(e.target.value))}
-                          className="w-28 h-1.5 cursor-pointer accent-cyan-600"
-                        />
-                        <span className="w-9 text-right text-[11px] font-bold tabular-nums">{task.progress}%</span>
-                      </div>
-                    </div>
-                    <Progress value={task.progress} className="mt-2 h-1 [&>div]:bg-cyan-500" />
-                  </CardContent>
-                </Card>
-              ))}
+                      <Progress value={progress} className="mt-2 h-1 [&>div]:bg-cyan-500" />
+                    </CardHeader>
+                    <CardContent className="p-3 sm:p-4 pt-1 space-y-1.5">
+                      {groupTasks.map((task) => (
+                        <div key={task.id} className="rounded-lg border border-border/30 bg-muted/10 p-2.5">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <p className={`text-xs font-semibold truncate ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>
+                                  {task.title}
+                                </p>
+                                <StatusBadge status={taskStatusById.get(task.id) ?? "todo"} />
+                              </div>
+                              <p className="text-[10px] text-muted-foreground flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                                <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5" /> {task.durationDays} j</span>
+                                <span className="flex items-center gap-1">
+                                  <CalendarRange className="h-2.5 w-2.5" />{" "}
+                                  {fmtDate(roadmap.summary.startDate + task.startDay * DAY_MS)} →{" "}
+                                  {fmtDate(roadmap.summary.startDate + task.endDay * DAY_MS)}
+                                </span>
+                                <span>{task.responsible}</span>
+                                <span className="font-medium text-foreground/70">{fmtTnd(task.cost)}</span>
+                                {task.completedAt && (
+                                  <span className="text-emerald-600 dark:text-emerald-400">
+                                    Réalisé le {fmtDate(task.completedAt)}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <input
+                                type="range"
+                                min={0}
+                                max={100}
+                                step={10}
+                                value={task.progress}
+                                onChange={(e) => handleTaskProgress(task.id, Number(e.target.value))}
+                                className="w-28 h-1.5 cursor-pointer accent-cyan-600"
+                              />
+                              <span className="w-9 text-right text-[11px] font-bold tabular-nums">{task.progress}%</span>
+                            </div>
+                          </div>
+                          <Progress value={task.progress} className="mt-2 h-1 [&>div]:bg-cyan-500" />
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </TabsContent>
 
-          {/* ── Construction ── */}
-          <TabsContent value="construction" className="space-y-2">
-            <Accordion type="single" collapsible className="w-full">
-              {roadmap.construction.map((c) => (
-                <AccordionItem key={c.id} value={c.id} className="border-border/40 bg-background/50 rounded-xl mb-1.5 border px-1">
-                  <AccordionTrigger className="px-2">
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <Checkbox
-                        checked={c.status === "done"}
-                        onCheckedChange={() => handleToggle("phase_08", c.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="shrink-0"
-                      />
-                      <div className="min-w-0 flex-1 text-left">
-                        <p className={`text-xs font-semibold truncate ${c.status === "done" ? "line-through text-muted-foreground" : ""}`}>
-                          {c.order}. {c.title}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">{c.dureeJours} j · {fmtTnd(c.budgetEstime)}</p>
+          {/* ── Construction — phases propres au type de projet ── */}
+          <TabsContent value="construction" className="space-y-3">
+            <div className="rounded-xl border border-cyan-500/25 bg-cyan-500/[0.04] p-3">
+              <p className="text-xs font-semibold flex items-center gap-1.5">
+                <HardHat className="h-4 w-4 text-cyan-600" /> {roadmap.execution?.title ?? "Travaux"}
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                {roadmap.execution?.description ?? "Travaux enregistrés pour ce projet."}
+              </p>
+              <p className="mt-1 text-[10px] text-muted-foreground/70">
+                {roadmap.execution?.taskCount ?? roadmap.construction.length} tâche(s) ·{" "}
+                {roadmap.execution?.totalDays ?? maxDays} jours estimés ·{" "}
+                {roadmap.project.surface ? `${roadmap.project.surface} m²` : "surface non renseignée"}
+                {levelSurfaces ? ` · ${levelSurfaces}` : ""}
+              </p>
+            </div>
+
+            {roadmap.materials && roadmap.materials.length > 0 && (
+              <Card className="border-border/40 bg-background/50">
+                <CardHeader className="p-3 sm:p-4 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-emerald-600" /> Matériaux prévus — issus de l'estimation
+                  </CardTitle>
+                  <CardDescription className="text-[10px]">
+                    Quantités réellement chiffrées dans le devis du projet ({roadmap.materials.length} référence(s)).
+                    Les états commandé / livré / utilisé sont saisis dans le suivi des matériaux du projet.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="max-h-64 overflow-y-auto p-3 sm:p-4 pt-0">
+                  <div className="grid gap-1 sm:grid-cols-2">
+                    {roadmap.materials.map((m) => (
+                      <div key={`${m.name}-${m.unit}`} className="flex items-center justify-between gap-2 rounded-md border border-border/30 bg-muted/10 px-2 py-1.5">
+                        <span className="min-w-0 truncate text-[11px]" title={`${m.name} — ${m.category}`}>{m.name}</span>
+                        <span className="shrink-0 text-[10px] font-semibold tabular-nums text-muted-foreground">
+                          {m.quantity} {m.unit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {executionGroups.map((group) => {
+              const groupSteps = roadmap.construction.filter((c) => group.taskIds.includes(c.id));
+              if (groupSteps.length === 0) return null;
+              const groupPlan = roadmap.planning.filter((t) => group.taskIds.includes(t.id));
+              const progress = groupPlan.length
+                ? Math.round(groupPlan.reduce((a, t) => a + t.progress, 0) / groupPlan.length)
+                : Math.round((groupSteps.filter((c) => c.status === "done").length / groupSteps.length) * 100);
+              const status = executionPhaseStatus(groupPlan.map((t) => taskStatusById.get(t.id) ?? "todo"));
+              return (
+                <Card key={group.key} className="border-border/40 bg-background/50">
+                  <CardHeader className="p-3 sm:p-4 pb-2">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold leading-tight">{group.title}</p>
+                        <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">{group.description}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <StatusBadge status={status as ExecutionTaskStatus} />
+                        <span className="text-[11px] font-bold tabular-nums">{progress}%</span>
                       </div>
                     </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-2">
-                    <div className="space-y-3 text-[11px]">
-                      <Section label="Objectif" items={[c.objectif]} />
-                      <Section label="Travaux à réaliser" items={c.travaux} />
-                      <Section label="Matériaux nécessaires" items={c.materiaux} />
-                      <Section label="Main-d'œuvre" items={c.mainOeuvre} />
-                      <Section label="Outillage" items={c.outillage} />
-                      <Section label="Contrôles qualité" items={c.controles} tone="emerald" />
-                      <Section label="Risques" items={c.risques} tone="red" />
-                      <Section label="Conditions de validation" items={c.conditions} tone="amber" />
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                      <span>{groupSteps.length} tâche(s)</span>
+                      <span>J+{group.startDay} → J+{group.endDay}</span>
+                      <span className="font-medium text-foreground/70">{fmtTnd(group.budget)}</span>
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
+                    <Progress value={progress} className="mt-2 h-1 [&>div]:bg-cyan-500" />
+                  </CardHeader>
+                  <CardContent className="p-3 sm:p-4 pt-1">
+                    <Accordion type="single" collapsible className="w-full">
+                      {groupSteps.map((c) => {
+                        const plan = roadmap.planning.find((t) => t.id === c.id);
+                        return (
+                          <AccordionItem key={c.id} value={c.id} className="border-border/40 rounded-xl mb-1.5 border px-1">
+                            <AccordionTrigger className="px-2">
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <Checkbox
+                                  checked={c.status === "done"}
+                                  onCheckedChange={() => handleToggle("phase_08", c.id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="shrink-0"
+                                />
+                                <div className="min-w-0 flex-1 text-left">
+                                  <p className={`text-xs font-semibold truncate ${c.status === "done" ? "line-through text-muted-foreground" : ""}`}>
+                                    {c.order}. {c.title}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {c.dureeJours} j · {fmtTnd(c.budgetEstime)}
+                                    {c.levelSurface ? ` · ${c.levelSurface} m²` : ""}
+                                    {plan ? ` · ${plan.responsible}` : ""}
+                                    {c.completedAt ? ` · terminé le ${fmtDate(c.completedAt)}` : ""}
+                                  </p>
+                                </div>
+                                <StatusBadge status={taskStatusById.get(c.id) ?? (c.status === "done" ? "done" : "todo")} />
+                              </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-2">
+                              <div className="space-y-3 text-[11px]">
+                                <Section label="Objectif" items={[c.objectif]} />
+                                <Section label="Travaux à réaliser" items={c.travaux} />
+                                <Section label="Matériaux nécessaires" items={c.materiaux} />
+                                <Section label="Main-d'œuvre" items={c.mainOeuvre} />
+                                <Section label="Outillage" items={c.outillage} />
+                                <Section label="Contrôles qualité" items={c.controles} tone="emerald" />
+                                <Section label="Risques" items={c.risques} tone="red" />
+                                <Section label="Conditions de validation" items={c.conditions} tone="amber" />
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      })}
+                    </Accordion>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </TabsContent>
 
           {/* ── Contrôle ── */}
@@ -680,8 +901,18 @@ export default function ProjectGuide() {
                   <CardTitle className="text-sm flex items-center gap-2"><Camera className="h-4 w-4 text-cyan-600" /> Photos du chantier</CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 sm:p-4 space-y-2">
-                  <div className="flex gap-2">
-                    <Input placeholder="Légende (optionnel)" value={photoCaption} onChange={(e) => setPhotoCaption(e.target.value)} className="h-9 text-xs" />
+                  <div className="flex flex-wrap gap-2">
+                    <Input placeholder="Légende (optionnel)" value={photoCaption} onChange={(e) => setPhotoCaption(e.target.value)} className="h-9 min-w-0 flex-1 text-xs" />
+                    <Select value={photoStage} onValueChange={(v) => setPhotoStage(v as "avant" | "pendant" | "apres")}>
+                      <SelectTrigger className="h-9 w-28 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="avant" className="text-xs">Avant</SelectItem>
+                        <SelectItem value="pendant" className="text-xs">Pendant</SelectItem>
+                        <SelectItem value="apres" className="text-xs">Après</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button size="sm" variant="outline" className="h-9 shrink-0 gap-1.5 text-xs" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
                       {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Ajouter
                     </Button>
@@ -697,6 +928,11 @@ export default function ProjectGuide() {
                             <img src={p.url} alt={p.caption} className="h-20 w-full object-cover" />
                           ) : (
                             <div className="flex h-20 items-center justify-center bg-muted/20 text-muted-foreground/50 text-[9px]">Photo</div>
+                          )}
+                          {p.stage && (
+                            <span className="absolute top-1 left-1 rounded bg-black/60 px-1 py-px text-[8px] font-medium text-white">
+                              {p.stage === "apres" ? "Après" : p.stage === "avant" ? "Avant" : "Pendant"}
+                            </span>
                           )}
                           {p.caption && <p className="truncate px-1.5 py-0.5 text-[9px] bg-background/90">{p.caption}</p>}
                           <button
@@ -863,6 +1099,38 @@ export default function ProjectGuide() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Historique des modifications */}
+              <Card className="border-border/40 bg-background/50 md:col-span-2">
+                <CardHeader className="p-3 sm:p-4 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-slate-500" /> Historique des modifications
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 sm:p-4">
+                  {(roadmap.control.history ?? []).length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground/60 py-2">
+                      Aucune modification enregistrée. Chaque étape cochée, dépense, photo ou observation
+                      viendra alimenter cet historique.
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                      {(roadmap.control.history ?? []).map((h) => (
+                        <div key={h.id} className="flex items-start gap-2 rounded-lg border border-border/30 bg-muted/10 px-2.5 py-1.5">
+                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-500" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] leading-snug">
+                              <span className="font-semibold">{h.action}</span>
+                              {h.detail ? ` — ${h.detail}` : ""}
+                            </p>
+                            <p className="text-[9px] text-muted-foreground/60">{fmtDate(h.at)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
@@ -984,6 +1252,44 @@ export default function ProjectGuide() {
 }
 
 // ─── Petits composants ───────────────────────────────────────────────────────
+
+/** Tuile de contexte : type, surface, niveaux, scénario, budget. */
+function ContextTile({
+  icon: Icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border/40 bg-background/50 p-2.5">
+      <p className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <Icon className="h-3 w-3 shrink-0" /> {label}
+      </p>
+      <p className="mt-0.5 text-xs font-bold leading-tight">{value}</p>
+      {hint && (
+        <p className="mt-0.5 truncate text-[9px] text-muted-foreground/70" title={hint}>
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Statut calculé d'une tâche ou d'une phase (jamais enregistré en base). */
+function StatusBadge({ status }: { status: ExecutionTaskStatus }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full border px-1.5 py-px text-[9px] font-semibold ${EXECUTION_STATUS_CLASSES[status]}`}
+    >
+      {EXECUTION_STATUS_LABELS[status]}
+    </span>
+  );
+}
 
 function Section({ label, items, tone = "default" }: { label: string; items: string[]; tone?: "default" | "emerald" | "red" | "amber" }) {
   const dot = tone === "emerald" ? "bg-emerald-500" : tone === "red" ? "bg-red-500" : tone === "amber" ? "bg-amber-500" : "bg-muted-foreground/40";

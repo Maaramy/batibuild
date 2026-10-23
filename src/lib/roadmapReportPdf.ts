@@ -41,7 +41,11 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
     margin,
     info: [
       `Projet : ${stripEmojis(roadmap.project.name || "Projet de construction")} · ${roadmap.project.categoryLabel}`,
+      `Surface : ${roadmap.project.surface ? `${roadmap.project.surface} m²` : "non renseignée"} · Niveaux : ${
+        roadmap.project.floors ?? 1
+      }${roadmap.project.scenarioLabel ? ` · Scénario : ${stripEmojis(roadmap.project.scenarioLabel)}` : ""}`,
       `Région : ${roadmap.project.regionLabel ?? "Tunisie"} · Progression globale : ${roadmap.progress}% · Budget prévu : ${fmtTnd(roadmap.summary.plannedBudget)}`,
+      roadmap.execution ? `Trame d'exécution : ${stripEmojis(roadmap.execution.label)}` : "",
       `Généré le ${fmtDate(roadmap.generatedAt)}`,
     ],
   });
@@ -99,6 +103,38 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   });
   y = (doc as any).lastAutoTable.finalY + 8;
 
+  // ── Phases d'exécution propres au type de projet ──
+  if (roadmap.execution?.phases?.length) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...emerald);
+    doc.text(
+      `2.1 Exécution — ${stripEmojis(roadmap.execution.title)} (${stripEmojis(roadmap.execution.label)})`,
+      margin,
+      y,
+    );
+    y += 2;
+    const executionRows = roadmap.execution.phases.map((p) => [
+      stripEmojis(p.title),
+      `J+${p.startDay} → J+${p.endDay}`,
+      `${p.taskIds.length} tâche(s)`,
+      fmtTnd(p.budget),
+      `${p.progress} %`,
+      p.status === "done" ? "Terminé" : p.status === "in_progress" ? "En cours" : "À faire",
+    ]);
+    (doc as any).autoTable({
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [["Phase d'exécution", "Jalons", "Tâches", "Budget", "Avancement", "Statut"]],
+      body: executionRows,
+      theme: "grid",
+      headStyles: { fillColor: emerald as any, fontSize: 8.5 },
+      styles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: { 0: { cellWidth: 65 }, 5: { cellWidth: 20 } },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+  }
+
   // ── Démarches administratives ──
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
@@ -145,6 +181,26 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   });
   y = (doc as any).lastAutoTable.finalY + 8;
 
+  // ── Matériaux prévus (articles réels du devis) ──
+  if (roadmap.materials && roadmap.materials.length > 0) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...emerald);
+    doc.text("4.1 Matériaux prévus — quantités du devis", margin, y);
+    y += 2;
+    (doc as any).autoTable({
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [["Matériau", "Quantité", "Unité", "Poste"]],
+      body: roadmap.materials.map((m) => [stripEmojis(m.name), String(m.quantity), m.unit, stripEmojis(m.category)]),
+      theme: "grid",
+      headStyles: { fillColor: emerald as any, fontSize: 8 },
+      styles: { fontSize: 7.5, cellPadding: 1.8 },
+      columnStyles: { 0: { cellWidth: 80 }, 3: { cellWidth: 55 } },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+  }
+
   // ── Planning ──
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
@@ -153,6 +209,7 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   y += 2;
   const planRows = roadmap.planning.map((t) => [
     stripEmojis(t.title),
+    stripEmojis(t.phaseKey ? roadmap.execution?.phases.find((p) => p.key === t.phaseKey)?.title ?? "" : ""),
     `${t.durationDays} j`,
     `J+${t.startDay} → J+${t.endDay}`,
     stripEmojis(t.responsible),
@@ -162,12 +219,12 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   (doc as any).autoTable({
     startY: y,
     margin: { left: margin, right: margin },
-    head: [["Tâche", "Durée", "Jalons", "Responsable", "Coût", "État"]],
+    head: [["Tâche", "Phase", "Durée", "Jalons", "Responsable", "Coût", "État"]],
     body: planRows,
     theme: "grid",
-    headStyles: { fillColor: emerald as any, fontSize: 9 },
-    styles: { fontSize: 8.5, cellPadding: 2 },
-    columnStyles: { 0: { cellWidth: 55 } },
+    headStyles: { fillColor: emerald as any, fontSize: 8.5 },
+    styles: { fontSize: 8, cellPadding: 1.8 },
+    columnStyles: { 0: { cellWidth: 48 }, 1: { cellWidth: 40 } },
   });
   y = (doc as any).lastAutoTable.finalY + 8;
 

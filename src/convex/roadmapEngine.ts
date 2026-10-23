@@ -10,13 +10,28 @@ import {
   FEASIBILITY_ITEMS,
   TECHNICAL_STUDIES,
   TUNISIA_ADMIN_STEPS,
-  CONSTRUCTION_STEPS,
   CONTROL_ITEMS,
   RECEPTION_ITEMS,
   DOCUMENT_TYPES,
   COMPANY_CRITERIA,
   type AdminStep,
 } from "./roadmapData";
+import { projectTypeLabel } from "./projectTypes";
+import {
+  EXECUTION_PHASE_ORDER,
+  EXECUTION_PHASES,
+  estimatePlaybookDuration,
+  executionContextFromProject,
+  playbookForCategory,
+  resolvePlaybookTasks,
+  type ExecutionContext,
+  type ExecutionPhaseKey,
+  type ExecutionPlaybook,
+  type ResolvedPlaybookTask,
+} from "./roadmapPlaybooks";
+
+/** Version de la trame de feuille de route (structure d'exécution par type). */
+export const ROADMAP_VERSION = 2;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -62,6 +77,8 @@ export interface PlanningTask {
   id: string;
   title: string;
   phase: string;
+  /** Phase d'exécution métier (préparation, structure, finitions…). */
+  phaseKey?: ExecutionPhaseKey;
   durationDays: number;
   startDay: number;
   endDay: number;
@@ -70,12 +87,57 @@ export interface PlanningTask {
   cost: number;
   progress: number; // 0-100
   status: "todo" | "in_progress" | "done";
+  /** Niveau concerné (RDC, R+1…) quand la tâche est dépliée. */
+  levelLabel?: string;
+  levelSurface?: number;
+  /** Date réelle de fin (renseignée quand la tâche est terminée). */
+  completedAt?: number;
+}
+
+/** Matériau prévu, repris des articles réellement chiffrés de l'estimation. */
+export interface RoadmapMaterial {
+  name: string;
+  quantity: number;
+  unit: string;
+  category: string;
+}
+
+/** Phase d'exécution calculée pour le type de projet (dates, budget, avancement). */
+export interface ExecutionPhaseSummary {
+  key: ExecutionPhaseKey;
+  title: string;
+  description: string;
+  taskIds: string[];
+  progress: number;
+  status: StepStatus | "in_progress";
+  startDay: number;
+  endDay: number;
+  budget: number;
+}
+
+export interface RoadmapExecution {
+  /** Clé de la trame utilisée (une trame par type de projet). */
+  key: string;
+  label: string;
+  title: string;
+  description: string;
+  taskCount: number;
+  totalDays: number;
+  phases: ExecutionPhaseSummary[];
+  /** Niveaux réels du projet, avec leur surface couverte quand elle est connue. */
+  levels: { label: string; surface?: number }[];
 }
 
 export interface ConstructionStep {
   id: string;
   order: number;
   title: string;
+  /** Phase d'exécution métier à laquelle appartient l'étape. */
+  phaseKey?: ExecutionPhaseKey;
+  phaseTitle?: string;
+  responsible?: string;
+  levelLabel?: string;
+  levelSurface?: number;
   objectif: string;
   travaux: string[];
   materiaux: string[];
@@ -87,6 +149,8 @@ export interface ConstructionStep {
   dureeJours: number;
   conditions: string[];
   status: StepStatus;
+  /** Date réelle de fin de l'étape (renseignée au cochage). */
+  completedAt?: number;
 }
 
 export interface OmissionStatus {
@@ -116,6 +180,8 @@ export interface ControlPhoto {
   storageId?: string;
   caption: string;
   addedAt: number;
+  /** Moment du chantier documenté : avant, pendant ou après les travaux. */
+  stage?: "avant" | "pendant" | "apres";
 }
 
 export interface ControlIssue {
@@ -175,8 +241,17 @@ export interface SiteControlData {
   expenses: ControlExpense[];
 }
 
+export interface ControlHistoryEntry {
+  id: string;
+  at: number;
+  action: string;
+  detail?: string;
+}
+
 export interface RoadmapControl extends SiteControlData {
   risk: SiteRiskAnalysis;
+  /** Journal des modifications saisies depuis la dernière génération. */
+  history?: ControlHistoryEntry[];
 }
 
 export interface RoadmapSummary {
@@ -210,6 +285,11 @@ export interface Roadmap {
     surfaceTotale?: number;
     floors?: number;
     bedrooms?: number;
+    bathrooms?: number;
+    /** Libellé du scénario budgétaire retenu dans l'estimation. */
+    scenarioLabel?: string;
+    /** Niveaux réellement enregistrés (RDC, R+1…) et leur surface couverte. */
+    levels?: { label: string; surface?: number }[];
   };
   summary: RoadmapSummary;
   phases: RoadmapPhase[];
@@ -221,6 +301,10 @@ export interface Roadmap {
   };
   planning: PlanningTask[];
   construction: ConstructionStep[];
+  /** Trame d'exécution du type de projet (absente des feuilles de route v1). */
+  execution?: RoadmapExecution;
+  /** Matériaux prévus issus des articles de l'estimation (jamais inventés). */
+  materials?: RoadmapMaterial[];
   omissions: OmissionStatus;
   predictions: Predictions;
   documents: RoadmapDocument[];
@@ -239,7 +323,16 @@ export interface RoadmapProjectInput {
   surface?: number;
   surfaceTotale?: number;
   floors?: number;
+  /** Surfaces couvertes réelles de chaque niveau (RDC en premier). */
+  levelSurfaces?: number[];
   bedrooms?: number;
+  bathrooms?: number;
+  kitchens?: number;
+  livingRooms?: number;
+  wcs?: number;
+  pools?: number;
+  /** Scénario budgétaire réellement choisi dans « Coût estimatif ». */
+  selectedScenario?: string;
   files?: { name: string; type: string }[];
   aiAnalysis?: { confidence?: number; estimatedDuration?: string };
   costEstimate?: {
@@ -277,6 +370,15 @@ export const ROADMAP_CATEGORY_LABELS: Record<string, string> = {
   bureau: "Bureau",
   entrepot: "Entrepôt",
   residence_touristique: "Résidence touristique",
+  restaurant: "Restaurant",
+  cafe: "Café",
+  piscine: "Piscine",
+  renovation_cuisine: "Rénovation cuisine",
+  renovation_salle_de_bain: "Rénovation salle de bain",
+  renovation_complete: "Rénovation complète",
+  extension_batiment: "Extension bâtiment",
+  electricite_complete: "Électricité complète",
+  plomberie_complete: "Plomberie complète",
   projet_neuf: "Projet neuf",
 };
 
@@ -310,12 +412,24 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
   const surface = project.surface ?? 100;
   const floors = project.floors ?? 1;
 
-  // ── Budget (Phase 05) ─────────────────────────────────────────────────────
+  // ── Trame d'exécution PROPRE AU TYPE DE PROJET ───────────────────────────
+  // Le type enregistré résout la trame (phases, tâches, équipements, métiers) ;
+  // les surfaces et niveaux réels du projet pilotent le dépliage et les durées.
+  const playbook = playbookForCategory(project.category);
+  const executionContext = executionContextFromProject(project);
+  const playbookTasks = resolvePlaybookTasks(playbook, executionContext);
+
+  // ── Budget (Phase 05) — scénario réellement retenu par le projet ─────────
   const scenarios = buildBudgetScenarios(ce, total, surface, project.region);
-  const selected: Roadmap["budget"]["selected"] = "standard";
+  const requestedScenario = project.selectedScenario;
+  const selected: Roadmap["budget"]["selected"] =
+    requestedScenario === "economique" || requestedScenario === "standard" || requestedScenario === "premium"
+      ? requestedScenario
+      : "standard";
 
   // ── Phases 01-03 (contenu + remplissage automatique) ─────────────────────
-  const terrainItems: PhaseItem[] = TERRAIN_ITEMS.map((t) => ({
+  const terrainIds = playbook.terrainIds.length > 0 ? playbook.terrainIds : TERRAIN_ITEMS.map((t) => t.id);
+  const terrainItems: PhaseItem[] = TERRAIN_ITEMS.filter((t) => terrainIds.includes(t.id)).map((t) => ({
     id: t.id,
     label: t.label,
     detail: t.detail,
@@ -364,7 +478,10 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
     if (pl) { pl.status = "done"; pl.detail = `Durée estimée des travaux : ${estimateDurationDays(total, surface, floors)} jours (hors démarches).`; }
   }
 
-  const studyItems: PhaseItem[] = TECHNICAL_STUDIES.map((s) => ({
+  // Études techniques réellement utiles au type de projet (une piscine n'a pas
+  // besoin des mêmes études qu'un immeuble).
+  const studyIds = playbook.studyIds.length > 0 ? playbook.studyIds : TECHNICAL_STUDIES.map((s) => s.id);
+  const studyItems: PhaseItem[] = TECHNICAL_STUDIES.filter((s) => studyIds.includes(s.id)).map((s) => ({
     id: s.id,
     label: s.label,
     detail: `${s.detail} — ${s.requirement}.`,
@@ -373,7 +490,12 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
   }));
 
   // ── Phase 04 — Démarches administratives (Tunisie) ────────────────────────
-  const adminSteps: (AdminStep & { status: StepStatus })[] = TUNISIA_ADMIN_STEPS.map((a) => ({
+  // Seules les démarches applicables sont présentées (pas de bornage ni de
+  // permis de construire pour une rénovation de salle de bain par exemple).
+  const adminIds = playbook.adminIds.length > 0 ? playbook.adminIds : TUNISIA_ADMIN_STEPS.map((a) => a.id);
+  const adminSteps: (AdminStep & { status: StepStatus })[] = TUNISIA_ADMIN_STEPS.filter((a) =>
+    adminIds.includes(a.id),
+  ).map((a) => ({
     ...a,
     status: "todo",
   }));
@@ -382,14 +504,16 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
   const budget = {
     selected,
     scenarios,
-    totalCost: scenarios[1].totalCost,
+    totalCost: scenarios.find((s) => s.key === selected)?.totalCost ?? scenarios[1].totalCost,
   };
 
-  // ── Phase 07 — Planning (Gantt) ───────────────────────────────────────────
-  const planning = buildPlanning(total, surface, floors);
+  // ── Phase 07 — Planning (Gantt) adapté au type de projet ──────────────────
+  // Les tâches sont chiffrées sur le scénario RÉELLEMENT retenu : la somme des
+  // lots reste égale au budget du scénario, sans écart avec l'estimation.
+  const planning = buildPlanning(budget.totalCost, surface, floors, playbook, executionContext);
 
-  // ── Phase 08 — Étapes de construction ─────────────────────────────────────
-  const construction = buildConstructionSteps(total, planning);
+  // ── Phase 08 — Travaux d'exécution propres au type de projet ──────────────
+  const construction = buildConstructionSteps(budget.totalCost, planning, playbookTasks);
 
   // ── Phases assemblées ─────────────────────────────────────────────────────
   const phases = buildPhases({
@@ -403,6 +527,7 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
     control: CONTROL_ITEMS,
     reception: RECEPTION_ITEMS,
     hasProviders: !!project.providerRecommendations?.providers?.length,
+    playbook,
   });
 
   // ── Vérification du projet (omissions) ────────────────────────────────────
@@ -426,7 +551,7 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
   });
 
   return {
-    version: 1,
+    version: ROADMAP_VERSION,
     country: "tunisie",
     currency: "TND",
     generatedAt,
@@ -435,13 +560,16 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
       id: project._id,
       name: project.name,
       category: project.category,
-      categoryLabel: ROADMAP_CATEGORY_LABELS[project.category] ?? project.category,
+      categoryLabel: projectTypeLabel(project.category),
       region: project.region,
       regionLabel: project.region ? REGION_LABEL[project.region] : undefined,
       surface,
       surfaceTotale: project.surfaceTotale,
       floors,
       bedrooms: project.bedrooms,
+      bathrooms: project.bathrooms,
+      scenarioLabel: scenarios.find((s) => s.key === selected)?.label ?? "Standard",
+      levels: buildLevels(project, floors),
     },
     summary,
     phases,
@@ -449,10 +577,12 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
     budget,
     planning,
     construction,
+    execution: buildExecution(playbook, executionContext, construction, planning),
+    materials: buildMaterials(ce),
     omissions,
     predictions,
     documents: DOCUMENT_TYPES.map((d) => ({ id: d.id, title: d.title, description: d.description })),
-    control: { ...initialControl, risk },
+    control: { ...initialControl, risk, history: [] },
     nextSteps,
     companyCriteria: COMPANY_CRITERIA,
     disclaimer:
@@ -548,7 +678,7 @@ export function rebalanceBudgetRows(rows: BudgetRow[], targetKey: string, pct: n
 
 // ─── Planning (Phase 07) ─────────────────────────────────────────────────────
 
-const RESPONSIBLES = ["Entreprise générale", "Maçon", "Coffreur/Ferrailleur", "Charpentier", "Étancheur", "Plâtrier", "Menuisier", "Électricien", "Plombier", "Carreleur", "Peintre", "Paysagiste"];
+
 
 /**
  * Compatibilité ascendante — supprime les imprévus d'une feuille de route
@@ -638,30 +768,56 @@ export function stripImprevusFromRoadmap(r: Roadmap, input: RoadmapProjectInput)
   };
 }
 
-export function buildPlanning(totalCost: number, surface: number, floors: number): PlanningTask[] {
-  const totalDays = estimateDurationDays(totalCost, surface, floors);
+/**
+ * Planning du projet, construit à partir des tâches RÉELLES de la trame du
+ * type de projet : durées et coûts proportionnels aux poids de la trame, budget
+ * total identique à l'estimation (aucun montant ajouté).
+ */
+export function buildPlanning(
+  totalCost: number,
+  surface: number,
+  floors: number,
+  playbook: ExecutionPlaybook = playbookForCategory("maison"),
+  context?: ExecutionContext,
+): PlanningTask[] {
+  const ctx: ExecutionContext = context ?? {
+    surface,
+    floors: Math.max(1, Math.round(floors)),
+    hasPool: false,
+    hasExterior: true,
+  };
+  const playbookTasks = resolvePlaybookTasks(playbook, ctx);
+  const totalDays = estimatePlaybookDuration(playbook, ctx, totalCost);
+  const weightSum = playbookTasks.reduce((acc, t) => acc + t.weight, 0) || 1;
+
   let cursor = 0;
-  const tasks: PlanningTask[] = [];
-  CONSTRUCTION_STEPS.forEach((step, i) => {
-    const durationDays = Math.max(2, Math.round(totalDays * step.weight));
-    const dependencies = i > 0 ? [tasks[i - 1].id] : [];
-    const cost = round(totalCost * (step.weight * 1.0));
-    tasks.push({
-      id: step.id,
-      title: step.title,
-      phase: `Phase 08 — Construction`,
+  let allocated = 0;
+  return playbookTasks.map((t, i) => {
+    const durationDays = Math.max(1, Math.round((totalDays * t.weight) / weightSum));
+    const cost =
+      i === playbookTasks.length - 1
+        ? Math.round(totalCost) - allocated
+        : Math.round((totalCost * t.weight) / weightSum);
+    allocated += cost;
+    const task: PlanningTask = {
+      id: t.resolvedId,
+      title: t.displayTitle,
+      phase: "Phase 08 — Construction",
+      phaseKey: t.phase,
       durationDays,
       startDay: cursor,
       endDay: cursor + durationDays,
-      dependencies,
-      responsible: RESPONSIBLES[i % RESPONSIBLES.length] ?? "Entreprise générale",
+      dependencies: i > 0 ? [playbookTasks[i - 1].resolvedId] : [],
+      responsible: t.responsible,
       cost,
       progress: 0,
       status: "todo",
-    });
+      levelLabel: t.levelLabel,
+      levelSurface: t.levelSurface,
+    };
     cursor += durationDays;
+    return task;
   });
-  return tasks;
 }
 
 export function estimateDurationDays(totalCost: number, surface: number, floors: number): number {
@@ -672,13 +828,30 @@ export function estimateDurationDays(totalCost: number, surface: number, floors:
 
 // ─── Étapes de construction (Phase 08) ───────────────────────────────────────
 
-export function buildConstructionSteps(totalCost: number, planning: PlanningTask[]): ConstructionStep[] {
-  return CONSTRUCTION_STEPS.map((t) => {
-    const task = planning.find((p) => p.id === t.id);
+export function buildConstructionSteps(
+  totalCost: number,
+  planning: PlanningTask[],
+  playbookTasks?: ResolvedPlaybookTask[],
+): ConstructionStep[] {
+  const tasks =
+    playbookTasks ??
+    resolvePlaybookTasks(playbookForCategory("maison"), {
+      floors: 1,
+      hasPool: false,
+      hasExterior: true,
+    });
+
+  return tasks.map((t, index) => {
+    const task = planning.find((p) => p.id === t.resolvedId);
     return {
-      id: t.id,
-      order: t.order,
-      title: t.title,
+      id: t.resolvedId,
+      order: index + 1,
+      title: t.displayTitle,
+      phaseKey: t.phase,
+      phaseTitle: EXECUTION_PHASES[t.phase].title,
+      responsible: t.responsible,
+      levelLabel: t.levelLabel,
+      levelSurface: t.levelSurface,
       objectif: t.objectif,
       travaux: t.travaux,
       materiaux: t.materiaux,
@@ -707,6 +880,7 @@ interface PhaseInputs {
   control: { id: string; label: string; detail: string }[];
   reception: { id: string; label: string; detail: string }[];
   hasProviders: boolean;
+  playbook: ExecutionPlaybook;
 }
 
 export function phaseStatus(items: PhaseItem[]): StepStatus | "in_progress" {
@@ -829,13 +1003,13 @@ function buildPhases(input: PhaseInputs): RoadmapPhase[] {
   const p08: RoadmapPhase = {
     id: "phase_08",
     number: 8,
-    title: "Construction",
+    title: input.playbook.executionTitle,
     icon: "HardHat",
-    description: "Déroulement des travaux dans l'ordre logique, étape par étape.",
+    description: input.playbook.executionDescription,
     items: input.construction.map((c) => ({
       id: c.id,
       label: c.title,
-      detail: `${c.dureeJours} jours · ${fmtTnd(c.budgetEstime)}`,
+      detail: `${c.phaseTitle ?? "Travaux"} · ${c.dureeJours} j · ${fmtTnd(c.budgetEstime)}`,
       status: c.status,
     })),
     progress: input.construction.length
@@ -911,23 +1085,26 @@ export function buildOmissions(
   }
   if (project.files?.length) { green.push(`${project.files.length} document(s) importé(s) (photos, plans).`); } else { orange.push("Aucun document importé — ajoutez des photos ou un plan du terrain."); }
 
+  // Seules les démarches réellement présentes dans la trame sont vérifiées.
   const titre = adminSteps.find((a) => a.id === "titre");
-  if (titre?.status !== "done") orange.push("Vérifier le titre de propriété (Conservation foncière).");
+  if (titre && titre.status !== "done") orange.push("Vérifier le titre de propriété (Conservation foncière).");
 
   const permis = adminSteps.find((a) => a.id === "permis");
-  if (permis?.status !== "done") orange.push("Permis de construire : démarche à engager (Phase 04).");
+  if (permis && permis.status !== "done") orange.push("Permis de construire : démarche à engager (Phase 04).");
 
   const geo = adminSteps.find((a) => a.id === "geotechnique");
-  if (geo?.status !== "done") orange.push("Étude géotechnique prévue mais non réalisée — obligatoire avant fondations.");
+  if (geo && geo.status !== "done") orange.push("Étude géotechnique prévue mais non réalisée — obligatoire avant fondations.");
 
-  if (!construction.some((c) => c.status === "done")) orange.push("Aucune étape de construction démarrée — le planning des travaux est prêt.");
+  if (!construction.some((c) => c.status === "done")) orange.push("Aucune étape de travaux démarrée — le planning est prêt.");
 
-  // Actions prioritaires
+  // Actions prioritaires — adaptées aux démarches et travaux du projet.
   if (red.length > 0) priorityActions.push(...red.slice(0, 3).map((r) => `Résoudre : ${r}`));
-  priorityActions.push("Engager la vérification du titre de propriété et le bornage du terrain.");
-  priorityActions.push("Déposer le dossier de permis de construire auprès de la municipalité.");
-  priorityActions.push("Lancer l'étude géotechnique et les études techniques (bureaux d'études agréés).");
+  if (titre) priorityActions.push("Engager la vérification du titre de propriété et le bornage du terrain.");
+  if (permis) priorityActions.push("Déposer le dossier de permis de construire auprès de la municipalité.");
+  if (geo) priorityActions.push("Lancer l'étude géotechnique et les études techniques (bureaux d'études agréés).");
   priorityActions.push("Demander au minimum 3 devis par lot auprès d'entreprises recommandées.");
+  const firstTask = construction[0];
+  if (firstTask) priorityActions.push(`Préparer l'étape « ${firstTask.title} » (${firstTask.dureeJours} jours estimés).`);
 
   return { green, orange, red, priorityActions };
 }
@@ -1236,11 +1413,13 @@ export function buildSummary(
   budget: Roadmap["budget"],
   planning: PlanningTask[],
   progress: number,
+  /** Démarrage déjà enregistré : il ne doit jamais glisser à chaque mise à jour. */
+  startDateOverride?: number,
 ): RoadmapSummary {
   const plannedBudget = budget.totalCost;
   const budgetConsumed = 0;
   const plannedDurationDays = planning.reduce((a, t) => a + t.durationDays, 0);
-  const startDate = Date.now() + 14 * 24 * 60 * 60 * 1000; // démarrage estimé +2 semaines
+  const startDate = startDateOverride ?? Date.now() + 14 * 24 * 60 * 60 * 1000; // démarrage estimé +2 semaines
   const endDate = startDate + plannedDurationDays * 24 * 60 * 60 * 1000;
   const tasksTotal = planning.length;
   const tasksDone = planning.filter((t) => t.status === "done").length;
@@ -1281,6 +1460,131 @@ export function buildNextSteps(
   if (nextTask) steps.push(`Travaux : préparer « ${nextTask.title} » (${nextTask.durationDays} jours estimés).`);
   steps.push(...omissions.priorityActions.slice(0, 2));
   return steps.slice(0, 6);
+}
+
+// ─── Niveaux réels, phases d'exécution et matériaux prévus ─────────────────
+
+const LEVEL_LABEL = (index: number) => (index === 0 ? "RDC" : `R+${index}`);
+
+/** Niveaux enregistrés du projet (aucune surface inventée si elle est absente). */
+export function buildLevels(
+  project: Pick<RoadmapProjectInput, "surface" | "levelSurfaces">,
+  floors: number,
+): { label: string; surface?: number }[] {
+  const count = Math.max(1, Math.round(floors));
+  return Array.from({ length: count }, (_, i) => {
+    const stored = project.levelSurfaces?.[i];
+    const surface = typeof stored === "number" && stored > 0 ? stored : i === 0 ? project.surface : undefined;
+    return { label: LEVEL_LABEL(i), surface: typeof surface === "number" && surface > 0 ? surface : undefined };
+  });
+}
+
+/**
+ * Phases d'exécution du projet : seules les phases réellement pourvues de
+ * tâches par la trame apparaissent (une piscine n'affiche pas de phase
+ * « planchers et escaliers »). Dates, budget et avancement sont calculés
+ * depuis le planning et les étapes enregistrées.
+ */
+export function buildExecution(
+  playbook: ExecutionPlaybook,
+  ctx: ExecutionContext,
+  construction: ConstructionStep[],
+  planning: PlanningTask[],
+): RoadmapExecution {
+  const phases: ExecutionPhaseSummary[] = [];
+  for (const key of EXECUTION_PHASE_ORDER) {
+    const steps = construction.filter((c) => c.phaseKey === key);
+    if (steps.length === 0) continue;
+    const ids = new Set(steps.map((s) => s.id));
+    const planTasks = planning.filter((p) => ids.has(p.id));
+    const progress = planTasks.length
+      ? Math.round(planTasks.reduce((acc, t) => acc + t.progress, 0) / planTasks.length)
+      : Math.round((steps.filter((s) => s.status === "done").length / steps.length) * 100);
+    const startDay = planTasks.length ? Math.min(...planTasks.map((t) => t.startDay)) : 0;
+    const endDay = planTasks.length ? Math.max(...planTasks.map((t) => t.endDay)) : 0;
+    phases.push({
+      key,
+      title: EXECUTION_PHASES[key].title,
+      description: EXECUTION_PHASES[key].description,
+      taskIds: steps.map((s) => s.id),
+      progress,
+      status: steps.every((s) => s.status === "done") ? "done" : progress > 0 ? "in_progress" : "todo",
+      startDay,
+      endDay,
+      budget: steps.reduce((acc, s) => acc + s.budgetEstime, 0),
+    });
+  }
+
+  return {
+    key: playbook.key,
+    label: playbook.label,
+    title: playbook.executionTitle,
+    description: playbook.executionDescription,
+    taskCount: construction.length,
+    totalDays: planning.reduce((acc, t) => acc + t.durationDays, 0),
+    phases,
+    levels: buildLevels(
+      { levelSurfaces: ctx.levelSurfaces, surface: ctx.surface },
+      ctx.floors,
+    ),
+  };
+}
+
+/** Matériaux prévus : uniquement les articles réellement chiffrés au devis. */
+export function buildMaterials(
+  ce: RoadmapProjectInput["costEstimate"],
+): RoadmapMaterial[] {
+  const byKey = new Map<string, RoadmapMaterial>();
+  for (const lot of ce?.breakdown ?? []) {
+    for (const item of lot.items ?? []) {
+      if (!item?.name || typeof item.quantity !== "number" || item.quantity <= 0) continue;
+      const unit = item.unit ?? "";
+      const key = `${item.name}|${unit}`;
+      const existing = byKey.get(key);
+      byKey.set(key, {
+        name: item.name,
+        unit,
+        quantity: round((existing?.quantity ?? 0) + item.quantity),
+        category: existing?.category ?? lot.label,
+      });
+    }
+  }
+  return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name, "fr"));
+}
+
+// ─── Compatibilité des feuilles de route enregistrées ──────────────────────
+
+/** Vrai si l'utilisateur n'a encore rien coché, saisi ni avancé. */
+export function isRoadmapUntouched(r: Roadmap | null | undefined): boolean {
+  if (!r) return true;
+  if ((r.planning ?? []).some((t) => t.progress > 0 || t.status !== "todo")) return false;
+  if ((r.construction ?? []).some((c) => c.status === "done")) return false;
+  if ((r.adminSteps ?? []).some((a) => a.status === "done")) return false;
+  // Les éléments `auto` sont remplis par le moteur depuis le projet (région,
+  // surface, estimation) : ils ne traduisent aucune action de l'utilisateur.
+  if ((r.phases ?? []).some((p) => p.items.some((i) => i.status === "done" && !i.auto))) return false;
+  const c = r.control;
+  if (c && (c.expenses.length > 0 || c.issues.length > 0 || c.photos.length > 0 || c.observations.length > 0)) {
+    return false;
+  }
+  return true;
+}
+
+/** La trame enregistrée correspond-elle au type actuel du projet ? */
+export function roadmapMatchesProject(r: Roadmap, input: RoadmapProjectInput): boolean {
+  if (!r?.execution) return false;
+  return r.version >= ROADMAP_VERSION && r.execution.key === playbookForCategory(input.category).key;
+}
+
+/**
+ * Ramène une feuille de route à la trame du type de projet quand elle a été
+ * générée avec une autre trame (ou l'ancienne version). Une feuille de route
+ * déjà renseignée n'est JAMAIS écrasée : la progression de l'utilisateur est
+ * conservée.
+ */
+export function ensureCurrentRoadmap(r: Roadmap, input: RoadmapProjectInput): Roadmap {
+  if (roadmapMatchesProject(r, input)) return r;
+  return isRoadmapUntouched(r) ? generateRoadmap(input) : r;
 }
 
 // ─── Formatage partagé ───────────────────────────────────────────────────────
