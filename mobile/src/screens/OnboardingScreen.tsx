@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  BackHandler,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,9 +15,12 @@ import { Logo } from "../components/Logo";
 import { BRAND_NAME } from "../config";
 import {
   IllusMaterials,
+  IllusNewProject,
   IllusOvercosts,
   IllusPhases,
   IllusProviders,
+  IllusReports,
+  IllusWelcome,
   type IllusProps,
 } from "../components/GuideIllustrations";
 import { IllusPlanPreview } from "../components/GuidePlans";
@@ -29,17 +33,21 @@ import { COLORS, useAppTheme } from "../theme";
  * affiché au premier lancement de l'installation (voir `storage.ts` —
  * `onboardingCompleted`), jamais relancé ensuite.
  *
- * Les 5 étapes du parcours de la plateforme :
- *   1. Coût estimatif
- *   2. Plans AI            (aperçus RÉELS : plan 2D → coté → vue 3D)
- *   3. Choix des matériaux
- *   4. Consultations / Trouver un expert
- *   5. Exécution & suivi
+ * Les 8 étapes du parcours de la plateforme :
+ *   1. Bienvenue sur batibuild
+ *   2. Créer un projet        (type, région, surface)
+ *   3. Estimer le coût
+ *   4. Plans architecturaux IA (aperçus RÉELS : plan 2D → coté → vue 3D)
+ *   5. Matériaux & aide à la décision
+ *   6. Mise en relation
+ *   7. Exécution & suivi
+ *   8. Rapports PDF & abonnement Pro
  *
- * Animation : chaque étape reste affichée 4 secondes, puis la suivante apparaît
- * avec un fondu + léger glissement. Aucune intervention de l'utilisateur n'est
- * nécessaire ; après la 5ᵉ étape, le guide se termine et l'application s'ouvre
- * normalement. Un bouton « Passer » reste disponible à tout moment.
+ * Navigation MANUELLE : chaque changement d'étape s'accompagne d'un fondu +
+ * léger glissement. L'utilisateur avance avec « Suivant », revient avec
+ * « Précédent », peut passer le guide à tout moment, et termine avec
+ * « Commencer avec batibuild » à la dernière étape. Aucun minuteur ne fait
+ * défiler le guide à sa place.
  *
  * Visuels : illustrations vectorielles de la plateforme (`GuideIllustrations`)
  * et plans réellement générés (`GuidePlans` + `guidePlans`) — compacts, à
@@ -57,51 +65,68 @@ type Slide = {
   Illustration: React.ComponentType<IllusProps>;
 };
 
-/** Durée d'affichage d'une étape (ms) — imposée par la spécification. */
-const STEP_MS = 4000;
-
-/** Les 5 étapes, dans l'ordre imposé du parcours. */
+/** Les 8 étapes, dans l'ordre du parcours. */
 const SLIDES: Slide[] = [
   {
+    key: "welcome",
+    title: "Bienvenue sur batibuild",
+    text: "Estimez votre budget, générez vos plans, choisissez vos matériaux et suivez votre chantier — de l'idée à la réalisation.",
+    Illustration: IllusWelcome,
+  },
+  {
+    key: "project",
+    title: "Créer un projet",
+    text: "Choisissez le type de projet, la région et la surface couverte : votre estimation part de vos données réelles.",
+    Illustration: IllusNewProject,
+  },
+  {
     key: "cost",
-    title: "Coût estimatif",
-    text: "Estimez le coût de votre projet.",
+    title: "Estimer le coût",
+    text: "Consultez le coût estimatif et comparez les scénarios économique, standard et premium.",
     Illustration: IllusOvercosts,
   },
   {
     key: "plans",
-    title: "Plans AI",
-    text: "Générez et visualisez vos plans architecturaux 2D/3D — des plans réels, produits à partir des données de votre projet.",
+    title: "Plans architecturaux IA",
+    text: "Générez vos plans 2D/3D, vos plans électriques et de plomberie, et découvrez les mesures de chaque espace.",
     Illustration: IllusPlanPreview,
   },
   {
     key: "materials",
-    title: "Choix des matériaux",
-    text: "Analysez et choisissez les matériaux adaptés à votre projet.",
+    title: "Matériaux & aide à la décision",
+    text: "Consultez le quantitatif, les prix et les alternatives pour tenir votre budget.",
     Illustration: IllusMaterials,
   },
   {
     key: "experts",
-    title: "Consultations / Trouver un expert",
-    text: "Trouvez les experts et prestataires adaptés à votre besoin.",
+    title: "Mise en relation",
+    text: "Trouvez les fournisseurs et les professionnels vérifiés dans votre région.",
     Illustration: IllusProviders,
   },
   {
     key: "execution",
     title: "Exécution & suivi",
-    text: "Suivez les étapes de réalisation de votre projet.",
+    text: "Suivez les phases, les tâches et le budget de votre chantier, adaptés à votre type de projet.",
     Illustration: IllusPhases,
+  },
+  {
+    key: "reports",
+    title: "Rapports PDF & abonnement Pro",
+    text: "Téléchargez vos rapports PDF et accédez aux fonctionnalités réservées aux clients Pro, selon vos droits.",
+    Illustration: IllusReports,
   },
 ];
 
-/** Fil du parcours, affiché en bas de chaque étape (origine + 5 étapes). */
+/** Fil du parcours, affiché en bas de chaque étape (les 8 étapes). */
 const JOURNEY: { key: string; label: string }[] = [
-  { key: "idea", label: "Idée" },
+  { key: "welcome", label: "Idée" },
+  { key: "project", label: "Projet" },
   { key: "cost", label: "Coût" },
   { key: "plans", label: "Plans" },
   { key: "materials", label: "Matériaux" },
   { key: "experts", label: "Experts" },
-  { key: "execution", label: "Exécution" },
+  { key: "execution", label: "Suivi" },
+  { key: "reports", label: "Rapports" },
 ];
 
 type Props = {
@@ -132,31 +157,24 @@ export default function OnboardingScreen({ onDone }: Props) {
     return () => anim.stop();
   }, [index, enter]);
 
-  // ── Avancement AUTOMATIQUE : 4 s par étape, puis fin du guide ─────────────
-  useEffect(() => {
-    const id = setTimeout(() => {
-      if (index >= SLIDES.length - 1) onDone();
-      else setIndex((i) => i + 1);
-    }, STEP_MS);
-    return () => clearTimeout(id);
-  }, [index, onDone]);
-
-  // Remplissage de la barre de progression de l'étape en cours (4 s).
-  const fill = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    fill.setValue(0);
-    const anim = Animated.timing(fill, {
-      toValue: 1,
-      duration: STEP_MS,
-      useNativeDriver: false,
-    });
-    anim.start();
-    return () => anim.stop();
-  }, [index, fill]);
-
   const goNext = useCallback(() => {
     if (index >= SLIDES.length - 1) onDone();
     else setIndex((i) => i + 1);
+  }, [index, onDone]);
+
+  const goPrev = useCallback(() => {
+    setIndex((i) => (i > 0 ? i - 1 : i));
+  }, []);
+
+  // Bouton Retour Android : étape précédente, puis sortie du guide (jamais de
+  // fermeture brutale de l'application pendant la présentation).
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (index > 0) setIndex((i) => i - 1);
+      else onDone();
+      return true;
+    });
+    return () => sub.remove();
   }, [index, onDone]);
 
   const Illustration = slide.Illustration;
@@ -263,33 +281,12 @@ export default function OnboardingScreen({ onDone }: Props) {
           })}
         </View>
 
-        {/* Progression : une barre par étape, l'étape courante se remplit en 4 s */}
+        {/* Progression : une barre par étape ; les étapes atteintes sont remplies. */}
         <View style={styles.bars}>
           {SLIDES.map((s, i) => (
-            <View
-              key={s.key}
-              style={[
-                styles.barTrack,
-                { backgroundColor: theme.outlineVariant },
-                i === index && { backgroundColor: theme.surfaceContainerHigh },
-              ]}
-            >
-              {i < index && (
+            <View key={s.key} style={[styles.barTrack, { backgroundColor: theme.outlineVariant }]}>
+              {i <= index && (
                 <View style={[styles.barFill, { width: "100%", backgroundColor: theme.primary }]} />
-              )}
-              {i === index && (
-                <Animated.View
-                  style={[
-                    styles.barFill,
-                    {
-                      backgroundColor: theme.primary,
-                      width: fill.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ["0%", "100%"],
-                      }),
-                    },
-                  ]}
-                />
               )}
             </View>
           ))}
@@ -297,19 +294,29 @@ export default function OnboardingScreen({ onDone }: Props) {
 
         <View style={styles.actions}>
           <Pressable
-            onPress={onDone}
+            onPress={goPrev}
+            disabled={index === 0}
             accessibilityRole="button"
-            accessibilityLabel="Passer le guide"
-            hitSlop={10}
-            style={({ pressed }) => [styles.skip, pressed && { opacity: 0.6 }]}
+            accessibilityLabel="Étape précédente"
+            accessibilityState={{ disabled: index === 0 }}
+            style={({ pressed }) => [
+              styles.secondary,
+              {
+                borderColor: theme.outlineVariant,
+                opacity: index === 0 ? 0.4 : 1,
+              },
+              pressed && { opacity: 0.65 },
+            ]}
           >
-            <Text style={[styles.skipText, { color: theme.onSurfaceVariant }]}>Passer</Text>
+            <Text style={[styles.secondaryText, { color: theme.onSurfaceVariant }]}>
+              Précédent
+            </Text>
           </Pressable>
 
           <Pressable
             onPress={goNext}
             accessibilityRole="button"
-            accessibilityLabel={last ? "Commencer" : "Étape suivante"}
+            accessibilityLabel={last ? "Commencer avec batibuild" : "Étape suivante"}
             style={({ pressed }) => [
               styles.cta,
               { backgroundColor: theme.primary },
@@ -317,7 +324,7 @@ export default function OnboardingScreen({ onDone }: Props) {
             ]}
           >
             <Text style={[styles.ctaText, { color: theme.onPrimary }]}>
-              {last ? "Commencer" : "Suivant"}
+              {last ? "Commencer avec batibuild" : "Suivant"}
             </Text>
           </Pressable>
         </View>
@@ -434,7 +441,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   journeyText: {
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: "600",
     letterSpacing: 0.1,
   },
@@ -466,23 +473,25 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
-  skip: {
-    minHeight: 48,
+  secondary: {
+    minHeight: 50,
     justifyContent: "center",
-    paddingHorizontal: 6,
+    alignItems: "center",
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
   },
-  skipText: {
-    fontSize: 15,
-    fontWeight: "600",
+  secondaryText: {
+    fontSize: 14,
+    fontWeight: "700",
   },
   cta: {
-    flexGrow: 1,
-    maxWidth: 240,
+    flex: 1,
     minHeight: 50,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     shadowColor: COLORS.brand,
     shadowOpacity: 0.3,
     shadowRadius: 10,
@@ -490,7 +499,9 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   ctaText: {
-    fontSize: 16,
+    fontSize: 15,
+    lineHeight: 19,
     fontWeight: "700",
+    textAlign: "center",
   },
 });

@@ -25,9 +25,9 @@ const SPLASH_MAX_MS = CHANGE_MAX_MS;
 /**
  * Parcours mobile (application Android) :
  *
- *   Splash (≤ 1 s, « Chargement.... »)
+ *   Splash (≤ 1 s, « Chargement… »)
  *        ↓
- *   Guide « De l'idée à la réalisation » — 5 étapes de 4 s, automatiques
+ *   Guide « De l'idée à la réalisation » — 8 étapes, navigation manuelle
  *   (premier lancement uniquement, ou depuis « Voir le guide »)
  *        ↓
  *   WebView batibuild (login si aucune session, dashboard sinon)

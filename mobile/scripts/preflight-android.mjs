@@ -315,6 +315,59 @@ function checkWebRoutes() {
   }
 }
 
+/* ── 5-bis. URL de production & guide d'utilisation ──────────────────────── */
+
+/**
+ * URL que l'application doit charger par défaut. La coque native est une
+ * WebView : si cette valeur dérive (ancien domaine, environnement de
+ * préversion), l'application n'affiche plus la plateforme de production même
+ * si le reste du code est correct.
+ */
+const PRODUCTION_WEB_URL = "https://batibuild.app/";
+
+function checkAppShell() {
+  console.log("\n5-bis. URL de production et guide d'utilisation");
+  const config = read(join(root, "src", "config.ts"));
+  const defaultUrl = config.match(/DEFAULT_WEB_APP_URL\s*=\s*"([^"]+)"/)?.[1];
+
+  if (defaultUrl !== PRODUCTION_WEB_URL) {
+    fail(
+      "URL de la plateforme",
+      `DEFAULT_WEB_APP_URL = "${defaultUrl ?? "(absent)"}" — attendu : ${PRODUCTION_WEB_URL}`,
+    );
+  } else {
+    ok(`URL de production chargée : ${PRODUCTION_WEB_URL}`);
+  }
+
+  if (!/INTERNAL_HOST_SUFFIXES[\s\S]*?"\.batibuild\.app"/.test(config)) {
+    fail(
+      "navigation interne",
+      "le domaine « .batibuild.app » n'est pas autorisé dans INTERNAL_HOST_SUFFIXES",
+    );
+  } else if (/"\.freebuff\.app"/.test(config)) {
+    warn("ancien domaine de préversion encore autorisé dans INTERNAL_HOST_SUFFIXES");
+  } else {
+    ok("navigation interne limitée à batibuild.app (+ domaines techniques Convex)");
+  }
+
+  const guide = read(join(root, "src", "screens", "OnboardingScreen.tsx"));
+  const slidesBlock = guide.split("const SLIDES: Slide[] = [")[1]?.split("];")[0] ?? "";
+  const steps = (slidesBlock.match(/\bkey:\s*"/g) ?? []).length;
+  if (steps !== 8) {
+    fail("guide d'utilisation", `${steps} étape(s) détectée(s) — 8 étapes sont attendues`);
+  } else {
+    ok("guide d'utilisation : 8 étapes");
+  }
+
+  const labels = ["Précédent", "Suivant", "Passer", "Commencer avec batibuild"];
+  const missingLabels = labels.filter((label) => !guide.includes(label));
+  if (missingLabels.length) {
+    fail("navigation du guide", `libellé(s) introuvable(s) : ${missingLabels.join(", ")}`);
+  } else {
+    ok("navigation du guide : Précédent, Suivant, Passer et bouton final");
+  }
+}
+
 /* ── 5. Contrat WebView ↔ natif (pastille de la Messagerie) ───────────────── */
 
 function checkNativeBridge() {
@@ -692,6 +745,7 @@ export function runPreflight({ repair = false } = {}) {
   checkDependencies();
   checkAndroidConfig(repair);
   checkWebRoutes();
+  checkAppShell();
   checkNativeBridge();
   checkAssets();
   checkIcons();

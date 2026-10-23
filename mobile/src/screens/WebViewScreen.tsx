@@ -36,6 +36,7 @@ import {
   SETTINGS_PATH,
   shouldShowBottomNav,
   SUPPORT_PATH,
+  WEBVIEW_ORIGIN_WHITELIST,
   type NavDestination,
   type NavId,
 } from "../config";
@@ -461,7 +462,11 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
             // façon fiable l'application Android (et désactive côté Web les
             // cookies et le cache navigateur, qui ne s'appliquent pas ici).
             applicationNameForUserAgent={ANDROID_APP_UA_TOKEN}
-            originWhitelist={["http://*", "https://*", "blob:*", "data:*", "about:*"]}
+            // HTTPS obligatoire : aucun contenu http: n'est chargé dans la
+            // WebView (les liens http sont confiés au navigateur système).
+            // Seule exception : l'origine de dev HTTP explicite.
+            originWhitelist={[...WEBVIEW_ORIGIN_WHITELIST]}
+            mixedContentMode="never"
             // Session / stockage / cache persistants : la session survit au redémarrage.
             sharedCookiesEnabled
             thirdPartyCookiesEnabled

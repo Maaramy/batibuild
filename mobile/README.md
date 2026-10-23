@@ -1,13 +1,13 @@
 # batibuild — Application Mobile (Android + iOS)
 
 Application mobile **native** (React Native / Expo SDK 57) qui embarque la plateforme
-[batibuild](https://budgetbati.freebuff.app/) dans une **WebView optimisée**, avec un
+[batibuild](https://batibuild.app/) dans une **WebView optimisée**, avec un
 **Splash Screen** (≤ 1 s), un **en-tête natif** (marque, Support, Paramètres — aucun menu),
 une **barre de navigation inférieure FIXE** et un **Guide d'onboarding** natifs au premier
 lancement.
 
 ```
-Première installation :  Splash (≤ 1 s)  →  Guide « De l'idée à la réalisation » (5 étapes × 4 s, Passer)  →  WebView batibuild
+Première installation :  Splash (≤ 1 s)  →  Guide « De l'idée à la réalisation » (8 étapes, Précédent / Suivant / Passer)  →  WebView batibuild
 Lancements suivants :    Splash (≤ 1 s)  →  WebView batibuild
 ```
 
@@ -16,17 +16,19 @@ Lancements suivants :    Splash (≤ 1 s)  →  WebView batibuild
 ```
 Android Native Shell
 │
-├── Splash  « Chargement.... »  (fond BLANC, ≤ 1 s, jamais bloquant)
+├── Splash  « Chargement… »  (fond BLANC, ≤ 1 s, jamais bloquant)
 │      L'écran de démarrage natif est BLANC et SANS image : le logo sur fond
 │      vert qui s'affichait avant le chargement a été supprimé.
 │
 ├── Guide « De l'idée à la réalisation »  (1ʳᵉ installation uniquement)
-│      1. Coût estimatif                    4. Consultations / Trouver un expert
-│      2. Plans AI  (aperçus réels 2D/3D)   5. Exécution & suivi
-│      3. Choix des matériaux
-│      Chaque étape : 4 s, avancement automatique, indicateur « n / 5 »,
-│      barre de progression et bouton « Passer ».
-│      Parcours : Idée → Coût → Plans → Matériaux → Experts → Exécution
+│      1. Bienvenue sur batibuild           5. Matériaux & aide à la décision
+│      2. Créer un projet                  6. Mise en relation
+│      3. Estimer le coût                  7. Exécution & suivi
+│      4. Plans architecturaux IA          8. Rapports PDF & abonnement Pro
+│      Navigation manuelle : « Précédent », « Suivant », « Passer »,
+│      indicateur « n / 8 », barre de progression segmentée et bouton final
+│      « Commencer avec batibuild ».
+│      Parcours : Idée → Projet → Coût → Plans → Matériaux → Experts → Suivi → Rapports
 │
 ├── Header natif  (fond blanc — AUCUN menu de navigation)
 │      Ligne unique : Logo + « batibuild »   Support   Paramètres
@@ -133,8 +135,8 @@ mobile/
 ├── assets/                        # Logo officiel, icône, icône adaptative ; splash natif transparent
 ├── src/
 │   ├── screens/
-│   │   ├── SplashScreen.tsx       # Splash minimal : logo officiel + « Chargement.... »
-│   │   ├── OnboardingScreen.tsx   # Guide 5 étapes « De l'idée à la réalisation » (4 s/étape, auto + Passer)
+│   │   ├── SplashScreen.tsx       # Splash minimal : logo officiel + « Chargement… »
+│   │   ├── OnboardingScreen.tsx   # Guide 8 étapes (Précédent / Suivant / Passer)
 │   │   └── WebViewScreen.tsx      # WebView batibuild (toutes les options)
 │   ├── components/
 │   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : en-tête, guides, erreurs
@@ -162,26 +164,26 @@ mobile/
 
 | Fonctionnalité | Comportement |
 |---|---|
-| **Splash** | **Fond BLANC**, logo officiel et **un seul message : « Chargement.... »** (aucun slogan, aucune image de présentation). Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image** — il n'affiche plus le logo sur fond vert. |
+| **Splash** | **Fond BLANC**, logo officiel animé (fondu + léger zoom) et **un seul message : « Chargement… »** (aucun slogan, aucune image de présentation). Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image** — il n'affiche plus le logo sur fond vert. |
 | **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
 | **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
 | **Barre de navigation inférieure** | **Barre FIXE en bas de l'écran** (`BottomNav.tsx`) : 5 sections (Profile · **Mes projets** · Home · **Rapport** · Message), icône **lucide 19 pt** + libellé **10,5 pt**, onglets de **largeur égale** (`flex: 1`) donc aucun débordement sur petit ou grand écran. Élément **actif** : icône et libellé en teinte de marque (`brand700`), libellé en gras, **indicateur émeraude** au-dessus de l'icône (emplacement réservé sur tous les onglets → aucun décalage) ; inactifs en gris ; état pressé = légère atténuation. Fond **blanc**, safe area basse gérée (`useSafeAreaInsets`, minimum 6 pt). Rendue **après** la WebView (jamais en position absolue) : elle ne recouvre jamais le contenu. Visible dans tout l'espace connecté — voir `shouldShowBottomNav()` dans `src/config.ts`. |
 | **En-tête (natif)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild ») à gauche, icônes **Support** et **Paramètres** à droite. **Aucun menu de navigation** (et aucun burger : celui de l'en-tête web est masqué dans l'application). **Appui long sur la marque** (ou sur la barre du bas) → réglages natifs. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
-| **Guide de démarrage** | **5 étapes**, un seul parcours « **De l'idée à la réalisation** » (les anciens écrans d'introduction ont été supprimés) : **1. Coût estimatif · 2. Plans AI · 3. Choix des matériaux · 4. Consultations / Trouver un expert · 5. Exécution & suivi**. Chaque étape = **illustration dédiée** + **titre** + **texte descriptif**, reste affichée **4 secondes** puis la suivante apparaît avec un **fondu + glissement** (avancement **automatique**, sans intervention). Indicateur **« n / 5 »**, **barre de progression segmentée** (remplissage de l'étape en cours), **fil du parcours** (Idée → Coût → Plans → Matériaux → Experts → Exécution) et bouton **Passer**. Après la 5ᵉ étape, le guide se termine et l'application s'ouvre normalement. Mémorisé via `onboardingCompleted` (AsyncStorage). |
-| **Illustrations des étapes** | Aucune image générique, aucun placeholder, aucune icône seule : chaque étape affiche une **scène SVG dédiée** (détection IA sur le plan, comparaison Économique / Équilibré / Premium, 10 phases de chantier, ROI 1/5/10 ans + score IA + scénarios, annuaire vérifié + carte des régions). Elles sont **vectorielles donc nettes sur tous les écrans**, suivent le **thème clair / sombre / système** et n'entraînent **aucun téléchargement**. |
+| **Guide de démarrage** | **8 étapes**, un seul parcours « **De l'idée à la réalisation** » : **1. Bienvenue sur batibuild · 2. Créer un projet · 3. Estimer le coût · 4. Plans architecturaux IA · 5. Matériaux & aide à la décision · 6. Mise en relation · 7. Exécution & suivi · 8. Rapports PDF & abonnement Pro**. Chaque étape = **illustration dédiée** + **titre** + **texte descriptif**, avec un **fondu + glissement**. Navigation **manuelle** : boutons **Précédent**, **Suivant**, **Passer** (en-tête), indicateur **« n / 8 »**, **barre de progression segmentée**, **fil du parcours** (Idée → Projet → Coût → Plans → Matériaux → Experts → Suivi → Rapports) et bouton final **« Commencer avec batibuild »**. Mémorisé via `onboardingCompleted` (AsyncStorage) : aucune répétition aux lancements suivants. |
+| **Illustrations des étapes** | Aucune image générique, aucun placeholder, aucune icône seule : chaque étape affiche une **scène SVG dédiée** (piliers de la plateforme, formulaire type / région / surface, détection IA sur le plan, comparaison Économique / Équilibré / Premium, 10 phases de chantier, annuaire vérifié + carte des régions, rapport PDF + accès Pro). Elles sont **vectorielles donc nettes sur tous les écrans**, suivent le **thème clair / sombre / système** et n'entraînent **aucun téléchargement**. |
 | **Aperçus réels de plans (étape « Plans AI »)** | L'étape affiche **le même plan réel**, généré par un **portage du moteur de plans de la plateforme** (`guidePlans.ts` : partition BSP, programme résidentiel R+0 de 150 m², portes, fenêtres — déterministe), sous **trois vues qui s'enchaînent toutes les 1,4 s** : **plan 2D**, **plan coté** (emprise + dimensions de chaque pièce), **vue 3D** (extrusion isométrique). Mise à l'échelle **uniforme** (aucune déformation, aucun débordement) et cadre à coins arrondis **qui coupe tout dépassement**. |
 | **Réinstallation** | Le stockage local est effacé → les guides réapparaissent (comportement attendu). |
 | **Mise à jour** | `onboardingCompleted` est conservé → pas de guides à chaque mise à jour. |
 | **Revoir le guide** | **Appui long** sur la marque de l'en-tête (ou sur la barre de navigation inférieure) → « Voir le guide » (ne supprime aucune donnée). Aucun bouton supplémentaire n'est ajouté à l'écran. |
 | **Session** | Cookies, stockage local, cache persistants entre les lancements (`sharedCookiesEnabled`, `thirdPartyCookiesEnabled`, `cacheEnabled`, `domStorageEnabled`). |
-| **Navigation interne** | Toutes les pages `*.freebuff.app` restent dans la WebView. |
+| **Navigation interne** | Toutes les pages `batibuild.app` et `*.batibuild.app` restent dans la WebView, ainsi que les domaines techniques Convex (`*.convex.cloud`, `*.convex.site`). |
 | **Liens externes** | Sites partenaires, réseaux sociaux, documents externes → navigateur système (`Linking`). |
 | **Navigation des 5 sections** | Depuis la **barre inférieure**, routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard/projects`, `/dashboard`, `/dashboard/reports`, `/dashboard/messages`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. « Mes projets » ouvre la **page dédiée `/dashboard/projects`** (tous les projets de l'utilisateur connecté : en cours, terminés, réalisés, archivés) ; l'onglet reste actif pendant la consultation d'un projet ouvert depuis cette liste. « Home » reste l'accueil connecté (`/dashboard`). « **Rapport** » ouvre la page **Rapports PDF `/dashboard/reports`** (consulter / télécharger les PDF des projets) et porte l'icône `FileDown` — la même que l'entrée « Rapports PDF » du menu de la plateforme. Aucun onglet « ROI » dans le menu mobile. |
 | **Pastille de la Messagerie** | Pastille **rouge** (composant réutilisable `NavBadge.tsx`) posée en haut à droite de l'icône « Message » : texte blanc, cerclage blanc (lisible en mode clair comme sombre), **jamais de déplacement des autres icônes** (positionnement absolu), plafond **« 99+ »** et **rien du tout à 0**. Le compteur vient du **serveur** : la plateforme Web, chargée dans la WebView, publie en **temps réel** le nombre de messages non lus de l'utilisateur connecté (`api.messaging.unreadCount` → `src/lib/nativeBridge.ts` → `postMessage`, lue par `WebViewScreen`) — donc **sans rechargement** et sans pastille « 0 » fantôme au démarrage. En cas d'erreur de synchronisation, le dernier compteur fiable reste affiché. Ouvrir la messagerie marque les messages comme lus : la pastille disparaît dès que tout est lu. |
 | **Support / Paramètres** | Barre supérieure → `/dashboard/support` et `/dashboard/settings` (mêmes routes web, aucun écran dupliqué). |
 | **Retour Android** | Historique WebView → page précédente ; sinon confirmation « Voulez-vous quitter batibuild ? » (Annuler / Quitter). |
-| **Chargement** | Écran de chargement natif (logo officiel + « Chargement.... » + barre de progression), **borné à 1 s** — jamais de page blanche ni de loader bloqué. |
+| **Chargement** | Écran de chargement natif (logo officiel + « Chargement… » + barre de progression), **borné à 1 s** — jamais de page blanche ni de loader bloqué. |
 | **Hors ligne / erreurs** | Écran natif « Connexion Internet indisponible » / « Impossible de charger batibuild » + bouton **Réessayer** (codes `ERR_*` mappés en messages lisibles). |
 | **Upload** | `<input type="file">` natif : galerie, photo (caméra), fichiers (permissions CAMERA / READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE). |
 | **Téléchargements** | PDF et documents : écrits dans le cache puis remis à la feuille de partage native (`expo-file-system` + `expo-sharing`) — l'utilisateur enregistre (Fichiers, Drive…) ou envoie le fichier. Deux sources : une URL `http(s)://` (`onFileDownload`) **et** les fichiers fabriqués dans le navigateur (PDF jsPDF, exports CSV/texte), qui utilisent une URL `blob:` — voir la note ci-dessous. |
@@ -213,7 +215,7 @@ npm run ios               # nécessite macOS + Xcode
 ```
 
 L'URL de la plateforme est définie **une seule fois** dans `src/config.ts`
-(par défaut : `https://budgetbati.freebuff.app/` ; surcharge possible via
+(par défaut : `https://batibuild.app/` ; surcharge possible via
 `EXPO_PUBLIC_WEB_APP_URL`). C'est aussi ce fichier qui contient les 5 destinations
 de la barre de navigation inférieure et le message de chargement.
 
@@ -284,7 +286,8 @@ Aucun service cloud de compilation n'est utilisé.
 | Nom de l'application | batibuild |
 | Package Android | `com.batibuild.app` |
 | Bundle ID iOS | `com.batibuild.app` |
-| Version | **1.3.2** — `versionCode 12` (Android), `buildNumber 3` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
+| Version | **1.3.3** — `versionCode 13` (Android), `buildNumber 3` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
+| Contenu de la 1.3.3 | **Synchronisation avec la version web de production** : l'application charge **`https://batibuild.app/`** (navigation interne limitée à `batibuild.app` et aux domaines techniques Convex), **Splash** modernisé (logo animé, « Chargement… ») et **guide d'utilisation en 8 étapes** (bienvenue, création de projet, coût, plans architecturaux IA, matériaux et aide à la décision, mise en relation, exécution et suivi, rapports PDF et abonnement Pro) avec **Précédent / Suivant / Passer**, indicateur de progression et bouton final « Commencer avec batibuild ». Package, keystore et identifiants conservés ; `versionCode` 13. |
 | Contenu de la 1.3.2 | **Régénération complète de l'application Android** : le projet natif `android/` est reconstruit depuis `app.json` (`expo prebuild`) — `versionCode 12`, `versionName 1.3.2`, manifest et icônes resynchronisés — puis la clé debug est assurée et la signature Release réappliquée. Une seule commande régénère tout de bout en bout : `PREBUILD=1 npm run android:apk` (projet natif → signature → pré-vérifications → Gradle → vérification de l'artefact). |
 | Contenu de la 1.3.1 | **Menu mobile** : l'onglet « ROI » est remplacé par « **Rapport** » (icône `FileDown`, page existante **Rapports PDF** `/dashboard/reports`) ; « Projets » devient « **Mes projets** » (`/dashboard/projects`, uniquement les projets de l'utilisateur connecté) ; la pastille rouge de « Message » reste alimentée par le serveur (temps réel, « 99+ »). **Build Android renforcé** : pré-vérifications obligatoires (`npm run android:preflight`) et vérification de l'artefact (`npm run android:verify`) — aucune APK vide, tronquée, incomplète ou non signée ne peut plus être publiée (bandeaux `BUILD SUCCESS` / `BUILD FAILED`). |
 | Contenu de la 1.3.0 | **Retour de la barre de navigation inférieure** : le menu horizontal de l'en-tête est supprimé et remplacé par une **barre de navigation fixe en bas de l'écran** (`BottomNav.tsx`) — Profile · Projets · Home · ROI · Message, mêmes routes et mêmes icônes, élément actif clairement identifié (teinte de marque + indicateur émeraude), safe area basse gérée, onglets de largeur égale (aucun débordement). L'en-tête natif est réduit au nécessaire (marque, Support, Paramètres) et la barre ne recouvre jamais le contenu de la page. |
@@ -329,7 +332,7 @@ GitHub Release v<version> : les 2 mêmes fichiers attachés
            (conservée durablement)
 ```
 
-Le **résumé du run** affiche la version réellement compilée (`1.3.2 — versionCode 12`),
+Le **résumé du run** affiche la version réellement compilée (`1.3.3 — versionCode 13`),
 la destination Nexus (dépôt RAW + chemin), la taille de chaque fichier, les ABI
 compilées et la commande d'installation (`adb install -r Batibuild-release.apk`).
 
@@ -354,8 +357,8 @@ compilées et la commande d'installation (`adb install -r Batibuild-release.apk`
 - **Manuel** : *Actions → Android — APK & AAB → Run workflow*
   (choix des ABI, option « forcer `expo prebuild` », option « publier une
   Release »).
-- **Release** : `git tag v1.3.2 && git push origin v1.3.2` → build puis
-  publication de la Release `v1.3.2` avec les APK/AAB attachés.
+- **Release** : `git tag v1.3.3 && git push origin v1.3.3` → build puis
+  publication de la Release `v1.3.3` avec les APK/AAB attachés.
 
 ### Récupérer l'APK
 
@@ -377,12 +380,12 @@ En complément du Nexus 3, un build peut être attaché à une **GitHub Release*
 version.
 
 ```bash
-git tag v1.3.2 && git push origin v1.3.2
+git tag v1.3.3 && git push origin v1.3.3
 ```
 
 | Déclencheur | Résultat |
 |---|---|
-| Tag **`v*`** poussé | Release **`v1.3.2`** (APK release + AAB release) |
+| Tag **`v*`** poussé | Release **`v1.3.3`** (APK release + AAB release) |
 | *Run workflow* + **publish_release** | Release **`v<version>-build<run>`**, marquée pré-version, créée sur le commit lancé |
 | `push` sur `main` | Aucune Release |
 
@@ -465,8 +468,9 @@ n'est jamais affiché dans les logs ; aucun `EXPO_TOKEN` n'est utilisé.
 - **La barre du bas a disparu d'une page** : elle est masquée sur `/auth` (connexion /
   inscription) et sur l'accueil public — c'est volontaire ; elle réapparaît dès l'entrée dans
   l'espace connecté.
-- **Un lien externe s'ouvre dans le WebView** : seuls les hôtes `*.freebuff.app` restent
-  internes ; tout autre domaine est routé vers le navigateur système.
+- **Un lien externe s'ouvre dans le WebView** : seuls `batibuild.app`, ses sous-domaines
+  et les domaines techniques Convex restent internes ; tout autre domaine est routé vers le
+  navigateur système.
 - **Le téléchargement ne se partage pas** : sur iOS, certains documents s'affichent dans la
   WebView (lecture intégrée) ; les PDF servis en pièce jointe déclenchent la feuille de partage.
 - **Les PDF (estimation du coût, matériaux IA) ne se téléchargeaient pas** : c'est corrigé —

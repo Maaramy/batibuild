@@ -29,6 +29,9 @@ import type { AppTheme } from "../theme";
  *   4. 10 phases + jalons de chantier          → « Ne perdez plus une étape »
  *   5. 500+ matériaux + courbe des prix        → « Suivez l'évolution des prix »
  *   6. Annuaire vérifié + carte des régions    → « Trouvez les bons prestataires »
+ *   7. Marque + piliers de la plateforme       → « Bienvenue sur batibuild »
+ *   8. Formulaire type / région / surface      → « Créer un projet »
+ *   9. Rapport PDF + accès Pro                 → « Rapports PDF & abonnement Pro »
  *
  * Elles suivent le thème natif (clair / sombre / système) sans jamais toucher
  * au thème de la plateforme Web, et n'effectuent aucun appel réseau.
@@ -1033,11 +1036,303 @@ export function IllusProviders({ width, theme }: IllusProps) {
 }
 
 /* ------------------------------------------------------------------ */
+/* 7 / 9 — Bienvenue sur batibuild                                     */
+/* ------------------------------------------------------------------ */
+
+export function IllusWelcome({ width, theme }: IllusProps) {
+  const p = theme.dark ? DARK : LIGHT;
+  const s = width / VIEW_W;
+  const pillars: { label: string; icon: keyof typeof GUIDE_ICONS; x: number }[] = [
+    { label: "Coût", icon: "coins", x: 24 },
+    { label: "Plans IA", icon: "pencilRuler", x: 96 },
+    { label: "Matériaux", icon: "blocks", x: 168 },
+    { label: "Suivi", icon: "hardHat", x: 240 },
+  ];
+
+  return (
+    <Scene
+      width={width}
+      id="g8"
+      p={p}
+      labels={
+        <>
+          <Box s={s} x={42} y={44} w={64} h={64}>
+            <Icon s={s} size={34} color={p.brand} name="building" />
+          </Box>
+          <Box s={s} x={118} y={52} w={164} h={20} align="flex-start">
+            <Lbl s={s} size={16} color={p.brandDeep} weight="800" spacing={0.2}>
+              batibuild
+            </Lbl>
+          </Box>
+          <Box s={s} x={118} y={74} w={164} h={14} align="flex-start">
+            <Lbl s={s} size={8.5} color={p.muted} weight="600" spacing={0}>
+              De l'idée à la réalisation
+            </Lbl>
+          </Box>
+          <Box s={s} x={118} y={94} w={164} h={14} align="flex-start">
+            <Lbl s={s} size={8} color={p.brand} weight="700" spacing={0}>
+              Construction & rénovation en Tunisie
+            </Lbl>
+          </Box>
+
+          {pillars.map((pillar) => (
+            <React.Fragment key={pillar.label}>
+              <Box s={s} x={pillar.x + 6} y={170} w={52} h={16}>
+                <Icon s={s} size={15} color={p.brand} name={pillar.icon} />
+              </Box>
+              <Box s={s} x={pillar.x + 2} y={190} w={60} h={12}>
+                <Lbl s={s} size={8} color={p.ink} weight="700">
+                  {pillar.label}
+                </Lbl>
+              </Box>
+            </React.Fragment>
+          ))}
+
+          <Box s={s} x={24} y={214} w={272} h={16}>
+            <Lbl s={s} size={8.5} color={p.muted} weight="600" spacing={0.2}>
+              Estimation, plans, matériaux, experts et suivi de chantier
+            </Lbl>
+          </Box>
+        </>
+      }
+    >
+      <Circle cx={300} cy={30} r={70} fill={p.brandSoft} opacity={0.4} />
+      <Circle cx={14} cy={224} r={62} fill={p.blueSoft} opacity={0.35} />
+
+      <Rect x={24} y={26} width={272} height={120} rx={20} fill={p.panel} stroke={p.line} />
+      <Rect
+        x={42}
+        y={44}
+        width={64}
+        height={64}
+        rx={16}
+        fill={p.brandSoft}
+        stroke={p.brandLine}
+      />
+
+      {pillars.map((pillar) => (
+        <Rect
+          key={`card-${pillar.label}`}
+          x={pillar.x}
+          y={158}
+          width={64}
+          height={54}
+          rx={14}
+          fill={p.panel}
+          stroke={p.line}
+        />
+      ))}
+      <Rect x={24} y={214} width={272} height={18} rx={9} fill={p.panelAlt} stroke={p.line} />
+    </Scene>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 8 / 9 — Créer un projet                                             */
+/* ------------------------------------------------------------------ */
+
+export function IllusNewProject({ width, theme }: IllusProps) {
+  const p = theme.dark ? DARK : LIGHT;
+  const s = width / VIEW_W;
+  const types: { label: string; x: number; w: number; active: boolean }[] = [
+    { label: "Maison", x: 44, w: 70, active: true },
+    { label: "Villa", x: 120, w: 64, active: false },
+    { label: "Local", x: 190, w: 64, active: false },
+  ];
+
+  return (
+    <Scene
+      width={width}
+      id="g9"
+      p={p}
+      labels={
+        <>
+          <Box s={s} x={44} y={28} w={200} h={16} align="flex-start">
+            <Lbl s={s} size={11.5} color={p.ink} weight="800" spacing={0}>
+              Nouveau projet
+            </Lbl>
+          </Box>
+
+          <Box s={s} x={44} y={48} w={120} h={10} align="flex-start">
+            <Lbl s={s} size={7.5} color={p.muted} weight="600" spacing={0.2}>
+              Type de projet
+            </Lbl>
+          </Box>
+
+          {types.map((type) => (
+            <Box key={type.label} s={s} x={type.x} y={62} w={type.w} h={22}>
+              <Lbl
+                s={s}
+                size={8.5}
+                color={type.active ? p.brandDeep : p.muted}
+                weight={type.active ? "800" : "600"}
+              >
+                {type.label}
+              </Lbl>
+            </Box>
+          ))}
+
+          <Box s={s} x={54} y={100} w={16} h={20}>
+            <Icon s={s} size={12} color={p.brand} name="mapPin" />
+          </Box>
+          <Box s={s} x={78} y={97} w={180} h={10} align="flex-start">
+            <Lbl s={s} size={7} color={p.muted} weight="600" spacing={0}>
+              Région
+            </Lbl>
+          </Box>
+          <Box s={s} x={78} y={107} w={180} h={14} align="flex-start">
+            <Lbl s={s} size={9} color={p.ink} weight="700" spacing={0}>
+              Tunis
+            </Lbl>
+          </Box>
+
+          <Box s={s} x={54} y={138} w={16} h={20}>
+            <Icon s={s} size={12} color={p.blue} name="ruler" />
+          </Box>
+          <Box s={s} x={78} y={135} w={180} h={10} align="flex-start">
+            <Lbl s={s} size={7} color={p.muted} weight="600" spacing={0}>
+              Surface couverte
+            </Lbl>
+          </Box>
+          <Box s={s} x={78} y={145} w={180} h={14} align="flex-start">
+            <Lbl s={s} size={9} color={p.ink} weight="700" spacing={0}>
+              150 m²
+            </Lbl>
+          </Box>
+
+          <Box s={s} x={44} y={178} w={210} h={30}>
+            <Lbl s={s} size={10.5} color={p.onBrand} weight="800" spacing={0.3}>
+              Créer le projet
+            </Lbl>
+          </Box>
+          <Box s={s} x={244} y={184} w={20} h={18}>
+            <Icon s={s} size={13} color={p.onBrand} name="arrowRight" />
+          </Box>
+        </>
+      }
+    >
+      <Circle cx={302} cy={42} r={64} fill={p.brandSoft} opacity={0.4} />
+      <Circle cx={20} cy={226} r={58} fill={p.blueSoft} opacity={0.35} />
+
+      <Rect x={28} y={18} width={264} height={204} rx={18} fill={p.panel} stroke={p.line} />
+
+      {types.map((type) => (
+        <Rect
+          key={`type-${type.label}`}
+          x={type.x}
+          y={62}
+          width={type.w}
+          height={22}
+          rx={11}
+          fill={type.active ? p.brandSoft : p.panelAlt}
+          stroke={type.active ? p.brandLine : p.line}
+        />
+      ))}
+
+      <Rect x={44} y={94} width={232} height={32} rx={10} fill={p.panelAlt} stroke={p.line} />
+      <Rect x={44} y={132} width={232} height={32} rx={10} fill={p.panelAlt} stroke={p.line} />
+      <Rect x={44} y={176} width={232} height={34} rx={12} fill={p.brand} />
+    </Scene>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* 9 / 9 — Rapports PDF & abonnement Pro                               */
+/* ------------------------------------------------------------------ */
+
+export function IllusReports({ width, theme }: IllusProps) {
+  const p = theme.dark ? DARK : LIGHT;
+  const s = width / VIEW_W;
+  const lines = [
+    { y: 82, w: 122 },
+    { y: 94, w: 150 },
+    { y: 106, w: 96 },
+    { y: 118, w: 140 },
+    { y: 130, w: 110 },
+  ];
+
+  return (
+    <Scene
+      width={width}
+      id="g10"
+      p={p}
+      labels={
+        <>
+          <Box s={s} x={80} y={38} w={150} h={14} align="flex-start">
+            <Lbl s={s} size={10.5} color={p.brandDeep} weight="800" spacing={0.5}>
+              RAPPORT PDF
+            </Lbl>
+          </Box>
+          <Box s={s} x={80} y={56} w={150} h={12} align="flex-start">
+            <Lbl s={s} size={7.5} color={p.muted} weight="600" spacing={0}>
+              Villa · 200 m² · Standard
+            </Lbl>
+          </Box>
+
+          <Box s={s} x={82} y={147} w={64} h={22}>
+            <Lbl s={s} size={8} color={p.ink} weight="700">
+              Coût estimé
+            </Lbl>
+          </Box>
+          <Box s={s} x={158} y={147} w={64} h={22}>
+            <Lbl s={s} size={8} color={p.ink} weight="700">
+              Suivi
+            </Lbl>
+          </Box>
+
+          <Box s={s} x={204} y={12} w={54} h={24}>
+            <Lbl s={s} size={9} color={p.amber} weight="800" spacing={0.6}>
+              PRO
+            </Lbl>
+          </Box>
+
+          <Box s={s} x={212} y={160} w={40} h={40}>
+            <Icon s={s} size={18} color={p.onBrand} name="download" />
+          </Box>
+
+          <Box s={s} x={24} y={216} w={272} h={14}>
+            <Lbl s={s} size={8} color={p.muted} weight="600" spacing={0.1}>
+              Téléchargement PDF selon les droits d'abonnement
+            </Lbl>
+          </Box>
+        </>
+      }
+    >
+      <Circle cx={296} cy={40} r={68} fill={p.violetSoft} opacity={0.4} />
+      <Circle cx={20} cy={226} r={58} fill={p.brandSoft} opacity={0.4} />
+
+      <Rect x={88} y={40} width={176} height={168} rx={12} fill={p.panelAlt} stroke={p.line} />
+      <Rect x={62} y={26} width={194} height={184} rx={14} fill={p.panel} stroke={p.line} />
+      <Rect x={62} y={26} width={194} height={6} rx={3} fill={p.brandSoft} />
+
+      {lines.map((line) => (
+        <Rect
+          key={`line-${line.y}`}
+          x={80}
+          y={line.y}
+          width={line.w}
+          height={5}
+          rx={2.5}
+          fill={p.strong}
+          opacity={0.55}
+        />
+      ))}
+
+      <Rect x={80} y={146} width={68} height={24} rx={8} fill={p.panelAlt} stroke={p.line} />
+      <Rect x={156} y={146} width={68} height={24} rx={8} fill={p.panelAlt} stroke={p.line} />
+
+      <Circle cx={232} cy={180} r={20} fill={p.brand} />
+      <Rect x={204} y={12} width={54} height={24} rx={12} fill={p.amberSoft} stroke={p.amber} />
+    </Scene>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Sélection                                                           */
 /* ------------------------------------------------------------------ */
 
-// L'ORDRE des illustrations n'est plus défini ici : le parcours de première
-// utilisation (« De l'idée à la réalisation », 6 étapes) assemble ses visuels
+// L'ORDRE des illustrations n'est pas défini ici : le parcours de première
+// utilisation (« De l'idée à la réalisation », 8 étapes) assemble ses visuels
 // dans `OnboardingScreen.tsx`, en combinant ces scènes avec celles de
 // `GuidePlans.tsx` (aperçus RÉELS de plans 2D / cotés / 3D). Chaque illustration
 // reste exportée individuellement ci-dessus et réutilisable telle quelle.

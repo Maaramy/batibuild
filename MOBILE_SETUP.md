@@ -1,7 +1,7 @@
 # MOBILE_SETUP — batibuild Mobile (Expo + Gradle local, sans EAS)
 
 Mise en place de l'application mobile batibuild : enveloppe **WebView** native
-(Splash + onboarding) autour de <https://budgetbati.freebuff.app/>.
+(Splash + onboarding) autour de <https://batibuild.app/>.
 
 > ⚠️ **Aucun service cloud n'est utilisé.** EAS Build a été retiré du projet :
 > plus de `eas.json`, plus de workflow EAS, plus de `EXPO_TOKEN`.
@@ -130,10 +130,11 @@ PREBUILD=1 npm run android:apk   # → mobile/build/Batibuild-release.apk
 ## 7. Environnement d'exécution
 
 L'URL de la plateforme est définie **une seule fois** dans
-`mobile/src/config.ts` (défaut : `https://budgetbati.freebuff.app/`).
+`mobile/src/config.ts` (défaut : `https://batibuild.app/`).
 Pour la surcharger sans toucher au code : `EXPO_PUBLIC_WEB_APP_URL`.
 
-Seuls les hôtes `*.freebuff.app` restent dans la WebView ; les autres domaines
+Seuls `batibuild.app`, ses sous-domaines et les domaines techniques Convex
+(`*.convex.cloud`, `*.convex.site`) restent dans la WebView ; les autres domaines
 s'ouvrent dans le navigateur système.
 
 ## 8. GitHub Actions ⭐ — obtenir l'APK sans rien installer

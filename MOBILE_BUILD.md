@@ -20,7 +20,7 @@ git push origin main → GitHub Actions (ubuntu-latest) → Batibuild-release.ap
 batibuild MOBILE
    ├── Splash natif          (expo-splash-screen + écran React Native)
    ├── Onboarding            (4 écrans, 1ʳᵉ installation — « Passer » / « Commencer »)
-   └── WebView               → https://budgetbati.freebuff.app/
+   └── WebView               → https://batibuild.app/
 ```
 
 L'application est une **enveloppe WebView** : la plateforme Web batibuild reste la
@@ -144,18 +144,18 @@ tel quel.
 
 | Déclencheur | Résultat |
 |---|---|
-| `git push origin v1.3.2` (tag **`v*`**) | Build complet puis Release **`v1.3.2`** contenant `Batibuild-release.apk` et `Batibuild-release.aab` |
+| `git push origin v1.3.3` (tag **`v*`**) | Build complet puis Release **`v1.3.3`** contenant `Batibuild-release.apk` et `Batibuild-release.aab` |
 | *Actions → Run workflow* + **`publish_release`** = true | Release **`v<version>-build<numéro de run>`** marquée *pré-version*, créée sur le commit lancé |
 | `push` sur `main` | Aucune Release — le build reste disponible dans le **Nexus 3** |
 
 ```bash
-git tag v1.3.2 && git push origin v1.3.2     # build + Release
+git tag v1.3.3 && git push origin v1.3.3     # build + Release
 ```
 
 Points importants :
 
 - **Le tag doit correspondre à `mobile/app.json`** (`expo.version`). Un tag
-  `v1.4.0` qui produirait l'APK `1.3.2` est **refusé** : aucune Release
+  `v1.4.0` qui produirait l'APK `1.3.3` est **refusé** : aucune Release
   trompeuse ne peut exister. Mettez à jour `expo.version` /
   `expo.android.versionCode`, committez, puis créez le tag.
 - Un tag avec suffixe (`v1.3.3-rc1`, `-beta.2`…) produit une **pré-version**,

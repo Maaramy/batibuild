@@ -12,13 +12,13 @@
 /** Nom officiel de la plateforme (identique au Web — `src/lib/branding.ts`). */
 export const BRAND_NAME = "batibuild";
 
-const DEFAULT_WEB_APP_URL = "https://budgetbati.freebuff.app/";
+const DEFAULT_WEB_APP_URL = "https://batibuild.app/";
 
 /** URL de la plateforme web chargée dans la WebView. */
 export const WEB_APP_URL: string =
   process.env.EXPO_PUBLIC_WEB_APP_URL?.trim() || DEFAULT_WEB_APP_URL;
 
-/** Origine de la plateforme (ex. `https://budgetbati.freebuff.app`), sans slash final. */
+/** Origine de la plateforme (ex. `https://batibuild.app`), sans slash final. */
 export const APP_ORIGIN: string = WEB_APP_URL.replace(/\/+$/, "");
 
 /** Routes du parcours mobile (plateforme web). */
@@ -48,7 +48,7 @@ export const REPORTS_PATH = "/dashboard/reports";
  * Message de chargement unique (Splash natif et voile de chargement WebView).
  * Aucun autre texte ne doit être affiché sous ce message.
  */
-export const LOADING_MESSAGE = "Chargement....";
+export const LOADING_MESSAGE = "Chargement…";
 
 /**
  * Durée MAXIMALE (1 seconde) de tout écran de chargement natif :
@@ -78,15 +78,49 @@ export function getHost(url: string): string {
   return m ? m[1].toLowerCase() : "";
 }
 
+/**
+ * Hôte de DÉVELOPPEMENT local : seul cas où HTTP est toléré dans la WebView
+ * (`EXPO_PUBLIC_WEB_APP_URL=http://192.168.x.x:5173`). En production, la
+ * navigation interne est strictement HTTPS.
+ */
+function isLocalDevHost(host: string): boolean {
+  return (
+    host === "localhost" ||
+    host.startsWith("127.") ||
+    host.startsWith("10.") ||
+    host.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  );
+}
+
 export const APP_HOST = getHost(WEB_APP_URL);
 
 /**
+ * Origines que la WebView a le droit de charger.
+ *
+ * Production : HTTPS uniquement (+ blob/data/about, utilisés par les exports
+ * PDF et les aperçus). Si `EXPO_PUBLIC_WEB_APP_URL` pointe volontairement vers
+ * un serveur de développement local en HTTP, seule CETTE origine en HTTP est
+ * ajoutée — jamais `http://*`.
+ */
+export const WEBVIEW_ORIGIN_WHITELIST: readonly string[] = [
+  "https://*",
+  ...(WEB_APP_URL.startsWith("http://") ? [APP_ORIGIN] : []),
+  "blob:*",
+  "data:*",
+  "about:*",
+];
+
+/**
  * Hôtes techniques de la plateforme qui doivent rester DANS la WebView.
- * Les endpoints d'authentification (Convex) sont sur `*.convex.site` /
- * `*.convex.cloud` : les ouvrir dans le navigateur casserait le login.
+ *
+ * Navigation interne limitée au domaine Batibuild (`batibuild.app` et ses
+ * sous-domaines, ex. `www.batibuild.app`) et aux domaines techniques
+ * explicitement autorisés : l'authentification et la base temps réel passent
+ * par Convex, dont les ouvrir dans le navigateur casserait la session.
  */
 const INTERNAL_HOST_SUFFIXES = [
-  ".freebuff.app",
+  ".batibuild.app",
   ".convex.cloud",
   ".convex.site",
   ".convex.dev",
@@ -95,12 +129,19 @@ const INTERNAL_HOST_SUFFIXES = [
 
 /**
  * Une URL fait-elle partie de l'application batibuild (reste dans la WebView) ?
- * Même hôte, n'importe quel déploiement `*.freebuff.app` (aliases dev/preview/
- * prod) ou un domaine technique Convex.
+ * Même hôte, sous-domaines `*.batibuild.app` ou un domaine technique Convex.
+ * Tout le reste (liens externes, réseaux sociaux, magasins d'applications)
+ * s'ouvre dans le navigateur ou l'application système.
+ *
+ * HTTPS uniquement en production : une URL `http:` de la plateforme est
+ * déléguée au navigateur système (qui la redirige vers HTTPS) au lieu d'être
+ * chargée dans la WebView.
  */
 export function isAppUrl(url: string): boolean {
   const host = getHost(url);
   if (!host) return false;
+  const scheme = url.split(":")[0].toLowerCase();
+  if (scheme !== "https" && !(scheme === "http" && isLocalDevHost(host))) return false;
   if (host === APP_HOST) return true;
   return INTERNAL_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix));
 }

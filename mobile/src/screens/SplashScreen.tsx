@@ -10,7 +10,7 @@ import { COLORS } from "../theme";
  * Splash MINIMAL de l'application mobile batibuild.
  *
  * Volontairement réduit au strict nécessaire : le logo OFFICIEL batibuild sur
- * fond blanc, un indicateur discret et un seul texte — « Chargement.... ».
+ * fond blanc, un indicateur discret et un seul texte — « Chargement… ».
  * Aucun slogan, aucun écran de présentation, aucune ancienne image : les
  * anciens splash et écrans d'introduction ont été supprimés.
  *
@@ -22,15 +22,23 @@ import { COLORS } from "../theme";
 export default function SplashScreen() {
   const insets = useSafeAreaInsets();
   const fade = useRef(new Animated.Value(0)).current;
+  const rise = useRef(new Animated.Value(0)).current;
 
-  // Apparition douce — courte et non bloquante.
+  // Apparition douce (fondu + très léger zoom) — courte et non bloquante.
   useEffect(() => {
-    Animated.timing(fade, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  }, [fade]);
+    Animated.parallel([
+      Animated.timing(fade, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(rise, {
+        toValue: 1,
+        duration: 380,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fade, rise]);
 
   return (
     <View
@@ -39,7 +47,19 @@ export default function SplashScreen() {
         { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 28) },
       ]}
     >
-      <Animated.View style={[styles.center, { opacity: fade }]}>
+      <Animated.View
+        style={[
+          styles.center,
+          {
+            opacity: fade,
+            transform: [
+              {
+                scale: rise.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }),
+              },
+            ],
+          },
+        ]}
+      >
         <Logo size={104} shadow />
       </Animated.View>
 
