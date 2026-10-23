@@ -3,8 +3,11 @@
 // ----------------------------------------------------------------------------
 // Génère le rapport de la page « Aide à la décision » à partir de l'analyse
 // RÉELLE affichée (`BudgetAnalysis`) : budget disponible, coût du scénario,
-// capacité de construction, répartition par catégorie, scénarios simulés,
-// priorisation et recommandation. Aucun montant n'est recalculé ni inventé.
+// capacité de construction, répartition par catégorie, DÉTAIL DE CHAQUE POSTE
+// ET ARTICLE du Quantitatif (montants, quantités, part financée), scénarios
+// simulés, priorisation et recommandation. Aucun montant n'est recalculé ni
+// inventé : le détail provient des sous-catégories et articles réellement
+// chiffrés dans le projet (`analysis.breakdown[].subcategories[].articles`).
 //
 // Branding commun à tous les rapports (`pdfBranding` : logo officiel, en-tête
 // blanc, pied de page paginé) — même présentation que le devis, les plans, les
@@ -34,6 +37,15 @@ const fmtTnd = (n: number) => {
   return `${sign}${result} TND`;
 };
 
+/** Quantité d'un article (« 6 tonne »), « — » lorsque non renseignée. */
+const fmtQty = (quantity?: number, unit?: string) => {
+  const n = Number(quantity);
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  const value = Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+  const u = unit ? stripEmojis(unit) : "";
+  return u ? `${value} ${u}` : value;
+};
+
 const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString("fr-FR", {
     day: "numeric",
@@ -58,6 +70,79 @@ export interface DecisionSupportPdfParams {
   projectContext?: string;
   /** Coût au m² du scénario (même valeur que la page) — facultatif. */
   costPerM2?: number;
+}
+
+/** Niveau d'une ligne du détail « poste → sous-catégorie → article ». */
+export type QuantitatifDetailLevel = "category" | "subcategory" | "article" | "note";
+
+/** Ligne du détail du Quantitatif reprise telle quelle dans le rapport. */
+export interface QuantitatifDetailRow {
+  level: QuantitatifDetailLevel;
+  label: string;
+  /** Quantité formatée (« 6 tonne ») — vide pour les niveaux agrégés. */
+  quantity: string;
+  cost?: number;
+  funded?: number;
+  pct?: number;
+}
+
+/**
+ * Aplatit la hiérarchie réelle du Quantitatif (`analysis.breakdown`) en lignes
+ * Poste → Sous-catégorie → Article. Aucun montant, quantité ou libellé n'est
+ * créé : tout provient de l'analyse affichée par la page.
+ */
+export function buildQuantitatifDetailRows(
+  analysis: Pick<BudgetAnalysis, "breakdown">,
+): QuantitatifDetailRow[] {
+  const rows: QuantitatifDetailRow[] = [];
+  const sorted = [...analysis.breakdown].sort((a, b) => a.priority - b.priority);
+  for (const cat of sorted) {
+    rows.push({
+      level: "category",
+      label: stripEmojis(cat.categoryLabel),
+      quantity: "",
+      cost: cat.estimatedCost,
+      funded: cat.fundedAmount,
+      pct: cat.realizationPct,
+    });
+    if (cat.subcategories.length === 0) {
+      rows.push({
+        level: "note",
+        label: "Aucun détail d'article enregistré pour ce poste",
+        quantity: "",
+      });
+      continue;
+    }
+    for (const sub of cat.subcategories) {
+      rows.push({
+        level: "subcategory",
+        label: stripEmojis(sub.subcategoryLabel),
+        quantity: "",
+        cost: sub.estimatedCost,
+        funded: sub.fundedAmount,
+        pct: sub.realizationPct,
+      });
+      if (sub.articles.length === 0) {
+        rows.push({
+          level: "note",
+          label: "Montant agrégé — aucun article détaillé enregistré",
+          quantity: "",
+        });
+        continue;
+      }
+      for (const article of sub.articles) {
+        rows.push({
+          level: "article",
+          label: stripEmojis(article.designation),
+          quantity: fmtQty(article.quantity, article.unit),
+          cost: article.estimatedCost,
+          funded: article.fundedAmount,
+          pct: article.realizationPct,
+        });
+      }
+    }
+  }
+  return rows;
 }
 
 /**
@@ -237,9 +322,92 @@ export function exportDecisionSupportPdf({
     y = ((doc as any).lastAutoTable?.finalY || y) + 6;
   }
 
-  // ═══ 4. SCÉNARIOS SIMULÉS ══════════════════════════════════
+  // ═══ 4. DÉTAIL DES POSTES ET ARTICLES ═══════════════════════
+  // Tous les postes (catégories), sous-catégories et articles réellement
+  // chiffrés du Quantitatif — et non plus seulement le total par catégorie.
+  const detailRows = buildQuantitatifDetailRows(analysis);
+  if (detailRows.length > 0) {
+    sectionTitle("4. Détail des postes et articles du Quantitatif");
+    paragraph(
+      "Chaque ligne reprend le poste, la sous-catégorie puis l'article tel que chiffré dans le devis du projet, avec le montant financé par le budget saisi.",
+      { color: C.textSecondary },
+    );
+    const indent = (extra: number) => ({
+      cellPadding: { top: 1.6, bottom: 1.6, right: 1.6, left: 1.6 + extra },
+    });
+    const noteStyles = {
+      textColor: C.textSecondary,
+      fontStyle: "italic" as const,
+    };
+    const body = detailRows.map((row) => {
+      if (row.level === "category") {
+        return [
+          {
+            content: `${row.label} — ${fmtTnd(row.cost ?? 0)} (${fmtTnd(row.funded ?? 0)} financés · ${row.pct ?? 0} %)`,
+            colSpan: 5,
+            styles: {
+              fillColor: [236, 253, 245] as [number, number, number],
+              textColor: C.primary,
+              fontStyle: "bold" as const,
+              fontSize: 7.5,
+            },
+          },
+        ];
+      }
+      if (row.level === "note") {
+        return [
+          {
+            content: row.label,
+            colSpan: 5,
+            styles: { ...indent(7), ...noteStyles },
+          },
+        ];
+      }
+      return [
+        {
+          content: row.label,
+          styles:
+            row.level === "subcategory"
+              ? { fontStyle: "bold" as const, ...indent(3) }
+              : indent(7),
+        },
+        row.quantity || "—",
+        fmtTnd(row.cost ?? 0),
+        fmtTnd(row.funded ?? 0),
+        `${row.pct ?? 0} %`,
+      ];
+    });
+    (doc as any).autoTable({
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [["Poste / Article", "Quantité", "Coût estimé", "Financé", "Réalisation"]],
+      body,
+      theme: "grid",
+      headStyles: { fillColor: C.primary, textColor: 255, fontSize: 7.5, fontStyle: "bold" },
+      styles: {
+        fontSize: 6.8,
+        cellPadding: 1.6,
+        textColor: C.text,
+        lineColor: C.border,
+        lineWidth: 0.25,
+        overflow: "linebreak",
+      },
+      columnStyles: {
+        0: { cellWidth: cw - 22 - 28 - 28 - 20 },
+        1: { halign: "right", cellWidth: 22 },
+        2: { halign: "right", cellWidth: 28 },
+        3: { halign: "right", cellWidth: 28 },
+        4: { halign: "right", cellWidth: 20 },
+      },
+      alternateRowStyles: { fillColor: C.bgLight },
+      rowPageBreak: "avoid",
+    });
+    y = ((doc as any).lastAutoTable?.finalY || y) + 6;
+  }
+
+  // ═══ 5. SCÉNARIOS SIMULÉS ══════════════════════════════════
   if (analysis.scenarios.length > 0) {
-    sectionTitle("4. Scénarios simulés");
+    sectionTitle("5. Scénarios simulés");
     const rows = analysis.scenarios.map((s) => [
       stripEmojis(s.label),
       fmtTnd(s.budget),
@@ -273,8 +441,8 @@ export function exportDecisionSupportPdf({
     y = ((doc as any).lastAutoTable?.finalY || y) + 6;
   }
 
-  // ═══ 5. PRIORISATION & RECOMMANDATION ══════════════════════
-  sectionTitle("5. Priorisation et recommandation");
+  // ═══ 6. PRIORISATION & RECOMMANDATION ══════════════════════
+  sectionTitle("6. Priorisation et recommandation");
   if (analysis.nextCategoryLabel) {
     paragraph(
       `Chantier prioritaire suivant : ${analysis.nextCategoryLabel}${
