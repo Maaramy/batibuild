@@ -24,6 +24,7 @@ vi.mock("convex/react", () => ({
 }));
 
 import { OptimizationSection } from "@/components/decision/OptimizationSection";
+import { DECISION_SUPPORT_LOADING_STEPS } from "@/lib/projectJourney";
 import {
   MIN_BUDGET_TND,
   buildBudgetAnalysis,
@@ -152,6 +153,25 @@ describe("OptimizationSection — curseur de budget", () => {
     expect(html).toContain("Quel est votre budget disponible ?");
     expect(html).toContain('data-slot="slider"');
     expect(html).toContain("BatiBuild analyse votre budget");
+  });
+
+  it("affiche les étapes de l'aide à la décision pendant l'analyse", () => {
+    const html = renderSection({
+      budgetAnalysis: null,
+      budgetAnalyzing: true,
+      budgetAvailable: 500_000,
+      projectTotal: 500_000,
+      scenarioLabel: "Premium",
+    });
+
+    // Étapes réellement exécutées par le module (et non le parcours Journey).
+    // Le rendu HTML échappe les « & » (« Prix &amp; matériaux »).
+    for (const step of DECISION_SUPPORT_LOADING_STEPS) {
+      expect(html).toContain(step.replace(/&/g, "&amp;"));
+    }
+    expect(html).toContain("Étape 1 sur 5");
+    expect(html).not.toContain("Plans architecturaux AI");
+    expect(html).not.toContain("Mise en relation");
   });
 
   it("masque la carte du budget dès que les résultats sont affichés", () => {

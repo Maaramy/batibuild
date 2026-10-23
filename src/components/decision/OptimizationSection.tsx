@@ -23,7 +23,10 @@
 // SEUL écran de chargement animé du parcours « Aide à la décision » : il est
 // affiché uniquement après le clic sur « Analyser mon budget avec l'IA »
 // (design, logo, animations et durée de 3 s inchangés). Aucun chargement
-// automatique n'est déclenché à l'arrivée sur la page.
+// automatique n'est déclenché à l'arrivée sur la page. Les étapes affichées
+// sont celles de l'aide à la décision (`DECISION_SUPPORT_LOADING_STEPS`) et non
+// celles du parcours Journey : analyse du Quantitatif, prix & matériaux,
+// capacité de construction, plan de construction, optimisation budgétaire.
 //
 // L'« Analyse de vos matériaux » n'est plus ici : elle est rendue sous la carte
 // « Confiance » de la page « Coût de construction ».
@@ -50,6 +53,7 @@ import {
 } from "@/lib/budgetEngine";
 import type { OptimizationPlan } from "@/lib/optimizationEngine";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
+import { DECISION_SUPPORT_LOADING_STEPS } from "@/lib/projectJourney";
 
 import {
   BudgetVisibilityToggle,
@@ -269,6 +273,10 @@ export function OptimizationSection({
           title="BatiBuild analyse votre budget"
           description="Comparaison de votre budget disponible avec les montants réels du projet — surface, région, scénario et matériaux."
           progressLabel="Progression de l'analyse budgétaire"
+          /* Étapes RÉELLEMENT exécutées par l'aide à la décision (même écran,
+             même design, mêmes icônes) — le parcours Journey n'est plus affiché
+             ici. */
+          steps={DECISION_SUPPORT_LOADING_STEPS}
           pending={!budgetAnalysisSettled}
           error={budgetAnalysisError ?? null}
           onRetry={onBudgetRetry}
