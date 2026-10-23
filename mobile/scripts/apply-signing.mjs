@@ -30,10 +30,67 @@ if (!existsSync(target)) {
 
 let content = readFileSync(target, "utf8");
 
+/**
+ * Ajoute `enableV1Signing` / `enableV2Signing` aux configurations de signature.
+ *
+ * AGP n'active la signature v1 que si `minSdk < 24` ; notre minSdk est 24, donc
+ * sans ces lignes l'APK ne porte QU'UNE signature v2 (schéma introduit avec
+ * Android 7). C'est exactement ce qui produit, sur certains téléphones et
+ * installateurs, « L'application n'a pas été installée, car le package semble
+ * ne pas être valide » : le paquet ne contient alors aucune signature JAR
+ * (META-INF), seule forme que savent lire plusieurs analyseurs de paquets.
+ *
+ * v1 + v2 est la combinaison la plus largement lisible ; v3 (Android 9+) est
+ * ajouté automatiquement par AGP quand minSdk le permet.
+ */
+/** Les drapeaux de schéma sont-ils déjà présents dans le bloc courant ? */
+function hasSchemeFlags(lines, startIndex) {
+  for (let i = startIndex + 1; i < lines.length; i += 1) {
+    if (lines[i].trim() === "}") return false;
+    if (lines[i].includes("enableV1Signing")) return true;
+  }
+  return false;
+}
+
+function ensureSigningSchemes(lines) {
+  let changed = false;
+  // Config debug (repli utilisé quand aucun keystore Release n'est configuré).
+  const debugKeyPassword = lines.findIndex((line) => line.trim() === "keyPassword 'android'");
+  if (debugKeyPassword !== -1 && !hasSchemeFlags(lines, debugKeyPassword)) {
+    lines.splice(
+      debugKeyPassword + 1,
+      0,
+      "            enableV1Signing true",
+      "            enableV2Signing true",
+    );
+    changed = true;
+  }
+  // Config release (keystore de production).
+  const releaseKeyPassword = lines.findIndex(
+    (line) => line.trim() === "keyPassword releaseKeyPassword",
+  );
+  if (releaseKeyPassword !== -1 && !hasSchemeFlags(lines, releaseKeyPassword)) {
+    lines.splice(
+      releaseKeyPassword + 1,
+      0,
+      "                enableV1Signing true",
+      "                enableV2Signing true",
+    );
+    changed = true;
+  }
+  return changed;
+}
+
 // Marqueur unique du bloc : `useReleaseSigning` n'existe que dans la config
 // appliquée par ce script (jamais dans le template Expo).
 if (content.includes("def useReleaseSigning")) {
-  console.log("✅ Signature Release déjà présente — rien à faire.");
+  const existingLines = content.split("\n");
+  if (ensureSigningSchemes(existingLines)) {
+    writeFileSync(target, existingLines.join("\n"), "utf8");
+    console.log("✅ Signature Release déjà présente — schémas v1 + v2 ajoutés.");
+  } else {
+    console.log("✅ Signature Release déjà présente (v1 + v2) — rien à faire.");
+  }
   process.exit(0);
 }
 
@@ -86,6 +143,8 @@ const RELEASE_SIGNING_CONFIG = `        release {
                 storePassword releaseStorePassword
                 keyAlias releaseKeyAlias
                 keyPassword releaseKeyPassword
+                enableV1Signing true
+                enableV2Signing true
             }
         }`;
 
@@ -136,6 +195,9 @@ if (buildTypesIdx === -1 || releaseIdx === -1 || relSignIdx === -1) {
 }
 lines[relSignIdx] =
   "            signingConfig useReleaseSigning ? signingConfigs.release : signingConfigs.debug";
+
+// 4) Garantir les schémas de signature v1 + v2 (compatibilité maximale).
+ensureSigningSchemes(lines);
 
 writeFileSync(target, lines.join("\n"), "utf8");
 console.log("✅ Signature Release réappliquée dans", target);

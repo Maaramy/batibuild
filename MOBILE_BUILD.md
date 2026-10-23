@@ -454,13 +454,35 @@ partielle, jamais de fichier tronqué publié).
 
 ### Après le build — `scripts/verify-artifact.mjs`
 
+Ce script est la **porte d'entrée de toute publication** : il est exécuté par
+`build-android.mjs`, par la CI (locale et GitHub Actions) et refuse de laisser
+passer un APK qu'Android rejetterait.
+
+> ⚠️ Il ne se contente plus de chercher la chaîne « APK Sig Block 42 » : cette
+> ancienne heuristique pouvait déclarer « signé » un APK qui ne l'était pas.
+> Toutes les valeurs sont désormais **lues, recalculées et vérifiées**.
+
 | Contrôle | Détail |
 |---|---|
 | Existence / taille | fichier présent, ≥ 1 Mo et < 600 Mo (détecte un build interrompu) |
-| Structure ZIP | en-tête `PK\x03\x04`, End Of Central Directory présent et cohérent avec la taille réelle (détecte une APK **tronquée**) |
+| Structure ZIP | en-tête `PK\x03\x04`, End Of Central Directory cohérent, répertoire central **entièrement** lisible, entrées en double refusées (détecte un APK **tronqué**) |
 | Entrées obligatoires | APK : `AndroidManifest.xml`, `classes.dex`, `resources.arsc` · AAB : `BundleConfig.pb`, `base/manifest/AndroidManifest.xml` |
-| Signature | bloc **APK Signing Block v2/v3** ou `META-INF/*.RSA` — sinon Android refuserait l'installation |
+| Manifeste | lecture du manifeste binaire : `package`, `versionCode`, `minSdk`/`targetSdk`, refus si `testOnly="true"` ; comparaison possible au `applicationId` et au `versionCode` attendus (`--expect-package`, `--expect-version-code`) |
+| Signature | schémas **réellement présents** (v1 JAR, v2, v3) ; un APK sans aucune signature est refusé (Android : « le package semble ne pas être valide ») |
+| Intégrité | digest de contenu du schéma v2 **recalculé** (chunks de 1 Mo) et comparé au digest signé — détecte toute modification après signature (re-zip, recompression, `zipalign` après coup) |
+| Signature cryptographique | vérification RSA PKCS#1 / RSA-PSS / ECDSA / DSA des données signées avec la clé du certificat |
+| Certificat | sujet, empreinte SHA-256, dates de validité ; alerte explicite si la clé est la clé **debug** Android ; comparaison à une empreinte attendue (`--expect-cert-sha256`) |
+| Installation Android | `resources.arsc` non compressé et aligné 4 octets (targetSdk ≥ 30), bibliothèques natives non compressées et alignées 4 Ko, au moins une ABI ARM |
 | Empreinte | SHA-256 affiché dans les logs et dans `mobile/build/BUILD-INFO.txt` |
+
+```bash
+npm run android:verify        # sur mobile/build/Batibuild-release.apk
+# ou, avec les contrôles attendus :
+node scripts/verify-artifact.mjs build/Batibuild-release.apk \
+  --expect-package com.batibuild.app --expect-version-code 13 \
+  --require-schemes v1,v2 --require-release-cert \
+  --expect-cert-sha256 AB:CD:…
+```
 
 ### Logs et conservation des fichiers
 
@@ -597,6 +619,72 @@ npm run android:apk
 - Aucun mot de passe n'est écrit dans le code ni affiché dans les logs Gradle.
 - Sauvegardez keystore + mots de passe **hors du dépôt** (coffre-fort, disque chiffré).
 
+## 11bis. « Le package semble ne pas être valide » — diagnostic et correctif
+
+### Ce qui se passait
+
+L'APK publié (`Batibuild-release.apk`, ~41,5 Mo) était un **vrai APK** :
+conteneur ZIP complet, `applicationId` `com.batibuild.app`, `versionCode 13`,
+`minSdk 24` / `targetSdk 36`, deux ABI (`arm64-v8a` + `armeabi-v7a`),
+bibliothèques natives alignées. Sa structure n'était donc pas en cause.
+
+Deux défauts réels ont été constatés sur ce fichier :
+
+| Constat | Conséquence |
+|---|---|
+| Signature assurée par la clé **debug** Android (`CN=Android Debug`, empreinte `FA:C6:17:45:…`) — aucun keystore de production n'était configuré | Un APK debug-signed **ne peut pas remplacer** une application signée avec une autre clé : Android refusa la mise à jour (« le package semble ne pas être valide »). Il est également refusé par Google Play. |
+| Signature **v2 uniquement** (aucune signature v1/JAR) : AGP désactive v1 dès que `minSdk ≥ 24` | Plusieurs analyseurs de paquets et installateurs ne lisent que les signatures JAR ; sans `META-INF/*.RSA`, ils rejettent le fichier avant même de vérifier sa version d'Android. |
+| Contrôle CI trop faible | `apksigner verify … \| head -6` perdait le code de sortie d'`apksigner` (celui de `head` vaut 0), et `verify-artifact.mjs` cherchait simplement la chaîne « APK Sig Block 42 » dans le fichier : un APK mal signé pouvait donc être publié. |
+
+### Ce qui a été corrigé
+
+1. **Signature v1 + v2 garantie** (`android/app/build.gradle`,
+   réappliquée par `npm run signing:apply`) : l'APK porte désormais une
+   signature JAR (`META-INF/*.RSA`) **et** une signature v2, quel que soit le
+   `minSdk`. C'est la combinaison la plus largement acceptée.
+2. **Contrôles bloquants** dans GitHub Actions, avant toute publication :
+   `zipalign -c -p 4`, `apksigner verify --verbose --print-certs` (code retour
+   **capturé**), présence effective des schémas `v1` et `v2`, `aapt2 dump
+   badging` (package, `versionCode`, SDK, ABI), puis `verify-artifact.mjs`
+   (digest de contenu + signature cryptographique + certificat).
+3. **Fidélité du fichier publié** : l'APK est **retéléchargé** depuis la
+   GitHub Release et son SHA-256 doit être identique à l'artefact vérifié.
+4. **Certificat surveillé** : empreinte SHA-256 du keystore affichée dans le
+   résumé du run et comparée à celle de l'APK ; si les secrets `KEYSTORE_*`
+   sont définis, un APK signé avec la clé debug est **refusé**.
+
+### Installer l'APK sans erreur
+
+1. Télécharger `Batibuild-release.apk` depuis la GitHub Release du run.
+2. Vérifier le fichier (ordinateur, outillage Android installé) :
+
+   ```bash
+   apksigner verify --verbose --print-certs Batibuild-release.apk
+   # doit afficher : Verified using v1 scheme … true / v2 scheme … true
+   ```
+
+   ou, sans SDK : `node mobile/scripts/verify-artifact.mjs Batibuild-release.apk`.
+3. Si un message du type **« package semble ne pas être valide »** apparaît :
+   une version de batibuild signée avec une **autre clé** est déjà installée.
+   Désinstaller l'ancienne application (`adb uninstall com.batibuild.app`, ou
+   Paramètres → Applications → batibuild → Désinstaller), puis réinstaller.
+   Les données locales de l'application (guide, préférences) sont perdues ;
+   les projets et le compte restent sur Convex, donc rien n'est perdu côté
+   serveur.
+
+### Configurer la clé de production (recommandé, obligatoire pour Google Play)
+
+1. Générer le keystore une seule fois (voir §11) : `npm run keystore:generate`.
+2. Ajouter trois secrets dans **Settings → Secrets and variables → Actions** :
+   `KEYSTORE_BASE64` (`base64 -w0 keystore.jks`), `KEYSTORE_PASSWORD`,
+   `KEYSTORE_ALIAS`.
+3. Relancer le workflow : l'APK est signé avec cette clé, son empreinte est
+   affichée dans le résumé, et toute publication avec une autre clé échoue.
+
+> Conservez ce keystore hors du dépôt : **sans lui, aucune mise à jour de
+> l'application publiée n'est possible** (Android refuse un changement de
+> signature).
+
 ## 12. Build iOS (macOS uniquement)
 
 Le build iOS **n'existe que sur macOS** (Xcode). Aucun EAS n'est utilisé.
@@ -641,7 +729,7 @@ Toutes les autres vérifications de `expo-doctor` restent actives (20/20 ✅).
 | `Execution failed for task ':app:createBundleReleaseJsAndAssets'` (heap) | Augmentez la mémoire Node : `NODE_OPTIONS=--max-old-space-size=8192 npm run android:apk` |
 | `adb: command not found` | Ajoutez `$ANDROID_HOME/platform-tools` au `PATH` → §5 |
 | `adb devices` vide | Débogage USB non activé, câble de données, ou autorisation refusée sur le téléphone → §5 |
-| `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | Une version de l'app est déjà installée avec une autre clé → `adb uninstall com.batibuild.app` |
+| `INSTALL_FAILED_UPDATE_INCOMPATIBLE` ou message Android **« L'application n'a pas été installée, car le package semble ne pas être valide »** | Une version de batibuild est déjà installée et signée avec une **autre clé** (voir §11bis) → désinstaller l'ancienne application, puis réinstaller l'APK. L'APK lui-même n'est pas corrompu si `npm run android:verify` passe |
 | `Execution failed for task ':app:validateSigningDebug'` → `Keystore file '…/android/app/debug.keystore' not found` | La clé **debug** manque (clone frais / `android/` régénéré) → `npm run keystore:debug` (ou `expo prebuild` régénère le fichier d'origine) |
 | **CI** : `:app:validateSigningDebug` échoue | Le workflow lance `node scripts/ensure-debug-keystore.mjs` avant les builds : si l'échec persiste, vérifiez que `keytool` est bien disponible (étape *Setup JDK 17*) et que `android/app/debug.keystore` est présent dans le dépôt |
 | **CI** : `:app:signingReport` échoue juste après les diagnostics | Une configuration de signature pointe vers un fichier absent — c'est volontaire : l'échec survient en quelques secondes au lieu d'après 15 min de compilation. Regardez la section « What went wrong » du log `signing` |

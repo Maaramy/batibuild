@@ -644,8 +644,14 @@ jobs:
           KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "ℹ️  Aucun secret keystore configuré."
-            echo "    → L'APK/AAB release sera signé avec la clé debug (tests uniquement)."
+            echo "⚠️  Aucun secret keystore configuré (KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEYSTORE_ALIAS)."
+            echo "    → L'APK/AAB release sera signé avec la clé DEBUG Android versionnée dans le dépôt."
+            echo "    → Cet APK s'installe sur un téléphone vierge, mais il ne peut PAS remplacer"
+            echo "      une application signée avec une autre clé (Android répond alors :"
+            echo "      « L'application n'a pas été installée, car le package semble ne pas être valide »)"
+            echo "      et Google Play le refuse. Configurez le keystore de production pour publier :"
+            echo "      voir MOBILE_BUILD.md §11 (npm run keystore:generate, puis les 3 secrets)."
+            echo "PRODUCTION_SIGNING=false" >> "$GITHUB_ENV"
             exit 0
           fi
           if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEYSTORE_ALIAS" ]; then
@@ -661,12 +667,28 @@ jobs:
             exit 1
           fi
           echo "✅ Keystore décodé et validé (alias $KEYSTORE_ALIAS)."
+
+          # Empreinte du certificat de production. Elle doit rester IDENTIQUE
+          # d'une version à l'autre : Android refuse la mise à jour d'une
+          # application dont la signature a changé. Elle est donc vérifiée sur
+          # l'APK produit, puis affichée dans le résumé du run.
+          CERT_SHA256=$(keytool -list -v -keystore "$KEYSTORE_FILE" \
+            -storepass "$KEYSTORE_PASSWORD" -alias "$KEYSTORE_ALIAS" \
+            | sed -nE 's/.*SHA-?256: //p' | head -1 | tr -d ' \r')
+          if [ -z "$CERT_SHA256" ]; then
+            echo "❌ Impossible de lire l'empreinte SHA-256 du certificat du keystore."
+            exit 1
+          fi
+          echo "🔐 Certificat de production : SHA-256 $CERT_SHA256"
+
           # Variables lues par android/app/build.gradle — rien n'est écrit dans le dépôt.
           {
             echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_FILE"
             echo "ANDROID_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
             echo "ANDROID_KEY_ALIAS=$KEYSTORE_ALIAS"
             echo "ANDROID_KEY_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "EXPECTED_CERT_SHA256=$CERT_SHA256"
+            echo "PRODUCTION_SIGNING=true"
           } >> "$GITHUB_ENV"
           echo "✅ Signature Release configurée (keystore externe, rien dans le dépôt)."
 
@@ -755,24 +777,132 @@ jobs:
       - name: Build — APK release
         run: bash scripts/ci-gradle.sh :app:assembleRelease release
 
-      - name: Préparer l'APK release
+      # ══════════════════════════════════════════════════════════════════════
+      # CONTRÔLES BLOQUANTS DE L'APK (aucune publication si un contrôle échoue)
+      #
+      # L'ancienne version faisait `apksigner verify … | head -6` : le code de
+      # sortie d'apksigner était PERDU (celui de `head` valait 0), et un APK
+      # mal signé pouvait donc être publié. Ici :
+      #   · un seul APK produit (universel — pas de split ABI ambigu) ;
+      #   · refus d'un fichier « *-unsigned.apk » (Gradle sans signingConfig) ;
+      #   · alignement vérifié (zipalign -c -p 4) ;
+      #   · signature vérifiée avec capture du code retour (v1 ET v2 exigés) ;
+      #   · empreinte du certificat comparée au keystore de production.
+      # ══════════════════════════════════════════════════════════════════════
+      - name: Préparer et valider l'APK release (apksigner + zipalign)
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p /tmp/dist
-          RELEASE_APK=""
-          if [ -d android/app/build/outputs/apk/release ]; then
-            RELEASE_APK=$(find android/app/build/outputs/apk/release -type f -name "*.apk" | head -1)
-          fi
-          if [ -z "$RELEASE_APK" ]; then
-            echo "❌ Aucun APK trouvé dans android/app/build/outputs/apk/release/"
+          OUT="android/app/build/outputs/apk/release"
+          if [ ! -d "$OUT" ]; then
+            echo "❌ $OUT est absent : Gradle n'a produit aucun APK release."
             exit 1
           fi
+          mapfile -t APKS < <(find "$OUT" -maxdepth 1 -type f -name "*.apk" | sort)
+          if [ "${#APKS[@]}" -eq 0 ]; then
+            echo "❌ Aucun APK dans $OUT."
+            exit 1
+          fi
+          if [ "${#APKS[@]}" -gt 1 ]; then
+            echo "❌ Plusieurs APK release produits (splits ABI ?) :"
+            printf '   %s\n' "${APKS[@]}"
+            echo "   Un APK UNIVERSEL est requis pour l'installation directe."
+            exit 1
+          fi
+          RELEASE_APK="${APKS[0]}"
+          case "$RELEASE_APK" in
+            *-unsigned.apk)
+              echo "❌ L'APK produit est NON SIGNÉ ($RELEASE_APK) : signingConfig absent."
+              exit 1
+              ;;
+          esac
           cp "$RELEASE_APK" /tmp/dist/Batibuild-release.apk
-          ls -lh /tmp/dist/Batibuild-release.apk
-          APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
-          "$APKSIGNER" verify --print-certs "$RELEASE_APK" | head -6
+          ls -l /tmp/dist/Batibuild-release.apk
 
-      - name: Vérifier l'APK release (taille, ZIP, entrées, signature)
-        run: node scripts/verify-artifact.mjs /tmp/dist/Batibuild-release.apk
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          APKSIGNER="$BUILD_TOOLS/apksigner"
+          ZIPALIGN="$BUILD_TOOLS/zipalign"
+
+          # 1) Alignement : obligatoire avec extractNativeLibs=false.
+          if ! "$ZIPALIGN" -c -p 4 /tmp/dist/Batibuild-release.apk; then
+            echo "❌ APK mal aligné (zipalign -c -p 4) : Android peut refuser l'installation."
+            exit 1
+          fi
+          echo "✅ Alignement 4 Ko vérifié (zipalign)."
+
+          # 2) Signature : le code retour est CAPTURÉ (aucun pipe ne le masque).
+          if ! "$APKSIGNER" verify --verbose --print-certs /tmp/dist/Batibuild-release.apk > /tmp/apksigner.txt 2>&1; then
+            echo "❌ apksigner verify a échoué :"
+            cat /tmp/apksigner.txt
+            exit 1
+          fi
+          cat /tmp/apksigner.txt
+          grep -q "Verified using v1 scheme (JAR signing): true" /tmp/apksigner.txt || {
+            echo "❌ Signature v1 (JAR) absente : certains installateurs refusent alors l'APK."
+            exit 1
+          }
+          grep -q "Verified using v2 scheme (APK Signature Scheme v2): true" /tmp/apksigner.txt || {
+            echo "❌ Signature v2 absente : Android 7+ refuserait l'installation."
+            exit 1
+          }
+          echo "✅ Signatures v1 + v2 vérifiées par apksigner."
+
+          # 3) Le certificat doit être celui du keystore de production (si fourni).
+          if [ -n "${EXPECTED_CERT_SHA256:-}" ]; then
+            if ! grep -qi "certificate SHA-256 digest: ${EXPECTED_CERT_SHA256}" /tmp/apksigner.txt; then
+              echo "❌ Le certificat de l'APK ne correspond pas au keystore de production."
+              grep -i "certificate" /tmp/apksigner.txt || true
+              exit 1
+            fi
+            echo "✅ Certificat conforme au keystore de production."
+          fi
+
+      - name: Vérifier l'APK release (manifeste, signature, intégrité, ABI)
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUNDLE=$(node -p "require('./app.json').expo.android.package")
+          CODE=$(node -p "require('./app.json').expo.android.versionCode")
+          ARGS=(
+            /tmp/dist/Batibuild-release.apk
+            --expect-package "$BUNDLE"
+            --expect-version-code "$CODE"
+            --require-schemes v1,v2
+          )
+          if [ -n "${EXPECTED_CERT_SHA256:-}" ]; then
+            ARGS+=(--expect-cert-sha256 "$EXPECTED_CERT_SHA256" --require-release-cert)
+          fi
+          node scripts/verify-artifact.mjs "${ARGS[@]}"
+
+      # Contrôle INDÉPENDANT du manifeste : aapt2 relit l'APK avec l'outil
+      # officiel du SDK Android (aucun code du projet n'intervient).
+      - name: Contrôle indépendant du manifeste (aapt2 badging)
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT2="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt2"
+          "$AAPT2" dump badging /tmp/dist/Batibuild-release.apk > /tmp/badging.txt
+          BUNDLE=$(node -p "require('./app.json').expo.android.package")
+          CODE=$(node -p "require('./app.json').expo.android.versionCode")
+          grep -E "^(package|sdkVersion|targetSdkVersion|native-code)" /tmp/badging.txt | head -6
+          grep -q "^package: name='${BUNDLE}'" /tmp/badging.txt || {
+            echo "❌ applicationId inattendu dans l'APK :"
+            grep '^package:' /tmp/badging.txt || true
+            exit 1
+          }
+          grep -q "versionCode='${CODE}'" /tmp/badging.txt || {
+            echo "❌ versionCode inattendu dans l'APK (attendu ${CODE})."
+            exit 1
+          }
+          grep -q "^sdkVersion:" /tmp/badging.txt || { echo "❌ minSdkVersion absent du manifeste."; exit 1; }
+          grep -q "^targetSdkVersion:" /tmp/badging.txt || { echo "❌ targetSdkVersion absent du manifeste."; exit 1; }
+          if ! grep -q "^native-code:.*arm64-v8a\|^native-code:.*armeabi-v7a" /tmp/badging.txt; then
+            echo "❌ Aucune ABI ARM dans l'APK :"
+            grep '^native-code' /tmp/badging.txt || echo "   (aucune bibliothèque native)"
+            exit 1
+          fi
+          echo "✅ Manifeste, applicationId, versionCode, SDK et ABI validés par aapt2."
 
       # (Pas d'upload ici : publication groupée en fin de job.)
 
@@ -904,6 +1034,40 @@ jobs:
           RELEASE_CODE: ${{ steps.dist.outputs.code }}
           RELEASE_PRERELEASE: ${{ steps.dist.outputs.prerelease }}
         run: bash scripts/publish-release.sh
+
+      # ══════════════════════════════════════════════════════════════════════
+      # VÉRIFICATION DU FICHIER RÉELLEMENT TÉLÉCHARGEABLE
+      #
+      # Un APK validé sur le runner ne sert à rien si l'asset publié diffère.
+      # On RETÉLÉCHARGE l'APK depuis la Release et on exige :
+      #   · un SHA-256 identique à l'artefact vérifié ;
+      #   · la même vérification complète (manifeste, signature, ABI).
+      # C'est ce fichier-là que l'utilisateur installe.
+      # ══════════════════════════════════════════════════════════════════════
+      - name: Vérifier l'APK publié (retéléchargement + SHA-256 + signature)
+        if: ${{ always() && steps.release.outcome == 'success' && steps.release.outputs.apk_url != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.dist.outputs.tag }}
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/published && mkdir -p /tmp/published
+          gh release download "$RELEASE_TAG" \
+            --pattern Batibuild-release.apk --dir /tmp/published --clobber
+          LOCAL=$(sha256sum /tmp/dist/Batibuild-release.apk | cut -d' ' -f1)
+          REMOTE=$(sha256sum /tmp/published/Batibuild-release.apk | cut -d' ' -f1)
+          echo "Local  : $(stat -c%s /tmp/dist/Batibuild-release.apk) octets — $LOCAL"
+          echo "Publié : $(stat -c%s /tmp/published/Batibuild-release.apk) octets — $REMOTE"
+          if [ "$LOCAL" != "$REMOTE" ]; then
+            echo "❌ Le fichier publié DIFFÈRE de l'artefact vérifié (corruption au téléversement)."
+            exit 1
+          fi
+          PACKAGE=$(node -p "require('./app.json').expo.android.package")
+          CODE=$(node -p "require('./app.json').expo.android.versionCode")
+          node scripts/verify-artifact.mjs /tmp/published/Batibuild-release.apk \
+            --expect-package "$PACKAGE" --expect-version-code "$CODE"
+          echo "✅ L'APK téléchargé depuis la Release est identique à l'artefact validé."
 
       # ══════════════════════════════════════════════════════════════════════
       # GARDE-FOU FINAL — UNE COPIE DURABLE DOIT EXISTER RÉELLEMENT
@@ -1104,6 +1268,22 @@ jobs:
           done
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "ABI compilées : \`$ARCHITECTURES\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f /tmp/apksigner.txt ]; then
+            CERT_SUBJECT=$(grep -m1 "certificate DN:" /tmp/apksigner.txt | sed 's/^ *//' || true)
+            CERT_SHA=$(grep -m1 "certificate SHA-256 digest:" /tmp/apksigner.txt | sed 's/^ *//' || true)
+            if [ -n "$CERT_SUBJECT" ]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "**Signature** : \`${CERT_SUBJECT}\`" >> "$GITHUB_STEP_SUMMARY"
+              [ -n "$CERT_SHA" ] && echo "**Empreinte** : \`${CERT_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+          if [ "${PRODUCTION_SIGNING:-false}" = "true" ]; then
+            echo "**Keystore** : ✅ keystore de production (secrets) — mises à jour Android compatibles." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**Keystore** : ⚠️ aucun keystore de production — APK signé avec la clé **debug** (installation sur téléphone vierge uniquement)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> Si Android répond « le package semble ne pas être valide », une version de batibuild signée avec une AUTRE clé est déjà installée : désinstaller l'ancienne application, puis réinstaller cet APK." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.durable.outputs.durable }}" = "true" ]; then
             echo "**Copie durable** : ✅ vérifiée (les deux fichiers sont réellement stockés)." >> "$GITHUB_STEP_SUMMARY"

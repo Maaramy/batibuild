@@ -157,7 +157,8 @@ mobile/
     ├── install-android.mjs        # adb install du dernier APK
     ├── generate-keystore.mjs      # Keystore Release local
     ├── ensure-debug-keystore.mjs  # Recrée la clé debug Android si elle manque
-    └── apply-signing.mjs          # Réapplique la signature Release après un prebuild
+    ├── apply-signing.mjs          # Réapplique la signature Release (v1 + v2) après un prebuild
+    └── verify-artifact.mjs        # Vérifie un APK/AAB : ZIP, manifeste, signature v2, alignement
 ```
 
 ## 2. Fonctionnalités
@@ -256,9 +257,21 @@ régénèrent automatiquement (`npm run keystore:debug` pour le faire à la main
 **Signature Release** : l'APK/AAB release est signé avec votre clé Release si
 `android/keystore.properties` existe (ou via les variables
 `ANDROID_KEYSTORE_PATH` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS`) ;
-sinon il est signé avec la clé debug (installable pour tester, mais refusé par
-Google Play). Créez votre keystore local avec `npm run keystore:generate`
+sinon il est signé avec la clé debug (installable sur un téléphone vierge, mais
+refusé par Google Play). Créez votre keystore local avec `npm run keystore:generate`
 (voir [`../MOBILE_BUILD.md`](../MOBILE_BUILD.md) §11).
+
+L'APK release porte **v1 + v2** (`enableV1Signing`/`enableV2Signing` dans
+`android/app/build.gradle`) : c'est la combinaison la plus largement acceptée
+par les installateurs Android. Après chaque build, `npm run android:verify`
+recalcule le digest signé et vérifie le certificat — un APK non signé, modifié
+après signature ou mal aligné est refusé.
+
+> **« L'application n'a pas été installée, car le package semble ne pas être
+> valide »** : une version de batibuild signée avec une **autre clé** est déjà
+> installée. Désinstallez l'ancienne application puis réinstallez l'APK (les
+> projets et le compte sont sur Convex, rien n'est perdu côté serveur). Voir
+> [`../MOBILE_BUILD.md`](../MOBILE_BUILD.md) §11bis.
 
 > Après une modification d'`app.json` : `npm run android:prebuild`
 > puis `npm run signing:apply` (le prebuild écrase `build.gradle`).
