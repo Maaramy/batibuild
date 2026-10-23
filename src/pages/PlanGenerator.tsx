@@ -76,6 +76,10 @@ import {
   resolvePlanPagePhase,
   resolvePlanPageView,
 } from "@/lib/planPageState";
+import {
+  markPlansIntroPlayed,
+  shouldPlayPlansIntro,
+} from "@/lib/planGenerationIntro";
 
 /**
  * Six étapes du parcours de préparation des plans : même nombre d'étapes que
@@ -107,20 +111,36 @@ export default function PlanGenerator() {
   const hasProjectId = projectId.length > 0;
 
   // ── Écran de chargement partagé avec « Coût estimatif de construction » ──
+  // Il n'est joué QU'UNE fois par projet : à la toute première génération de
+  // ses plans. Les visites suivantes (retour sur la page, actualisation,
+  // navigation entre les étapes, régénération) affichent directement les
+  // plans, avec un simple indicateur discret le temps des requêtes.
+  const introWanted = hasProjectId && shouldPlayPlansIntro(projectId);
+  // `showIntro` ne bouge plus pendant la génération en cours : passer d'un
+  // projet jamais généré à un autre est traité dans l'effet ci-dessous.
+  const [showIntro, setShowIntro] = useState(introWanted);
   // Durée initiale identique (4 000 ms) ; les requêtes Convex sont lancées
   // IMMÉDIATEMENT, en parallèle de l'animation. L'animation ne retarde ni
   // n'interrompt jamais le chargement des données.
-  const [introDone, setIntroDone] = useState(false);
+  const [introDone, setIntroDone] = useState(!introWanted);
   // `true` uniquement lorsque l'animation est terminée ET que les données
   // requises sont disponibles : la page des plans n'apparaît jamais avant.
-  const [revealed, setRevealed] = useState(false);
+  // Sans animation (générations suivantes), elle est disponible aussitôt.
+  const [revealed, setRevealed] = useState(!introWanted);
 
   useEffect(() => {
-    // Nouveau projet (navigation d'un projet à l'autre sans démontage de la
-    // page) : on repart de l'animation complète, jamais d'un écran à moitié
-    // chargé ni des données du projet précédent.
-    setIntroDone(false);
-    setRevealed(false);
+    // Décision par projet : première génération (animation complète) ou
+    // génération déjà annoncée (affichage direct des plans).
+    const intro = hasProjectId && shouldPlayPlansIntro(projectId);
+    setShowIntro(intro);
+    setIntroDone(!intro);
+    setRevealed(!intro);
+    if (!intro) return;
+
+    // Marquée dès le démarrage : une actualisation pendant l'animation ne la
+    // rejoue pas. Le projet garde ainsi une seule animation de génération.
+    markPlansIntroPlayed(projectId);
+
     // Borné à la durée exacte de l'animation : le message « Projet
     // introuvable » ne peut donc jamais s'afficher pendant le chargement.
     const timer = window.setTimeout(
@@ -128,7 +148,7 @@ export default function PlanGenerator() {
       ESTIMATE_LOADING_DURATION_MS,
     );
     return () => window.clearTimeout(timer);
-  }, [projectId]);
+  }, [projectId, hasProjectId]);
 
   const handleLoaderComplete = useCallback(() => setRevealed(true), []);
 
@@ -333,24 +353,30 @@ export default function PlanGenerator() {
           toute la largeur disponible (jusqu'à 1600 px) au lieu d'être bridé à
           1280 px, pour un dessin nettement plus grand sur ordinateur. */}
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 mt-5 space-y-5">
-        {/* ── Chargement harmonisé avec « Coût estimatif de construction » ── */}
+        {/* ── Chargement : animation complète uniquement à la toute première
+            génération des plans du projet (design partagé avec « Coût
+            estimatif de construction ») ; simple indicateur discret ensuite. ── */}
         {view === "loading" ? (
-          <EstimateLoadingScreen
-            // Un projet différent repart d'une animation complète, comme à
-            // l'ouverture directe de la page.
-            key={projectId}
-            projectName={project?.name}
-            pending={!dataReady}
-            onComplete={handleLoaderComplete}
-            durationMs={ESTIMATE_LOADING_DURATION_MS}
-            steps={LOADING_STEPS}
-            title="BatiBuild prépare vos plans architecturaux"
-            description="Type de projet, région, surface réelle, niveaux et travaux complémentaires — les variantes 2D / 3D se préparent."
-            progressLabel="Progression de la préparation des plans"
-            readyLabel="Plans prêts, affichage…"
-            waitingLabel="Récupération des données du projet…"
-            waitingDetail="Chargement du projet et de ses travaux complémentaires…"
-          />
+          showIntro ? (
+            <EstimateLoadingScreen
+              // Un projet différent repart de son animation de première
+              // génération — jamais de données du projet précédent.
+              key={projectId}
+              projectName={project?.name}
+              pending={!dataReady}
+              onComplete={handleLoaderComplete}
+              durationMs={ESTIMATE_LOADING_DURATION_MS}
+              steps={LOADING_STEPS}
+              title="BatiBuild prépare vos plans architecturaux"
+              description="Type de projet, région, surface réelle, niveaux et travaux complémentaires — les variantes 2D / 3D se préparent."
+              progressLabel="Progression de la préparation des plans"
+              readyLabel="Plans prêts, affichage…"
+              waitingLabel="Récupération des données du projet…"
+              waitingDetail="Chargement du projet et de ses travaux complémentaires…"
+            />
+          ) : (
+            <PlansLoadingIndicator />
+          )
         ) : view === "not-found" ? (
           /* ── Projet introuvable (réponse serveur confirmée, après l'animation) ── */
           <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -470,6 +496,28 @@ export default function PlanGenerator() {
 }
 
 // ── Sous-composants ─────────────────────────────────────────────────────────
+
+/**
+ * Indicateur de traitement discret, affiché uniquement lorsque les plans d'un
+ * projet ont déjà été générés au moins une fois : la grande animation de
+ * génération n'est plus rejouée, seules les données en cours de récupération
+ * sont signalées.
+ */
+function PlansLoadingIndicator() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex flex-col items-center justify-center gap-2 rounded-xl border border-border/40 bg-background/50 px-4 py-16 text-center"
+    >
+      <Loader2 className="h-5 w-5 animate-spin text-cyan-600 dark:text-cyan-400" />
+      <p className="text-xs font-medium">Chargement des plans…</p>
+      <p className="text-[10px] text-muted-foreground">
+        Récupération du projet et des travaux complémentaires.
+      </p>
+    </div>
+  );
+}
 
 function VariantCard({
   variant,
