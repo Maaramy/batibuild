@@ -777,18 +777,15 @@ export default function ProjectGuide() {
                     <Layers className="h-4 w-4 text-emerald-600" /> Matériaux prévus — issus de l'estimation
                   </CardTitle>
                   <CardDescription className="text-[10px]">
-                    Quantités réellement chiffrées dans le devis du projet ({roadmap.materials.length} référence(s)).
+                    Références chiffrées dans le devis du projet ({roadmap.materials.length} matériau(x)).
                     Les états commandé / livré / utilisé sont saisis dans le suivi des matériaux du projet.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="max-h-64 overflow-y-auto p-3 sm:p-4 pt-0">
                   <div className="grid gap-1 sm:grid-cols-2">
                     {roadmap.materials.map((m) => (
-                      <div key={`${m.name}-${m.unit}`} className="flex items-center justify-between gap-2 rounded-md border border-border/30 bg-muted/10 px-2 py-1.5">
-                        <span className="line-clamp-2 min-w-0 text-[11px] leading-snug" title={`${m.name} — ${m.category}`}>{m.name}</span>
-                        <span className="shrink-0 text-[10px] font-semibold tabular-nums text-muted-foreground">
-                          {m.quantity} {m.unit}
-                        </span>
+                      <div key={`${m.name}-${m.unit}`} className="rounded-md border border-border/30 bg-muted/10 px-2 py-1.5">
+                        <span className="line-clamp-2 block min-w-0 text-[11px] leading-snug" title={`${m.name} — ${m.category}`}>{m.name}</span>
                       </div>
                     ))}
                   </div>
