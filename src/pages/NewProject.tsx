@@ -8,7 +8,6 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
-import { buildEstimateLoadingSummary } from "@/lib/estimateLoadingSummary";
 import { costEstimateLoadingSteps } from "@/lib/projectJourney";
 import {
   ESTIMATE_ANALYSIS_TIMEOUT_MS,
@@ -528,9 +527,6 @@ function ProjectSummary({
 
 // ─── PAGE COMPONENT ─────────────────────────────────────────────────────────
 
-/** Résumé neutre hors analyse : tous les emplacements restent en attente. */
-const EMPTY_LOADING_SUMMARY = buildEstimateLoadingSummary({ project: null });
-
 export default function NewProject() {
   const navigate = useNavigate();
   const [step, setStep] = useState<StepKey>("method");
@@ -607,39 +603,6 @@ export default function NewProject() {
   const resultsReady = isEstimateProjectReady(analysisProject);
   const resultsReadyRef = useRef(resultsReady);
   resultsReadyRef.current = resultsReady;
-
-  // Résumé RÉEL de l'écran de chargement : informations du projet saisies,
-  // complétées par le document enregistré dès qu'il existe. Les montants ne
-  // sont renseignés que lorsqu'ils sont réellement calculés. Le résumé n'est
-  // construit que pendant l'analyse (aucun calcul inutile sur les étapes de
-  // saisie).
-  const loadingSummary = useMemo(
-    () =>
-      step === "analyzing"
-        ? buildEstimateLoadingSummary({
-            project:
-              (analysisProject as any) ?? {
-                name: analysisProjectName || projectName,
-                category: selectedCategory,
-                region,
-                surface,
-                floors,
-                levelSurfaces,
-              },
-          })
-        : EMPTY_LOADING_SUMMARY,
-    [
-      step,
-      analysisProject,
-      analysisProjectName,
-      projectName,
-      selectedCategory,
-      region,
-      surface,
-      floors,
-      levelSurfaces,
-    ],
-  );
 
   // Garde-fou anti-blocage : si les résultats réels ne sont toujours pas
   // observables après le délai, l'attente s'arrête et une erreur actionnable
@@ -1330,8 +1293,7 @@ export default function NewProject() {
             transition={{ duration: 0.25 }}
           >
             <EstimateLoadingScreen
-              projectName={loadingSummary.projectName ?? analysisProjectName}
-              summary={loadingSummary}
+              projectName={analysisProjectName}
               pending={!resultsReady}
               error={analysisError}
               onRetry={handleRetryAnalysis}

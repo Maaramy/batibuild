@@ -1478,11 +1478,8 @@ function clearDoorLanes(room: PlanRoom, prims: Prim[]): Prim[] {
       .map((other) =>
         other.t === "r"
           ? { x: other.x, y: other.y, w: other.w, h: other.h }
-          : other.t === "c"
-            ? { x: other.x - other.r, y: other.y - other.r, w: other.r * 2, h: other.r * 2 }
-            : null,
-      )
-      .filter((box): box is Box => box !== null);
+          : { x: other.x - other.r, y: other.y - other.r, w: other.r * 2, h: other.r * 2 },
+      );
     if (lanes.every((lane) => overlap(box, lane) === 0)) {
       out.push(prim);
       continue;

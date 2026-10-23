@@ -246,14 +246,12 @@ describe("plans générés — circulation garantie", () => {
               const prims = roomFurniture(room, floor);
               const solids = prims.filter(
                 (p) =>
-                  p.t !== "l" &&
                   !(p.t === "r" && (p.dash || p.noFill)) &&
                   (p.t === "c" ? p.r >= 0.15 : p.w >= 0.12 && p.h >= 0.12),
               );
               for (const door of room.doors) {
                 const lane = doorLane(room, door);
                 for (const prim of solids) {
-                  if (prim.t === "l") continue;
                   const box =
                     prim.t === "r"
                       ? { x: prim.x, y: prim.y, w: prim.w, h: prim.h }

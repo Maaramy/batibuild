@@ -4,14 +4,11 @@ import {
   AlertTriangle,
   Boxes,
   BrainCircuit,
-  Building2,
   Calculator,
   Check,
   Coins,
   HardHat,
-  Layers,
   Loader2,
-  MapPin,
   RotateCcw,
   Ruler,
   Sparkles,
@@ -23,8 +20,6 @@ import type { LucideIcon } from "lucide-react";
 import { LogoMark } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { formatTndAmount } from "@/lib/budgetEngine";
-import type { EstimateLoadingSummary } from "@/lib/estimateLoadingSummary";
 import { cn } from "@/lib/utils";
 import {
   ESTIMATE_INTRO_MS,
@@ -32,7 +27,6 @@ import {
   estimateIntroElapsed,
   estimateIntroState,
   isEstimateResultReady,
-  loadingLevelsLabel,
   resolveEstimateFlowPhase,
   type EstimateIntroState,
 } from "@/lib/estimateLoaderTiming";
@@ -45,12 +39,6 @@ import {
  * logo officiel BatiBuild et les étapes du parcours Journey du projet (5 pour
  * les groupes A et D, 2 pour les groupes B et C), puis rend la main dès que
  * l'animation ET le calcul sont terminés.
- *
- * Quand le parent fournit `summary`, les étapes génériques du parcours sont
- * remplacées — dans le MÊME design — par les résultats réels du coût estimatif
- * (projet, scénario, budget TTC, coût au m², répartition et progression du
- * calcul). Une valeur pas encore calculée garde son emplacement avec un
- * indicateur discret : aucun montant n'est inventé.
  *
  * Aucune donnée n'est inventée : si le calcul dépasse 4 s, l'animation se
  * termine à 4 s et un indicateur d'attente discret reste affiché jusqu'à la
@@ -109,7 +97,6 @@ export function EstimateLoadingScreen({
   readyLabel = "Estimation prête, affichage des résultats…",
   waitingLabel = "Calculs en cours — attente des données réelles…",
   waitingDetail = "Finalisation des calculs réels…",
-  summary,
   startedAt,
   className,
 }: {
@@ -139,14 +126,6 @@ export function EstimateLoadingScreen({
   waitingLabel?: string;
   /** Détail affiché sous l'indicateur d'attente discrète. */
   waitingDetail?: string;
-  /**
-   * Résultats RÉELS du coût estimatif, affichés à la place des étapes
-   * génériques du parcours : informations du projet, scénario, budget TTC,
-   * coût au m² et répartition des coûts. Les valeurs encore indisponibles
-   * gardent leur emplacement avec un indicateur de chargement discret.
-   * `undefined` conserve exactement l'écran d'origine (parcours du projet).
-   */
-  summary?: EstimateLoadingSummary;
   /**
    * Horodatage (`performance.now()`) du début réel du chargement. Permet de
    * reprendre l'animation déjà commencée par l'écran parent au lieu de
@@ -293,9 +272,9 @@ export function EstimateLoadingScreen({
               reduceMotion
                 ? undefined
                 : { opacity: [0.45, 0.9, 0.45], scale: [0.95, 1.08, 0.95] }
-            }              transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
-            />
-
+            }
+            transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+          />
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, scale: 0.85, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -342,13 +321,9 @@ export function EstimateLoadingScreen({
             <span className="truncate">
               {phase === "error"
                 ? "Chargement interrompu"
-                : summary
-                  ? phase === "complete"
-                    ? "Calcul terminé"
-                    : "Calcul du coût estimatif"
-                  : phase === "loading"
-                    ? `Étape ${intro.activeIndex + 1} sur ${stepCount}`
-                    : "Parcours prêt"}
+                : phase === "loading"
+                  ? `Étape ${intro.activeIndex + 1} sur ${stepCount}`
+                  : "Parcours prêt"}
             </span>
             <span className="shrink-0 tabular-nums text-emerald-700 dark:text-emerald-400">
               {intro.progress} %
@@ -398,10 +373,7 @@ export function EstimateLoadingScreen({
                   ? readyLabel
                   : phase === "waiting"
                     ? waitingLabel
-                    : summary
-                      ? summary.steps.find((s) => !s.done)?.label ??
-                        "Vérification des résultats…"
-                      : stepLabels[intro.activeIndex]}
+                    : stepLabels[intro.activeIndex]}
               </p>
               {phase === "waiting" && (
                 <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
@@ -413,13 +385,6 @@ export function EstimateLoadingScreen({
           )}
         </div>
 
-        {summary ? (
-          <EstimateSummaryPanel
-            summary={summary}
-            reduceMotion={Boolean(reduceMotion)}
-          />
-        ) : (
-          <>
         {/* ── Parcours horizontal (tablette / ordinateur) ── */}
         <div className="mt-7 hidden w-full md:block">
           <div className="relative">
@@ -505,198 +470,8 @@ export function EstimateLoadingScreen({
             );
           })}
         </ol>
-          </>
-        )}
       </div>
     </div>
-  );
-}
-
-/**
- * Résultats réels du coût estimatif dans le design du chargement : mêmes
- * cartes, mêmes bordures, mêmes arrondis, mêmes tailles de texte. Chaque
- * valeur absente laisse un emplacement vide animé (aucune donnée inventée).
- */
-function EstimateSummaryPanel({
-  summary,
-  reduceMotion,
-}: {
-  summary: EstimateLoadingSummary;
-  reduceMotion: boolean;
-}) {
-  const levels = loadingLevelsLabel(summary.floors);
-
-  const tiles = [
-    { icon: Building2, label: "Type", value: summary.projectType },
-    { icon: MapPin, label: "Région", value: summary.region },
-    {
-      icon: Ruler,
-      label: "Surface couverte",
-      value: summary.builtSurface != null ? `${summary.builtSurface} m²` : null,
-    },
-    { icon: Layers, label: "Niveaux", value: levels },
-  ];
-
-  // Catégories attendues tant que la répartition réelle n'est pas disponible :
-  // les mêmes que la page finale (études, gros œuvre, second œuvre, extérieurs).
-  const pendingRows = [
-    "Frais préliminaires et études",
-    "Gros œuvre",
-    "Second œuvre et finitions",
-    "Aménagements extérieurs",
-  ];
-
-  return (
-    <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: reduceMotion ? 0 : 0.35, ease: "easeOut" }}
-      className="mt-7 w-full text-left"
-    >
-      {/* ── Informations réelles du projet ── */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {tiles.map((tile) => (
-          <div
-            key={tile.label}
-            className="flex min-w-0 items-center gap-2.5 rounded-xl border border-border/40 bg-background/60 p-2.5"
-          >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <tile.icon className="h-3.5 w-3.5" />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-[9px] uppercase tracking-wide text-muted-foreground">
-                {tile.label}
-              </span>
-              <span className="block truncate text-[11.5px] font-semibold" title={tile.value ?? undefined}>
-                {tile.value ?? <PendingValue />}
-              </span>
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Scénario sélectionné + budget total réel ── */}
-      <div className="mt-2.5 rounded-xl border border-emerald-500/20 bg-background/60 p-3.5 sm:p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
-              Scénario sélectionné
-            </p>
-            <span className="mt-1 inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10.5px] font-semibold text-emerald-700 dark:text-emerald-300">
-              {summary.scenario ?? <PendingValue />}
-            </span>
-          </div>
-          <div className="min-w-0 text-right">
-            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
-              Budget total estimé
-            </p>
-            <p className="mt-0.5 text-xl font-bold leading-tight tabular-nums sm:text-2xl">
-              {summary.total != null ? formatTndAmount(summary.total) : <PendingValue wide />}
-            </p>
-            <p className="mt-0.5 min-h-4 text-[10.5px] text-muted-foreground">
-              {summary.costPerM2 != null ? (
-                <>
-                  <span className="font-semibold text-foreground tabular-nums">
-                    {formatTndAmount(summary.costPerM2)}
-                  </span>
-                  /m²
-                </>
-              ) : (
-                <PendingValue />
-              )}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Répartition réelle des coûts ── */}
-      <div className="mt-2.5 rounded-xl border border-border/50 bg-background/40 p-3.5">
-        <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-          Répartition des coûts
-        </p>
-        <div className="space-y-1.5">
-          {summary.breakdown.length > 0
-            ? summary.breakdown.map((row) => (
-                <div key={`${row.category ?? row.label}`} className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-[11px] font-medium" title={row.label}>
-                    {row.label}
-                  </span>
-                  <span className="hidden h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-muted/40 sm:block">
-                    <span
-                      className="block h-full rounded-full bg-emerald-500/70"
-                      style={{ width: `${Math.min(100, Math.max(0, row.percentage))}%` }}
-                    />
-                  </span>
-                  <span className="w-[94px] shrink-0 whitespace-nowrap text-right text-[11px] font-semibold tabular-nums sm:w-[112px]">
-                    {formatTndAmount(row.amount)}
-                  </span>
-                  <span className="w-9 shrink-0 text-right text-[9.5px] tabular-nums text-muted-foreground">
-                    {row.percentage}%
-                  </span>
-                </div>
-              ))
-            : pendingRows.map((label) => (
-                <div key={label} className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-muted-foreground">
-                    {label}
-                  </span>
-                  <span className="hidden h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-muted/30 sm:block" />
-                  <span className="w-[94px] shrink-0 text-right sm:w-[112px]">
-                    <PendingValue />
-                  </span>
-                  <span className="w-9 shrink-0" />
-                </div>
-              ))}
-        </div>
-      </div>
-
-      {/* ── Progression réelle du calcul (4 opérations) ── */}
-      <ul className="mt-2.5 grid gap-1.5 sm:grid-cols-2" aria-live="polite">
-        {summary.steps.map((step) => (
-          <li
-            key={step.key}
-            className={cn(
-              "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-colors duration-300",
-              step.done
-                ? "border-emerald-500/20 bg-background/60"
-                : "border-border/40 bg-background/40",
-            )}
-          >
-            {step.done ? (
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
-                <Check className="h-2.5 w-2.5" strokeWidth={3} />
-              </span>
-            ) : (
-              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-emerald-600 dark:text-emerald-400" />
-            )}
-            <span className="min-w-0 flex-1 truncate text-[10.5px] font-medium">
-              {step.label}
-            </span>
-            <span
-              className={cn(
-                "shrink-0 text-[9px] font-semibold uppercase tracking-wide",
-                step.done ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/70",
-              )}
-            >
-              {step.done ? "Calculé" : "En cours"}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </motion.div>
-  );
-}
-
-/** Emplacement d'une valeur pas encore calculée (indicateur discret). */
-function PendingValue({ wide = false }: { wide?: boolean }) {
-  return (
-    <span
-      aria-label="Calcul en cours"
-      className={cn(
-        "inline-block h-3 animate-pulse rounded bg-muted/70 align-middle",
-        wide ? "w-20" : "w-12",
-      )}
-    />
   );
 }
 

@@ -28,7 +28,6 @@ import {
   resolveEstimateResultsPhase,
   shouldShowAnimatedEstimateLoader,
 } from "@/lib/estimateLoaderTiming";
-import { buildEstimateLoadingSummary } from "@/lib/estimateLoadingSummary";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { useScreenshotProtection, injectScreenshotProtectionStyles } from "@/hooks/use-screenshot-protection";
 import { usePdfGate } from "@/hooks/use-pdf-gate";
@@ -408,14 +407,9 @@ export default function ProjectDetail() {
   // ── Personnalisation du « Quantitatif détaillé » ──
   // Scénario « Personnalisé » stocké séparément : les scénarios Économique,
   // Standard et Premium d'origine ne sont jamais écrasés.
-  // Ces deux sources sont aussi nécessaires à l'écran de chargement (résumé
-  // réellement affiché) : elles sont donc lues dès que l'identifiant de l'URL
-  // est valide, sans attendre le document projet. Serveur identique, mêmes
-  // données, aucune duplication de calcul.
-  const earlyProjectId = project?._id ?? (hasProjectId ? (id as any) : null);
   const customization = useQuery(
     api.quantitatifCustom.getCustomization,
-    earlyProjectId ? { projectId: earlyProjectId } : "skip",
+    project?._id ? { projectId: project._id } : "skip",
   );
   // ── Travaux complémentaires ──
   // UNE seule source de vérité (enregistrée côté serveur) : la même sélection
@@ -423,7 +417,7 @@ export default function ProjectDetail() {
   // total ET le module « Plans architecturaux AI ».
   const customWorksData = useQuery(
     api.customWorks.getProjectCustomWorks,
-    earlyProjectId ? { projectId: earlyProjectId } : "skip",
+    project?._id ? { projectId: project._id } : "skip",
   );
   const setProjectCustomWorks = useMutation(api.customWorks.setProjectCustomWorks);
 
@@ -1055,37 +1049,6 @@ export default function ProjectDetail() {
     [quantitatifLots, scaledBreakdown, isPersonalizedScenario, complementaryWorks],
   );
 
-  // ── Résumé RÉEL affiché pendant le chargement des résultats ────────────
-  // Tant que le document projet n'est pas arrivé, l'écran de chargement
-  // reprend les données déjà lues par la liste des projets (même document
-  // Convex) et les mêmes fonctions de calcul que cette page. Aucun montant
-  // n'est inventé : une valeur indisponible reste `null` (indicateur discret).
-  const loadingSummary = useMemo(
-    () => {
-      if (project) return null;
-      const snapshot =
-        (allProjects ?? []).find((p: any) => p._id === id) ?? null;
-      return buildEstimateLoadingSummary({
-        project: snapshot as any,
-        customization: customization as any,
-        complementaryWorks: (customWorksData?.works ?? []) as any,
-        customizationReady: customization !== undefined,
-        complementaryWorksReady: customWorksData !== undefined,
-        adminPrices: adminPriceRows as any,
-        sdbVatRate,
-      });
-    },
-    [
-      project,
-      allProjects,
-      id,
-      customization,
-      customWorksData,
-      adminPriceRows,
-      sdbVatRate,
-    ],
-  );
-
   // Main-d'œuvre : 1 lot affiché sur la page de résultat.
 
   // Nombre de postes réellement affichés : le DQE salle de bain est reconstruit
@@ -1273,8 +1236,6 @@ export default function ProjectDetail() {
               pending
               title="BatiBuild prépare votre estimation"
               description="Estimation en cours de préparation — les résultats de votre projet s'affichent dès que les données nécessaires sont prêtes."
-              projectName={loadingSummary?.projectName ?? undefined}
-              summary={loadingSummary ?? undefined}
               steps={
                 loadingCategory
                   ? costEstimateLoadingSteps(loadingCategory)
