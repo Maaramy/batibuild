@@ -94,13 +94,15 @@ export function RoadmapOverview({
   return (
     <>
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+      {/* 1 colonne sur très petit écran, 2 dès 360 px, 4 sur ordinateur :
+          les montants restent lisibles sans jamais élargir la page. */}
+      <div className="grid grid-cols-1 min-[360px]:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         <Card className="border-border/40 bg-background/50">
           <CardContent className="p-3 sm:p-4">
             <p className="text-[10px] text-muted-foreground flex items-center gap-1">
               <Gauge className="h-3 w-3" /> Progression globale
             </p>
-            <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums">{roadmap.progress}%</p>
+            <p className="mt-1 text-lg sm:text-2xl font-bold tabular-nums">{roadmap.progress}%</p>
             <Progress value={roadmap.progress} className="mt-2 h-1.5 [&>div]:bg-gradient-to-r [&>div]:from-cyan-500 [&>div]:to-emerald-500" />
           </CardContent>
         </Card>
@@ -109,7 +111,9 @@ export function RoadmapOverview({
             <p className="text-[10px] text-muted-foreground flex items-center gap-1">
               <Wallet className="h-3 w-3" /> Budget prévu
             </p>
-            <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums">{fmtTnd(roadmap.summary.plannedBudget)}</p>
+            <p className="mt-1 break-words text-lg font-bold tabular-nums sm:text-2xl">
+              {fmtTnd(roadmap.summary.plannedBudget)}
+            </p>
             <p className="mt-1 text-[10px] text-muted-foreground">{fmtTnd(activeScenario.costPerM2)}/m² · scénario {activeScenario.label}</p>
           </CardContent>
         </Card>
@@ -118,7 +122,9 @@ export function RoadmapOverview({
             <p className="text-[10px] text-muted-foreground flex items-center gap-1">
               <TrendingUp className="h-3 w-3" /> Consommé / écart
             </p>
-            <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums">{fmtTnd(roadmap.summary.budgetConsumed)}</p>
+            <p className="mt-1 break-words text-lg font-bold tabular-nums sm:text-2xl">
+              {fmtTnd(roadmap.summary.budgetConsumed)}
+            </p>
             <p className={`mt-1 text-[10px] font-medium ${roadmap.summary.budgetGap > 0 ? "text-red-600" : "text-emerald-600"}`}>
               {roadmap.summary.budgetGap > 0 ? `+${fmtTnd(roadmap.summary.budgetGap)} consommé` : `${fmtTnd(Math.abs(roadmap.summary.budgetGap))} de marge`}
             </p>
@@ -129,7 +135,7 @@ export function RoadmapOverview({
             <p className="text-[10px] text-muted-foreground flex items-center gap-1">
               <ClipboardCheck className="h-3 w-3" /> Tâches
             </p>
-            <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums">
+            <p className="mt-1 text-lg sm:text-2xl font-bold tabular-nums">
               {roadmap.summary.tasksDone}
               <span className="text-sm text-muted-foreground font-medium">/{roadmap.summary.tasksTotal}</span>
             </p>

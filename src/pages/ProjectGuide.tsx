@@ -454,7 +454,7 @@ export default function ProjectGuide() {
       ];
 
   return (
-    <main className="min-h-screen bg-background pb-10">
+    <main className="min-h-screen overflow-x-clip bg-background pb-10">
         <ClientProPaywall>
       {pdfGate.dialog}
       <div className="mx-auto max-w-6xl px-3 sm:px-5 py-4 sm:py-6 space-y-4 sm:space-y-6">
@@ -469,19 +469,21 @@ export default function ProjectGuide() {
               <Rocket className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-sm sm:text-lg font-bold tracking-tight truncate">
+              <h1 className="text-sm sm:text-lg font-bold tracking-tight leading-tight break-words">
                 {roadmap.project.name}
                 <span className="font-normal text-muted-foreground"> : Mon projet de A à Z</span>
               </h1>
-              <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate">
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground break-words">
                 {roadmap.project.categoryLabel}
                 {roadmap.project.regionLabel ? ` · ${roadmap.project.regionLabel}` : ""}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none -mx-1 px-1 pb-1 lg:pb-0">
+          {/* Sur mobile, le sélecteur occupe sa propre ligne et les actions
+              passent à la ligne : aucun défilement horizontal. */}
+          <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedProject._id} onValueChange={(v) => setProjectId(v)}>
-              <SelectTrigger className="h-8 w-[180px] text-xs">
+              <SelectTrigger className="h-9 w-full min-[420px]:w-[180px] text-xs">
                 <SelectValue placeholder="Changer de projet" />
               </SelectTrigger>
               <SelectContent>
@@ -492,11 +494,11 @@ export default function ProjectGuide() {
                 ))}
               </SelectContent>
             </Select>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={handleGenerate} disabled={generating}>
+            <Button size="sm" variant="outline" className="h-9 flex-1 min-[420px]:flex-none gap-1.5 text-xs" onClick={handleGenerate} disabled={generating}>
               {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               Régénérer
             </Button>
-            <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={() => pdfGate.requestPdfDownload(() => exportRoadmapPdf(roadmap))}>
+            <Button size="sm" variant="outline" className="h-9 flex-1 min-[420px]:flex-none gap-1.5 text-xs" onClick={() => pdfGate.requestPdfDownload(() => exportRoadmapPdf(roadmap))}>
               <Download className="h-3.5 w-3.5" /> Rapport PDF
             </Button>
           </div>
@@ -513,31 +515,33 @@ export default function ProjectGuide() {
           />
         )}
 
-        {/* Parcours (barre de progression UX) */}
-        <div className="rounded-xl border border-border/40 bg-background/50 p-3 sm:p-4 overflow-x-auto scrollbar-none">
+        {/* Parcours (barre de progression UX) — grille responsive : 2 phases
+            par ligne sur très petit écran, 5 sur mobile courant, les 10 sur une
+            seule ligne à partir de 640 px. Aucun défilement horizontal. */}
+        <div className="rounded-xl border border-border/40 bg-background/50 p-3 sm:p-4">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
             <Target className="h-3 w-3" /> Progression des phases
           </p>
-          <div className="flex min-w-[760px] items-center">
+          <div className="grid grid-cols-2 gap-x-1.5 gap-y-3 min-[380px]:grid-cols-5 sm:grid-cols-10">
             {JOURNEY.map((step, i) => {
               const phase = roadmap.phases.find((p) => p.id === step.phase);
               const done = phase?.status === "done";
               const active = phase?.status === "in_progress";
               return (
-                <div key={i} className="flex items-center flex-1 last:flex-none">
-                  <div className="flex flex-col items-center gap-1 flex-1">
-                    <div
-                      className={`flex h-7 w-7 items-center justify-center rounded-full border text-[10px] font-bold transition-colors ${
-                        done ? "border-emerald-500 bg-emerald-500 text-white" : active ? "border-cyan-500 bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" : "border-border/50 bg-muted/20 text-muted-foreground/50"
-                      }`}
-                    >
-                      {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
-                    </div>
-                    <span className={`text-[9px] font-medium whitespace-nowrap ${done ? "text-emerald-600 dark:text-emerald-400" : active ? "text-cyan-600 dark:text-cyan-400" : "text-muted-foreground/50"}`}>
-                      {step.label}
-                    </span>
+                <div key={i} className="flex min-w-0 flex-col items-center gap-1">
+                  <div
+                    className={`flex h-7 w-7 items-center justify-center rounded-full border text-[10px] font-bold transition-colors ${
+                      done ? "border-emerald-500 bg-emerald-500 text-white" : active ? "border-cyan-500 bg-cyan-500/15 text-cyan-600 dark:text-cyan-400" : "border-border/50 bg-muted/20 text-muted-foreground/50"
+                    }`}
+                  >
+                    {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
                   </div>
-                  {i < JOURNEY.length - 1 && <div className={`h-px flex-1 mb-4 ${done ? "bg-emerald-500/60" : "bg-border/60"}`} />}
+                  <span
+                    title={step.label}
+                    className={`w-full truncate text-center text-[9px] font-medium ${done ? "text-emerald-600 dark:text-emerald-400" : active ? "text-cyan-600 dark:text-cyan-400" : "text-muted-foreground/50"}`}
+                  >
+                    {step.label}
+                  </span>
                 </div>
               );
             })}
@@ -548,7 +552,7 @@ export default function ProjectGuide() {
 
         {/* Onglets */}
         <Tabs value={tab} onValueChange={setTab} className="space-y-3">
-          <TabsList className="w-full sm:w-auto h-auto flex-wrap justify-start bg-muted/30 p-1">
+          <TabsList className="h-auto w-full flex-nowrap justify-start overflow-x-auto scrollbar-none bg-muted/30 p-1 sm:w-auto sm:flex-wrap sm:overflow-visible">
             {[
               { id: "apercu", label: "Phases A-Z", icon: Rocket },
               { id: "demarches", label: "Démarches", icon: FileCheck },
@@ -560,7 +564,7 @@ export default function ProjectGuide() {
               { id: "ia", label: "IA prédictive", icon: Sparkles },
               { id: "documents", label: "Documents", icon: FileText }
             ].map((t) => (
-              <TabsTrigger key={t.id} value={t.id} className="gap-1.5 text-[11px] data-[state=active]:bg-background">
+              <TabsTrigger key={t.id} value={t.id} className="shrink-0 flex-none gap-1.5 px-2.5 text-[11px] data-[state=active]:bg-background sm:flex-1 sm:px-3">
                 <t.icon className="h-3.5 w-3.5" /> {t.label}
               </TabsTrigger>
             ))}
@@ -628,17 +632,17 @@ export default function ProjectGuide() {
 
           {/* ── Budget ── */}
           <TabsContent value="budget" className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-3">
               {roadmap.budget.scenarios.map((s) => (
                 <button
                   key={s.key}
                   onClick={() => roadmapId && setScenario({ roadmapId, scenario: s.key }).catch(() => {})}
-                  className={`rounded-xl border p-3 text-left transition-all cursor-pointer ${roadmap.budget.selected === s.key ? SCENARIO_STYLES[s.key].active : "border-border/40 bg-background/50 hover:border-border/70"}`}
+                  className={`rounded-xl border p-2.5 text-left transition-all cursor-pointer sm:p-3 ${roadmap.budget.selected === s.key ? SCENARIO_STYLES[s.key].active : "border-border/40 bg-background/50 hover:border-border/70"}`}
                 >
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold">
-                    <span className={`h-2 w-2 rounded-full ${SCENARIO_STYLES[s.key].dot}`} /> {s.label}
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${SCENARIO_STYLES[s.key].dot}`} /> {s.label}
                   </p>
-                  <p className="mt-1 text-sm font-bold tabular-nums">{fmtTnd(s.totalCost)}</p>
+                  <p className="mt-1 break-words text-[13px] font-bold tabular-nums sm:text-sm">{fmtTnd(s.totalCost)}</p>
                   <p className="text-[9px] text-muted-foreground">{fmtTnd(s.costPerM2)}/m²</p>
                 </button>
               ))}
@@ -765,7 +769,7 @@ export default function ProjectGuide() {
                   <div className="grid gap-1 sm:grid-cols-2">
                     {roadmap.materials.map((m) => (
                       <div key={`${m.name}-${m.unit}`} className="flex items-center justify-between gap-2 rounded-md border border-border/30 bg-muted/10 px-2 py-1.5">
-                        <span className="min-w-0 truncate text-[11px]" title={`${m.name} — ${m.category}`}>{m.name}</span>
+                        <span className="line-clamp-2 min-w-0 text-[11px] leading-snug" title={`${m.name} — ${m.category}`}>{m.name}</span>
                         <span className="shrink-0 text-[10px] font-semibold tabular-nums text-muted-foreground">
                           {m.quantity} {m.unit}
                         </span>
@@ -819,7 +823,7 @@ export default function ProjectGuide() {
                                   className="shrink-0"
                                 />
                                 <div className="min-w-0 flex-1 text-left">
-                                  <p className={`text-xs font-semibold truncate ${c.status === "done" ? "line-through text-muted-foreground" : ""}`}>
+                                  <p className={`text-xs font-semibold leading-snug ${c.status === "done" ? "line-through text-muted-foreground" : ""}`}>
                                     {c.order}. {c.title}
                                   </p>
                                   <p className="text-[10px] text-muted-foreground">
@@ -1162,7 +1166,7 @@ export default function ProjectGuide() {
               </CardHeader>
               <CardContent className="p-3 sm:p-4 space-y-2">
                 <div className="flex flex-wrap items-end gap-3">
-                  <p className="text-2xl font-bold tabular-nums">{fmtTnd(roadmap.predictions.finalCost.estimate)}</p>
+                  <p className="break-words text-xl font-bold tabular-nums sm:text-2xl">{fmtTnd(roadmap.predictions.finalCost.estimate)}</p>
                   <Badge variant="outline" className="text-[10px] border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-400">
                     Confiance {roadmap.predictions.finalCost.confidence}%
                   </Badge>
@@ -1186,16 +1190,20 @@ export default function ProjectGuide() {
           <TabsContent value="documents" className="space-y-2">
             {roadmap.documents.map((d) => (
               <Card key={d.id} className="border-border/40 bg-background/50">
-                <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600">
-                    <FileText className="h-4 w-4" />
+                <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:p-4">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold break-words">{d.title}</p>
+                      <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{d.description}</p>
+                      {d.generatedAt && (
+                        <Badge variant="outline" className="mt-1 text-[9px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600">Généré</Badge>
+                      )}
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold">{d.title}</p>
-                    <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">{d.description}</p>
-                  </div>
-                  {d.generatedAt && <Badge variant="outline" className="shrink-0 text-[9px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600">Généré</Badge>}
-                  <Button size="sm" variant="outline" className="shrink-0 h-8 gap-1.5 text-xs" onClick={() => handleDocument(d.id)}>
+                  <Button size="sm" variant="outline" className="h-9 w-full shrink-0 gap-1.5 text-xs sm:h-8 sm:w-auto" onClick={() => handleDocument(d.id)}>
                     <Download className="h-3.5 w-3.5" /> Générer
                   </Button>
                 </CardContent>
