@@ -20,10 +20,10 @@
 // cache et son accès réservé au forfait Client Pro.
 // ============================================================================
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useQuery } from "convex/react";
-import { ArrowRight, Building2, CreditCard, MapPin, Ruler, ShieldAlert, Wallet } from "lucide-react";
+import { ArrowRight, CreditCard, ShieldAlert } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import { realBuiltArea } from "@/lib/buildingLevels";
@@ -47,7 +47,6 @@ import {
   type BudgetScenarioKey,
 } from "@/convex/quantitatifCustomLogic";
 import type { Id } from "@/convex/_generated/dataModel";
-import { formatTndAmount } from "@/lib/budgetEngine";
 import { resolveEstimationBudget } from "@/lib/estimationBudget";
 import type { ScenarioTotal } from "@/lib/constructionPlanEngine";
 
@@ -68,17 +67,6 @@ export default function DecisionSupport() {
   // animé : seules les données réelles sont attendues (squelette discret).
   // L'écran de chargement animé est déclenché exclusivement par le clic sur
   // « Analyser mon budget avec l'IA » (`OptimizationSection`).
-  //
-  // Résultats affichés (budget analysé) : la carte projet et la carte de
-  // saisie du budget sont alors masquées — leurs données restent intactes.
-  const [budgetResultsDisplayed, setBudgetResultsDisplayed] = useState(false);
-  const handleBudgetResultsDisplayed = useCallback(
-    (displayed: boolean) => setBudgetResultsDisplayed(displayed),
-    [],
-  );
-  useEffect(() => {
-    setBudgetResultsDisplayed(false);
-  }, [id]);
 
   const project = useQuery(
     api.projects.getProject,
@@ -199,30 +187,6 @@ export default function DecisionSupport() {
               reste réservée au clic sur « Analyser mon budget avec l'IA ». ── */
           <div className="space-y-4" aria-busy="true" aria-live="polite">
             <span className="sr-only">Chargement des données de votre aide à la décision…</span>
-            <div className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elev-1">
-              <div className="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5">
-                <div className="flex min-w-0 items-start gap-3">
-                  <Skeleton className="h-11 w-11 shrink-0 rounded-xl" />
-                  <div className="min-w-0 space-y-2">
-                    <Skeleton className="h-5 w-40 max-w-full" />
-                    <Skeleton className="h-3 w-28 max-w-full" />
-                  </div>
-                </div>
-                <div className="flex flex-col items-start gap-2 sm:items-end">
-                  <Skeleton className="h-5 w-28 rounded-full" />
-                  <Skeleton className="h-3 w-20" />
-                  <Skeleton className="h-7 w-32" />
-                </div>
-              </div>
-              <div className="grid grid-cols-3 divide-x divide-border/50 border-t border-border/50">
-                {[0, 1, 2].map((i) => (
-                  <div key={i} className="min-w-0 px-3 py-3 sm:px-4">
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="mt-2 h-4 w-20" />
-                  </div>
-                ))}
-              </div>
-            </div>
             <div className="rounded-2xl border border-border/60 bg-card p-4 shadow-elev-1 sm:p-5">
               <div className="flex items-start gap-3">
                 <Skeleton className="h-10 w-10 shrink-0 rounded-xl" />
@@ -277,103 +241,26 @@ export default function DecisionSupport() {
             }
           />
         ) : (
-          <>
-            {/* ── Résumé du projet — masqué dès que les résultats sont
-                affichés (les données du projet restent chargées et utilisées
-                par le module pour les étapes suivantes). ── */}
-            {!budgetResultsDisplayed ? (
-            <section
-              aria-label="Résumé du projet"
-              className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-elev-1"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5">
-                <div className="flex min-w-0 items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Building2 className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="line-clamp-2 text-base font-semibold leading-tight tracking-tight sm:text-lg">
-                      {project.name}
-                    </h2>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {projectTypeLabel(project.category)}
-                      {regionLabel ? ` · ${regionLabel}` : ""}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-col items-start gap-1 sm:items-end">
-                  <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11.5px] font-semibold text-primary">
-                    Scénario {scenarioLabel}
-                  </span>
-                  <p className="mt-1 text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Coût estimé
-                  </p>
-                  <p className="text-xl font-bold leading-tight tabular-nums sm:text-2xl">
-                    {formatTndAmount(projectTotal)}
-                  </p>
-                  {costPerM2 > 0 ? (
-                    <p className="text-[11px] text-muted-foreground">
-                      {formatTndAmount(costPerM2)}/m²
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-              <div className="grid grid-cols-3 divide-x divide-border/50 border-t border-border/50">
-                <SynthStat
-                  icon={Ruler}
-                  label="Surface"
-                  value={builtSurface ? `${builtSurface} m²` : "—"}
-                />
-                <SynthStat icon={MapPin} label="Région" value={regionLabel ?? "—"} />
-                <SynthStat icon={Wallet} label="Scénario" value={scenarioLabel} />
-              </div>
-            </section>
-            ) : null}
-
-            {/* ── Module budget / capacité de construction ── */}
-            <DecisionSupportModule
-              // Le module est remonté à chaque changement de projet : aucun
-              // résultat, budget, erreur ni animation du projet précédent ne
-              // peut subsister.
-              key={project._id}
-              projectId={project._id}
-              projectName={project.name}
-              projectTypeLabel={projectTypeLabel(project.category)}
-              regionLabel={regionLabel}
-              surface={builtSurface}
-              projectTotal={projectTotal}
-              costPerM2={costPerM2}
-              scenarioLabel={scenarioLabel}
-              scenarioTotals={scenarioTotals.length > 0 ? scenarioTotals : undefined}
-              complementaryWorksEnabled={complementaryWorksEligible}
-              onBudgetResultsDisplayed={handleBudgetResultsDisplayed}
-            />
-          </>
+          /* ── Module budget / capacité de construction ── */
+          <DecisionSupportModule
+            // Le module est remonté à chaque changement de projet : aucun
+            // résultat, budget, erreur ni animation du projet précédent ne
+            // peut subsister.
+            key={project._id}
+            projectId={project._id}
+            projectName={project.name}
+            projectTypeLabel={projectTypeLabel(project.category)}
+            regionLabel={regionLabel}
+            surface={builtSurface}
+            projectTotal={projectTotal}
+            costPerM2={costPerM2}
+            scenarioLabel={scenarioLabel}
+            scenarioTotals={scenarioTotals.length > 0 ? scenarioTotals : undefined}
+            complementaryWorksEnabled={complementaryWorksEligible}
+          />
         )}
       </div>
     </main>
-  );
-}
-
-function SynthStat({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon?: typeof MapPin;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="min-w-0 px-3 py-3 sm:px-4">
-      <p className="flex items-center gap-1.5 text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
-        {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
-        <span className="truncate">{label}</span>
-      </p>
-      <p className="mt-1 truncate text-[13px] font-semibold text-foreground" title={value}>
-        {value}
-      </p>
-    </div>
   );
 }
 
