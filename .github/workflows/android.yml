@@ -4,8 +4,12 @@
 #        → setup-android@v4 (SDK + licences) → npm/bun install → prebuild
 #        (si android/ absent) → composants SDK du projet → Gradle
 #        → Batibuild-release.apk + Batibuild-release.aab (APK release, AAB release)
-#        → GitHub Release si le run vient d'un tag `v*` (copie durable, hors quota)
-#        → sinon UN artefact Actions « batibuild-release », rétention **1 jour**.
+#        → GitHub Release (APK + AAB attachés) = COPIE DURABLE, hors quota
+#          · tag `v*`            → Release portant ce tag ;
+#          · lancement manuel    → `publish_release` (défaut **true**) ;
+#          · push sur une branche → pré-version unique `v<version>-build<run>`.
+#        → Nexus 3 si les secrets NEXUS_* existent (copie durable supplémentaire).
+#        → artefact Actions de secours (7 jours, non bloquant).
 #
 # AUCUN outil Android n'est requis sur votre PC : ni JDK, ni Android SDK,
 # ni Android Studio, ni Gradle. Tout est installé par le runner.
@@ -52,27 +56,30 @@
 # ninja/CMake, erreur compilateur), et la publie dans le résumé du run.
 # `--stacktrace` reste actif pour ne rien masquer.
 #
-# ── STOCKAGE DES ARTEFACTS : NEXUS 3 + GITHUB RELEASE (détail : MOBILE_BUILD.md)
-# Les artefacts GitHub Actions NE SONT PLUS UTILISÉS : c'est ce stockage qui
-# renvoyait l'erreur « Failed to CreateArtifact: Artifact storage quota has
-# been hit ». Les APK/AAB sont désormais poussés dans le NEXUS 3 Repository
-# Manager du projet via `astertom/nexus-upload-artifact@v1` (dépôt RAW).
+# ── STOCKAGE DES ARTEFACTS : GITHUB RELEASE (principale) + NEXUS 3
 #
-#   1. SEULS l'APK release et l'AAB release sont produits et publiés — JAMAIS
+#  1. SEULS l'APK release et l'AAB release sont produits et publiés — JAMAIS
 #      l'APK debug (inutile en production, premier consommateur d'espace).
-#   2. Les 2 fichiers partent en UN SEUL upload Nexus, dans le(s) dépôt(s) RAW
-#      `repositories` sous `path` (défaut « raw » et « /batibuild/ »). Aucun
-#      quota GitHub Actions n'est consommé.
-#   3. PUBLICATION EN GITHUB RELEASE (stockage distinct) : les APK/AAB y sont
-#      AUSSI attachés (tag `v*`, ou `publish_release: true`). Elle est publiée
-#      même si le build échoue (`if: always()`). Un tag qui ne correspond pas à
-#      `mobile/app.json` est refusé, pour qu'aucune Release trompeuse n'existe.
-#   4. Job « cleanup-artifacts » AVANT le build : purge via l'API GitHub
+#  2. GITHUB RELEASE = COPIE DURABLE PAR DÉFAUT, sans secret à configurer :
+#      · tag `v*`                  → Release portant ce tag ;
+#      · lancement manuel          → `publish_release` (défaut `true`) ;
+#      · push sur une branche      → pré-version `v<version>-build<run>` ;
+#      les 2 fichiers y sont attachés puis VÉRIFIÉS via l'API GitHub.
+#  3. NEXUS 3 (facultatif) : si NEXUS_HOST_URL / NEXUS_USER / NEXUS_TOKEN
+#      existent, les mêmes fichiers partent en UN SEUL upload RAW via
+#      `astertom/nexus-upload-artifact@v1`. Copie durable supplémentaire.
+#  4. GARDE-FOU FINAL exécuté APRÈS la publication : il n'accepte que des
+#      faits (Release contenant réellement les 2 fichiers, ou upload Nexus
+#      réussi). Une Release réussie suffit → plus besoin des secrets Nexus.
+#      Sans aucune copie durable, le job échoue avec la cause exacte.
+#  5. ARTEFACT ACTIONS DE SECOURS : envoyé en complément, rétention 5 jours,
+#      `continue-on-error: true` — un quota d'artefacts saturé ne casse rien.
+#  6. Job « cleanup-artifacts » AVANT le build : purge via l'API GitHub
 #      (`actions: write`, moindre privilège) les artefacts résiduels laissés
 #      par les anciens runs — jamais les sources, le code, l'historique Git ni
 #      les Releases. `continue-on-error: true` : il ne bloque jamais le build.
 #
-# Secrets GitHub REQUIS pour la publication Nexus (Settings → Secrets and
+# Secrets GitHub FACULTATIFS pour la publication Nexus (Settings → Secrets and
 # variables → Actions) :
 #   NEXUS_HOST_URL  URL du Nexus 3 RM (ex. https://nexus.exemple.tn)
 #   NEXUS_USER      utilisateur Nexus 3
@@ -80,22 +87,17 @@
 # Variables de dépôt FACULTATIVES (même écran, onglet « Variables ») :
 #   NEXUS_REPOSITORIES  dépôts RAW, séparés par des virgules — défaut « raw »
 #   NEXUS_PATH          chemin de stockage dans le dépôt RAW — défaut /batibuild/
-# Sans les secrets NEXUS_*, l'étape Nexus est ignorée : le job échoue alors en
-# fin de chaîne s'il ne publie aucune GitHub Release (garde-fou : jamais de
-# build silencieusement perdu).
+# Sans les secrets NEXUS_*, l'étape Nexus est ignorée : la GitHub Release
+# assure alors la copie durable (garde-fou : jamais de build silencieusement
+# perdu).
 #
 # ── ACTIONS (runtime Node 24) ───────────────────────────────────────────────
 # Node.js 20 a été retiré des runners GitHub le 16/09/2026 : toutes les actions
 # tournent désormais sur Node 24 (checkout v5, setup-node v5, setup-java v5,
-# cache v6, setup-android v4, setup-bun v2) — plus d'avertissement
-# « Node.js 20 actions are deprecated ».
-# L'upload des APK/AAB ne passe plus par une action d'artefact GitHub mais par
-# `astertom/nexus-upload-artifact@v1` (action DOCKER : le runner ubuntu-latest
-# fournit Docker), qui ne consomme QUE les secrets NEXUS_* ci-dessus.
-#
-# Plus aucun artefact n'est créé côté GitHub Actions : le quota d'artefacts
-# n'a donc plus aucun effet sur ce workflow. Les builds restent récupérables
-# dans le Nexus 3 (dépôt RAW) et/ou dans la GitHub Release.
+# cache v6, setup-android v4, setup-bun v2, upload-artifact v7).
+# L'upload principal des APK/AAB passe par la CLI `gh` officielle (GitHub
+# Releases) et, si configuré, par `astertom/nexus-upload-artifact@v1` (action
+# DOCKER : le runner ubuntu-latest fournit Docker).
 
 name: Android — APK & AAB
 
@@ -127,10 +129,13 @@ on:
         required: false
         default: ""
       publish_release:
-        description: "Publier une GitHub Release (APK + AAB attachés) — crée le tag v<version>-build<run>"
+        description: "Publier une GitHub Release (APK + AAB attachés) — tag v<version>-build<run>"
         type: boolean
         required: false
-        default: false
+        # DÉFAUT TRUE : un lancement manuel doit TOUJOURS produire une copie
+        # durable (GitHub Release). Laisser ce champ à false sans secrets Nexus
+        # faisait échouer le run sur « Aucune copie durable du build ».
+        default: true
       cleanup_scope:
         description: "Nettoyage : « all » (tout le dépôt) ou « workflow » (batibuild uniquement)"
         required: false
@@ -170,8 +175,13 @@ env:
   #                           `workflow` = uniquement les artefacts batibuild.
   # ARTIFACT_KEEP_LATEST    : nombre de builds batibuild conservés (1).
   ARTIFACT_RETENTION_DAYS: ${{ inputs.retention_days }}
-  # PUBLISH_RELEASE : `true` (lancement manuel) → publier une Release même sans
-  # tag. Vide sur un push : la publication dépend alors du tag uniquement.
+  # PUBLISH_RELEASE : intention de publication, décidée dans l'étape `dist`.
+  #   · lancement manuel → valeur du champ `publish_release` (défaut true) ;
+  #   · push d'un tag `v*` → ce tag, quoi qu'il arrive ;
+  #   · push sur une branche → aucune saisie : la valeur retenue est `true`,
+  #     afin que CHAQUE build réussi obtienne une copie durable (pré-version
+  #     unique) et que le garde-fou final ne rende jamais le workflow rouge
+  #     faute de secrets Nexus.
   PUBLISH_RELEASE: ${{ inputs.publish_release }}
   ARTIFACT_CLEANUP_SCOPE: ${{ inputs.cleanup_scope || 'all' }}
   ARTIFACT_KEEP_LATEST: "1"
@@ -685,6 +695,11 @@ jobs:
           LABEL="batibuild-v${VERSION}-code${CODE}-run${GITHUB_RUN_NUMBER}"
 
           # ── Faut-il publier une Release ? ──────────────────────────────────
+          # Défaut TRUE : sans saisie (push sur une branche), le build est
+          # publié en pré-version pour ne jamais être perdu. Un lancement
+          # manuel transmet explicitement `publish_release` (défaut true) ;
+          # seul un choix explicite « false » désactive la publication.
+          PUBLISH_INPUT="${PUBLISH_RELEASE:-true}"
           PUBLISH="false"
           TAG=""
           PRERELEASE="false"
@@ -697,10 +712,15 @@ jobs:
               *-*) PRERELEASE="true" ;;
             esac
           fi
-          if [ "${PUBLISH_RELEASE:-false}" = "true" ]; then
+          if [ "$PUBLISH_INPUT" = "true" ]; then
             PUBLISH="true"
-            PRERELEASE="true"
-            if [ -z "$TAG" ]; then TAG="v${VERSION}-build${GITHUB_RUN_NUMBER}"; fi
+            if [ -z "$TAG" ]; then
+              # Aucun tag fourni (push de branche / lancement manuel) : tag
+              # unique par run, marqué pré-version. Un tag `v*` réel n'est
+              # JAMAIS transformé en pré-version par ce bloc.
+              TAG="v${VERSION}-build${GITHUB_RUN_NUMBER}"
+              PRERELEASE="true"
+            fi
           fi
 
           {
@@ -721,7 +741,7 @@ jobs:
           if [ "$PUBLISH" = "true" ]; then
             echo "Release GitHub       : ${TAG} (pré-version : ${PRERELEASE})"
           else
-            echo "Release GitHub       : aucune — posez un tag « v* » ou cochez « publish_release » pour conserver ce build"
+            echo "Release GitHub       : aucune (« publish_release » = false) — seule une copie Nexus peut conserver ce build"
           fi
           echo "Nettoyage            : portée ${ARTIFACT_CLEANUP_SCOPE}, ${ARTIFACT_KEEP_LATEST} build(s) conservé(s)"
 
@@ -791,9 +811,9 @@ jobs:
       #   · `repositories` / `path` viennent des variables de dépôt
       #     NEXUS_REPOSITORIES / NEXUS_PATH (défauts « raw » et « /batibuild/ ») ;
       #   · aucun secret n'est jamais affiché : ils sont injectés via `env`.
-      # Si les secrets NEXUS_* sont absents, l'étape est simplement ignorée ;
-      # le garde-fou ci-dessous fait échouer le job s'il ne reste alors aucune
-      # copie durable (ni Nexus, ni GitHub Release).
+      # Si les secrets NEXUS_* sont absents, l'étape est simplement ignorée :
+      # la GitHub Release publiée plus bas assure alors la copie durable. Le
+      # garde-fou final (APRÈS la publication) vérifie le résultat réel.
       # ══════════════════════════════════════════════════════════════════════
       - name: Contrôler les fichiers à publier (aucun fichier parasite)
         run: |
@@ -827,6 +847,11 @@ jobs:
       - name: Upload — Nexus 3 (APK release + AAB release)
         id: nexus
         if: ${{ success() && env.NEXUS_HOST_URL != '' }}
+        # `continue-on-error` : un Nexus mal configuré ne doit plus rendre le run
+        # rouge alors que la GitHub Release (publiée juste après) conserve le
+        # build. Le garde-fou final vérifie `steps.nexus.outcome` : sans Release
+        # ET sans upload Nexus réussi, il échoue avec la cause exacte.
+        continue-on-error: true
         uses: astertom/nexus-upload-artifact@v1
         env:
           NEXUS_HOST_URL: ${{ secrets.NEXUS_HOST_URL }}
@@ -841,25 +866,12 @@ jobs:
           path: ${{ vars.NEXUS_PATH || '/batibuild/' }}
           timeout: "300"
 
-      # Garde-fou : au moins UNE copie durable doit exister (Nexus ou Release).
-      - name: Vérifier qu'une copie durable existe (Nexus ou Release)
-        if: ${{ success() }}
-        env:
-          NEXUS_OUTCOME: ${{ steps.nexus.outcome }}
-        run: |
-          if [ "${NEXUS_OUTCOME:-}" = "success" ]; then
-            echo "✅ APK + AAB poussés vers Nexus 3 (dépôt ${NEXUS_REPOSITORIES:-raw}, chemin ${NEXUS_PATH:-/batibuild/})."
-            exit 0
-          fi
-          if [ "${{ steps.dist.outputs.release }}" = "true" ]; then
-            echo "ℹ️ Nexus non configuré : la GitHub Release porte les APK/AAB."
-            exit 0
-          fi
-          echo "❌ Aucune copie durable du build."
-          echo "   · Nexus : définissez les secrets NEXUS_HOST_URL / NEXUS_USER / NEXUS_TOKEN"
-          echo "     (Settings → Secrets and variables → Actions)."
-          echo "   · Ou lancez le workflow avec « publish_release » = true (GitHub Release)."
-          exit 1
+      # NOTE : le garde-fou « copie durable » n'est plus ici. Il était exécuté
+      # AVANT la publication de la Release et se contentait de l'INTENTION
+      # (`steps.dist.outputs.release`) : il échouait donc systématiquement quand
+      # `publish_release` valait false et qu'aucun secret Nexus n'était défini,
+      # même quand tout le reste du build était correct. Il est désormais placé
+      # APRÈS la publication et vérifie les fichiers réellement transférés.
 
       # ══════════════════════════════════════════════════════════════════════
       # PUBLICATION EN GITHUB RELEASE — COPIE DURABLE, HORS QUOTA D'ARTEFACTS
@@ -876,7 +888,8 @@ jobs:
       # le build a échoué : l'APK reste récupérable malgré le quota. Et comme
       # aucun artefact Actions n'est créé dans ce cas, il n'y a jamais de doublon.
       #
-      # Déclenchement : tag `v*`, ou lancement manuel avec `publish_release`.
+      # Déclenchement : tag `v*`, lancement manuel (`publish_release`, défaut
+      # true) ou push de branche (pré-version unique par run).
       # Toute la logique (validation du tag, notes de version avec empreintes
       # SHA-256, attachement des 2 fichiers, idempotence, lien dans le résumé du
       # run) vit dans `mobile/scripts/publish-release.sh`.
@@ -892,15 +905,127 @@ jobs:
           RELEASE_PRERELEASE: ${{ steps.dist.outputs.prerelease }}
         run: bash scripts/publish-release.sh
 
+      # ══════════════════════════════════════════════════════════════════════
+      # GARDE-FOU FINAL — UNE COPIE DURABLE DOIT EXISTER RÉELLEMENT
+      #
+      # Exécuté APRÈS la publication (`!cancelled()`) : il ne juge plus une
+      # intention mais des faits.
+      #   1. GitHub Release : l'API atteste que la Release du tag contient bien
+      #      `Batibuild-release.apk` ET `Batibuild-release.aab`, non vides.
+      #   2. Nexus 3 : l'upload s'est terminé sans erreur.
+      # Aucun secret Nexus n'est requis dès que la Release a réussi — c'est la
+      # correction de l'erreur « Aucune copie durable du build ».
+      # Si les APK/AAB n'ont pas été produits (build en échec), rien n'est
+      # déclaré publié et le job reste rouge à cause de l'échec réel.
+      # ══════════════════════════════════════════════════════════════════════
+      - name: Vérifier qu'une copie durable existe (GitHub Release ou Nexus)
+        id: durable
+        # `!cancelled()` : s'exécute même après un échec, mais jamais pendant
+        # l'annulation d'un run (toujours de `always()`).
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXUS_OUTCOME: ${{ steps.nexus.outcome }}
+          RELEASE_OUTCOME: ${{ steps.release.outcome }}
+          RELEASE_TAG: ${{ steps.dist.outputs.tag }}
+        run: |
+          set -uo pipefail
+
+          RELEASE_OK=0
+          APK_SIZE=0
+          AAB_SIZE=0
+
+          if [ "${RELEASE_OUTCOME:-}" = "success" ] && [ -n "${RELEASE_TAG:-}" ]; then
+            # Vérification par l'API GitHub : la Release existe ET porte les
+            # deux fichiers attendus. Sonde indépendante de la sortie du script.
+            ASSETS=$(gh release view "$RELEASE_TAG" --json assets \
+              --jq '.assets[] | "\(.name) \(.size)"' 2>/dev/null || true)
+            if [ -n "$ASSETS" ]; then
+              APK_SIZE=$(printf '%s\n' "$ASSETS" | awk '$1 == "Batibuild-release.apk" { print $2 }' | head -1)
+              AAB_SIZE=$(printf '%s\n' "$ASSETS" | awk '$1 == "Batibuild-release.aab" { print $2 }' | head -1)
+              APK_SIZE=${APK_SIZE:-0}
+              AAB_SIZE=${AAB_SIZE:-0}
+              if [ "$APK_SIZE" -gt 0 ] && [ "$AAB_SIZE" -gt 0 ]; then
+                RELEASE_OK=1
+              fi
+            fi
+          fi
+
+          if [ "$RELEASE_OK" = "1" ]; then
+            echo "✅ Copie durable — GitHub Release ${RELEASE_TAG} :"
+            echo "   · Batibuild-release.apk  (${APK_SIZE} octets)"
+            echo "   · Batibuild-release.aab  (${AAB_SIZE} octets)"
+            echo "   Aucun secret Nexus requis."
+          fi
+
+          if [ "${NEXUS_OUTCOME:-}" = "success" ]; then
+            echo "✅ Copie durable — Nexus 3 : APK + AAB dans le dépôt RAW ${NEXUS_REPOSITORIES:-raw} sous ${NEXUS_PATH:-/batibuild/}."
+          fi
+
+          if [ "$RELEASE_OK" = "1" ] || [ "${NEXUS_OUTCOME:-}" = "success" ]; then
+            echo "durable=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "durable=false" >> "$GITHUB_OUTPUT"
+
+          if [ ! -s /tmp/dist/Batibuild-release.apk ] || [ ! -s /tmp/dist/Batibuild-release.aab ]; then
+            echo "⚠️  Aucun APK/AAB valide produit par ce run : rien ne pouvait être publié."
+            echo "    Le job est déjà en échec sur la compilation (cause ci-dessus),"
+            echo "    ce garde-fou ne déclare donc aucune publication."
+            exit 0
+          fi
+
+          echo "❌ Aucune copie durable du build : les fichiers existent mais aucun"
+          echo "   stockage permanent ne les contient."
+          echo ""
+          if [ "${RELEASE_OUTCOME:-}" = "failure" ]; then
+            echo "   · GitHub Release : la publication a ÉCHOUÉ — cause exacte dans"
+            echo "     l'étape « Publier la Release GitHub (APK + AAB attachés au tag) »."
+          elif [ -z "${RELEASE_TAG:-}" ]; then
+            echo "   · GitHub Release : aucune publication demandée pour ce run"
+            echo "     (`publish_release` explicitement à false)."
+          else
+            echo "   · GitHub Release « ${RELEASE_TAG} » : APK et/ou AAB manquants (taille nulle)."
+          fi
+          echo "   · Nexus 3 : non configuré ou en échec (rôle : ${NEXUS_OUTCOME:-skipped})."
+          echo ""
+          echo "   Correctifs :"
+          echo "   1. relancer le workflow avec « publish_release » = true (défaut) ;"
+          echo "   2. ou définir les secrets NEXUS_HOST_URL / NEXUS_USER / NEXUS_TOKEN"
+          echo "      (Settings → Secrets and variables → Actions)."
+          exit 1
+
+      # ── ARTEFACT ACTIONS DE SECOURS (COMPLÉMENT, JAMAIS BLOQUANT) ──────────
+      # Le stockage d'artefacts GitHub peut être saturé (c'est ce qui avait
+      # provoqué « Artifact storage quota has been hit »). Cet envoi est donc :
+      #   · exécuté SEULEMENT si une copie durable existe déjà ;
+      #   · non bloquant (`continue-on-error`) : un quota plein ne casse rien ;
+      #   · limité à 5 jours de rétention (aligné sur ARTIFACT_RETENTION_DAYS).
+      - name: Artefact Actions de secours (5 jours, non bloquant)
+        if: ${{ steps.durable.outputs.durable == 'true' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: batibuild-release-${{ steps.dist.outputs.label || github.run_number }}
+          path: |
+            mobile/artifacts-release/Batibuild-release.apk
+            mobile/artifacts-release/Batibuild-release.aab
+          if-no-files-found: warn
+          retention-days: 5
+          compression-level: 0
+
       # ── DIAGNOSTIC VISIBLE EN CAS D'ÉCHEC ──────────────────────────────────
       # Ne masque rien : le job reste rouge. Affiche simplement la cause réelle
       # dans une étape dédiée, lisible même depuis le téléphone.
       - name: 🔍 Cause de l'échec (extrait des logs Gradle / publication)
         if: failure()
-        # `steps.nexus.outcome` distingue un échec de PUBLICATION (Nexus) d'un
-        # échec de COMPILATION Android.
+        # `steps.nexus.outcome` / `steps.release.outcome` distinguent un échec de
+        # PUBLICATION d'un échec de COMPILATION Android.
         env:
           NEXUS_OUTCOME: ${{ steps.nexus.outcome }}
+          RELEASE_OUTCOME: ${{ steps.release.outcome }}
+          RELEASE_TAG: ${{ steps.dist.outputs.tag }}
         run: |
           FOUND=0
           for log in /tmp/gradle-*.log; do
@@ -932,6 +1057,20 @@ jobs:
             echo "Autre voie : relancez le workflow avec « publish_release » = true"
             echo "pour attacher les APK/AAB à une GitHub Release."
             echo "══════════════════════════════════════════════"
+          fi
+
+          if [ "${RELEASE_OUTCOME:-}" = "failure" ]; then
+            echo ""
+            echo "════════ PUBLICATION GITHUB RELEASE EN ÉCHEC ════════"
+            echo "La compilation Android a réussi : c'est la GitHub Release"
+            echo "« ${RELEASE_TAG:-?} » qui n'a pas pu être créée/mise à jour."
+            echo ""
+            echo "À vérifier :"
+            echo "  · permission \`contents: write\` du workflow (GITHUB_TOKEN) ;"
+            echo "  · protection du tag / de la branche (Settings → Rules) ;"
+            echo "  · la limite de taille des fichiers attachés à une Release."
+            echo "La cause exacte est imprimée dans l'étape de publication ci-dessus."
+            echo "═════════════════════════════════════════════════════"
           fi
 
           echo "── Ressources au moment de l'échec ──"
@@ -966,16 +1105,27 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "ABI compilées : \`$ARCHITECTURES\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.durable.outputs.durable }}" = "true" ]; then
+            echo "**Copie durable** : ✅ vérifiée (les deux fichiers sont réellement stockés)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**Copie durable** : ❌ aucune — voir le garde-fou « Vérifier qu'une copie durable existe »." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.nexus.outcome }}" = "success" ]; then
-            echo "**Nexus 3** : APK release + AAB release poussés dans le dépôt RAW \`${NEXUS_REPOSITORIES:-raw}\` sous \`${NEXUS_PATH:-/batibuild/}\` (hors quota GitHub Actions)." >> "$GITHUB_STEP_SUMMARY"
+            echo "**Nexus 3** : APK release + AAB release poussés dans le dépôt RAW \`${NEXUS_REPOSITORIES:-raw}\` sous \`${NEXUS_PATH:-/batibuild/}\`." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "**Nexus 3** : non configuré (secrets \`NEXUS_*\` absents) — aucune copie Nexus créée." >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ -n "${{ steps.release.outputs.url }}" ]; then
-            echo "**GitHub Release** : \`${{ steps.dist.outputs.tag }}\` — APK release + AAB release AUSSI attachés à la Release (conservation durable)." >> "$GITHUB_STEP_SUMMARY"
+            echo "**GitHub Release** : [\`${{ steps.dist.outputs.tag }}\`](${{ steps.release.outputs.url }})" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Téléchargement direct | Lien |" >> "$GITHUB_STEP_SUMMARY"
+            echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+            echo "| APK release (téléphone) | [${{ steps.release.outputs.apk_name }}](${{ steps.release.outputs.apk_url }}) |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| AAB release (Google Play) | [${{ steps.release.outputs.aab_name }}](${{ steps.release.outputs.aab_url }}) |" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "> **Conservation durable** : posez un tag \`v${VERSION}\` et poussez-le (ou relancez avec \`publish_release\` = true) → les APK/AAB seront en plus attachés à une GitHub Release." >> "$GITHUB_STEP_SUMMARY"
+            echo "> **Conservation durable** : la GitHub Release n'a pas été publiée. Relancez avec \`publish_release\` = true (défaut) ou configurez les secrets Nexus." >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Téléphone branché en USB : \`adb install -r Batibuild-release.apk\`" >> "$GITHUB_STEP_SUMMARY"

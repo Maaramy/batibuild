@@ -336,20 +336,22 @@ Le **résumé du run** affiche la version réellement compilée (`1.3.3 — vers
 la destination Nexus (dépôt RAW + chemin), la taille de chaque fichier, les ABI
 compilées et la commande d'installation (`adb install -r Batibuild-release.apk`).
 
-> **Publication des APK/AAB (Nexus 3)** — l'erreur
+> **Publication des APK/AAB** — l'erreur
 > `Failed to CreateArtifact: Artifact storage quota has been hit` venait du
-> stockage GitHub Actions, pas du code. Le workflow **ne l'utilise plus** :
-> l'APK release et l'AAB release sont poussés via
-> `astertom/nexus-upload-artifact@v1` vers le **Nexus 3 Repository Manager**
-> (dépôt RAW `NEXUS_REPOSITORIES`, chemin `NEXUS_PATH`, défaut `/batibuild/`).
-> Secrets requis : `NEXUS_HOST_URL`, `NEXUS_USER`, `NEXUS_TOKEN`. Un job
-> **`cleanup-artifacts`** purge en plus les anciens artefacts GitHub résiduels
-> (jamais les sources, le code ni les releases).
+> stockage GitHub Actions, pas du code. La copie durable est donc une
+> **GitHub Release** (aucun secret à configurer), et — si les secrets existent —
+> un upload vers le **Nexus 3 Repository Manager** (dépôt RAW
+> `NEXUS_REPOSITORIES`, chemin `NEXUS_PATH`, défaut `/batibuild/`, secrets
+> `NEXUS_HOST_URL`, `NEXUS_USER`, `NEXUS_TOKEN`). Un job **`cleanup-artifacts`**
+> purge en plus les anciens artefacts GitHub résiduels (jamais les sources, le
+> code ni les releases).
 >
-> Si Nexus n'est pas configuré et qu'aucune Release n'est publiée, le run
-> **échoue** (jamais de build silencieusement perdu). Pour **conserver un build
-> durablement**, posez un tag `v*` : il est publié en GitHub Release (voir
-> « Publier une Release » plus bas).
+> Le garde-fou final s'exécute **après** la publication et vérifie les faits :
+> la Release doit contenir réellement l'APK **et** l'AAB (contrôle par l'API
+> GitHub), ou l'upload Nexus doit avoir réussi. Une Release réussie suffit —
+> aucun secret Nexus n'est requis, et un Nexus en échec ne rend plus le run
+> rouge. Si aucune copie durable n'existe, le run **échoue** avec la cause
+> exacte (jamais de build silencieusement perdu).
 
 ### Déclencher
 
@@ -386,8 +388,8 @@ git tag v1.3.3 && git push origin v1.3.3
 | Déclencheur | Résultat |
 |---|---|
 | Tag **`v*`** poussé | Release **`v1.3.3`** (APK release + AAB release) |
-| *Run workflow* + **publish_release** | Release **`v<version>-build<run>`**, marquée pré-version, créée sur le commit lancé |
-| `push` sur `main` | Aucune Release |
+| *Run workflow* (**publish_release** = true par défaut) | Release **`v<version>-build<run>`**, marquée pré-version, créée sur le commit lancé |
+| `push` sur `main` | Release **`v<version>-build<run>`** (pré-version) — aucun secret Nexus requis |
 
 - Le tag **doit** correspondre à `expo.version` de `app.json` : sinon la
   publication est refusée (pas de Release trompeuse).
@@ -438,17 +440,19 @@ n'est jamais affiché dans les logs ; aucun `EXPO_TOKEN` n'est utilisé.
   limite la compilation C++ à 2 processus parallèles
   (`CMAKE_BUILD_PARALLEL_LEVEL=2`) : sans cela, les 2 ABI compilées en parallèle
   saturent la RAM et le noyau tue les compilateurs (`Killed`).
-- **Artefacts (Nexus 3)** : un seul upload Nexus par build
-  (`astertom/nexus-upload-artifact@v1`) contenant l'APK release et l'AAB
-  release, vers le dépôt RAW `NEXUS_REPOSITORIES` sous `NEXUS_PATH` — plus
-  aucun artefact GitHub Actions, donc plus aucun quota d'artefacts à craindre.
+- **Artefacts (Nexus 3)** : si les secrets `NEXUS_*` existent, un seul upload
+  Nexus par build (`astertom/nexus-upload-artifact@v1`) contenant l'APK release
+  et l'AAB release, vers le dépôt RAW `NEXUS_REPOSITORIES` sous `NEXUS_PATH`.
   Un job `cleanup-artifacts` purge aussi, avant le build, les artefacts GitHub
-  résiduels (`mobile/scripts/artifact-storage.mjs`).
-- **GitHub Release** : sur un tag `v*` (ou sur demande), les APK/AAB sont
-  **aussi** attachés à une Release par `mobile/scripts/publish-release.sh` —
-  conservation durable, en plus du Nexus. Le job de build porte pour cela la
-  permission `contents: write` ; aucune Release n'est publiée sur un push de
-  branche.
+  résiduels (`mobile/scripts/artifact-storage.mjs`). L'envoi d'un artefact
+  GitHub Actions de secours (5 jours) est **non bloquant** : un quota saturé ne
+  casse plus le run.
+- **GitHub Release** : sur un tag `v*`, un lancement manuel (`publish_release`,
+  défaut `true`) ou un push de branche (pré-version), les APK/AAB sont attachés
+  à une Release par `mobile/scripts/publish-release.sh`, puis **vérifiés via
+  l'API GitHub** (les deux fichiers, tailles non nulles) — c'est la copie
+  durable par défaut. Le job de build porte pour cela la permission
+  `contents: write`.
 - **Actions Node 24** : `checkout@v5`, `setup-node@v5`, `setup-java@v5`,
   `cache@v6`, `astertom/nexus-upload-artifact@v1` (Node 20 a été retiré des
   runners GitHub) — plus d'avertissement « Node.js 20 actions are deprecated ».

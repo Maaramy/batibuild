@@ -54,7 +54,8 @@ Batibuild-release.apk · Batibuild-release.aab
 Upload Nexus 3 (dépôt RAW) : Batibuild-release.apk + Batibuild-release.aab
 (chacun VÉRIFIÉ : taille, ZIP, entrées, signature — un seul upload, hors quota)
         +
-GitHub Release (si tag `v*` ou `publish_release`) : les 2 mêmes fichiers
+GitHub Release (tag `v*`, lancement manuel — `publish_release` par défaut —
+ou push de branche en pré-version) : les 2 mêmes fichiers
 ```
 
 **Déclencher le build :**
@@ -93,7 +94,7 @@ Wrapper 9.3.1, 2 ABI (`arm64-v8a,armeabi-v7a`) et compilation C++ limitée à
 2 processus parallèles (`CMAKE_BUILD_PARALLEL_LEVEL=2`) pour tenir dans la RAM
 du runner.
 
-### Publication des APK/AAB — Nexus 3 (plus d'artefact GitHub)
+### Publication des APK/AAB — GitHub Release + Nexus 3 (+ artefact de secours)
 
 Historique : le stockage d'artefacts GitHub Actions renvoyait
 
@@ -104,9 +105,11 @@ Unable to upload any new artifacts. Usage is recalculated every 6-12 hours.
 
 Cette erreur ne venait **ni du code Android ni de Gradle** : elle venait du
 **stockage des artefacts GitHub Actions**, partagé par tous les runs du dépôt.
-Le workflow **n'utilise plus ce stockage du tout** : les APK/AAB sont poussés
-dans le **Nexus 3 Repository Manager** (dépôt RAW) via
-`astertom/nexus-upload-artifact@v1` — aucun quota GitHub n'est consommé.
+La copie durable ne dépend donc plus de ce stockage : les APK/AAB sont attachés
+à une **GitHub Release** (stockage distinct, aucune limite de 90 jours) et,
+si les secrets existent, poussés dans le **Nexus 3 Repository Manager** (dépôt
+RAW) via `astertom/nexus-upload-artifact@v1`. L'artefact GitHub Actions n'est
+plus qu'un **complément de secours**, non bloquant (5 jours de rétention).
 
 | Élément | Configuration |
 |---|---|
@@ -114,16 +117,19 @@ dans le **Nexus 3 Repository Manager** (dépôt RAW) via
 | Chemin dans le dépôt RAW | `NEXUS_PATH` (variable de dépôt, défaut `/batibuild/`) |
 | Identifiants | **secrets** `NEXUS_HOST_URL`, `NEXUS_USER`, `NEXUS_TOKEN` — jamais en clair |
 | Fichiers publiés | **`Batibuild-release.apk`** et **`Batibuild-release.aab`** uniquement (jamais l'APK debug, ni `node_modules`, caches Gradle ou logs) |
-| Garde-fou | si Nexus n'est pas configuré **et** qu'aucune GitHub Release n'est publiée, le run **échoue** (jamais de build silencieusement perdu) |
+| Garde-fou | exécuté **après** la publication : il vérifie via l'API GitHub que la Release contient réellement les 2 fichiers, ou que l'upload Nexus a réussi. Aucune copie durable → le run **échoue** avec la cause exacte (jamais de build silencieusement perdu) |
 
 Les 2 fichiers sont d'abord recopiés dans `mobile/artifacts-release/` sur le
 runner — l'action Nexus cherche dans `GITHUB_WORKSPACE` (`directory` est relatif
 à la racine du dépôt) — puis envoyés en **un seul upload**.
 
 > **Si les secrets `NEXUS_*` sont absents**, l'étape Nexus est simplement
-> ignorée. Le job échoue alors en fin de chaîne avec la marche à suivre, sauf
-> s'il publie une **GitHub Release** (voir la section suivante), qui reste une
-> copie durable valide.
+> ignorée : la **GitHub Release** publiée juste après (voir la section
+> suivante) assure la copie durable, et le garde-fou passe au vert sans aucun
+> secret Nexus.
+>
+> Un upload Nexus **en échec** n'invalide plus le run dès que la Release a
+> réellement été créée avec ses 2 fichiers : la copie durable existe.
 
 Le nettoyage des artefacts GitHub est **conservé** : le job `cleanup-artifacts`
 purge à chaque run les artefacts résiduels laissés par les anciens runs
@@ -145,8 +151,9 @@ tel quel.
 | Déclencheur | Résultat |
 |---|---|
 | `git push origin v1.3.3` (tag **`v*`**) | Build complet puis Release **`v1.3.3`** contenant `Batibuild-release.apk` et `Batibuild-release.aab` |
-| *Actions → Run workflow* + **`publish_release`** = true | Release **`v<version>-build<numéro de run>`** marquée *pré-version*, créée sur le commit lancé |
-| `push` sur `main` | Aucune Release — le build reste disponible dans le **Nexus 3** |
+| *Actions → Run workflow* (**`publish_release`** = true par défaut) | Release **`v<version>-build<numéro de run>`** marquée *pré-version*, créée sur le commit lancé |
+| `push` sur `main` | Release **`v<version>-build<numéro de run>`** (pré-version) — chaque build réussi est conservé, sans secret Nexus |
+| *Run workflow* + **`publish_release`** = false | Aucune Release : seule une copie Nexus (si configurée) est produite, sinon le garde-fou final échoue explicitement |
 
 ```bash
 git tag v1.3.3 && git push origin v1.3.3     # build + Release

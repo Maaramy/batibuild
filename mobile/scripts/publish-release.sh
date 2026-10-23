@@ -203,27 +203,79 @@ if [ "$TARGET_IS_TAG" != "true" ]; then
 fi
 
 if gh release view "$TAG" >/dev/null 2>&1; then
+  # Release (ou tag déjà publié) : on remplace les fichiers joints, jamais de
+  # doublon d'actif (--clobber supprime l'ancien avant d'ajouter le nouveau).
   echo "Release « ${TAG} » déjà présente → mise à jour des fichiers joints (--clobber)."
-  gh release upload "$TAG" "${ASSETS[@]}" --clobber
+  if ! gh release upload "$TAG" "${ASSETS[@]}" --clobber; then
+    fail "la mise à jour des fichiers de la Release « ${TAG} » a échoué.
+   Causes habituelles : jeton sans « contents: write », tag protégé par une
+   règle du dépôt, ou coupure réseau. Le message de l'API ci-dessus est la cause exacte."
+  fi
 else
-  gh release create "$TAG" "${ASSETS[@]}" \
+  if ! gh release create "$TAG" "${ASSETS[@]}" \
     --title "batibuild ${VERSION} (versionCode ${CODE})" \
     --notes-file "$NOTES" \
-    "${FLAGS[@]}"
+    "${FLAGS[@]}"; then
+    fail "la GitHub Release « ${TAG} » n'a pas pu être créée.
+   Causes habituelles : jeton sans « contents: write », tag déjà existant sans
+   Release correspondante, tag protégé, ou limite de taille des fichiers.
+   Le message de l'API ci-dessus est la cause exacte."
+  fi
 fi
 
 URL=$(gh release view "$TAG" --json url --jq .url)
 
-# ── 5. Restitution (sortie du workflow + résumé du run) ──────────────────────
+# ── 5. VÉRIFICATION RÉELLE : les DEUX fichiers sont-ils attachés ? ───────────
+# On ne déclare jamais un build publié sans preuve : l'API GitHub doit lister
+# `Batibuild-release.apk` ET `Batibuild-release.aab` avec une taille > 0.
+# La sonde est indépendante de la commande d'upload : un upload « réussi » mais
+# incomplet (actif ignoré, tronqué) est donc détecté ici.
+ASSETS_JSON=$(gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) \(.size)"' 2>/dev/null || true)
+if [ -z "$ASSETS_JSON" ]; then
+  fail "la Release « ${TAG} » existe mais l'API GitHub ne liste aucun fichier joint."
+fi
+APK_SIZE=$(printf '%s\n' "$ASSETS_JSON" | awk '$1 == "Batibuild-release.apk" { print $2 }' | head -1)
+AAB_SIZE=$(printf '%s\n' "$ASSETS_JSON" | awk '$1 == "Batibuild-release.aab" { print $2 }' | head -1)
+APK_SIZE=${APK_SIZE:-0}
+AAB_SIZE=${AAB_SIZE:-0}
+if [ "$APK_SIZE" -le 0 ] || [ "$AAB_SIZE" -le 0 ]; then
+  echo "Fichiers listés par la Release « ${TAG} » :"
+  printf '%s\n' "$ASSETS_JSON"
+  fail "les deux fichiers attendus ne sont pas attachés à la Release « ${TAG} »
+   (Batibuild-release.apk = ${APK_SIZE} octets, Batibuild-release.aab = ${AAB_SIZE} octets).
+   La publication n'est PAS considérée comme réussie."
+fi
+echo "✅ Fichiers vérifiés dans la Release :"
+echo "   · Batibuild-release.apk  (${APK_SIZE} octets)"
+echo "   · Batibuild-release.aab  (${AAB_SIZE} octets)"
+
+# Liens directs (téléchargement navigateur, stables pour un tag donné).
+DOWNLOAD_BASE="${SERVER}/${REPO}/releases/download/${TAG}"
+APK_URL="${DOWNLOAD_BASE}/Batibuild-release.apk"
+AAB_URL="${DOWNLOAD_BASE}/Batibuild-release.aab"
+
+# ── 6. Restitution (sortie du workflow + résumé du run) ──────────────────────
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
-  echo "url=${URL}" >> "$GITHUB_OUTPUT"
+  {
+    echo "url=${URL}"
+    echo "apk_name=Batibuild-release.apk"
+    echo "apk_url=${APK_URL}"
+    echo "aab_name=Batibuild-release.aab"
+    echo "aab_url=${AAB_URL}"
+    echo "published=true"
+  } >> "$GITHUB_OUTPUT"
 fi
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
     echo ""
     echo "## 📦 GitHub Release publiée"
     echo ""
-    echo "**${TAG}** — APK release et AAB release attachés : [télécharger](${URL})"
+    echo "**${TAG}** — APK release et AAB release attachés : [voir la Release](${URL})"
+    echo ""
+    echo "| Fichier | Lien direct |"
+    echo "|---|---|"
+    echo "| APK release (téléphone) | [Batibuild-release.apk](${APK_URL}) |"
+    echo "| AAB release (Google Play) | [Batibuild-release.aab](${AAB_URL}) |"
     echo ""
     echo "Cette copie est conservée **hors du quota d'artefacts** : elle reste"
     echo "disponible après l'expiration de l'artefact du run."
@@ -231,5 +283,7 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
 fi
 
 echo "✅ Release publiée : ${URL}"
+echo "   APK : ${APK_URL}"
+echo "   AAB : ${AAB_URL}"
 echo "   Fichiers joints : ${ASSETS[*]}"
 echo "   Ce build reste téléchargeable même après expiration de l'artefact du run."

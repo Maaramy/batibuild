@@ -528,6 +528,7 @@ const NODE24_MINIMUM = {
   cache: 5,
   "setup-android": 4,
   "setup-bun": 2,
+  "upload-artifact": 5,
 };
 
 /**
@@ -560,13 +561,31 @@ function checkCiWorkflow() {
     ok("un seul upload Nexus pour l'APK release + l'AAB release");
   }
 
-  if (/uses: actions\/upload-artifact@/.test(content)) {
-    fail(
-      "workflow android",
-      "« actions/upload-artifact » est encore utilisé : c'est ce stockage qui saturait le quota",
-    );
+  // Le stockage d'artefacts GitHub Actions peut être saturé : il n'est toléré
+  // qu'en COMPLÉMENT, après la copie durable, en un seul envoi, avec une
+  // rétention définie et sans jamais pouvoir faire échouer le job.
+  const artifactUploads = content.match(/uses: actions\/upload-artifact@v\d+/g) ?? [];
+  if (artifactUploads.length === 0) {
+    ok("aucun artefact GitHub Actions créé (stockage hors quota : Nexus 3 / Release)");
   } else {
-    ok("aucun artefact GitHub Actions créé (stockage hors quota : Nexus 3)");
+    const blocks = content
+      .split(/\n\s*- name: /)
+      .filter((block) => block.includes("uses: actions/upload-artifact@"));
+    const unsafe = blocks.filter(
+      (block) =>
+        !/continue-on-error:\s*true/.test(block) ||
+        !/retention-days:\s*\d+/.test(block) ||
+        !block.includes("steps.durable.outputs.durable == 'true'"),
+    );
+    if (artifactUploads.length > 1 || unsafe.length > 0) {
+      fail(
+        "workflow android",
+        "artefact GitHub Actions de secours mal configuré : un seul envoi, non bloquant (continue-on-error), " +
+          "avec retention-days, et uniquement quand la copie durable est vérifiée",
+      );
+    } else {
+      ok("artefact Actions de secours : non bloquant, rétention définie, après la copie durable");
+    }
   }
 
   // L'APK debug ne doit plus être produit ni publié : c'est le plus gros
@@ -606,14 +625,24 @@ function checkCiWorkflow() {
     ok("identifiants Nexus injectés par secrets (NEXUS_HOST_URL / NEXUS_USER / NEXUS_TOKEN)");
   }
 
-  // Garde-fou : un build ne doit jamais se terminer sans copie durable.
-  if (!/steps\.nexus\.outcome/.test(content)) {
+  // Garde-fou : un build ne doit jamais se terminer sans copie durable. Il
+  // doit s'appuyer sur le RÉSULTAT (Release vérifiée par l'API + upload Nexus),
+  // pas sur une intention, et tourner APRÈS la publication.
+  const durableStep = content.indexOf("id: durable");
+  const releaseStep = content.indexOf("bash scripts/publish-release.sh");
+  if (
+    durableStep === -1 ||
+    !/steps\.nexus\.outcome/.test(content) ||
+    !/steps\.release\.outcome/.test(content) ||
+    !/--json assets/.test(content) ||
+    durableStep < releaseStep
+  ) {
     fail(
       "workflow android",
-      "aucun garde-fou : un build pourrait finir sans copie durable (Nexus ni Release)",
+      "garde-fou absent ou mal placé : la copie durable (Release vérifiée par l'API, ou Nexus) doit être contrôlée APRÈS la publication",
     );
   } else {
-    ok("garde-fou : une copie durable (Nexus ou Release) est exigée en fin de job");
+    ok("garde-fou : copie durable vérifiée après publication (Release par l'API, ou Nexus)");
   }
 
   if (!/artifact-storage\.mjs cleanup/.test(content)) {
@@ -659,10 +688,22 @@ function checkCiWorkflow() {
   if (!/always\(\)\s*&&\s*steps\.dist\.outputs\.release\s*==\s*'true'/.test(content)) {
     fail(
       "workflow android",
-      "la Release n'est pas conditionnée à un tag : elle serait publiée à chaque push de branche",
+      "la publication de la Release n'est pas pilotée par `steps.dist.outputs.release`",
     );
   } else {
-    ok("Release publiée uniquement sur tag `v*` ou demande explicite (même si le quota est plein)");
+    ok("Release publiée sur tag `v*`, lancement manuel ou push de branche (pré-version)");
+  }
+
+  // Un lancement manuel doit publier par défaut : `publish_release = false`
+  // sans secrets Nexus était précisément la cause de l'échec
+  // « Aucune copie durable du build ».
+  if (!/publish_release:[\s\S]{0,400}?default:\s*true/.test(content)) {
+    fail(
+      "workflow android",
+      "publish_release n'a pas `default: true` : un lancement manuel sans Nexus échouerait sur « Aucune copie durable »",
+    );
+  } else {
+    ok("publish_release publié par défaut (lancement manuel durable sans secret Nexus)");
   }
 
   // Nexus ET GitHub Release sont conservés : la publication d'une Release ne
