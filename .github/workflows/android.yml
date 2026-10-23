@@ -558,6 +558,21 @@ jobs:
           test -d "$SDK_ROOT/ndk/${NDK_VERSION}"
           test -d "$SDK_ROOT/cmake/${CMAKE_VERSION}"
 
+          # OUTILS DE SIGNATURE : apksigner et zipalign viennent EXCLUSIVEMENT
+          # de ce build-tools (jamais d'un binaire trouvé dans PATH). On vérifie
+          # leur présence ici, au lieu de le découvrir 15 min plus tard.
+          for TOOL in apksigner zipalign aapt2; do
+            test -x "$SDK_ROOT/build-tools/${BUILD_TOOLS}/$TOOL" || {
+              echo "❌ $TOOL absent de build-tools/${BUILD_TOOLS} : installation du SDK incomplète."
+              ls "$SDK_ROOT/build-tools/${BUILD_TOOLS}" || true
+              exit 1
+            }
+          done
+          echo "apksigner : $("$SDK_ROOT/build-tools/${BUILD_TOOLS}/apksigner" version 2>&1 | head -1 || true)"
+          # Version transmise aux étapes suivantes : elles utilisent CE build-tools.
+          echo "ANDROID_BUILD_TOOLS=${BUILD_TOOLS}" >> "$GITHUB_ENV"
+          echo "✅ Outils de signature : build-tools ${BUILD_TOOLS} (apksigner, zipalign, aapt2)"
+
           echo "── Contenu du SDK : $SDK_ROOT ──"
           ls "$SDK_ROOT"
           ls "$SDK_ROOT/platforms"
@@ -774,26 +789,49 @@ jobs:
       # signé par la clé debug quand aucun secret keystore n'est fourni).
 
       # ── APK RELEASE ────────────────────────────────────────────────────────
-      - name: Build — APK release
-        run: bash scripts/ci-gradle.sh :app:assembleRelease release
+      # `-PbatibuildSigning=apksigner` : Gradle produit un APK release NON signé
+      # (`app-release-unsigned.apk`). La signature est donc posée UNE SEULE FOIS,
+      # par apksigner (v1 JAR + v2 + v3), dans l'étape suivante : plus aucune
+      # ambiguïté entre APK « signed », « unsigned », « aligned » ni double
+      # signature Gradle → apksigner.
+      - name: Build — APK release (non signé — signé par apksigner ensuite)
+        run: bash scripts/ci-gradle.sh :app:assembleRelease release -PbatibuildSigning=apksigner
 
       # ══════════════════════════════════════════════════════════════════════
-      # SIGNATURE EXPLICITE DE L'APK — apksigner, schémas v1 (JAR) + v2 + v3
+      # SIGNATURE DE L'APK — apksigner, schémas v1 (JAR) + v2 + v3
       #
-      # POURQUOI SIGNER ICI, APRÈS GRADLE :
-      #   android/app/build.gradle demande bien `enableV1Signing true`, mais AGP
-      #   n'ajoute la signature JAR (v1) que si `minSdk < 24`. Notre minSdk est
-      #   24 et, selon la version d'AGP / la réécriture du signingConfig par le
-      #   React Native Gradle Plugin ou `expo prebuild`, le drapeau Gradle n'est
-      #   pas toujours honoré pour l'APK release. Résultat constaté en CI : un
-      #   APK signé v2 SEULEMENT → « ❌ Signature v1 (JAR) absente ».
-      #   On ne devine donc plus : l'APK est signé NOUS-MÊMES avec l'apksigner
-      #   officiel du SDK Android, qui garantit la présence des trois schémas.
+      # CAUSE RÉELLE DE L'ÉCHEC « Signature v1 (JAR) absente » :
+      #   apksigner choisit ET VÉRIFIE les schémas d'après la plage d'API
+      #   (`--min-sdk-version`, par défaut le minSdkVersion du manifeste — 24
+      #   ici). À partir de l'API 24, une signature v2/v3 suffit à Android :
+      #   le vérificateur ne contrôle donc plus la signature JAR et affiche
+      #   « Verified using v1 scheme (JAR signing): false » MÊME lorsque
+      #   META-INF/*.SF et *.RSA sont présents et valides. Le contrôle
+      #   précédent concluait à tort à une absence de v1.
+      #   Réf. : https://developer.android.com/tools/apksigner — « --min-sdk-version
+      #   : the lowest Android framework API level that apksigner uses to confirm
+      #   that the APK's signature will be verified ».
+      #
+      # CORRECTIF :
+      #   · signature avec `--min-sdk-version 23` → la v1 est OBLIGATOIRE dans
+      #     la plage d'API, donc produite à coup sûr (v1 reste explicitement
+      #     activée ; la valeur ne modifie PAS le manifeste : minSdkVersion de
+      #     l'APK reste celui du projet) ;
+      #   · vérification avec `--min-sdk-version 23` → apksigner contrôle et
+      #     rapporte réellement v1 ;
+      #   · preuve INDÉPENDANTE de la plateforme : `jarsigner -verify` (digests
+      #     de chaque entrée) et `keytool -printcert -jarfile` (certificat du
+      #     bloc v1, comparé à celui de v2/v3 et à celui du keystore) ;
+      #   · outils pris dans le build-tools EXPLICITE installé par le SDK,
+      #     jamais dans le PATH (un ancien apksigner produisait v2 seulement) ;
+      #   · Gradle produit un APK non signé (`-PbatibuildSigning=apksigner`) :
+      #     une seule signature est posée, ici, et plus rien ne modifie le
+      #     fichier ensuite (SHA-256 comparé avant/après les contrôles).
       #
       # ORDRE IMPÉRATIF : zipalign AVANT apksigner (sinon l'alignement des .so
       # et de `resources.arsc` est perdu et Android refuse le paquet).
-      # apksigner est lancé avec `--alignment-preserved` (défaut) : l'alignement
-      # posé par zipalign est conservé, et il est REVÉRIFIÉ après signature.
+      # Après signature : uniquement des contrôles en LECTURE SEULE
+      # (`apksigner verify`, `jarsigner -verify`, `zipalign -c`, `unzip -t`).
       #
       # Le fichier signé est `/tmp/dist/Batibuild-release.apk` : c'est exactement
       # lui qui est contrôlé, publié puis retéléchargé plus bas. Aucun autre
@@ -824,19 +862,67 @@ jobs:
             exit 1
           fi
           RELEASE_APK="${APKS[0]}"
-          # Une sortie Gradle non signée n'est plus un échec : apksigner la signe
-          # juste en dessous (v1 + v2 + v3). On le signale simplement.
+          # Entrée = exactement un APK, produit par le build Gradle de ce run.
           case "$RELEASE_APK" in
             *-unsigned.apk)
-              echo "⚠️  Sortie Gradle non signée ($RELEASE_APK) — apksigner la signera."
+              echo "✅ Sortie Gradle NON signée ($RELEASE_APK) : apksigner posera l'unique signature."
+              ;;
+            *)
+              echo "⚠️  Sortie Gradle déjà signée par AGP ($RELEASE_APK)."
+              echo "    → apksigner REMPLACE cette signature (une seule signature finale, v1 + v2 + v3)."
+              echo "      (La propriété -PbatibuildSigning=apksigner n'a pas été appliquée par build.gradle.)"
               ;;
           esac
-          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
-          APKSIGNER="$BUILD_TOOLS/apksigner"
-          ZIPALIGN="$BUILD_TOOLS/zipalign"
+          echo "── APK d'entrée ──"
+          echo "chemin : $RELEASE_APK"
+          echo "taille : $(stat -c%s "$RELEASE_APK") octets"
+          echo "SHA-256: $(sha256sum "$RELEASE_APK" | cut -d' ' -f1)"
+
+          # ── Build-tools : version EXPLICITE du SDK installé, jamais le PATH ──
+          # `ANDROID_BUILD_TOOLS` est exporté par l'étape « Installation des
+          # composants Android SDK du projet » (version lue dans le catalogue du
+          # projet, 36.0.0 aujourd'hui). Aucune sélection automatique d'une
+          # version plus ancienne, aucun binaire trouvé dans PATH : c'est CE
+          # build-tools (le seul installé) qui fournit apksigner et zipalign.
+          SDK_ROOT="${ANDROID_SDK_ROOT:?ANDROID_SDK_ROOT non défini — étape de setup du SDK manquante}"
+          BT_VERSION="${ANDROID_BUILD_TOOLS:?ANDROID_BUILD_TOOLS non fourni par la CI — voir installation du SDK}"
+          BT_DIR="$SDK_ROOT/build-tools/$BT_VERSION"
+          if [ ! -d "$BT_DIR" ]; then
+            echo "❌ build-tools $BT_VERSION absent du SDK : $BT_DIR"
+            ls "$SDK_ROOT/build-tools" || true
+            exit 1
+          fi
+          APKSIGNER="$BT_DIR/apksigner"
+          ZIPALIGN="$BT_DIR/zipalign"
           for TOOL in "$APKSIGNER" "$ZIPALIGN"; do
             [ -x "$TOOL" ] || { echo "❌ outil Android introuvable : $TOOL"; exit 1; }
           done
+          # preuve que l'outil utilisé appartient bien à CE build-tools
+          APKSIGNER_REAL=$(readlink -f "$APKSIGNER")
+          case "$APKSIGNER_REAL" in
+            "$BT_DIR"/*) ;;
+            *) echo "❌ apksigner hors du build-tools $BT_VERSION : $APKSIGNER_REAL"; exit 1 ;;
+          esac
+          KEYTOOL=$(command -v keytool || true)
+          JARSIGNER=$(command -v jarsigner || true)
+          for TOOL in "$KEYTOOL" "$JARSIGNER"; do
+            [ -n "$TOOL" ] && [ -x "$TOOL" ] || {
+              echo "❌ keytool/jarsigner introuvables : JDK incomplet, contrôle v1 impossible."
+              exit 1
+            }
+          done
+          # build-tools ≥ 35.0.0 : `zipalign -P 16` (pages 16 Ko) et un apksig
+          # qui gère v1 + v2 + v3. Sortie explicite si la version est trop vieille.
+          if [ "$(printf '%s\n%s\n' 35.0.0 "$BT_VERSION" | sort -V | head -n1)" != "35.0.0" ]; then
+            echo "❌ build-tools $BT_VERSION trop ancien (minimum 35.0.0 pour la v1 + l'alignement 16 Ko)."
+            exit 1
+          fi
+          echo "── Outils de signature ──"
+          echo "build-tools : $BT_VERSION  ($BT_DIR)"
+          echo "apksigner   : $APKSIGNER"
+          echo "version     : $("$APKSIGNER" version 2>&1 | head -1 || true)"
+          echo "zipalign    : $ZIPALIGN"
+          echo "jarsigner   : $JARSIGNER"
 
           # ── Keystore : production (secrets) sinon clé debug versionnée ─────
           # Rien n'est écrit dans le dépôt ; les mots de passe passent par
@@ -896,14 +982,17 @@ jobs:
           echo "✅ zipalign : $ALIGN_MSG"
 
           # ── 2. Signature : v1 (JAR) + v2 + v3 ──────────────────────────────
-          # v1 est OBLIGATOIRE ici : c'est la seule forme que lisent plusieurs
-          # installateurs et analyseurs de paquets ; sans elle, Android peut
-          # répondre « le package semble ne pas être valide ».
+          # `--min-sdk-version 23` est LA clé du correctif : apksigner décide des
+          # schémas à produire d'après cette plage d'API. À 23, la signature JAR
+          # (v1) est obligatoire côté plateforme, donc elle est réellement
+          # générée — même si le manifeste déclare minSdkVersion 24. La valeur ne
+          # modifie pas le manifeste : l'APK reste installable à partir de 24.
           # v3 est demandée « si compatible » : certains build-tools refusent v3
           # pour un minSdk ancien. Dans ce cas on retombe sur v1 + v2 — v1, qui
           # est la cause de l'échec corrigé ici, reste OBLIGATOIRE.
           SIGN_OK=0
           if "$APKSIGNER" sign \
+              --min-sdk-version 23 \
               --ks "$KS" \
               --ks-key-alias "$ALIAS" \
               --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
@@ -920,6 +1009,7 @@ jobs:
             echo "   → nouvelle tentative avec v1 + v2 (v3 incompatible avec ce minSdk)."
             rm -f "$SIGNED"
             if "$APKSIGNER" sign \
+                --min-sdk-version 23 \
                 --ks "$KS" \
                 --ks-key-alias "$ALIAS" \
                 --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
@@ -943,55 +1033,141 @@ jobs:
           rm -rf "$WORK"
           ls -l "$SIGNED"
           unzip -t "$SIGNED" > /dev/null || { echo "❌ APK signé illisible (archive ZIP corrompue)."; exit 1; }
+          # Empreinte de RÉFÉRENCE de l'artefact signé : elle est recomparée à la
+          # fin de l'étape. Tout réalignement, ré-écriture ou re-signature
+          # accidentel après ce point est donc détecté.
+          SIGNED_SHA256=$(sha256sum "$SIGNED" | cut -d' ' -f1)
+          echo "── APK signé ──"
+          echo "chemin : $SIGNED ($(stat -c%s "$SIGNED") octets)"
+          echo "SHA-256: $SIGNED_SHA256"
 
-          # ── 3. Contrôle BLOQUANT de la signature (code retour capturé) ─────
-          if ! "$APKSIGNER" verify --verbose --print-certs "$SIGNED" > /tmp/apksigner.txt 2>&1; then
+          # ── 3. Contrôle BLOQUANT par apksigner, plage d'API 23 → v1 vérifiée ─
+          # `--min-sdk-version 23` est indispensable ICI : sans lui, apksigner
+          # vérifie pour l'API 24+ (minSdk du manifeste), où la v2/v3 suffit, et
+          # n'évalue pas la signature JAR — d'où le faux « v1: false ». Avec la
+          # plage 23, la v1 est obligatoire et donc réellement contrôlée.
+          if ! "$APKSIGNER" verify --min-sdk-version 23 --verbose --print-certs "$SIGNED" > /tmp/apksigner.txt 2>&1; then
             echo "❌ apksigner verify a échoué :"
             cat /tmp/apksigner.txt
             exit 1
           fi
           cat /tmp/apksigner.txt
-          grep -q "Verified using v1 scheme (JAR signing): true" /tmp/apksigner.txt || {
-            echo "❌ Signature v1 (JAR) absente APRÈS signature explicite par apksigner."
-            echo "   → build-tools trop ancien ou archive non alignée : corrigez l'outil, ne désactivez pas ce contrôle."
-            exit 1
-          }
           grep -q "Verified using v2 scheme (APK Signature Scheme v2): true" /tmp/apksigner.txt || {
             echo "❌ Signature v2 absente : Android 7+ refuserait l'installation."
             exit 1
           }
           if grep -q "Verified using v3 scheme (APK Signature Scheme v3): true" /tmp/apksigner.txt; then
-            echo "✅ Signatures v1 + v2 + v3 vérifiées par apksigner."
+            echo "✅ Schémas v2 + v3 vérifiés par apksigner (plage d'API 23 → 36)."
           else
-            echo "✅ Signatures v1 + v2 vérifiées par apksigner (v3 non utilisée par ce build-tools / ce minSdk)."
+            echo "✅ Schéma v2 vérifié par apksigner (v3 non utilisée par ce build-tools / ce minSdk)."
+          fi
+          # La ligne v1 d'apksigner est RELEVÉE, pas crue sur parole : elle vaut
+          # `false` pour un minSdkVersion ≥ 24 quand une v2/v3 valide existe,
+          # même si la signature JAR est présente. La v1 est donc exigée via
+          # DEUX preuves, et au moins une doit aboutir (contrôle bloquant).
+          if grep -q "Verified using v1 scheme (JAR signing): true" /tmp/apksigner.txt; then
+            V1_APKSIGNER=1
+            echo "✅ Schéma v1 (JAR) vérifié par apksigner."
+          else
+            V1_APKSIGNER=0
+            echo "ℹ️  apksigner ne rapporte pas v1 pour cette plage d'API (attendu si minSdk ≥ 24)."
+            echo "    → contrôle cryptographique indépendant ci-dessous (jarsigner + keytool)."
           fi
 
-          # Preuve INDÉPENDANTE de la signature JAR : les entrées META-INF.
-          if ! unzip -l "$SIGNED" | grep -Eq "META-INF/[^/]+\.(SF|RSA|DSA|EC)"; then
-            echo "❌ Aucune entrée META-INF de signature JAR dans l'APK."
+          # ── 4. Preuve INDÉPENDANTE de la signature JAR (v1) ────────────────
+          # apksigner reste un modèle de la vérification de la plateforme. On
+          # contrôle donc la signature JAR avec les outils du JDK, qui
+          # l'examinent réellement, entrée par entrée :
+          #   · `jarsigner -verify` recalcule les digests et doit déclarer
+          #     « jar verified. » ;
+          #   · `keytool -printcert -jarfile` lit le certificat du bloc v1 ; son
+          #     empreinte doit être celle de v2/v3 et du keystore de production.
+          # La simple présence d'entrées META-INF n'est plus le critère de
+          # succès : elle est seulement affichée pour le diagnostic.
+          META_COUNT=$(unzip -l "$SIGNED" | grep -Ec "META-INF/[^/]+\.(SF|RSA|DSA|EC)" || true)
+          echo "Entrées META-INF de signature JAR : ${META_COUNT:-0}"
+          if ! "$JARSIGNER" -verify -verbose -certs "$SIGNED" > /tmp/jarsigner.txt 2>&1; then
+            echo "❌ jarsigner -verify a échoué : signature JAR (v1) invalide."
+            tail -40 /tmp/jarsigner.txt
             exit 1
           fi
+          if ! grep -q "^jar verified\.$" /tmp/jarsigner.txt; then
+            echo "❌ jarsigner ne déclare pas « jar verified. » : v1 absente ou incomplète."
+            tail -40 /tmp/jarsigner.txt
+            exit 1
+          fi
+          SIGNED_ENTRIES=$(grep -Ec "^[[:space:]]*sm" /tmp/jarsigner.txt || true)
+          echo "✅ jarsigner : archive JAR vérifiée (${SIGNED_ENTRIES:-0} entrées signées)."
 
-          # ── 4. L'alignement doit survivre à la signature ───────────────────
+          if ! "$KEYTOOL" -printcert -jarfile "$SIGNED" > /tmp/keytool-jar.txt 2>&1; then
+            echo "❌ keytool ne lit aucun certificat JAR (v1) dans l'APK :"
+            cat /tmp/keytool-jar.txt
+            exit 1
+          fi
+          V1_CERT_SHA256=$(sed -nE 's/^[[:space:]]*SHA-?256: //p' /tmp/keytool-jar.txt | head -1 | tr -d ' \r')
+          if [ -z "$V1_CERT_SHA256" ]; then
+            echo "❌ Empreinte SHA-256 du certificat de la signature v1 illisible :"
+            cat /tmp/keytool-jar.txt
+            exit 1
+          fi
+          echo "✅ Certificat de la signature JAR (v1) : SHA-256 $V1_CERT_SHA256"
+
+          normalize_sha() { printf '%s' "$1" | tr -d ':' | tr 'A-F' 'a-f'; }
+          V23_CERT_SHA256=$(sed -nE 's/.*certificate SHA-256 digest: *//p' /tmp/apksigner.txt | head -1 | tr -d ' \r')
+          if [ -n "$V23_CERT_SHA256" ] && [ "$(normalize_sha "$V1_CERT_SHA256")" != "$(normalize_sha "$V23_CERT_SHA256")" ]; then
+            echo "❌ Le certificat de la signature v1 diffère de celui de v2/v3."
+            echo "   v1    : $V1_CERT_SHA256"
+            echo "   v2/v3 : $V23_CERT_SHA256"
+            exit 1
+          fi
+          # Certificat = celui du keystore de production (si fourni). Comparaison
+          # normalisée : keytool écrit « AA:BB:… », apksigner « aabb… ».
+          if [ -n "${EXPECTED_CERT_SHA256:-}" ]; then
+            if [ "$(normalize_sha "$V1_CERT_SHA256")" != "$(normalize_sha "$EXPECTED_CERT_SHA256")" ]; then
+              echo "❌ Signature produite avec un certificat différent du keystore de production."
+              echo "   attendu : $EXPECTED_CERT_SHA256"
+              echo "   APK v1  : $V1_CERT_SHA256"
+              exit 1
+            fi
+            echo "✅ v1 + v2/v3 signés par le certificat de production (mises à jour compatibles)."
+          fi
+
+          # ── 4 bis. Verdict v1 : DEUX preuves, la plus forte est retenue ─────
+          # Pour arriver ici, `jarsigner` a validé cryptographiquement chaque
+          # entrée (« jar verified. ») ET `keytool` a lu le certificat du bloc
+          # v1 avec l'empreinte attendue : la signature JAR est donc réellement
+          # présente, complète et valide. Si elle manquait, l'un de ces deux
+          # contrôles bloquants aurait déjà interrompu le workflow.
+          if [ "$V1_APKSIGNER" = "1" ]; then
+            echo "✅ Signature v1 (JAR) : confirmée par apksigner ET par jarsigner/keytool."
+          else
+            echo "✅ Signature v1 (JAR) : présente et valide — confirmée par jarsigner/keytool (certificat $V1_CERT_SHA256)."
+            echo "   apksigner ne l'évalue pas au-delà de l'API 24 : son « v1: false » ne signifie pas absence."
+          fi
+
+          # ── 5. L'alignement doit survivre à la signature ───────────────────
           if ! "$ZIPALIGN" -c -p 4 "$SIGNED"; then
             echo "❌ APK mal aligné après signature : Android peut refuser l'installation."
             exit 1
           fi
-          echo "✅ Alignement vérifié après signature (zipalign -c -p 4)."
+          echo "✅ Alignement vérifié après signature (zipalign -c -p 4, lecture seule)."
 
-          # ── 5. Certificat = celui du keystore de production (si fourni) ────
-          if [ -n "${EXPECTED_CERT_SHA256:-}" ]; then
-            if ! grep -qi "certificate SHA-256 digest: ${EXPECTED_CERT_SHA256}" /tmp/apksigner.txt; then
-              echo "❌ Le certificat de l'APK ne correspond pas au keystore de production."
-              grep -i "certificate" /tmp/apksigner.txt || true
-              exit 1
-            fi
-            echo "✅ Certificat conforme au keystore de production (mises à jour compatibles)."
-          fi
-
+          # ── 6. L'APK publié est EXACTEMENT celui qui vient d'être signé ────
+          # Aucune commande de cette étape n'écrit dans `$SIGNED` : l'empreinte
+          # doit donc être identique à celle relevée juste après la signature.
+          # (Aucun réalignement, aucune re-signature après coup — jamais.)
           APK_SHA256=$(sha256sum "$SIGNED" | cut -d' ' -f1)
+          if [ "$APK_SHA256" != "$SIGNED_SHA256" ]; then
+            echo "❌ L'APK a été modifié APRÈS sa signature (réalignement / ré-écriture)."
+            echo "   après signature       : $SIGNED_SHA256"
+            echo "   au moment du contrôle : $APK_SHA256"
+            exit 1
+          fi
+          echo "✅ Fichier inchangé depuis la signature (SHA-256 identique)."
           echo "APK_SHA256=$APK_SHA256" >> "$GITHUB_ENV"
           echo "APK_SIGNED_PATH=$SIGNED" >> "$GITHUB_ENV"
+          # Quelle preuve atteste la v1 (pour le résumé du run) :
+          echo "APK_V1_PROOF=$([ "$V1_APKSIGNER" = "1" ] && echo 'apksigner + jarsigner/keytool' || echo 'jarsigner/keytool')" >> "$GITHUB_ENV"
           echo "✅ APK signé et prêt (1 fichier, aucun .idsig) : $SIGNED"
           echo "   SHA-256 : $APK_SHA256"
 
@@ -1018,7 +1194,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          AAPT2="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt2"
+          BT_VERSION="${ANDROID_BUILD_TOOLS:?ANDROID_BUILD_TOOLS non fourni par la CI — voir installation du SDK}"
+          AAPT2="${ANDROID_SDK_ROOT:?ANDROID_SDK_ROOT non défini}/build-tools/${BT_VERSION}/aapt2"
+          [ -x "$AAPT2" ] || { echo "❌ aapt2 introuvable : $AAPT2"; exit 1; }
           "$AAPT2" dump badging /tmp/dist/Batibuild-release.apk > /tmp/badging.txt
           BUNDLE=$(node -p "require('./app.json').expo.android.package")
           CODE=$(node -p "require('./app.json').expo.android.versionCode")
@@ -1428,10 +1606,17 @@ jobs:
           fi
           if [ -f /tmp/apksigner.txt ]; then
             SCHEMES=""
-            if grep -q "v1 scheme (JAR signing): true" /tmp/apksigner.txt; then SCHEMES="$SCHEMES v1 (JAR)"; fi
+            # v1 : annoncée par apksigner, ou prouvée par jarsigner/keytool
+            # (apksigner ne l'évalue pas au-delà de l'API 24).
+            if grep -q "v1 scheme (JAR signing): true" /tmp/apksigner.txt || [ -n "${APK_V1_PROOF:-}" ]; then
+              SCHEMES="$SCHEMES v1 (JAR)"
+            fi
             if grep -q "v2 scheme (APK Signature Scheme v2): true" /tmp/apksigner.txt; then SCHEMES="$SCHEMES v2"; fi
             if grep -q "v3 scheme (APK Signature Scheme v3): true" /tmp/apksigner.txt; then SCHEMES="$SCHEMES v3"; fi
             echo "**Schémas de signature** : \`${SCHEMES# }\` (APK signé explicitement par apksigner, pas par AGP)." >> "$GITHUB_STEP_SUMMARY"
+            if [ -n "${APK_V1_PROOF:-}" ]; then
+              echo "**Preuve v1 (JAR)** : \`${APK_V1_PROOF}\`" >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
           if [ "${PRODUCTION_SIGNING:-false}" = "true" ]; then
             echo "**Keystore** : ✅ keystore de production (secrets) — mises à jour Android compatibles." >> "$GITHUB_STEP_SUMMARY"

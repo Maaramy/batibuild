@@ -2,8 +2,9 @@
 # ---------------------------------------------------------------------------
 # BatiBuild Mobile — exécution d'une tâche Gradle en intégration continue.
 #
-# Usage : bash scripts/ci-gradle.sh <tâche-gradle> [nom-du-log]
+# Usage : bash scripts/ci-gradle.sh <tâche-gradle> [nom-du-log] [arguments-gradle…]
 #   ex  : bash scripts/ci-gradle.sh :app:assembleDebug debug
+#   ex  : bash scripts/ci-gradle.sh :app:assembleRelease release -PbatibuildSigning=apksigner
 #
 # Le script :
 #   1. affiche l'espace disque et la mémoire disponibles ;
@@ -16,8 +17,15 @@
 # ---------------------------------------------------------------------------
 set -o pipefail
 
-TASK="${1:?usage: ci-gradle.sh <gradle-task> [log-name]}"
-NAME="${2:-build}"
+TASK="${1:?usage: ci-gradle.sh <gradle-task> [log-name] [gradle-args...]}"
+shift || true
+NAME="build"
+if [ "$#" -gt 0 ]; then
+  NAME="$1"
+  shift || true
+fi
+# Arguments Gradle supplémentaires (ex. -PbatibuildSigning=apksigner).
+EXTRA_ARGS=("$@")
 LOG="/tmp/gradle-${NAME}.log"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -25,6 +33,9 @@ cd "$ROOT_DIR/android" || exit 1
 
 echo "────────────────────────────────────────────────────────────"
 echo "Tâche Gradle : $TASK"
+if [ "${#EXTRA_ARGS[@]}" -gt 0 ]; then
+  echo "Arguments    : ${EXTRA_ARGS[*]}"
+fi
 echo "ABI          : ${ARCHITECTURES:-<défaut du projet>}"
 echo "Log complet  : $LOG"
 echo "── Espace disque ──"
@@ -35,6 +46,7 @@ echo "────────────────────────�
 
 ./gradlew "$TASK" \
   -PreactNativeArchitectures="${ARCHITECTURES:-arm64-v8a,armeabi-v7a}" \
+  ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} \
   --console=plain --stacktrace 2>&1 | tee "$LOG"
 STATUS=${PIPESTATUS[0]}
 

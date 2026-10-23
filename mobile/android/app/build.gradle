@@ -113,7 +113,17 @@ def releaseKeystoreFile = releaseStoreFile == null ? null : (new File(releaseSto
 
 def useReleaseSigning = releaseKeystoreFile != null && releaseKeystoreFile.exists() && releaseStorePassword != null && releaseKeyAlias != null
 
-if (useReleaseSigning) {
+// SIGNATURE UNIQUE PAR apksigner (CI) : avec -PbatibuildSigning=apksigner,
+// Gradle produit un APK release NON signé (`app-release-unsigned.apk`) et
+// l'unique signature de l'artefact publié est posée par apksigner dans le
+// workflow (schémas v1 JAR + v2 + v3, alignement maîtrisé). Aucun fichier ne
+// porte ainsi deux signatures successives (Gradle puis apksigner).
+// Sans cette propriété (builds locaux, AAB Google Play), rien ne change.
+def apksignerSigning = (findProperty('batibuildSigning') ?: '').toString() == 'apksigner'
+
+if (apksignerSigning) {
+    println "🖊️  APK release NON signé par Gradle (-PbatibuildSigning=apksigner) : apksigner le signera (v1 + v2 + v3)."
+} else if (useReleaseSigning) {
     println "🔐 APK/AAB Release signé avec le keystore : ${releaseKeystoreFile}"
 } else if (releaseStoreFile != null) {
     println "⚠️  ANDROID_KEYSTORE_PATH/keystore.properties défini mais fichier introuvable : ${releaseKeystoreFile}"
@@ -170,7 +180,7 @@ android {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig useReleaseSigning ? signingConfigs.release : signingConfigs.debug
+            signingConfig apksignerSigning ? null : (useReleaseSigning ? signingConfigs.release : signingConfigs.debug)
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds

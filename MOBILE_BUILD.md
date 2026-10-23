@@ -628,13 +628,14 @@ conteneur ZIP complet, `applicationId` `com.batibuild.app`, `versionCode 13`,
 `minSdk 24` / `targetSdk 36`, deux ABI (`arm64-v8a` + `armeabi-v7a`),
 bibliothèques natives alignées. Sa structure n'était donc pas en cause.
 
-Deux défauts réels ont été constatés sur ce fichier :
+Plusieurs défauts réels ont été constatés sur ce fichier :
 
 | Constat | Conséquence |
 |---|---|
 | Signature assurée par la clé **debug** Android (`CN=Android Debug`, empreinte `FA:C6:17:45:…`) — aucun keystore de production n'était configuré | Un APK debug-signed **ne peut pas remplacer** une application signée avec une autre clé : Android refusa la mise à jour (« le package semble ne pas être valide »). Il est également refusé par Google Play. |
 | Signature **v2 uniquement** (aucune signature v1/JAR) : AGP désactive v1 dès que `minSdk ≥ 24` | Plusieurs analyseurs de paquets et installateurs ne lisent que les signatures JAR ; sans `META-INF/*.RSA`, ils rejettent le fichier avant même de vérifier sa version d'Android. |
 | Contrôle CI trop faible | `apksigner verify … \| head -6` perdait le code de sortie d'`apksigner` (celui de `head` vaut 0), et `verify-artifact.mjs` cherchait simplement la chaîne « APK Sig Block 42 » dans le fichier : un APK mal signé pouvait donc être publié. |
+| **Faux négatif d'`apksigner verify`** | Pour un `minSdkVersion ≥ 24`, `apksigner` ne vérifie **pas** la signature JAR dès qu'une v2/v3 valide existe : il affiche `Verified using v1 scheme (JAR signing): false` **même quand** `META-INF/*.SF` et `*.RSA` sont présents et valides. Le contrôle CI en concluait à tort à une absence : « ❌ Signature v1 (JAR) absente APRÈS signature explicite par apksigner ». |
 
 ### Ce qui a été corrigé
 
@@ -646,16 +647,27 @@ Deux défauts réels ont été constatés sur ce fichier :
    peut de surcroît être réécrit par `expo prebuild` ou le React Native Gradle
    Plugin. D'où l'échec CI « ❌ Signature v1 (JAR) absente » : le drapeau Gradle
    ne suffit pas à garantir le schéma v1 sur l'APK release.
-   La CI ne dépend donc plus de ce comportement : elle **réaligne** l'APK
-   (`zipalign -P 16 -p -f 4`, pages 16 Ko pour les `.so`) puis le **signe
-   elle-même** :
+   La CI ne dépend donc plus de ce comportement : `assembleRelease` reçoit
+   `-PbatibuildSigning=apksigner`, Gradle produit un APK **NON signé**
+   (`app-release-unsigned.apk`) et l'unique signature est posée par apksigner :
+   aucun fichier ne porte deux signatures successives. Ordre strict :
+   `zipalign -P 16 -f 4` → `apksigner sign` → contrôles en lecture seule.
 
    ```bash
-   apksigner sign --ks "$ANDROID_KEYSTORE_PATH" --ks-key-alias "$ANDROID_KEY_ALIAS" \
+   apksigner sign --min-sdk-version 23 \
+     --ks "$ANDROID_KEYSTORE_PATH" --ks-key-alias "$ANDROID_KEY_ALIAS" \
      --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD \
      --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
-     --out /tmp/dist/Batibuild-release.apk /tmp/dist/Batibuild-aligned.apk
+     --out /tmp/dist/Batibuild-release.apk /tmp/Batibuild-aligned.apk
    ```
+
+   `--min-sdk-version 23` est le point clé : apksigner choisit **et vérifie**
+   les schémas d'après la plage d'API (`--min-sdk-version`, par défaut le
+   `minSdkVersion` du manifeste). À 23, la v1 est obligatoire, donc réellement
+   produite et réellement contrôlée. La valeur ne modifie **pas** le manifeste :
+   le `minSdkVersion` de l'APK reste 24. Les binaires viennent du build-tools
+   **explicite** installé par le SDK (`ANDROID_BUILD_TOOLS`, ≥ 35.0.0), jamais
+   d'un `apksigner` trouvé dans le `PATH`.
 
    L'APK ainsi signé **remplace** la sortie Gradle dans `/tmp/dist` : c'est ce
    fichier exact qui est contrôlé, publié et retéléchargé plus bas. Sans
@@ -664,13 +676,20 @@ Deux défauts réels ont été constatés sur ce fichier :
    est défini mais introuvable, le job **échoue** au lieu de signer en debug.
    Le `.idsig` de la v4 est supprimé (aucun fichier parasite publié).
 2. **Contrôles bloquants** dans GitHub Actions, avant toute publication :
-   `apksigner verify --verbose --print-certs` (code retour **capturé**),
-   présence effective et **valide** des schémas `v1` et `v2` (v3 signalée),
-   entrées `META-INF/*.SF` + `META-INF/*.RSA` retrouvées dans l'archive,
-   `zipalign -c -p 4` **après** signature, `aapt2 dump badging` (package,
-   `versionCode`, SDK, ABI), puis `verify-artifact.mjs` (digest de contenu +
-   signature cryptographique + certificat). Aucun de ces contrôles n'est
-   désactivable pour « faire passer » un APK.
+   `apksigner verify --min-sdk-version 23 --verbose --print-certs` (code retour
+   **capturé**), schéma `v2` exigé, `jarsigner -verify -verbose -certs`
+   (« jar verified. » — digests de **chaque entrée**) et
+   `keytool -printcert -jarfile` (certificat du bloc v1, empreinte comparée à
+   celle de v2/v3 et du keystore de production). Les entrées `META-INF/*.SF`
+   et `*.RSA` ne sont plus qu'un indice de diagnostic : leur seule présence ne
+   vaut pas preuve. Puis `zipalign -c -p 4` **après** signature,
+   `aapt2 dump badging` (package, `versionCode`, SDK, ABI), et
+   `verify-artifact.mjs` (digest de contenu + signature cryptographique +
+   certificat). Aucun de ces contrôles n'est désactivable pour « faire passer »
+   un APK.
+   L'empreinte SHA-256 de l'APK est de plus comparée **avant et après** les
+   contrôles : toute réécriture après signature (réalignement, re-signature)
+   fait échouer le job.
 3. **Fidélité du fichier publié** : l'APK est **retéléchargé** depuis la
    GitHub Release et son SHA-256 doit être identique à l'artefact vérifié.
 4. **Certificat surveillé** : empreinte SHA-256 du keystore affichée dans le
@@ -683,8 +702,10 @@ Deux défauts réels ont été constatés sur ce fichier :
 2. Vérifier le fichier (ordinateur, outillage Android installé) :
 
    ```bash
-   apksigner verify --verbose --print-certs Batibuild-release.apk
+   apksigner verify --min-sdk-version 23 --verbose --print-certs Batibuild-release.apk
    # doit afficher : Verified using v1 scheme … true / v2 scheme … true
+   # (sans --min-sdk-version 23, la ligne v1 peut afficher « false » même sur
+   #  un APK correctement signé : apksigner ne vérifie pas la JAR au-delà de l'API 24)
    ```
 
    ou, sans SDK : `node mobile/scripts/verify-artifact.mjs Batibuild-release.apk`.

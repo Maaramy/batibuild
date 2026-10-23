@@ -81,15 +81,56 @@ function ensureSigningSchemes(lines) {
   return changed;
 }
 
+/**
+ * Signature unique par apksigner : `-PbatibuildSigning=apksigner` demande à
+ * Gradle un APK release NON signé (`app-release-unsigned.apk`), que le workflow
+ * signe ensuite une seule fois avec apksigner (v1 JAR + v2 + v3).
+ *
+ * Évite qu'un même APK porte deux signatures successives (Gradle puis
+ * apksigner) et lève toute ambiguïté entre `app-release.apk` et
+ * `app-release-unsigned.apk`. La propriété doit être déclarée ET prise en
+ * compte par le buildType release — y compris sur un build.gradle déjà
+ * personnalisé par une version précédente de ce script.
+ */
+const APKSIGNER_PROPERTY_LINE =
+  "def apksignerSigning = (findProperty('batibuildSigning') ?: '').toString() == 'apksigner'";
+const RELEASE_SIGNING_LINE =
+  "            signingConfig apksignerSigning ? null : (useReleaseSigning ? signingConfigs.release : signingConfigs.debug)";
+
+function ensureApksignerSigning(lines) {
+  let changed = false;
+  if (!lines.some((line) => line.includes("def apksignerSigning"))) {
+    const anchor = lines.findIndex((line) => line.trim().startsWith("def useReleaseSigning"));
+    if (anchor !== -1) {
+      lines.splice(anchor + 1, 0, "", APKSIGNER_PROPERTY_LINE);
+      changed = true;
+    }
+  }
+  const signingIdx = lines.findIndex((line) => line.includes("signingConfig useReleaseSigning"));
+  if (signingIdx !== -1 && !lines[signingIdx].includes("apksignerSigning")) {
+    lines[signingIdx] = RELEASE_SIGNING_LINE;
+    changed = true;
+  }
+  return changed;
+}
+
 // Marqueur unique du bloc : `useReleaseSigning` n'existe que dans la config
 // appliquée par ce script (jamais dans le template Expo).
 if (content.includes("def useReleaseSigning")) {
   const existingLines = content.split("\n");
-  if (ensureSigningSchemes(existingLines)) {
+  const schemesChanged = ensureSigningSchemes(existingLines);
+  const signingChanged = ensureApksignerSigning(existingLines);
+  if (schemesChanged || signingChanged) {
     writeFileSync(target, existingLines.join("\n"), "utf8");
-    console.log("✅ Signature Release déjà présente — schémas v1 + v2 ajoutés.");
+    console.log(
+      "✅ Signature Release déjà présente — " +
+        [schemesChanged ? "schémas v1 + v2" : null, signingChanged ? "signature unique apksigner" : null]
+          .filter(Boolean)
+          .join(" + ") +
+        " ajouté(s).",
+    );
   } else {
-    console.log("✅ Signature Release déjà présente (v1 + v2) — rien à faire.");
+    console.log("✅ Signature Release déjà présente (v1 + v2, signature unique apksigner) — rien à faire.");
   }
   process.exit(0);
 }
@@ -127,7 +168,16 @@ def releaseKeystoreFile = releaseStoreFile == null ? null : (new File(releaseSto
 
 def useReleaseSigning = releaseKeystoreFile != null && releaseKeystoreFile.exists() && releaseStorePassword != null && releaseKeyAlias != null
 
-if (useReleaseSigning) {
+// SIGNATURE UNIQUE PAR apksigner (CI) : avec -PbatibuildSigning=apksigner,
+// Gradle produit un APK release NON signé (app-release-unsigned.apk) et
+// l'unique signature de l'artefact publié est posée par apksigner dans le
+// workflow (v1 JAR + v2 + v3). Aucun fichier ne porte deux signatures
+// successives. Sans cette propriété (builds locaux, AAB), rien ne change.
+def apksignerSigning = (findProperty('batibuildSigning') ?: '').toString() == 'apksigner'
+
+if (apksignerSigning) {
+    println "🖊️  APK release NON signé par Gradle (-PbatibuildSigning=apksigner) : apksigner le signera (v1 + v2 + v3)."
+} else if (useReleaseSigning) {
     println "🔐 APK/AAB Release signé avec le keystore : \${releaseKeystoreFile}"
 } else if (releaseStoreFile != null) {
     println "⚠️  ANDROID_KEYSTORE_PATH/keystore.properties défini mais fichier introuvable : \${releaseKeystoreFile}"
@@ -193,11 +243,12 @@ if (buildTypesIdx === -1 || releaseIdx === -1 || relSignIdx === -1) {
   console.error("❌ Bloc buildTypes.release introuvable — insertion manuelle requise.");
   process.exit(1);
 }
-lines[relSignIdx] =
-  "            signingConfig useReleaseSigning ? signingConfigs.release : signingConfigs.debug";
+lines[relSignIdx] = RELEASE_SIGNING_LINE;
 
-// 4) Garantir les schémas de signature v1 + v2 (compatibilité maximale).
+// 4) Garantir les schémas de signature v1 + v2 (compatibilité maximale) et la
+//    propriété de signature unique par apksigner (CI).
 ensureSigningSchemes(lines);
+ensureApksignerSigning(lines);
 
 writeFileSync(target, lines.join("\n"), "utf8");
 console.log("✅ Signature Release réappliquée dans", target);
