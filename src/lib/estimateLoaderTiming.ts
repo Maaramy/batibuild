@@ -69,6 +69,17 @@ export function isEstimateProjectReady(
   );
 }
 
+/**
+ * Libellé des niveaux du projet, dans la convention de la page finale
+ * (« RDC », « RDC + 1 », …). `null` tant que le nombre de niveaux est inconnu.
+ */
+export function loadingLevelsLabel(floors: number | null | undefined): string | null {
+  const n = Math.floor(Number(floors) || 0);
+  if (n <= 0) return null;
+  if (n === 1) return "RDC";
+  return `RDC + ${n - 1}`;
+}
+
 /** Phase réellement affichée par l'écran de chargement. */
 export type EstimateFlowPhase = "loading" | "waiting" | "error" | "complete";
 
