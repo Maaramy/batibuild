@@ -373,7 +373,7 @@ export function ProjectJourneyNav({
           {step && (
           <>
           {/* Étape dédiée à la page : [icône PDF] Nom de l'étape [Suivant →] */}
-          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/50 bg-background px-2 py-2 sm:gap-3 sm:px-3 sm:py-2.5">
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-2 py-2 sm:gap-3 sm:px-3 sm:py-2.5">
             {/* Icône PDF — télécharge le rapport déjà généré, sans relancer
                 aucune analyse. État « non disponible » si le rapport n'existe
                 pas encore ou si l'étape n'a pas de rapport. */}
