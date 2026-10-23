@@ -261,11 +261,27 @@ sinon il est signé avec la clé debug (installable sur un téléphone vierge, m
 refusé par Google Play). Créez votre keystore local avec `npm run keystore:generate`
 (voir [`../MOBILE_BUILD.md`](../MOBILE_BUILD.md) §11).
 
-L'APK release porte **v1 + v2** (`enableV1Signing`/`enableV2Signing` dans
-`android/app/build.gradle`) : c'est la combinaison la plus largement acceptée
-par les installateurs Android. Après chaque build, `npm run android:verify`
-recalcule le digest signé et vérifie le certificat — un APK non signé, modifié
-après signature ou mal aligné est refusé.
+L'APK release porte **v1 (JAR) + v2 + v3**. `android/app/build.gradle` demande
+bien `enableV1Signing`/`enableV2Signing`, mais AGP n'ajoute la signature JAR que
+si `minSdk < 24` (le nôtre vaut 24) : le drapeau Gradle ne suffit donc pas. En
+CI, l'APK est réaligné (`zipalign -P 16 -p`) puis **signé explicitement** par
+l'étape « Signer l'APK release (apksigner — JAR v1 + v2 + v3) »
+(`--v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true`,
+mots de passe lus via `--ks-pass env:…`), et c'est ce fichier signé qui est
+vérifié puis publié.
+
+En local, `npm run android:verify` recalcule le digest signé et vérifie le
+certificat — un APK non signé, modifié après signature ou mal aligné est
+refusé. Pour obtenir le même résultat qu'en CI sur un APK local :
+
+```bash
+"$ANDROID_HOME"/build-tools/*/zipalign -P 16 -p -f 4 app-release.apk aligned.apk
+"$ANDROID_HOME"/build-tools/*/apksigner sign \
+  --ks android/keystore/batibuild-release.keystore --ks-key-alias "$ALIAS" \
+  --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD \
+  --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+  --out Batibuild-release.apk aligned.apk
+```
 
 > **« L'application n'a pas été installée, car le package semble ne pas être
 > valide »** : une version de batibuild signée avec une **autre clé** est déjà

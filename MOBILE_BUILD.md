@@ -638,15 +638,39 @@ Deux défauts réels ont été constatés sur ce fichier :
 
 ### Ce qui a été corrigé
 
-1. **Signature v1 + v2 garantie** (`android/app/build.gradle`,
-   réappliquée par `npm run signing:apply`) : l'APK porte désormais une
-   signature JAR (`META-INF/*.RSA`) **et** une signature v2, quel que soit le
-   `minSdk`. C'est la combinaison la plus largement acceptée.
+1. **Signature v1 + v2 + v3 posée par `apksigner`** (étape CI
+   « Signer l'APK release (apksigner — JAR v1 + v2 + v3) »).
+   `android/app/build.gradle` demande bien `enableV1Signing`/`enableV2Signing`
+   (réappliqué par `npm run signing:apply`), mais **AGP n'ajoute la signature
+   JAR que si `minSdk < 24`** : notre `minSdk` est 24, et le `signingConfig`
+   peut de surcroît être réécrit par `expo prebuild` ou le React Native Gradle
+   Plugin. D'où l'échec CI « ❌ Signature v1 (JAR) absente » : le drapeau Gradle
+   ne suffit pas à garantir le schéma v1 sur l'APK release.
+   La CI ne dépend donc plus de ce comportement : elle **réaligne** l'APK
+   (`zipalign -P 16 -p -f 4`, pages 16 Ko pour les `.so`) puis le **signe
+   elle-même** :
+
+   ```bash
+   apksigner sign --ks "$ANDROID_KEYSTORE_PATH" --ks-key-alias "$ANDROID_KEY_ALIAS" \
+     --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD \
+     --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+     --out /tmp/dist/Batibuild-release.apk /tmp/dist/Batibuild-aligned.apk
+   ```
+
+   L'APK ainsi signé **remplace** la sortie Gradle dans `/tmp/dist` : c'est ce
+   fichier exact qui est contrôlé, publié et retéléchargé plus bas. Sans
+   secrets `KEYSTORE_*`, la même commande utilise la clé debug versionnée
+   (installation sur téléphone vierge uniquement) ; si `ANDROID_KEYSTORE_PATH`
+   est défini mais introuvable, le job **échoue** au lieu de signer en debug.
+   Le `.idsig` de la v4 est supprimé (aucun fichier parasite publié).
 2. **Contrôles bloquants** dans GitHub Actions, avant toute publication :
-   `zipalign -c -p 4`, `apksigner verify --verbose --print-certs` (code retour
-   **capturé**), présence effective des schémas `v1` et `v2`, `aapt2 dump
-   badging` (package, `versionCode`, SDK, ABI), puis `verify-artifact.mjs`
-   (digest de contenu + signature cryptographique + certificat).
+   `apksigner verify --verbose --print-certs` (code retour **capturé**),
+   présence effective et **valide** des schémas `v1` et `v2` (v3 signalée),
+   entrées `META-INF/*.SF` + `META-INF/*.RSA` retrouvées dans l'archive,
+   `zipalign -c -p 4` **après** signature, `aapt2 dump badging` (package,
+   `versionCode`, SDK, ABI), puis `verify-artifact.mjs` (digest de contenu +
+   signature cryptographique + certificat). Aucun de ces contrôles n'est
+   désactivable pour « faire passer » un APK.
 3. **Fidélité du fichier publié** : l'APK est **retéléchargé** depuis la
    GitHub Release et son SHA-256 doit être identique à l'artefact vérifié.
 4. **Certificat surveillé** : empreinte SHA-256 du keystore affichée dans le
