@@ -211,7 +211,7 @@ export const getShowcase = query({
     const regionSet = new Set<string>();
     const regionCounts = new Map<string, number>();
     for (const e of experts as any[]) {
-      const cat = expertCategoryOf(e.profession);
+      const cat = expertCategoryOf(e.profession, e.specialties);
       counts.set(cat.key, (counts.get(cat.key) ?? 0) + 1);
       for (const r of e.regions ?? []) {
         regionSet.add(r);

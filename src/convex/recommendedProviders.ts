@@ -30,6 +30,10 @@ import {
   SUPPLIER_SPECIALTIES_LABELS,
   keepSupplierSpecialties,
 } from "../lib/supplierSpecialties";
+import {
+  EXPERT_PROFESSION_LABELS,
+  normalizeExpertProfession,
+} from "../lib/expertProfessions";
 import { resolveProjectType } from "./projectTypes";
 
 // ============================================================================
@@ -409,10 +413,55 @@ export const EXPERT_OTHER_CATEGORY: ExpertCategoryDef = {
   professions: [],
 };
 
-/** Catégorie affichée d'un expert d'après sa profession réelle. */
+// Métiers de la catégorie « Professionnel » rattachés à une catégorie existante
+// de la mise en relation (l'expert est classé par sa spécialité réelle).
+const PROFESSIONNEL_ELECTRICITY_TRADES = new Set([
+  "electricien",
+  "technicien_domotique",
+  "installateur_panneaux_solaires",
+  "installateur_securite_alarme",
+  "technicien_reseaux_telecoms",
+]);
+const PROFESSIONNEL_PLUMBING_TRADES = new Set([
+  "plombier",
+  "chauffagiste",
+  "installateur_cvc",
+  "frigoriste",
+  "installateur_chauffe_eau_solaire",
+  "installateur_sanitaires",
+]);
+
+/**
+ * Catégorie affichée d'un expert d'après sa profession réelle.
+ *
+ * Les professions historiques (`plombier`, `electricien`) comme la catégorie
+ * `professionnel` sont classées par la spécialité enregistrée : un plombier ou
+ * un électricien reste dans sa catégorie d'origine, les autres métiers
+ * techniques relèvent d'« Autre spécialité » (aucune fiche n'est inventée).
+ */
 export function expertCategoryOf(
   profession: string | null | undefined,
+  specialties: readonly string[] | null | undefined = [],
 ): ExpertCategoryDef {
+  if (normalizeExpertProfession(profession) === "professionnel") {
+    const trades = new Set([
+      profession ?? "",
+      ...(specialties ?? []),
+    ]);
+    const hasElectricity = [...trades].some((t) =>
+      PROFESSIONNEL_ELECTRICITY_TRADES.has(t),
+    );
+    const hasPlumbing = [...trades].some((t) =>
+      PROFESSIONNEL_PLUMBING_TRADES.has(t),
+    );
+    if (hasElectricity) {
+      return EXPERT_CATEGORIES.find((c) => c.key === "electricite")!;
+    }
+    if (hasPlumbing) {
+      return EXPERT_CATEGORIES.find((c) => c.key === "plomberie")!;
+    }
+    return EXPERT_OTHER_CATEGORY;
+  }
   return (
     EXPERT_CATEGORIES.find((c) => c.professions.includes(profession ?? "")) ??
     EXPERT_OTHER_CATEGORY
@@ -716,7 +765,7 @@ export function buildExpertRecommendations<T extends ExpertCandidate>(
       (AVAILABILITY_SCORE[c.availability ?? ""] ?? 0) +
       (c.complete ? 10 : 0);
 
-    const category = expertCategoryOf(c.profession);
+    const category = expertCategoryOf(c.profession, c.specialties);
     const list = byCategory.get(category.key) ?? [];
     list.push({
       candidate: c,
@@ -882,15 +931,12 @@ const BROKEN_STORAGE_URL_RE = /\/api\/storage\/([A-Za-z0-9]+)(?:[?#]|$)/;
 /** Champs image compatibles des anciennes structures de profil (lecture seule). */
 const LOGO_FIELDS = ["logo", "logoUrl", "companyLogo", "image"] as const;
 
-/** Libellés des professions experts — affiché à la place du mot « Expert ». */
-export const EXPERT_PROFESSION_LABELS: Record<string, string> = {
-  architecte: "Architecte",
-  bureau_etudes: "Bureau d'études",
-  ingenieur: "Ingénieur",
-  promoteur_immobilier: "Promoteur immobilier",
-  plombier: "Plombier",
-  electricien: "Électricien",
-};
+/**
+ * Libellés des professions experts — affiché à la place du mot « Expert ».
+ * Source unique : `src/lib/expertProfessions.ts` (catégorie « Professionnel »
+ * et valeurs historiques incluses).
+ */
+export { EXPERT_PROFESSION_LABELS };
 
 /**
  * Lit le champ image réel du profil — source officielle : `logo` ; les autres

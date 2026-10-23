@@ -395,3 +395,118 @@ describe("expertProfiles logo persistence", () => {
     expect(typeof profile!.logo).toBe("string");
   });
 });
+
+// ============================================================================
+// Catégorie « Professionnel » — spécialité obligatoire & migration
+// ============================================================================
+
+describe("expertProfiles — catégorie Professionnel", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  it("exige au moins une spécialité à la création", async () => {
+    const userId = await createTestUser(t, { email: "pro@test.com" });
+    const userT = asUser(t, userId);
+
+    await expect(
+      userT.mutation(api.expertProfiles.createProfile, {
+        ...baseProfileArgs,
+        profession: "professionnel",
+        specialties: [],
+        email: "pro@test.com",
+      }),
+    ).rejects.toThrow(/spécialité/i);
+  });
+
+  it("accepte un professionnel avec sa spécialité", async () => {
+    const userId = await createTestUser(t, { email: "pro2@test.com" });
+    const userT = asUser(t, userId);
+
+    const result = await userT.mutation(api.expertProfiles.createProfile, {
+      ...baseProfileArgs,
+      profession: "professionnel",
+      specialties: ["plombier", "installateur_sanitaires"],
+      email: "pro2@test.com",
+    });
+    expect(result.success).toBe(true);
+
+    const profile = await t.run(async (ctx) => ctx.db.get(result.profileId));
+    expect(profile!.profession).toBe("professionnel");
+    expect(profile!.specialties).toEqual(["plombier", "installateur_sanitaires"]);
+  });
+
+  it("exige une spécialité lors du passage en Professionnel", async () => {
+    const userId = await createTestUser(t);
+    const userT = asUser(t, userId);
+    await userT.mutation(api.expertProfiles.createProfile, baseProfileArgs);
+
+    await expect(
+      userT.mutation(api.expertProfiles.updateProfile, {
+        profession: "professionnel",
+        specialties: [],
+      }),
+    ).rejects.toThrow(/spécialité/i);
+
+    // Les données existantes restent intactes.
+    const profile = await userT.query(api.expertProfiles.getMyProfile);
+    expect(profile!.profession).toBe("architecte");
+    expect(profile!.specialties).toEqual(["residential", "interior"]);
+  });
+
+  it("réserve la migration aux administrateurs", async () => {
+    const userId = await createTestUser(t);
+    await expect(
+      asUser(t, userId).mutation(api.expertProfiles.adminMigrateTechnicianProfessions, {}),
+    ).rejects.toThrow(/Unauthorized/);
+  });
+
+  it("migre plombier / électricien vers Professionnel sans perdre leurs données", async () => {
+    const adminId = await createTestUser(t, { role: "admin", email: "admin@test.com" });
+    const userId = await createTestUser(t, { email: "legacy@test.com" });
+
+    const now = Date.now();
+    const legacyId = await t.run(async (ctx) =>
+      ctx.db.insert("expertProfiles", {
+        userId: userId as any,
+        profession: "plombier",
+        displayName: "Sami Plombier",
+        phone: "+216 99 111 111",
+        email: "legacy@test.com",
+        specialties: ["reparation_fuites", "chauffe_eau"],
+        regions: ["tunis"],
+        plan: "none",
+        subscriptionStatus: "inactive",
+        isVisible: true,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    );
+
+    const result = await asUser(t, adminId).mutation(
+      api.expertProfiles.adminMigrateTechnicianProfessions,
+      {},
+    );
+    expect(result.migrated).toBe(1);
+
+    const profile = await t.run(async (ctx) => ctx.db.get(legacyId));
+    expect(profile!.profession).toBe("professionnel");
+    // Métier ajouté + spécialités et régions historiques conservées.
+    expect(profile!.specialties).toEqual([
+      "plombier",
+      "reparation_fuites",
+      "chauffe_eau",
+    ]);
+    expect(profile!.regions).toEqual(["tunis"]);
+    expect(profile!.displayName).toBe("Sami Plombier");
+
+    // Idempotente : un second appel ne modifie plus rien.
+    const again = await asUser(t, adminId).mutation(
+      api.expertProfiles.adminMigrateTechnicianProfessions,
+      {},
+    );
+    expect(again.migrated).toBe(0);
+  });
+});

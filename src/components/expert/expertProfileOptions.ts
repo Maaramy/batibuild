@@ -1,19 +1,35 @@
-import { Briefcase, HardHat, Ruler, Store, Wrench, Zap } from "lucide-react";
+import { Briefcase, HardHat, Ruler, Store, Wrench } from "lucide-react";
+import { PROFESSIONNEL_SPECIALTIES } from "@/lib/expertProfessions";
 
 // ============================================================================
 // OPTIONS DU PROFIL EXPERT — professions, spécialités et régions
 //
 // Constantes partagées par l'espace expert (formulaire) et l'annuaire ProMarket.
 // Extraites de la page ExpertDashboard pour garder une seule source de vérité.
+// Les libellés et les spécialités « Professionnel » vivent dans
+// `src/lib/expertProfessions.ts` (module sans dépendance, partagé avec Convex).
 // ============================================================================
 
+export {
+  EXPERT_PROFESSION_LABELS,
+  PROFESSIONNEL_SPECIALTY_GROUPS,
+  SPECIALTY_LABELS,
+} from "@/lib/expertProfessions";
+
+/**
+ * Professions proposées dans l'espace Expert.
+ *
+ * « Professionnel » regroupe les métiers techniques du bâtiment et des
+ * travaux : les anciennes entrées indépendantes « Plombier » et
+ * « Électricien » ont été retirées de cette liste et sont désormais
+ * sélectionnables dans le champ « Spécialité » de cette catégorie.
+ */
 export const EXPERT_PROFESSIONS = [
   { value: "architecte", label: "Architecte", icon: Ruler, desc: "Conception, plans, suivi de chantier" },
   { value: "bureau_etudes", label: "Bureau d'études", icon: Briefcase, desc: "Études techniques, dimensionnement" },
   { value: "ingenieur", label: "Ingénieur", icon: HardHat, desc: "Structure, génie civil, MEP" },
   { value: "promoteur_immobilier", label: "Promoteur immobilier", icon: Store, desc: "Développement, commercialisation" },
-  { value: "plombier", label: "Plombier", icon: Wrench, desc: "Installation, réparation, maintenance plomberie" },
-  { value: "electricien", label: "Électricien", icon: Zap, desc: "Installation, câblage, maintenance électrique" },
+  { value: "professionnel", label: "Professionnel", icon: Wrench, desc: "Métiers techniques du bâtiment et des travaux" },
 ];
 
 const ARCHITECTE_SPECIALTIES = [
@@ -43,6 +59,7 @@ const PROMOTEUR_SPECIALTIES = [
   "suivi_livraison",
 ];
 
+/** Anciennes spécialités « Plombier » — conservées pour les profils existants. */
 const PLOMBIER_SPECIALTIES = [
   "installation_eau_croisee", "reparation_fuites", "depannage_plomberie",
   "installation_sanitaires", "canalisation_evacuation", "chauffe_eau",
@@ -50,6 +67,7 @@ const PLOMBIER_SPECIALTIES = [
   "traitement_eau",
 ];
 
+/** Anciennes spécialités « Électricien » — conservées pour les profils existants. */
 const ELECTRICIEN_SPECIALTIES = [
   "installation_electrique_neuve", "renovation_electrique", "câblage_structure",
   "tableau_electrique", "eclairage_interieur_exterieur", "prise_interrupteur",
@@ -62,59 +80,11 @@ export const PROFESSION_SPECIALTIES: Record<string, string[]> = {
   bureau_etudes: BUREAU_ETUDES_SPECIALTIES,
   ingenieur: INGENIEUR_SPECIALTIES,
   promoteur_immobilier: PROMOTEUR_SPECIALTIES,
+  professionnel: PROFESSIONNEL_SPECIALTIES,
+  // Valeurs historiques (profils déjà enregistrés) : la liste reste disponible
+  // pour ne jamais perdre une spécialité déjà stockée.
   plombier: PLOMBIER_SPECIALTIES,
   electricien: ELECTRICIEN_SPECIALTIES,
-};
-
-export const SPECIALTY_LABELS: Record<string, string> = {
-  conception_architecturale: "Conception architecturale",
-  plans_2d: "Plans 2D", plans_3d: "Plans 3D", bim: "BIM",
-  permis_construire: "Permis de construire",
-  decoration_interieure: "Décoration intérieure",
-  paysagisme: "Paysagisme", renovation_patrimoine: "Rénovation patrimoine",
-  audit_energetique: "Audit énergétique", suivi_chantier: "Suivi de chantier",
-  etudes_structure: "Études de structure", dimensionnement: "Dimensionnement",
-  bim_modeling: "Modélisation BIM", assistance_technique: "Assistance technique",
-  controle_technique: "Contrôle technique", etudes_impact: "Études d'impact",
-  geotechnique: "Géotechnique", topographie: "Topographie",
-  plans_executeifs: "Plans exécutifs",
-  dossier_consultation_entreprises: "DCE",
-  genie_civil: "Génie civil", structure_beton: "Structure béton",
-  structure_acier: "Structure acier", installation_thermique: "Installations thermiques",
-  installation_sanitaire: "Installations sanitaires",
-  installation_electrique: "Installations électriques",
-  cvc: "CVC", assainissement: "Assainissement",
-  ignifugation: "Ignifugation", etancheite: "Étanchéité", acoustique: "Acoustique",
-  promotion_immobiliere: "Promotion immobilière", viabilisation: "Viabilisation",
-  commercialisation: "Commercialisation", gestion_projet: "Gestion de projet",
-  finance_projet: "Financement", urbanisme: "Urbanisme",
-  etudes_marche: "Études de marché", negociation: "Négociation",
-  suivi_livraison: "Suivi de livraison",
-  // Plombier
-  installation_eau_croisee: "Installation eau croisée",
-  installation_eau_croisse: "Installation eau croisée",
-  reparation_fuites: "Réparation de fuites",
-  depannage_plomberie: "Dépannage plomberie",
-  installation_sanitaires: "Installation sanitaires",
-  installation_sanitaires_p: "Installation sanitaires",
-  canalisation_evacuation: "Canalisation & évacuation",
-  chauffe_eau: "Chauffe-eau",
-  plomberie_industrielle: "Plomberie industrielle",
-  maintenance_preventive: "Maintenance préventive",
-  maintenance_preventive_p: "Maintenance préventive",
-  raccordement_gaz: "Raccordement gaz",
-  traitement_eau: "Traitement de l'eau",
-  // Électricien
-  installation_electrique_neuve: "Installation électrique neuve",
-  renovation_electrique: "Rénovation électrique",
-  câblage_structure: "Câblage structuré",
-  tableau_electrique: "Tableau électrique",
-  eclairage_interieur_exterieur: "Éclairage intérieur/extérieur",
-  prise_interrupteur: "Prises & interrupteurs",
-  installation_solaire: "Installation solaire",
-  domotique: "Domotique",
-  depannage_electrique: "Dépannage électrique",
-  contrôle_conformite: "Contrôle de conformité",
 };
 
 export const TUNISIA_REGIONS = [

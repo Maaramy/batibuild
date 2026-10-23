@@ -34,6 +34,17 @@ import {
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { profileCardClass, VerifiedBadge } from "@/components/ProfileCardBits";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
+import {
+  EXPERT_PROFESSION_LABELS,
+  SPECIALTY_LABELS,
+} from "@/components/expert/expertProfileOptions";
+import {
+  expertMatchesProfession,
+  expertMatchesSearch,
+  expertMatchesSpecialty,
+  expertProfessionOptions,
+  expertSpecialtyOptions,
+} from "@/lib/expertDirectory";
 import { directorySwitchHref } from "@/lib/directorySearchParams";
 import { PROJECT_TYPE_LABELS } from "@/convex/projectTypes";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
@@ -51,14 +62,14 @@ const REGION_LABELS: Record<string, string> = {
   siliana: "Siliana", zaghouan: "Zaghouan", tataouine: "Tataouine",
 };
 
-const PROFESSION_LABELS: Record<string, string> = {
-  architecte: "Architecte",
-  bureau_etudes: "Bureau d'études",
-  ingenieur: "Ingénieur",
-  promoteur_immobilier: "Promoteur immobilier",
-  plombier: "Plombier",
-  electricien: "Électricien",
-};
+// Libellés des professions (partagés avec l'espace Expert) : la catégorie
+// « Professionnel » regroupe les métiers techniques — plombier, électricien…
+const PROFESSION_LABELS = EXPERT_PROFESSION_LABELS;
+
+/** Libellé d'une spécialité : espace expert, puis spécialités fournisseur. */
+function specialtyLabel(key: string): string {
+  return SPECIALTY_LABELS[key] ?? SUPPLIER_SPECIALTIES_LABELS[key] ?? key;
+}
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -85,6 +96,10 @@ export default function ProfessionalsDirectory() {
   // Projet Journey — est transmis dans les deux sens).
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [selectedProfession, setSelectedProfession] = useState("");
+  // Spécialité (métier) : précise la catégorie « Professionnel ».
+  const [selectedSpecialty, setSelectedSpecialty] = useState(() =>
+    searchParams.get("specialty") ?? "",
+  );
   const [selectedRegion, setSelectedRegion] = useState(() => searchParams.get("region") ?? "");
   // ProMarket : filtres disponibilité / urgences + dialogues de demande
   const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>(() => {
@@ -132,12 +147,15 @@ export default function ProfessionalsDirectory() {
   // Suivi statistique : ouverture d'une fiche depuis l'annuaire (clic).
   const recordExpertEvent = useMutation(api.expertStats.recordExpertEvent);
 
-  const availableProfessions = useMemo(() => {
-    if (!experts) return [];
-    const set = new Set<string>();
-    for (const e of experts) if (e.profession) set.add(e.profession);
-    return [...set].sort();
-  }, [experts]);
+  const availableProfessions = useMemo(
+    () => (experts ? expertProfessionOptions(experts) : []),
+    [experts],
+  );
+
+  const availableSpecialties = useMemo(
+    () => (experts ? expertSpecialtyOptions(experts) : []),
+    [experts],
+  );
 
   const availableRegions = useMemo(() => {
     if (!experts) return [];
@@ -165,26 +183,36 @@ export default function ProfessionalsDirectory() {
   const filtered = useMemo(() => {
     if (!experts) return [];
     return experts.filter((e) => {
-      if (search) {
-        const q = search.toLowerCase();
-        if (!`${e.displayName} ${e.companyName ?? ""} ${e.description ?? ""} ${e.specialties.join(" ")}`.toLowerCase().includes(q)) return false;
-      }
-      if (selectedProfession && e.profession !== selectedProfession) return false;
+      // Recherche libre : nom, société, description, profession et spécialités
+      // (sans accents) — « Plombier » / « Électricien » trouvent les
+      // professionnels dont la spécialité correspond.
+      if (!expertMatchesSearch(e, search)) return false;
+      if (!expertMatchesProfession(e, selectedProfession)) return false;
+      if (!expertMatchesSpecialty(e, selectedSpecialty)) return false;
       if (selectedRegion && !(e.regions ?? []).includes(selectedRegion)) return false;
       // Disponibilité / urgences : n'affiche que les profils réellement concernés
       if (!matchesAvailabilityFilter(e, availabilityFilter)) return false;
       return true;
     });
-  }, [experts, search, selectedProfession, selectedRegion, availabilityFilter]);
+  }, [
+    experts,
+    search,
+    selectedProfession,
+    selectedSpecialty,
+    selectedRegion,
+    availabilityFilter,
+  ]);
 
   const hasFilters = !!(
-    search || selectedProfession || selectedRegion || availabilityFilter !== "all"
+    search || selectedProfession || selectedSpecialty || selectedRegion ||
+    availabilityFilter !== "all"
   );
 
   /** Réinitialise tous les critères de recherche. */
   const resetFilters = () => {
     setSearch("");
     setSelectedProfession("");
+    setSelectedSpecialty("");
     setSelectedRegion("");
     setAvailabilityFilter("all");
   };
@@ -222,13 +250,23 @@ export default function ProfessionalsDirectory() {
     },
     {
       id: "profession",
-      label: "Métier / activité",
+      label: "Profession",
       options: availableProfessions.map((p) => ({
         value: p,
         label: PROFESSION_LABELS[p] ?? p,
       })),
       selected: selectedProfession ? [selectedProfession] : [],
       onSelect: (v) => setSelectedProfession(selectedProfession === v ? "" : v),
+    },
+    {
+      id: "specialty",
+      label: "Spécialité / métier",
+      options: availableSpecialties.map((s) => ({
+        value: s,
+        label: specialtyLabel(s),
+      })),
+      selected: selectedSpecialty ? [selectedSpecialty] : [],
+      onSelect: (v) => setSelectedSpecialty(selectedSpecialty === v ? "" : v),
     },
     {
       id: "region",
@@ -255,6 +293,15 @@ export default function ProfessionalsDirectory() {
             key: "profession",
             label: PROFESSION_LABELS[selectedProfession] ?? selectedProfession,
             onRemove: () => setSelectedProfession(""),
+          },
+        ]
+      : []),
+    ...(selectedSpecialty
+      ? [
+          {
+            key: "specialty",
+            label: specialtyLabel(selectedSpecialty),
+            onRemove: () => setSelectedSpecialty(""),
           },
         ]
       : []),
@@ -396,7 +443,7 @@ export default function ProfessionalsDirectory() {
                       <p className="flex items-start gap-1 text-[10px] text-muted-foreground">
                         <Layers className="mt-px h-3 w-3 shrink-0" />
                         <span className="line-clamp-1">
-                          {e.specialties.map((sp) => SUPPLIER_SPECIALTIES_LABELS[sp] ?? sp).join(", ")}
+                          {e.specialties.map(specialtyLabel).join(", ")}
                         </span>
                       </p>
                       {e.description && (

@@ -98,6 +98,7 @@ import {
   Newspaper,
   Megaphone,
   Headset,
+  Wrench,
 } from "lucide-react";
 
 // ============================================================================
@@ -192,6 +193,7 @@ export default function AdminPanel() {
   const deleteExpertReceipt = useMutation(api.expertProfiles.adminDeleteExpertReceipt);
   const deleteExpertProfile = useMutation(api.expertProfiles.adminDeleteExpertProfile);
   const toggleExpertVisibility = useMutation(api.expertProfiles.adminToggleExpertVisibility);
+  const migrateExpertProfessions = useMutation(api.expertProfiles.adminMigrateTechnicianProfessions);
 
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -205,6 +207,11 @@ export default function AdminPanel() {
   const planForm = useQuery(api.payments.getPlanPricing);
   const allSuppliers = useQuery(api.supplierProfiles.getAllSupplierProfiles) || [];
   const allExperts = useQuery(api.expertProfiles.getAllExpertProfiles) || [];
+  // Anciennes professions « Plombier » / « Électricien » restant à migrer vers
+  // la catégorie « Professionnel » (bouton affiché uniquement s'il en reste).
+  const legacyExpertProfessions = allExperts.filter(
+    (p: any) => p.profession === "plombier" || p.profession === "electricien",
+  ).length;
   const updatePlanPricing = useMutation(api.payments.updatePlanPricing);
   const paymentConfigData = useQuery(api.payments.getPaymentConfigAdmin) || null;
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
@@ -4367,6 +4374,26 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         className="h-9 w-36 sm:w-44 pl-9 text-sm"
                       />
                     </div>
+                    {legacyExpertProfessions > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs shrink-0"
+                        onClick={async () => {
+                          try {
+                            const res = await migrateExpertProfessions({});
+                            toast.success(
+                              `${res.migrated} profil(s) migré(s) vers « Professionnel »`,
+                            );
+                          } catch (err: any) {
+                            toast.error(err?.message ?? "Erreur lors de la migration");
+                          }
+                        }}
+                      >
+                        <Wrench className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">Migrer</span> {legacyExpertProfessions}
+                      </Button>
+                    )}
                     {allExperts.length > 0 && (
                       <Button
                         variant="outline"

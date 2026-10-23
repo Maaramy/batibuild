@@ -11,7 +11,10 @@ import {
   Banknote, Briefcase, CalendarClock, Globe, Layers, Loader2, Mail, MapPin,
   Phone, Star, UserRound, Zap,
 } from "lucide-react";
-import { SPECIALTY_LABELS } from "@/components/expert/expertProfileOptions";
+import {
+  EXPERT_PROFESSION_LABELS,
+  SPECIALTY_LABELS,
+} from "@/components/expert/expertProfileOptions";
 import {
   RequestAppointmentDialog,
   RequestUrgentDialog,
@@ -50,14 +53,8 @@ import { toast } from "sonner";
 // après approbation) et notation restent inchangés.
 // ============================================================================
 
-const PROFESSION_LABELS: Record<string, string> = {
-  architecte: "Architecte",
-  bureau_etudes: "Bureau d'études",
-  ingenieur: "Ingénieur",
-  promoteur_immobilier: "Promoteur immobilier",
-  plombier: "Plombier",
-  electricien: "Électricien",
-};
+// Libellés partagés avec l'espace Expert (catégorie « Professionnel » incluse).
+const PROFESSION_LABELS = EXPERT_PROFESSION_LABELS;
 
 /** Libellé de spécialité expert, avec repli sur la clé brute nettoyée (CJK retirés). */
 function specialtyLabel(value: string): string {

@@ -242,6 +242,8 @@ export const createProfile = mutation({
       v.literal("bureau_etudes"),
       v.literal("ingenieur"),
       v.literal("promoteur_immobilier"),
+      v.literal("professionnel"),
+      // Valeurs historiques (profils existants uniquement).
       v.literal("plombier"),
       v.literal("electricien"),
     ),
@@ -270,6 +272,9 @@ export const createProfile = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non authentifié");
+
+    // La catégorie « Professionnel » exige au moins une spécialité.
+    assertProfessionalSpecialty(args.profession, args.specialties);
 
     // ── Réservé au profil Expert (vérification backend obligatoire) ──
     // La création d'un premier profil expert vaut déclaration du rôle : les
@@ -347,6 +352,8 @@ export const updateProfile = mutation({
         v.literal("bureau_etudes"),
         v.literal("ingenieur"),
         v.literal("promoteur_immobilier"),
+        v.literal("professionnel"),
+        // Valeurs historiques (profils existants uniquement).
         v.literal("plombier"),
         v.literal("electricien"),
       )
@@ -383,6 +390,13 @@ export const updateProfile = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .first();
     if (!profile) throw new Error("Profil expert introuvable");
+
+    // Le passage en « Professionnel » exige au moins une spécialité (valeur
+    // effectivement enregistrée après la mise à jour).
+    assertProfessionalSpecialty(
+      args.profession ?? profile.profession,
+      args.specialties ?? profile.specialties,
+    );
 
     const updates: Record<string, any> = { updatedAt: Date.now() };
     if (args.profession !== undefined) updates.profession = args.profession;
@@ -425,6 +439,21 @@ export const updateProfile = mutation({
     return { success: true };
   },
 });
+
+/**
+ * Catégorie « Professionnel » : la spécialité est obligatoire.
+ * Les autres professions conservent leurs règles actuelles.
+ */
+function assertProfessionalSpecialty(
+  profession: string | undefined,
+  specialties: string[] | undefined,
+): void {
+  if (profession !== "professionnel") return;
+  if ((specialties ?? []).filter((s) => s.trim().length > 0).length > 0) return;
+  throw new Error(
+    "Sélectionnez au moins une spécialité pour la profession « Professionnel ».",
+  );
+}
 
 /**
  * Toggle expert profile visibility — VERROUILLÉ.
@@ -633,6 +662,56 @@ export const adminToggleExpertVisibility = mutation({
     });
 
     return { success: true, isVisible: !profile.isVisible };
+  },
+});
+
+/**
+ * Admin : migration des anciennes professions « Plombier » / « Électricien »
+ * vers la catégorie « Professionnel ».
+ *
+ * Idempotente : seuls les profils encore enregistrés avec une profession
+ * historique sont modifiés. La spécialité correspondant au métier (plombier /
+ * electricien) est ajoutée en tête des spécialités existantes — aucune
+ * spécialité, aucun projet, aucune relation client n'est supprimé.
+ */
+export const adminMigrateTechnicianProfessions = mutation({
+  handler: async (ctx) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator"))
+      throw new Error("Unauthorized: Admin access required");
+
+    const profiles = await ctx.db.query("expertProfiles").collect();
+    const legacy = profiles.filter(
+      (p) => p.profession === "plombier" || p.profession === "electricien",
+    );
+
+    const now = Date.now();
+    for (const profile of legacy) {
+      const trade = profile.profession; // « plombier » | « electricien »
+      const specialties = [
+        trade,
+        ...(profile.specialties ?? []).filter((s) => s !== trade),
+      ];
+      await ctx.db.patch(profile._id, {
+        profession: "professionnel",
+        specialties,
+        updatedAt: now,
+      });
+    }
+
+    if (legacy.length > 0) {
+      try {
+        await ctx.db.insert("adminLogs", {
+          adminId: admin._id,
+          adminName: admin.name,
+          action: "migrate_expert_professions",
+          details: `Migration des professions techniques vers « Professionnel » — ${legacy.length} profil(s)`,
+          createdAt: now,
+        });
+      } catch (e) { /* optional */ }
+    }
+
+    return { migrated: legacy.length };
   },
 });
 

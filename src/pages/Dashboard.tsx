@@ -62,6 +62,7 @@ import {
   Newspaper,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { expertProfessionLabel } from "@/lib/expertProfessions";
 import { useNavigate } from "react-router";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
@@ -798,7 +799,7 @@ export default function Dashboard() {
                               {(expertProfile as any)?.effectiveStatus === "active" ? "Expert certifié" : "Inactif"}
                             </Badge>
                             <span className="text-[10px] text-muted-foreground">
-                              {((expertProfile?.profession as string) === "architecte" ? "Architecte" : (expertProfile?.profession as string) === "ingenieur" ? "Ingénieur" : (expertProfile?.profession as string) === "bureau_etudes" ? "Bureau d'études" : (expertProfile?.profession as string) === "plombier" ? "Plombier" : (expertProfile?.profession as string) === "electricien" ? "Électricien" : "Promoteur")}
+                              {expertProfessionLabel(expertProfile?.profession)}
                             </span>
                           </div>
                         </div>

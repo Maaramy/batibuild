@@ -377,6 +377,30 @@ describe("Catégories d'experts — normalisation", () => {
     expect(expertCategoryOf("promoteur_immobilier").key).toBe("promoteurs");
   });
 
+  it("classe les professionnels par leur spécialité", () => {
+    expect(expertCategoryOf("professionnel", ["plombier"]).key).toBe("plomberie");
+    expect(expertCategoryOf("professionnel", ["installateur_cvc"]).key).toBe(
+      "plomberie",
+    );
+    expect(expertCategoryOf("professionnel", ["electricien"]).key).toBe(
+      "electricite",
+    );
+    expect(expertCategoryOf("professionnel", ["piscinier"]).key).toBe(
+      "autre_specialite",
+    );
+  });
+
+  it("déduit les métiers d'un professionnel depuis sa spécialité", () => {
+    expect(expertProviderTypes("professionnel", ["plombier"])).toContain("plombier");
+    expect(expertProviderTypes("professionnel", ["electricien"])).toContain(
+      "electricien",
+    );
+    expect(expertProviderTypes("professionnel", ["piscinier"])).toContain(
+      "pisciniste",
+    );
+    expect(expertProviderTypes("professionnel", ["macon"])).toContain("macon");
+  });
+
   it("replie toute profession inconnue sur « Autre spécialité »", () => {
     expect(expertCategoryOf("geometre").key).toBe("autre_specialite");
     expect(expertCategoryOf("").key).toBe("autre_specialite");

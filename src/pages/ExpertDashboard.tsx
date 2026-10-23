@@ -21,9 +21,14 @@ import { AvailabilityFields } from "@/components/expert/ExpertAvailabilityFields
 import {
   EXPERT_PROFESSIONS,
   PROFESSION_SPECIALTIES,
+  PROFESSIONNEL_SPECIALTY_GROUPS,
   SPECIALTY_LABELS,
   TUNISIA_REGIONS,
 } from "@/components/expert/expertProfileOptions";
+import {
+  expertProfessionLabel,
+  normalizeExpertProfession,
+} from "@/lib/expertProfessions";
 import type { ExpertAvailability } from "@/lib/expertAvailability";
 import { availablePaymentMethods } from "@/lib/paymentMethods";
 import { api } from "@/convex/_generated/api";
@@ -48,6 +53,82 @@ import {
 
 // Les professions, spécialités et régions sont définies dans
 // `@/components/expert/expertProfileOptions` (partagées avec ProMarket).
+
+// ============================================================================
+// Spécialités — sélection (champ « Spécialité » pour la catégorie Professionnel)
+// ============================================================================
+
+function SpecialtyPicker({
+  profession,
+  selected,
+  onToggle,
+  disabled,
+}: {
+  profession: string;
+  selected: string[];
+  onToggle: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const available = PROFESSION_SPECIALTIES[profession] ?? [];
+  // Spécialités déjà enregistrées hors de la liste courante (anciennes
+  // professions) : affichées et conservées pour ne jamais effacer une donnée.
+  const extra = selected.filter((s) => !available.includes(s));
+  const groups =
+    profession === "professionnel" ? PROFESSIONNEL_SPECIALTY_GROUPS : null;
+
+  const chip = (s: string) => {
+    const isSelected = selected.includes(s);
+    return (
+      <button
+        key={s}
+        type="button"
+        onClick={() => onToggle(s)}
+        disabled={disabled}
+        aria-pressed={isSelected}
+        className={`px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all ${
+          isSelected
+            ? "bg-violet-50 border-violet-300 text-violet-700"
+            : "bg-background border-border/30 text-muted-foreground hover:border-border/60"
+        } ${disabled ? "cursor-default" : "hover:scale-105 active:scale-95"}`}
+      >
+        {isSelected && <Check className="h-2.5 w-2.5 inline mr-1" />}
+        {SPECIALTY_LABELS[s] || s}
+      </button>
+    );
+  };
+
+  if (groups) {
+    return (
+      <div className="space-y-2.5">
+        {groups.map((group) => (
+          <div key={group.label} className="space-y-1">
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {group.label}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {group.options.map(chip)}
+            </div>
+          </div>
+        ))}
+        {extra.length > 0 && (
+          <div className="space-y-1 border-t border-border/30 pt-2">
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Autres spécialités enregistrées
+            </p>
+            <div className="flex flex-wrap gap-1.5">{extra.map(chip)}</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {available.map(chip)}
+      {extra.map(chip)}
+    </div>
+  );
+}
 
 // ============================================================================
 // Payment Coordinates (bank + D17)
@@ -176,7 +257,18 @@ export default function ExpertDashboard() {
   // Init form when profile loads
   useMemo(() => {
     if (profile && !isEditing) {
-      setProfession(profile.profession || "architecte");
+      // Les professions historiques « plombier » / « electricien » sont
+      // rattachées à la catégorie « Professionnel » (spécialité conservée) :
+      // le métier correspondant reste coché dans le champ « Spécialité ».
+      const storedProfession = profile.profession;
+      setProfession(normalizeExpertProfession(storedProfession));
+      const storedSpecialties = profile.specialties || [];
+      setSelectedSpecialties(
+        (storedProfession === "plombier" || storedProfession === "electricien") &&
+          !storedSpecialties.includes(storedProfession)
+          ? [storedProfession, ...storedSpecialties]
+          : storedSpecialties,
+      );
       setDisplayName(profile.displayName || "");
       setCompanyName(profile.companyName || "");
       setPhone(profile.phone || "");
@@ -187,7 +279,6 @@ export default function ExpertDashboard() {
       setLogo((profile as any).logo || undefined);
       setLogoStorageId(undefined);
       setLogoCleared(false);
-      setSelectedSpecialties(profile.specialties || []);
       setSelectedRegions((profile as any).regions || []);
       setIndicativePrice((profile as any).indicativePrice || "");
       setAvailability(((profile as any).availability as ExpertAvailability) || "");
@@ -214,7 +305,11 @@ export default function ExpertDashboard() {
       return;
     }
     if (selectedSpecialties.length === 0) {
-      toast.error("Sélectionnez au moins une spécialité");
+      toast.error(
+        profession === "professionnel"
+          ? "Sélectionnez au moins une spécialité — obligatoire pour la profession « Professionnel »"
+          : "Sélectionnez au moins une spécialité",
+      );
       return;
     }
     if (selectedRegions.length === 0) {
@@ -419,7 +514,6 @@ export default function ExpertDashboard() {
   const StatusIcon = stCfg.icon;
 
   const currentProf = EXPERT_PROFESSIONS.find((p) => p.value === profession);
-  const availableSpecialties = PROFESSION_SPECIALTIES[profession] || [];
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background to-muted/20 pb-8">
@@ -506,7 +600,7 @@ export default function ExpertDashboard() {
                         </button>
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-1">
-                        {EXPERT_PROFESSIONS.find((p) => p.value === profile.profession)?.label || profile.profession}
+                        {expertProfessionLabel(profile.profession)}
                         {" · "}{profile.specialties?.length || 0} spécialités · {(profile as any).regions?.length || 0} régions
                       </p>
                     </div>
@@ -834,28 +928,28 @@ export default function ExpertDashboard() {
                 </CardContent>
               </Card>
 
-              {/* Specialties */}
+              {/* Specialties — champ obligatoire « Spécialité » pour Professionnel */}
               <Card className="border-border/40">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold">Spécialités — {currentProf?.label} ({selectedSpecialties.length})</CardTitle>
+                  <CardTitle className="text-sm font-semibold">
+                    {profession === "professionnel" ? "Spécialité" : "Spécialités"} — {currentProf?.label} ({selectedSpecialties.length})
+                    {profession === "professionnel" && (
+                      <span className="ml-1 text-destructive" aria-hidden>*</span>
+                    )}
+                  </CardTitle>
+                  {profession === "professionnel" && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Sélectionnez au moins un métier (obligatoire).
+                    </p>
+                  )}
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-wrap gap-1.5">
-                    {availableSpecialties.map((s) => {
-                      const selected = selectedSpecialties.includes(s);
-                      return (
-                        <button key={s} onClick={() => isEditing && toggleSpecialty(s)} disabled={!isEditing}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all ${
-                            selected
-                              ? "bg-violet-50 border-violet-300 text-violet-700"
-                              : "bg-background border-border/30 text-muted-foreground hover:border-border/60"
-                          } ${!isEditing ? "cursor-default" : "hover:scale-105 active:scale-95"}`}>
-                          {selected && <Check className="h-2.5 w-2.5 inline mr-1" />}
-                          {SPECIALTY_LABELS[s] || s}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <SpecialtyPicker
+                    profession={profession}
+                    selected={selectedSpecialties}
+                    onToggle={toggleSpecialty}
+                    disabled={!isEditing}
+                  />
                 </CardContent>
               </Card>
 
@@ -1025,28 +1119,27 @@ export default function ExpertDashboard() {
                 </CardContent>
               </Card>
 
-              {/* Specialties */}
+              {/* Specialties — champ obligatoire « Spécialité » pour Professionnel */}
               <Card className="border-border/40">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold">Spécialités — {currentProf?.label} ({selectedSpecialties.length})</CardTitle>
+                  <CardTitle className="text-sm font-semibold">
+                    {profession === "professionnel" ? "Spécialité" : "Spécialités"} — {currentProf?.label} ({selectedSpecialties.length})
+                    {profession === "professionnel" && (
+                      <span className="ml-1 text-destructive" aria-hidden>*</span>
+                    )}
+                  </CardTitle>
+                  {profession === "professionnel" && (
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Sélectionnez au moins un métier (obligatoire).
+                    </p>
+                  )}
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-wrap gap-1.5">
-                    {availableSpecialties.map((s) => {
-                      const selected = selectedSpecialties.includes(s);
-                      return (
-                        <button key={s} onClick={() => toggleSpecialty(s)}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-medium border transition-all hover:scale-105 active:scale-95 ${
-                            selected
-                              ? "bg-violet-50 border-violet-300 text-violet-700"
-                              : "bg-background border-border/30 text-muted-foreground hover:border-border/60"
-                          }`}>
-                          {selected && <Check className="h-2.5 w-2.5 inline mr-1" />}
-                          {SPECIALTY_LABELS[s] || s}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <SpecialtyPicker
+                    profession={profession}
+                    selected={selectedSpecialties}
+                    onToggle={toggleSpecialty}
+                  />
                 </CardContent>
               </Card>
 
@@ -1106,7 +1199,7 @@ export default function ExpertDashboard() {
                 <div>
                   <p className="text-sm font-semibold">Créez votre profil expert</p>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Vous êtes architecte, ingénieur, bureau d'études ou promoteur ? Créez votre profil pour recevoir des demandes de devis.
+                    Vous êtes architecte, ingénieur, bureau d'études, promoteur ou professionnel du bâtiment ? Créez votre profil pour recevoir des demandes de devis.
                   </p>
                 </div>
                 <Button className="gap-1.5 text-sm bg-violet-600 hover:bg-violet-700" onClick={() => setIsEditing(true)}>
