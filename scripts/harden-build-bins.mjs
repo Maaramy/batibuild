@@ -1,12 +1,22 @@
 #!/usr/bin/env node
 // ============================================================================
-// PLAFONDS DE HEAP, CHOIX DU CHEMIN SELON LE BUDGET, ET DIAGNOSTIC D'OOM
+// PLAFONDS DE HEAP, UN SEUL ESSAI RAPIDE, ET DIAGNOSTIC DU BUILD
 // ----------------------------------------------------------------------------
-// La mise en production échoue sur :
+// Déploiement en échec dans la sandbox de build :
 //
-//     - Running 'tsc -b && vite build' with environment variables "…" set...
-//     Killed
-//     [heap-guard] tsc : SIGKILL — processus tué par le noyau (exit=137)
+//     Deployment failed — The build took longer than the project sandbox
+//     allows and was stopped.
+//
+// La commande enchaîne `tsc -b` puis `vite build`. Trois défauts lui faisaient
+// dépasser le délai alloué :
+//   · le mode économe `--jitless` (2 à 3× plus lent) était choisi dès que le
+//     budget mémoire du cgroup passait sous 1 250 Mo — il finissait même tué
+//     par le noyau après 120 à 173 s ;
+//   · le code de sortie n'était PAS propagé : après un `tsc` tué, le build
+//     continuait vers `vite build`, doublant la durée d'un build condamné et
+//     masquant l'étape responsable ;
+//   · `vite` gardait un plafond nominal de 660 Mo, désormais sous son jeu
+//     vivant : chaque build payait un abandon de V8 (35 s) avant de réussir.
 //
 // Cette commande n'est PAS celle de package.json : elle vient de
 // `convex deploy --cmd "tsc -b && vite build"` (voir `runCommand()` dans
@@ -20,63 +30,31 @@
 // remplace les liens `tsc` et `vite` par des enveloppes `sh`. Vérifié : elles
 // survivent à `bun add` (le postinstall les repose après le relink des `.bin`).
 //
-// ── Mesures sur la commande exacte de la plateforme (VmHWM) ─────────────────
-//   · sans plafond ................. tsc ≈ 990 Mo · vite ≈ 1 160 Mo → tués
-//   · plafonds v1 (800/800) ........ tsc ≈ 876 Mo · vite ≈ 888 Mo → tués
-//   · plafonds v2 (752/704) ........ tsc ≈ 859 Mo · vite ≈ 846 Mo → tsc tué
-//   · avant re-mesure 2026-10 ...... tsc ≈ 796 Mo (`--jitless`) · vite : cap 660
+// ── Mesures sur la commande exacte, checkout froid (2026-10) ──────────────
+//   · `tsc -b` cap 900 (JIT) ......... OK en 56 s
+//   · `tsc -b` cap 848 (`--jitless`) . abandon de V8 ou SIGKILL après 120 à
+//                                       173 s (mesuré aussi pendant que les
+//                                       serveurs de dev occupent ~430 Mo)
+//   · `vite build` cap 660 ........... abandon de V8 après 35 s, puis 27 s au
+//                                       repli → 63 s à chaque build
+//   · `vite build` cap 900 ........... OK du premier coup en 28 s
 //
-// ── RE-MESURE 2026-10 : les planchers précédents ont ÉTÉ DÉPASSÉS ──────────
-// Le contrôle de type a grossi avec le projet : `tsc -b` ABANDONNE désormais
-// au plafond rapide comme au repli économe, ce qui a fait échouer le build de
-// la plateforme (essai + repli dépassent le délai alloué à la commande) :
-//   · cap 752 (JIT) ........  abandon de V8 après 75 s  → build mort
-//   · cap 900 (JIT) ........  OK en 41 s   ← nouveau chemin rapide
-//   · cap 744 (`--jitless`)  abandon de V8 après 126 s
-//   · cap 848 (`--jitless`)  OK en 119 s  ← nouveau chemin économe
-//   · `vite build` cap 660 .  toujours bon (26 s), inchangé
+// Le contrôle de type ne descend plus sous 900 Mo : un plafond plus bas est un
+// échec franc, pas un pic plus bas. Mesuré comme SANS EFFET sur `tsc` :
+// `exclude` des tests, `types: []`, suppression des `.d.ts` de `@types/three`,
+// isolation du backend Convex, `--optimize-for-size`, build incrémental sur un
+// checkout froid, compilateur natif `tsgo` (4× plus rapide mais 1 110 Mo). Pour
+// `vite` : `maxParallelFileOps` à 2 (aucun gain) et `--no-opt` (+23 % de temps).
 //
-// ── Les planchers mesurés ──────────────────────────────────────────────────
-// Le contrôle de type de cette application a grossi avec le projet : ses
-// données vivantes dépassent désormais l'ancien plancher de 720 Mo, d'où la
-// re-mesure de 2026-10 ci-dessus. Planchers validés aujourd'hui :
-//   · chemin rapide (JIT) : cap 900 Mo, OK en 41 s ; à 752 Mo V8 abandonne
-//     (« Ineffective mark-compacts near heap limit ») au bout de 75 s ;
-//   · chemin économe (`--jitless`, interpréteur seul : plus de cache de code
-//     JIT) : cap 848 Mo, OK en 119 s (≈ 2,8× le temps) ; à 744 Mo il abandonne
-//     aussi (126 s) — c'est cette double mort qui mettait le build hors délai.
-// C'est le point le plus bas atteignable sans rien désactiver.
-// `vite build` ne peut PAS être allégé de la même façon : `--jitless` échoue
-// aussitôt (Node charge `undici`, dont le parseur HTTP est un module
-// `WebAssembly` : « ReferenceError: WebAssembly is not defined »), et
-// `--max-semi-space-size=1` le fait abandonner encore plus tôt. Son seul levier
-// est donc le plafond, et il est plus serré qu'il n'y paraît : à 620 Mo le build
-// ABANDONNE (« Ineffective mark-compacts near heap limit », jeu vivant ≈ 600 Mo,
-// limite réelle ≈ 635 Mo) ; à 660 Mo il passe (mesuré 3×, ~23 s). Un plafond
-// trop juste n'allège pas le pic : il casse le build — d'où le repli à 900 Mo.
-//
-// Mesuré comme SANS EFFET sur la consommation de `tsc` : `exclude` des tests,
-// `types: []`, suppression des 924 `.d.ts` de `@types/three`, isolation du
-// backend Convex par découpage des racines (699 Mo pour le seul socle
-// components+lib+convex), `--optimize-for-size`, build incrémental `tsc -b`,
-// compilateur natif `tsgo` (4× plus rapide mais 1 110 Mo), et le déport du
-// backend en déclarations (impossible : erreur TS2742, les types Convex ne sont
-// pas nommables en sortie). Pour `vite` : `maxParallelFileOps` de 4 à 2 (792 Mo,
-// aucun gain) et `--no-opt` (+23 % de temps, aucun gain mesuré).
-//
-// ── Stratégie : le budget décide, l'échec se replie ────────────────────────
-// `tsc` lit la mémoire réellement disponible du cgroup AVANT de lancer node :
-//   · budget confortable (≥ 1 250 Mo libres) → chemin rapide (900 Mo, JIT) ;
-//   · budget serré                        → chemin économe d'emblée (`--jitless`,
-//     848 Mo) : inutile de payer 41 s d'un essai que le noyau va tuer, et
-//     surtout inutile de déclencher l'OOM killer avant la tentative qui compte.
-// Le chemin rapide garde en plus son repli : si V8 abandonne (134) ou si le
-// noyau tue (137), la même commande est REJOUÉE en `--jitless`. Un
-// environnement large garde donc un build rapide ; un environnement serré
-// obtient un build qui passe. `vite build` a le repli symétrique : son plafond
-// nominal (660 Mo) reste proche de son jeu vivant, donc un abandon de V8 (134)
-// le rejoue à 900 Mo. Étant donné qu'un plafond trop bas est un échec franc et
-// non un pic plus bas, ce repli ne coûte rien tant qu'il n'est pas nécessaire.
+// ── Stratégie : un seul essai, rapide, et un échec qui arrête tout ─────────
+// `tsc` ne lit plus le budget mémoire pour choisir un mode : il lance toujours
+// le chemin rapide plafonné à 900 Mo. Le mode `--jitless` est supprimé parce
+// que, dans une sandbox limitée par le TEMPS, il ne « sauvait » pas le build :
+// il le faisait dépasser le délai (120 à 173 s) avant d'être tué. Un budget
+// mémoire insuffisant donne désormais une erreur claire et immédiate (code
+// 134/137 propagé) au lieu d'un build qui traîne puis échoue.
+// `vite build` garde son plafond nominal à 900 Mo (mesuré suffisant du premier
+// coup) et un repli unique à 1 024 Mo uniquement sur abandon de V8 (134).
 //
 // ── Journalisation ─────────────────────────────────────────────────────────
 // Chaque enveloppe annonce le budget, puis, en cas d'échec, la durée et l'état
@@ -98,54 +76,48 @@ import { pathToFileURL } from "node:url";
 export const MARKER = "budgetbati-build-heap-guard";
 
 /**
- * Plafond du chemin économe `--jitless` de `tsc`. Re-mesuré 2026-10 : 744 Mo
- * ABANDONNE (V8, 126 s) — le contrôle de type a grossi —, 848 Mo passe (119 s).
- */
-export const JITLESS_HEAP_MB = "848";
-
-/**
  * Plafond du REPLI de `vite build`. `vite` refuse `--jitless` (Node charge
  * `undici`, qui compile son parseur HTTP via `WebAssembly`, indisponible sans
  * JIT), donc le seul levier disponible est un plafond plus large. Il n'est joué
  * que si le plafond nominal a DÉJÀ échoué par abandon de V8 (134) : le build qui
  * aurait échoué passe, au prix d'un RSS plus élevé.
  */
-export const VITE_ABORT_RETRY_MB = "900";
+export const VITE_ABORT_RETRY_MB = "1024";
 
 /**
- * Budget (Mo réellement libres dans le cgroup) en dessous duquel `tsc` part
- * directement en `--jitless`. 1 250 Mo ≈ RSS attendu du chemin rapide
- * (~1 010 Mo : plafond 900 + overhead node/V8, mesuré 859 à l'ancien plafond
- * 752, soit +107) + ~250 Mo de marge pour le CLI Convex parent et la pression
- * mémoire — la même marge que l'ancien 1 100 (859 + 250).
- * Surchargeable par `BB_FAST_MIN_FREE_MB` (les tests s'en servent).
+ * Plafonds de tas, par binaire, en Mo — les PLANCHERS mesurés.
+ *
+ * Re-mesure 2026-10 sur un checkout froid (caches TypeScript supprimés) :
+ *   · `tsc -b` cap 900 (JIT) ....... OK en 56 s
+ *   · `tsc -b` cap 848 (`--jitless`) abandon de V8 ou SIGKILL après 120-173 s
+ *   · `vite build` cap 660 ......... ABANDON de V8 après 35 s, puis 27 s au
+ *                                    repli → 63 s à chaque build
+ *   · `vite build` cap 900 ......... OK du premier coup en 28 s
+ *
+ * Le cap de `vite` est donc passé de 660 à 900 : l'ancien plancher était
+ * dépassé par le graphe actuel, et le repli systématique coûtait 35 s de build
+ * en plus — inacceptable dans la sandbox de déploiement, qui a un budget de
+ * temps avant tout budget de mémoire.
  */
-export const FAST_PATH_MIN_FREE_MB = "1250";
-
-/**
- * Plafonds de tas, par binaire, en Mo — les PLANCHERS mesurés (re-mesurés
- * 2026-10 : tsc 752 abandonne, 900 passe). `BB_BUILD_HEAP_MB` surcharge `tsc` ;
- * ne pas remonter les valeurs par défaut sans re-mesurer le pic de RSS.
- */
-export const HEAP_MB_BY_TARGET = { tsc: "900", vite: "660" };
+export const HEAP_MB_BY_TARGET = { tsc: "900", vite: "900" };
 
 /** Plafond de `tsc` (compatibilité : sert aussi de valeur par défaut). */
 export const HEAP_MB = process.env.BB_BUILD_HEAP_MB || HEAP_MB_BY_TARGET.tsc;
 
 /**
  * Binaires plafonnés.
- *   · `tsc`  : typecheck (`tsc -b`) et build → plafonné toujours, chemin choisi
- *              selon le budget mémoire, repli `--jitless` si ça ne suffit pas.
+ *   · `tsc`  : typecheck (`tsc -b`) et build → plafonné toujours, un seul
+ *              essai (voir l'en-tête : le mode `--jitless` coûtait 2 à 3 fois
+ *              plus cher et faisait dépasser le délai de la sandbox).
  *   · `vite` : plafonné uniquement pour `vite build` ; le serveur de dev et
  *              `vite preview` gardent tout leur tas.
  */
 export const TARGETS = [
-  { name: "tsc", target: "typescript/bin/tsc", buildOnly: false, budgetAware: true },
+  { name: "tsc", target: "typescript/bin/tsc", buildOnly: false },
   {
     name: "vite",
     target: "vite/bin/vite.js",
     buildOnly: true,
-    budgetAware: false,
     retryAbortMb: VITE_ABORT_RETRY_MB,
   },
 ];
@@ -178,8 +150,8 @@ const cgroupHelpers = [
 ].join("\n");
 
 /**
- * Enveloppe `sh` : retrouve le vrai binaire, rappelle `node` plafonné, et
- * rapporte le code de sortie (V8 a abandonné vs. tué par le noyau).
+ * Enveloppe `sh` : retrouve le vrai binaire, rappelle `node` plafonné, rapporte
+ * le code de sortie (V8 a abandonné vs. tué par le noyau) ET LE PROPAGE.
  */
 export function wrapperSource({
   name,
@@ -187,7 +159,6 @@ export function wrapperSource({
   absTarget,
   heapMb,
   buildOnly,
-  budgetAware = false,
   retryAbortMb = null,
 }) {
   const resolveTarget = [
@@ -199,7 +170,6 @@ export function wrapperSource({
   ].join("\n");
   const node = (flags) => `node${flags ? ` ${flags}` : ""} "$target" "$@"`;
   const FAST = `--max-old-space-size=${heapMb}`;
-  const ECO = `--jitless --max-semi-space-size=1 --max-old-space-size=${JITLESS_HEAP_MB}`;
   const report = (withCap) =>
     [
       `if [ "$status" -ne 0 ]; then`,
@@ -212,12 +182,10 @@ export function wrapperSource({
       `fi`,
     ].join("\n");
 
-  // `tsc` : le budget décide du chemin, et un échec du chemin rapide rejoue en
-  // mode économe. `vite` n'a qu'un chemin (il refuse `--jitless`).
   const timings = `elapsed=$(( $(date +%s) - started ))`;
+
   // `vite` : un plafond trop juste est un ABANDON de V8, pas un pic plus bas.
-  // Son repli élargit donc le plafond — l'inverse de celui de `tsc` — et n'est
-  // joué que si le plafond nominal a déjà échoué.
+  // Son repli ÉLARGIT donc le plafond, et n'est joué qu'après l'échec.
   const retryOnAbort = retryAbortMb
     ? [
         `if [ "$status" -eq 134 ]; then`,
@@ -230,42 +198,26 @@ export function wrapperSource({
       ].join("\n")
     : "";
 
-  const guarded = budgetAware
-    ? [
-        `free=$(budget_mb)`,
-        `if [ "$free" -gt 0 ] && [ "$free" -lt "\${BB_FAST_MIN_FREE_MB:-${FAST_PATH_MIN_FREE_MB}}" ]; then`,
-        `  echo "[heap-guard] ${name} : \${free} Mo libres — chemin économe d'emblée (--jitless, plafond ${JITLESS_HEAP_MB} Mo)" >&2`,
-        `  started=$(date +%s)`,
-        `  ${node(ECO)}`,
-        `  status=$?`,
-        `  eco=1`,
-        `else`,
-        `  echo "[heap-guard] ${name} : \${free} Mo libres — chemin rapide (plafond ${heapMb} Mo)" >&2`,
-        `  started=$(date +%s)`,
-        `  ${node(FAST)}`,
-        `  status=$?`,
-        `  eco=0`,
-        `fi`,
-        timings,
-        `case "$status" in`,
-        `  134|137)`,
-        `    if [ "$eco" -eq 0 ]; then`,
-        `      echo "[heap-guard] ${name} : mémoire insuffisante après \${elapsed} s — nouvelle tentative en mode économe (--jitless, plafond ${JITLESS_HEAP_MB} Mo)" >&2`,
-        `      started=$(date +%s)`,
-        `      ${node(ECO)}`,
-        `      status=$?`,
-        `      ${timings}`,
-        `    fi`,
-        `    ;;`,
-        `esac`,
-        report(true),
-      ].join("\n")
-    : [`started=$(date +%s)`, node(FAST), `status=$?`, timings, retryOnAbort, report(true)]
-        .filter(Boolean)
-        .join("\n");
+  // Un seul essai, plafonné, puis le code de sortie est PROPAGÉ. Sans ce
+  // `exit`, un `tsc` tué (137) ou en échec renvoyait 0 : le `&&` du build
+  // enchaînait quand même `vite build`, doublait la durée d'un build déjà
+  // condamné et masquait l'étape responsable dans le journal.
+  const guarded = [
+    `free=$(budget_mb)`,
+    `echo "[heap-guard] ${name} : \${free} Mo libres — plafond ${heapMb} Mo" >&2`,
+    `started=$(date +%s)`,
+    node(FAST),
+    `status=$?`,
+    timings,
+    retryOnAbort,
+    report(true),
+    `exit "$status"`,
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   const body = buildOnly
-    ? `# Plafonné pour « build » seulement : l'aperçu (serveur de développement) garde tout son tas.\ncase "$1" in\n  build)\n${guarded}\n    ;;\n  *)\nstarted=$(date +%s)\n${node("")}\nstatus=$?\n${timings}\n${report(false)}\n    ;;\nesac`
+    ? `# Plafonné pour « build » seulement : l'aperçu (serveur de développement) garde tout son tas.\ncase "$1" in\n  build)\n${guarded}\n    ;;\n  *)\nstarted=$(date +%s)\n${node("")}\nstatus=$?\n${timings}\n${report(false)}\nexit "$status"\n    ;;\nesac`
     : guarded;
   return `#!/bin/sh\n# ${MARKER} — voir scripts/harden-build-bins.mjs\n${resolveTarget}\n${cgroupHelpers}\n${body}\n`;
 }
@@ -284,7 +236,6 @@ export function patchBin({
   target,
   heapMb = HEAP_MB_BY_TARGET[name] ?? HEAP_MB,
   buildOnly = false,
-  budgetAware = false,
   retryAbortMb = null,
 }) {
   const binPath = join(binDir, name);
@@ -305,7 +256,6 @@ export function patchBin({
     absTarget,
     heapMb,
     buildOnly,
-    budgetAware,
     retryAbortMb,
   });
   if (existing === next) return "already";

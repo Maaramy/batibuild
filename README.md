@@ -303,113 +303,92 @@ La plateforme exécute `convex deploy --cmd "tsc -b && vite build"`
 contraint, dont la limite n'est pas visible d'ici. On ne peut donc que
 **minimiser le pic**, pas le comparer à un plafond connu.
 
-Mesuré sur la commande exacte de la plateforme (`VmHWM`, les deux phases l'une
-après l'autre) :
+Mesuré sur la commande exacte (`tsc -b` puis `vite build`), checkout froid,
+dans la sandbox de développement (les deux serveurs managés occupent ~430 Mo) :
 
 | | `tsc -b` | `vite build` |
 | --- | --- | --- |
-| sans plafond | ≈ 990 Mo | ≈ 1 160 Mo → « Killed » |
-| plafond unique à 800 Mo | 876 Mo | 888 Mo |
-| anciens plafonds (752 / 704) | 859 Mo | 846 Mo → « Killed » |
-| **planchers actuels (re-mesurés 2026-10)** | cap **900** (JIT, 41 s) — repli `--jitless` cap **848** (119 s) | cap **660** (620 → abandon de V8) |
+| **plafonds actuels** | cap **900** (JIT) — **OK en 56 s** | cap **900** — **OK en 28 s, du premier coup** |
+| ancien plafond `vite` 660 | — | abandon de V8 après 35 s, puis 27 s au repli → **63 s à chaque build** |
+| `tsc` cap 848 `--jitless` | abandon de V8 ou SIGKILL après **120 à 173 s** | — |
 
-Le contrôle de type de l'application a grossi avec le projet : ses anciens
-planchers **abandonnent** désormais (re-mesure 2026-10), ce qui mettait le
-build de la plateforme hors délai (essai rapide + repli économe dépassent le
-temps alloué à la commande) :
+Le déploiement échouait sur « The build took longer than the project sandbox
+allows » : la sandbox de déploiement est limitée en **temps**, pas seulement en
+mémoire. Trois défauts allongeaient le build sans rien produire :
 
-| cap `tsc` | résultat |
-| --- | --- |
-| 752 Mo (JIT) | abandon de V8 après 75 s |
-| **900 Mo (JIT)** | **OK en 41 s — chemin rapide** |
-| 744 Mo (`--jitless`) | abandon de V8 après 126 s |
-| **848 Mo (`--jitless`)** | **OK en 119 s — chemin économe** |
+1. `tsc` basculait en `--jitless` (2 à 3× plus lent) dès que le budget mémoire
+   du cgroup descendait sous 1 250 Mo — il finissait même tué par le noyau
+   après 120 à 173 s. Ce mode est **supprimé** : un seul essai rapide à 900 Mo.
+2. Le code de sortie n'était pas propagé : après un `tsc` tué, `vite build`
+   démarrait quand même (le `&&` voyait 0), doublant la durée d'un build déjà
+   condamné et masquant l'étape responsable. Chaque enveloppe fait maintenant
+   `exit "$status"`.
+3. `vite` gardait un plafond nominal de 660 Mo, sous son jeu vivant actuel :
+   chaque build payait un abandon de V8 (35 s) avant de réussir à 900 Mo. Le
+   plafond nominal est passé à **900 Mo**, mesuré suffisant du premier coup.
 
-Le chemin économe paie toujours le même tribut : `--jitless` (l'interpréteur
-seul, donc plus de cache de code JIT) coûte ~2,8× le temps. C'est le point le
-plus bas atteignable sans rien désactiver.
+Un plafond trop bas ne baisse pas le pic, il **casse** le build : à 620 Mo
+`vite` abandonne (« Ineffective mark-compacts near heap limit »). Le repli
+unique de `vite` (`VITE_ABORT_RETRY_MB`, 1 024 Mo) n'est joué qu'après un
+abandon de V8 (`134`).
 
-`vite build` ne peut pas être allégé de la même façon. Il **refuse** `--jitless`
-(échec immédiat : Node charge `undici`, dont le parseur HTTP est un module
-`WebAssembly`, indisponible sans JIT) et `--max-semi-space-size=1` le fait
-abandonner encore plus tôt. Son seul levier est donc le plafond, et il est plus
-serré qu'il n'y paraît : à 620 Mo le build **abandonne** (« Ineffective
-mark-compacts near heap limit » — jeu vivant ≈ 600 Mo, limite réelle ≈ 635 Mo) ;
-à 660 Mo il passe (mesuré 3×, ~23 s). Un plafond trop juste n'allège pas le pic,
-il casse le build : l'enveloppe rejoue donc une fois à 900 Mo si V8 abandonne
-(`134`). Descendre `maxParallelFileOps` de 4 à 2 ne gagne rien (mesuré : 792 Mo),
-et `--no-opt` fonctionne mais coûte 23 % de temps sans gain mesuré.
+Mesuré comme **sans effet** sur `tsc` : `exclude` des tests, `types: []`,
+suppression des `.d.ts` de `@types/three`, isolation du backend Convex,
+`--optimize-for-size`, build incrémental sur un checkout froid, compilateur
+natif `tsgo` (4× plus rapide mais 1 110 Mo). Pour `vite` : `maxParallelFileOps`
+à 2 (aucun gain) et `--no-opt` (+23 % de temps).
 
-Mesuré comme **sans effet** sur la consommation de `tsc` : `exclude` des tests
-(807 → 847 Mo), `types: []` (851 Mo), suppression des 924 fichiers
-`@types/three` (798 Mo), isolation du backend Convex (727 Mo),
-`--optimize-for-size`, build incrémental `tsc -b` sur un checkout froid, et
-compilateur natif `tsgo` (4× plus rapide mais 1 110 Mo).
-
-Le plafond est donc appliqué à **deux endroits**, parce que la commande de mise
-en production n'est pas celle de `package.json` :
+Le plafond est appliqué à **deux endroits**, parce que la commande de mise en
+production n'est pas forcément celle de `package.json` :
 
 1. **`scripts/build.sh`**, utilisé par `bun run build` (donc aussi par Vercel) :
-   `--max-old-space-size=900` exporté pour les deux phases. Le poser dans la
-   ligne `build` de `package.json` ne suffirait pas : les plateformes qui
-   recopient la commande de build en retirent les préfixes d'environnement.
+   `--max-old-space-size=900` exporté pour les deux phases, et la durée de
+   chaque phase journalisée (`[build] tsc -b : 56 s`). Le poser dans la ligne
+   `build` de `package.json` ne suffirait pas : les plateformes qui recopient
+   la commande en retirent les préfixes d'environnement.
 2. **`scripts/harden-build-bins.mjs`**, lancé par le `postinstall` : la mise en
-   production est déployée par la plateforme avec la commande du gabarit Vite
-   (`- Running 'tsc -b && vite build' with environment variables …`), qu'elle
-   fournit elle-même et qui ne lit donc jamais `package.json`. Le seul point de
-   contact qui reste est `node_modules/.bin` : le script y remplace les liens
-   `tsc` et `vite` par de petites enveloppes `sh` qui relancent le vrai binaire
-   sous son plafond. `vite` n'est plafonné **que** pour la sous-commande
-   `build` (660 Mo, rejoué une fois à 900 Mo si V8 abandonne) : le serveur de
-   développement (l'aperçu) garde tout son tas. L'enveloppe est réécrite
-   automatiquement si son plafond change dans `harden-build-bins.mjs`.
+   production peut être déployée avec la commande du gabarit Vite
+   (`tsc -b && vite build`), qui ne lit jamais `package.json`. Le seul point de
+   contact est `node_modules/.bin` : le script y remplace les liens `tsc` et
+   `vite` par des enveloppes `sh` qui relancent le vrai binaire sous son
+   plafond. `vite` n'est plafonné **que** pour la sous-commande `build` : le
+   serveur de développement (l'aperçu) garde tout son tas. L'enveloppe est
+   réécrite automatiquement si son plafond change.
 
-L'enveloppe de `tsc` **choisit son chemin selon le budget mémoire mesuré du
-cgroup**, avant de lancer Node :
+Le build enchaîne ensuite **un seul essai par binaire**, et s'arrête au premier
+échec : un typecheck en échec ne se transforme plus en plusieurs minutes de
+bundling inutile.
 
-- budget confortable (≥ 1 250 Mo libres) → chemin rapide (cap 900 Mo, JIT) ;
-- budget serré → chemin économe d'emblée (`--jitless`, cap 848 Mo) : inutile de
-  payer 41 s d'un essai que le noyau va tuer, et inutile de déclencher l'OOM
-  killer juste avant la tentative qui compte.
-
-Le chemin rapide garde son repli : si V8 abandonne (`134`) ou si le noyau tue
-(`137`), la même commande est **rejouée** en `--jitless`. Un environnement large
-garde donc un build rapide, un environnement serré obtient un build qui passe.
-
-Pour mesurer ou ajuster les plafonds (`HEAP_MB_BY_TARGET`, `JITLESS_HEAP_MB` et
-`VITE_ABORT_RETRY_MB` dans `harden-build-bins.mjs` pour le chemin déployé,
-`BB_BUILD_HEAP_MB` pour `scripts/build.sh`), et pour forcer un chemin :
+Pour mesurer ou ajuster les plafonds (`HEAP_MB_BY_TARGET` et
+`VITE_ABORT_RETRY_MB` dans `harden-build-bins.mjs`, `BB_BUILD_HEAP_MB` pour
+`scripts/build.sh`) :
 
 ```bash
 BB_BUILD_HEAP_MB=1024 bun run build
-BB_FAST_MIN_FREE_MB=0 bash -c 'tsc --version'        # toujours le chemin rapide
-BB_FAST_MIN_FREE_MB=999999 bash -c 'tsc --version'   # toujours le chemin économe
 ```
 
-**Diagnostic dans le journal de déploiement.** `Killed` ne dit ni quelle étape
-est morte, ni quelle est la limite réelle du sandbox. Chaque enveloppe annonce
-donc le budget qu'elle mesure, puis la durée et l'état du cgroup en cas
-d'échec :
+**Diagnostic dans le journal de déploiement.** Chaque enveloppe annonce le
+budget mesuré et le plafond appliqué, puis, en cas d'échec, la durée et l'état
+du cgroup (`memory.max` / `memory.peak` / libres) :
 
 ```
-[heap-guard] tsc : 1 884 Mo libres — chemin rapide (plafond 900 Mo)
-[heap-guard] tsc : mémoire insuffisante après 41 s — nouvelle tentative en mode économe (--jitless, plafond 848 Mo)
-[heap-guard] vite : abandon de V8 après 29 s — nouvelle tentative (plafond 900 Mo)
-[heap-guard] vite : SIGKILL — processus tué par le noyau (mémoire du sandbox) après 32 s — cgroup 2 048 Mo, pic 2 048 Mo, libres 48 Mo
+[heap-guard] tsc : 1 377 Mo libres — plafond 900 Mo
+[heap-guard] tsc : SIGKILL — processus tué par le noyau (mémoire du sandbox) après 173 s — cgroup 2 048 Mo, pic 2 048 Mo, libres 695 Mo
+[heap-guard] vite : abandon de V8 après 35 s — nouvelle tentative (plafond 1024 Mo)
 ```
 
 `134` = plafond trop bas (il faut le remonter), `137` = mémoire insuffisante
 dans l'environnement de build : la ligne `cgroup …` livre alors la limite exacte
-et le pic atteint, donc l'arbitrage devient chiffré au lieu d'être deviné. Si
-les deux étapes passent sans message d'échec, c'est que tout a tenu.
+et le pic atteint. Le code de sortie est propagé, donc `tsc -b && vite build`
+s'arrête à la première étape en échec et le journal désigne l'étape responsable.
 
 Si un environnement installe les dépendances avec `--ignore-scripts` (donc sans
 `postinstall`), le plafond peut être posé à la main avec
 `NODE_OPTIONS=--max-old-space-size=900` — à garder proche du passage, car cette
 variable s'applique alors à **tous** les processus Node de la sandbox (serveur
-de dev, tests), pas seulement au build. Les drapeaux du chemin économe
-(`--jitless`) sont, eux, le travail de l'enveloppe : les appliquer globalement
-ralentirait l'aperçu et les tests.
+de dev, tests), pas seulement au build. Le plafond des binaires reste, lui, le
+travail de l'enveloppe : l'appliquer globalement toucherait aussi l'aperçu et
+les tests.
 
 ### Périmètre du typecheck frontend
 
