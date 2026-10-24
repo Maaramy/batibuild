@@ -785,9 +785,16 @@ Un run correct affiche :
 ✅ Manifeste, applicationId, versionCode, versionName, minSdkVersion (24), targetSdkVersion (36) et ABI validés.
 ```
 
+La sortie brute de `aapt2 dump badging` est imprimée dans les logs. Selon la
+version des build-tools, la ligne du SDK minimal s'écrit **`minSdkVersion:'24'`**
+(aapt2 récent) ou `sdkVersion:'24'` (aapt / aapt2 ancien) : le workflow accepte
+les **deux** formats, puis vérifie la valeur. Chercher uniquement `sdkVersion:`
+produisait un faux « minSdkVersion ABSENT » sur un APK pourtant correct.
+
 Si un contrôle échoue, le message donne la cause exacte (valeur lue, valeur
-attendue, fichier concerné) : corriger `android/gradle.properties`, puis
-relancer `node mobile/scripts/ensure-android-sdk.mjs` avant de rebuild.
+attendue, fichier concerné, ou « invalide » si la ligne existe mais n'est pas
+numérique) : corriger `android/gradle.properties`, puis relancer
+`node mobile/scripts/ensure-android-sdk.mjs` avant de rebuild.
 
 > Vérification d'installation sur téléphone (`adb install`) : à faire sur un
 > appareil Android 7.0+ après téléchargement de l'APK de la Release ; elle ne

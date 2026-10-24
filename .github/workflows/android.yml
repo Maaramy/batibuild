@@ -1244,11 +1244,14 @@ jobs:
           node scripts/verify-artifact.mjs "${ARGS[@]}"
 
       # Contrôle INDÉPENDANT du manifeste final : aapt2 (build-tools du SDK) et
-      # apkanalyzer (cmdline-tools) relisent l'APK PUBLIÉ. Aucun code du projet
-      # n'intervient dans la lecture. minSdkVersion/targetSdkVersion doivent être
-      # PRÉSENTS **et** égaux aux valeurs de android/gradle.properties : un
-      # simple `grep -q "^sdkVersion:"` ne détectait ni l'absence réelle de
-      # <uses-sdk> ni une valeur différente.
+      # apkanalyzer (cmdline-tools) relisent l'APK PUBLIÉ (jamais le manifeste
+      # fusionné intermédiaire). minSdkVersion/targetSdkVersion doivent être
+      # PRÉSENTS **et** égaux aux valeurs de android/gradle.properties.
+      #
+      # ATTENTION AU FORMAT : aapt2 écrit « minSdkVersion:'24' » (build-tools
+      # récents) et non « sdkVersion:'24' ». Les deux sont acceptés ci-dessous —
+      # chercher uniquement « sdkVersion: » produisait un faux « minSdkVersion
+      # ABSENT » sur un APK pourtant correct.
       - name: Contrôle indépendant du manifeste (aapt2 + apkanalyzer)
         shell: bash
         run: |
@@ -1280,25 +1283,49 @@ jobs:
             echo "   Le contrôle bloquant porte sur l'APK final ci-dessous."
           fi
 
-          # ── 1. aapt2 badging ────────────────────────────────────────────────
+          # ── 1. aapt2 badging (APK final = celui qui sera publié) ────────────
           if ! "$AAPT2" dump badging "$APK" > /tmp/badging.txt 2>/tmp/badging.err; then
             echo "❌ aapt2 n'a pas pu lire le manifeste de l'APK :"
             cat /tmp/badging.err
             exit 1
           fi
-          grep -E "^(package|sdkVersion|targetSdkVersion|native-code)" /tmp/badging.txt | head -6
+          # Sortie complète conservée dans les logs : elle permet de diagnostiquer
+          # un changement de format de aapt2 sans relancer un run.
+          cat /tmp/badging.txt
 
-          AAPT_MIN_SDK=$(sed -n "s/^sdkVersion:'\([0-9][0-9]*\)'.*/\1/p" /tmp/badging.txt | head -1)
-          AAPT_TARGET_SDK=$(sed -n "s/^targetSdkVersion:'\([0-9][0-9]*\)'.*/\1/p" /tmp/badging.txt | head -1)
+          # FORMAT RÉEL DE aapt2 : selon la version des build-tools, la ligne du
+          # SDK minimal s'écrit « minSdkVersion:'24' » (aapt2 récent) et non
+          # « sdkVersion:'24' » (aapt/aapt2 ancien). L'ancien sed ne cherchait que
+          # « sdkVersion: » et déclarait donc à tort le minSdkVersion ABSENT
+          # alors que le manifeste le contenait. Les DEUX formats sont acceptés.
+          read_badging_min_sdk() {
+            sed -n -E "s/^(minSdkVersion|sdkVersion):'([0-9]+)'.*/\2/p" /tmp/badging.txt | head -n 1
+          }
+          AAPT_MIN_SDK=$(read_badging_min_sdk)
+          AAPT_TARGET_SDK=$(sed -n -E "s/^targetSdkVersion:'([0-9]+)'.*/\1/p" /tmp/badging.txt | head -n 1)
+          # Ligne présente mais illisible (valeur non numérique) ≠ ligne absente :
+          # le message doit distinguer les deux causes.
+          MIN_SDK_LINE=$(grep -m1 -E "^(minSdkVersion|sdkVersion):" /tmp/badging.txt || true)
 
           if [ -z "$AAPT_MIN_SDK" ]; then
-            echo "❌ minSdkVersion ABSENT du manifeste final de l'APK."
-            echo "   aapt2 ne trouve aucune ligne « sdkVersion:'…' » : le manifeste"
-            echo "   ne contient pas <uses-sdk> — Android refuse l'installation."
-            echo "   Extrait de aapt2 :"
-            head -20 /tmp/badging.txt
+            if [ -n "$MIN_SDK_LINE" ]; then
+              echo "❌ minSdkVersion invalide : « ${MIN_SDK_LINE} » (entier d'API attendu)."
+            else
+              echo "❌ minSdkVersion ABSENT du manifeste final de l'APK."
+              echo "   aapt2 n'expose ni « minSdkVersion:'…' » ni « sdkVersion:'…' » :"
+              echo "   le manifeste ne contient pas <uses-sdk> — Android refuse l'installation."
+              echo "   Sortie aapt2 ci-dessus."
+            fi
             exit 1
           fi
+          case "$AAPT_MIN_SDK" in
+            ''|*[!0-9]*) echo "❌ minSdkVersion invalide : « $AAPT_MIN_SDK » (entier attendu)."; exit 1 ;;
+          esac
+          if [ "$AAPT_MIN_SDK" -lt 1 ]; then
+            echo "❌ minSdkVersion invalide : $AAPT_MIN_SDK (doit être ≥ 1)."
+            exit 1
+          fi
+          echo "✅ minSdkVersion détecté dans l'APK final : $AAPT_MIN_SDK"
           if [ "$AAPT_MIN_SDK" != "$MIN_SDK" ]; then
             echo "❌ minSdkVersion inattendu : ${AAPT_MIN_SDK} (attendu ${MIN_SDK}, android/gradle.properties)."
             exit 1
@@ -1307,6 +1334,9 @@ jobs:
             echo "❌ targetSdkVersion ABSENT du manifeste final de l'APK."
             exit 1
           fi
+          case "$AAPT_TARGET_SDK" in
+            ''|*[!0-9]*) echo "❌ targetSdkVersion invalide : « $AAPT_TARGET_SDK »."; exit 1 ;;
+          esac
           if [ "$AAPT_TARGET_SDK" != "$TARGET_SDK" ]; then
             echo "❌ targetSdkVersion inattendu : ${AAPT_TARGET_SDK} (attendu ${TARGET_SDK})."
             exit 1
