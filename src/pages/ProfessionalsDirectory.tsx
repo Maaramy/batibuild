@@ -36,6 +36,9 @@ import { profileCardClass, VerifiedBadge } from "@/components/ProfileCardBits";
 import { SUPPLIER_SPECIALTIES_LABELS } from "@/lib/supplierSpecialties";
 import {
   EXPERT_PROFESSION_LABELS,
+  EXPERT_PROFESSIONS,
+  PROFESSION_SPECIALTIES,
+  PROFESSIONNEL_SPECIALTY_GROUPS,
   SPECIALTY_LABELS,
 } from "@/components/expert/expertProfileOptions";
 import {
@@ -69,6 +72,17 @@ const PROFESSION_LABELS = EXPERT_PROFESSION_LABELS;
 /** Libellé d'une spécialité : espace expert, puis spécialités fournisseur. */
 function specialtyLabel(key: string): string {
   return SPECIALTY_LABELS[key] ?? SUPPLIER_SPECIALTIES_LABELS[key] ?? key;
+}
+
+/**
+ * Spécialités (métiers) proposées pour une profession donnée.
+ *
+ * Liste issue du catalogue de l'espace Expert : le filtre reste donc utilisable
+ * même lorsqu'aucun professionnel de cette catégorie n'est encore publié.
+ */
+function specialtyKeysFor(profession: string): string[] {
+  if (!profession) return [];
+  return PROFESSION_SPECIALTIES[profession] ?? [];
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -147,15 +161,82 @@ export default function ProfessionalsDirectory() {
   // Suivi statistique : ouverture d'une fiche depuis l'annuaire (clic).
   const recordExpertEvent = useMutation(api.expertStats.recordExpertEvent);
 
-  const availableProfessions = useMemo(
-    () => (experts ? expertProfessionOptions(experts) : []),
-    [experts],
-  );
+  // Professions toujours proposées (catalogue officiel), complétées par les
+  // valeurs déjà enregistrées qui n'y figurent pas : un filtre ne disparaît
+  // jamais parce qu'aucun profil de cette profession n'est encore publié.
+  const professionFilterOptions = useMemo(() => {
+    const options: DirectoryCriterionGroup["options"] = EXPERT_PROFESSIONS.map(
+      (profession) => ({
+        value: profession.value,
+        label: profession.label,
+        icon: profession.icon,
+      }),
+    );
+    const known = new Set(options.map((option) => option.value));
+    for (const value of experts ? expertProfessionOptions(experts) : []) {
+      if (!known.has(value)) {
+        options.push({ value, label: PROFESSION_LABELS[value] ?? value });
+      }
+    }
+    return options;
+  }, [experts]);
 
-  const availableSpecialties = useMemo(
-    () => (experts ? expertSpecialtyOptions(experts) : []),
-    [experts],
-  );
+  /**
+   * Spécialités (métiers) : celles de la profession sélectionnée — regroupées
+   * par famille pour « Professionnel », comme dans le formulaire Expert. Sans
+   * profession choisie, on propose les spécialités réellement présentes dans
+   * l'annuaire, et à défaut les métiers techniques du bâtiment.
+   */
+  const specialtyFilterGroups = useMemo<DirectoryCriterionGroup[]>(() => {
+    const onSelect = (value: string) =>
+      setSelectedSpecialty((current) => (current === value ? "" : value));
+    const toOptions = (keys: readonly string[]) =>
+      keys.map((key) => ({ value: key, label: specialtyLabel(key) }));
+    const selected = selectedSpecialty ? [selectedSpecialty] : [];
+
+    if (selectedProfession === "professionnel") {
+      return PROFESSIONNEL_SPECIALTY_GROUPS.map((group, index) => ({
+        id: `specialty-professionnel-${index}`,
+        label: group.label,
+        options: toOptions(group.options),
+        selected,
+        onSelect,
+      }));
+    }
+
+    if (selectedProfession) {
+      return [
+        {
+          id: "specialty",
+          label: "Spécialité / métier",
+          options: toOptions(specialtyKeysFor(selectedProfession)),
+          selected,
+          onSelect,
+        },
+      ];
+    }
+
+    const present = experts ? expertSpecialtyOptions(experts) : [];
+    if (present.length > 0) {
+      return [
+        {
+          id: "specialty",
+          label: "Spécialité / métier",
+          options: toOptions(present),
+          selected,
+          onSelect,
+        },
+      ];
+    }
+
+    return PROFESSIONNEL_SPECIALTY_GROUPS.map((group, index) => ({
+      id: `specialty-professionnel-${index}`,
+      label: group.label,
+      options: toOptions(group.options),
+      selected,
+      onSelect,
+    }));
+  }, [experts, selectedProfession, selectedSpecialty]);
 
   const availableRegions = useMemo(() => {
     if (!experts) return [];
@@ -251,23 +332,18 @@ export default function ProfessionalsDirectory() {
     {
       id: "profession",
       label: "Profession",
-      options: availableProfessions.map((p) => ({
-        value: p,
-        label: PROFESSION_LABELS[p] ?? p,
-      })),
+      options: professionFilterOptions,
       selected: selectedProfession ? [selectedProfession] : [],
-      onSelect: (v) => setSelectedProfession(selectedProfession === v ? "" : v),
+      onSelect: (v) => {
+        const next = selectedProfession === v ? "" : v;
+        setSelectedProfession(next);
+        // La spécialité retenue doit rester cohérente avec la profession.
+        if (next && selectedSpecialty && !specialtyKeysFor(next).includes(selectedSpecialty)) {
+          setSelectedSpecialty("");
+        }
+      },
     },
-    {
-      id: "specialty",
-      label: "Spécialité / métier",
-      options: availableSpecialties.map((s) => ({
-        value: s,
-        label: specialtyLabel(s),
-      })),
-      selected: selectedSpecialty ? [selectedSpecialty] : [],
-      onSelect: (v) => setSelectedSpecialty(selectedSpecialty === v ? "" : v),
-    },
+    ...specialtyFilterGroups,
     {
       id: "region",
       label: "Région / gouvernorat",
