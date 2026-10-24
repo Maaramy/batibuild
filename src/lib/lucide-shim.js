@@ -236,6 +236,7 @@ export { default as Shield } from "../../node_modules/lucide-react/dist/esm/icon
 export { default as ShieldAlert } from "../../node_modules/lucide-react/dist/esm/icons/shield-alert.js";
 export { default as ShoppingBag } from "../../node_modules/lucide-react/dist/esm/icons/shopping-bag.js";
 export { default as ShoppingCart } from "../../node_modules/lucide-react/dist/esm/icons/shopping-cart.js";
+export { default as Sliders } from "../../node_modules/lucide-react/dist/esm/icons/sliders.js";
 export { default as SlidersHorizontal } from "../../node_modules/lucide-react/dist/esm/icons/sliders-horizontal.js";
 export { default as ShieldCheck } from "../../node_modules/lucide-react/dist/esm/icons/shield-check.js";
 export { default as ShowerHead } from "../../node_modules/lucide-react/dist/esm/icons/shower-head.js";

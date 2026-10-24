@@ -876,6 +876,8 @@ import { applyRealisticDoorsWindows } from "./bimQuantitatif";
 import { generateDqe } from "./dqeEngine";
 import { inferFloorsFromCategory, normalizeLegacyCategory } from "./projectTypes";
 import { autoLaunchMaterialSelection } from "./materialSelections";
+import { readCostEvolutionSettings } from "./costEvolution";
+import { applyCostEvolutionToEstimate } from "../lib/costEvolution";
 
 // ============================================================================
 // Simulate Analysis (BIM Professional Engine)
@@ -1003,6 +1005,27 @@ export const simulateAnalysis = mutation({
         : undefined,
     });
 
+    // ── Évolution annuelle des coûts (barème administrateur) ──────────────
+    // S'applique UNIQUEMENT au moment du calcul :
+    //   • aucune estimation déjà calculée et enregistrée n'est modifiée par ce
+    //     module (seul un nouveau calcul peut porter des taux) ;
+    //   • le mécanisme inactif (administration) ne change AUCUN montant ;
+    //   • un chiffrage déjà validé (`costEstimateValidatedAt`) n'est jamais
+    //     majoré ;
+    //   • chaque poste reçoit son propre facteur — aucune double application.
+    // L'empreinte du barème (version, date, statut) accompagne le calcul pour
+    // le détail affiché et les rapports PDF des NOUVEAUX projets.
+    const costEvolution = await readCostEvolutionSettings(ctx);
+    const evolution = applyCostEvolutionToEstimate({
+      settings: costEvolution.settings,
+      version: costEvolution.version,
+      chiffrageValide: Boolean(project.costEstimateValidatedAt),
+      costEstimate: result.costEstimate,
+      dqe,
+      aiAnalysis: result.aiAnalysis,
+      builtSurface: tb,
+    });
+
     // ── Coût global TTC : les lots contenant un poste au barème technique
     // (plomberie 94 DT/m², électricité 72 DT/m²) ainsi que le lot « Second
     // œuvre et finitions » du résidentiel sont facturés à la SOMME RÉELLE de
@@ -1066,6 +1089,29 @@ export const simulateAnalysis = mutation({
           amount: entry.delta,
         })),
       ];
+      // Résidu d'arrondi de la ventilation par niveau lorsque le barème
+      // d'évolution a été appliqué : l'invariant « total = Σ niveaux +
+      // toiture + ajustements » reste EXACT, l'arrondi étant remonté comme un
+      // ajustement explicite (jamais masqué).
+      if (evolution.applied) {
+        const parts =
+          levelBreakdown.levels.reduce(
+            (s: number, l: any) => s + (Number(l?.amount) || 0),
+            0,
+          ) +
+          (Number(levelBreakdown.roof?.amount) || 0) +
+          levelBreakdown.costAdjustments.reduce(
+            (s: number, a: any) => s + (Number(a?.amount) || 0),
+            0,
+          );
+        const residual = Math.round((levelBreakdown.total - parts) * 100) / 100;
+        if (residual !== 0) {
+          levelBreakdown.costAdjustments.push({
+            label: "Évolution annuelle des coûts — ventilation par niveau (arrondis)",
+            amount: residual,
+          });
+        }
+      }
       const dqeAnomalies = checkDqeConsistency(
         dqeTotal,
         dqe.totals.total,
@@ -1187,6 +1233,10 @@ export const simulateAnalysis = mutation({
           (Number(b.estimatedCost) || 0) + (deltaByCategory.get(b.category) ?? 0),
         category: b.category as typeof materialCategoryValidator.type,
       })),
+      // Empreinte du barème d'évolution (version, date, statut) : affichée
+      // dans le détail du calcul et reprise par les rapports PDF des nouveaux
+      // projets. Absente → aucun taux n'a été appliqué à cette estimation.
+      costEvolution: evolution.fingerprint,
     };
 
     await ctx.db.patch(args.projectId, {
@@ -1206,5 +1256,29 @@ export const simulateAnalysis = mutation({
     // sélection proposée par l'IA), SANS aucune redirection : l'utilisateur
     // reste là où il est. Best-effort : ne bloque jamais le calcul de coût.
     await autoLaunchMaterialSelection(ctx, user._id, args.projectId);
+  },
+});
+
+/**
+ * Valide le chiffrage d'un projet : à partir de cet instant, plus aucun taux
+ * du barème d'évolution annuelle n'est appliqué à ses recalculs. Cette action
+ * ne modifie AUCUN montant déjà enregistré.
+ */
+export const validateCostEstimate = mutation({
+  args: { projectId: v.id("projects") },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) throw new Error("Unauthorized");
+
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+    if (project.userId !== user._id && user.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    await ctx.db.patch(args.projectId, {
+      costEstimateValidatedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
   },
 });

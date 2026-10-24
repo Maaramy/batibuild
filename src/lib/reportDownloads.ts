@@ -40,7 +40,6 @@ import { regionLabel } from "./providerRegions";
 import { generateFloorPlans, repairFloorPlan } from "./floorPlanEngine";
 import { downloadFloorPlanPdf } from "./floorPlanPdf";
 import { generateProjectPdf } from "./projectPdf";
-import { normalizeCostEvolutionSettings } from "./costEvolution";
 import { exportRoadmapPdf } from "./roadmapReportPdf";
 
 /** Forme minimale d'un projet utilisée par les générateurs. */
@@ -131,8 +130,10 @@ export async function downloadCostReport({
   }
 
   // Barème d'évolution annuelle des coûts : section facultative du devis,
-  // ajoutée seulement si l'administrateur a activé le mécanisme.
-  const costEvolutionConfig = await convex.query(api.costEvolution.getConfig, {});
+  // reprise UNIQUEMENT de l'empreinte enregistrée avec CE calcul (nouveaux
+  // projets). Les devis des projets déjà chiffrés restent strictement
+  // identiques : aucune section n'y est ajoutée.
+  const costEvolution = (storedCe as any)?.costEvolution ?? null;
 
   await generateProjectPdf({
     project,
@@ -143,8 +144,7 @@ export async function downloadCostReport({
     dqe,
     dqeScaleFactor: 1,
     personalized,
-    costEvolutionSettings: normalizeCostEvolutionSettings(costEvolutionConfig),
-    costEvolutionYears: 1,
+    costEvolution,
     onStart: () => undefined,
     onProgress: onProgress ?? (() => undefined),
     onSuccess: () => undefined,

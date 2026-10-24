@@ -743,6 +743,9 @@ export interface CostEvolutionPdfBlock {
 const fmtTnd = (n: number) =>
   `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(Math.round(n))} TND`;
 
+const fmtDateLong = (ts: number) =>
+  new Date(ts).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+
 /**
  * Section facultative « Hypothèses d'évolution des coûts » des rapports PDF.
  * `null` quand le mécanisme est inactif : aucun rapport existant ne change.
@@ -781,6 +784,564 @@ export function buildCostEvolutionPdfBlock(params: {
       { label: "Coût de référence", value: fmtTnd(projection.referenceCost) },
       { label: "Coût projeté", value: fmtTnd(projection.projectedCost) },
       { label: "Différence", value: `+${fmtTnd(projection.increase)}` },
+    ],
+  };
+}
+
+// ============================================================================
+// APPLICATION AU MOTEUR D'ESTIMATION DES NOUVEAUX PROJETS
+// ----------------------------------------------------------------------------
+// Contrat produit :
+//   1. les taux ne s'appliquent QU'AU MOMENT DU CALCUL d'une estimation —
+//      jamais à une estimation déjà calculée et enregistrée ;
+//   2. mécanisme inactif (administration) ⇒ AUCUN montant modifié ;
+//   3. chiffrage déjà validé ⇒ aucun taux appliqué ;
+//   4. chaque poste reçoit UN SEUL facteur (taux du poste, taux de sa
+//      composante ou taux global) : aucune double augmentation ;
+//   5. l'empreinte (version, date, statut) accompagne le calcul pour
+//      l'affichage du détail et les rapports PDF.
+//
+// Horizon retenu pour les estimations : UN an d'évolution (le taux annuel du
+// barème) dès que le barème est en vigueur (date d'application ≤ date du
+// calcul). Les projections pluriannuelles restent l'affaire de la
+// prévisualisation (`projectCost`), jamais du moteur d'estimation.
+// ============================================================================
+
+/** Empreinte conservée avec chaque calcul d'estimation. */
+export interface EstimateEvolutionFingerprint {
+  /** Version du barème administrateur au moment du calcul (0 = valeurs par défaut). */
+  version: number;
+  /** Actif = taux appliqués · Inactif = mécanisme désactivé · Validé = chiffrage validé. */
+  status: "active" | "inactive" | "validated";
+  /** Date réelle du calcul (ms epoch). */
+  appliedAt: number;
+  referenceYear: number;
+  effectiveFrom: number;
+  scenario: CostEvolutionScenarioKey;
+  scenarioLabel: string;
+  /** Horizon appliqué (années) : 1 dès que le barème est en vigueur. */
+  years: number;
+  /** Taux annuel global du barème (%), utilisé pour les postes sans taux dédié. */
+  globalRate: number;
+  /** Coût TTC avant application du barème. */
+  referenceCost: number;
+  /** Coût TTC après application (identique à referenceCost si aucun taux). */
+  projectedCost: number;
+  increase: number;
+  increasePct: number;
+}
+
+export const COST_EVOLUTION_STATUS_LABELS: Record<
+  EstimateEvolutionFingerprint["status"],
+  string
+> = {
+  active: "Actif — taux appliqués",
+  inactive: "Inactif — aucun taux appliqué",
+  validated: "Chiffrage validé — barème non appliqué",
+};
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Horizon d'évolution appliqué à UNE estimation : 1 an dès que le barème est
+ * en vigueur, 0 si sa date d'application est encore à venir.
+ */
+export function estimateEvolutionHorizonYears(
+  effectiveFrom: number,
+  now: number = Date.now(),
+): number {
+  if (!Number.isFinite(effectiveFrom) || !Number.isFinite(now)) return 0;
+  return effectiveFrom <= now ? 1 : 0;
+}
+
+/** Facteur composé d'un taux sur un horizon donné. */
+export function rateFactor(rate: number, years: number): number {
+  const r = isValidRate(rate) ? rate : 0;
+  const y = isValidYears(years) ? years : 0;
+  if (r === 0 || y === 0) return 1;
+  return Math.pow(1 + r / 100, y);
+}
+
+// ── Rattachement d'un poste à une catégorie du barème ─────────────────────
+
+/**
+ * Reconnaissance d'un poste par son libellé (lot, sous-lot, article).
+ * L'ordre est significatif : les familles techniques les plus spécifiques
+ * sont testées avant les familles génériques.
+ */
+const EVOLUTION_TEXT_RULES: Array<{ key: CostEvolutionCategoryKey; re: RegExp }> = [
+  { key: "electricite", re: /(électri|electri|éclairage|eclairage|câbl|cabl|domotique|prise)/i },
+  {
+    key: "plomberie",
+    re: /(plomber|robinetter|sanitair|évacuation|evacuation|canalis|chauffe[- ]?eau|adoucisseur|climatisation|ventilation|frigor|cvc|pompe|filtration)/i,
+  },
+  { key: "peinture", re: /(peintur|laque|impression)/i },
+  { key: "enduits_platrerie", re: /(enduit|plâtr|platr|staff)/i },
+  {
+    key: "revetements_finitions",
+    re: /(carrel|revêtement|revetement|parquet|marbre|faïenc|faience|grès|gres|chape|finition|nettoyage)/i,
+  },
+  {
+    key: "menuiserie_ferronnerie",
+    re: /(menuis|porte|fenêtre|fenetre|pvc|ferronn|ferron|serrur|vitrage|volet|quincail)/i,
+  },
+  { key: "maconnerie_cloisons", re: /(maçonner|maconner|cloison|brique|parpaing|pierre)/i },
+  {
+    key: "gros_oeuvre",
+    re: /(gros.?(œuvre|oeuvre)|fondation|terrassement|structure|béton|beton|coffrage|ferraillage|dalle|plancher|charpente|toiture|étanchéité|etancheite)/i,
+  },
+  {
+    key: "amenagements_exterieurs",
+    re: /(aménagement|amenagement|jardin|gazon|clôture|cloture|portail|pavé|pave|voirie|piscine|bassin|extérieur|exterieur)/i,
+  },
+  {
+    key: "main_oeuvre",
+    re: /(main.d'œuvre|main_oeuvre|dépose|depose|démolition|demolition|essai)/i,
+  },
+  { key: "transport_logistique", re: /(transport|livraison|logistique|vrd|engins|divers)/i },
+];
+
+/** Catégorie du barème reconnue dans le libellé d'un poste, sinon `null`. */
+export function evolutionKeyForText(text: unknown): CostEvolutionCategoryKey | null {
+  const value = String(text ?? "").toLowerCase();
+  if (!value.trim()) return null;
+  return EVOLUTION_TEXT_RULES.find((rule) => rule.re.test(value))?.key ?? null;
+}
+
+/**
+ * Catégories de coût de l'estimation (« gros_oeuvre », « second_oeuvre »…)
+ * rattachées au barème. Les postes sans taux dédié (études, équipements,
+ * frais préliminaires) retournent `null` → taux global du barème.
+ */
+const COST_CATEGORY_TO_EVOLUTION: Record<string, CostEvolutionCategoryKey> = {
+  gros_oeuvre: "gros_oeuvre",
+  fondations: "gros_oeuvre",
+  terrassement: "gros_oeuvre",
+  terrassement_granulats: "gros_oeuvre",
+  structure: "gros_oeuvre",
+  maconnerie: "maconnerie_cloisons",
+  cloisons: "maconnerie_cloisons",
+  electricite: "electricite",
+  plomberie: "plomberie",
+  enduits: "enduits_platrerie",
+  platrerie: "enduits_platrerie",
+  peinture: "peinture",
+  finition: "revetements_finitions",
+  finitions: "revetements_finitions",
+  revetements: "revetements_finitions",
+  second_oeuvre: "revetements_finitions",
+  menuiserie: "menuiserie_ferronnerie",
+  amenagement_exterieur: "amenagements_exterieurs",
+  amenagements_exterieurs: "amenagements_exterieurs",
+  main_oeuvre: "main_oeuvre",
+  transport: "transport_logistique",
+};
+
+/**
+ * Catégorie du barème d'un poste de l'estimation : table de correspondance
+ * puis reconnaissance par libellé, sinon `null` (taux global).
+ */
+export function evolutionKeyForCostCategory(
+  category: unknown,
+): CostEvolutionCategoryKey | null {
+  const key = String(category ?? "").toLowerCase();
+  if (!key) return null;
+  return COST_CATEGORY_TO_EVOLUTION[key] ?? evolutionKeyForText(key);
+}
+
+/** Composante du barème correspondant à la nature d'une ligne du Quantitatif. */
+const NATURE_TO_COMPONENT: Record<string, CostComponentKey> = {
+  materiaux: "materials",
+  main_oeuvre: "labor",
+  transport: "transport",
+  equipements: "equipment",
+};
+
+/**
+ * Facteur composé appliqué à UN poste :
+ *   • poste sans catégorie dédiée → taux annuel global du barème ;
+ *   • poste avec ventilation par composante → taux de la composante réelle
+ *     (matériaux / main-d'œuvre / transport / équipements) de la ligne ;
+ *   • sinon → taux du poste.
+ * Un poste n'est jamais majoré deux fois.
+ */
+export function evolutionFactorFor(params: {
+  settings: CostEvolutionSettings;
+  key: CostEvolutionCategoryKey | null;
+  nature?: string | null;
+  years?: number;
+}): number {
+  const { settings, key } = params;
+  const years = isValidYears(params.years ?? 1) ? (params.years as number) : 0;
+  if (!key) return rateFactor(settings.customRate, years);
+  const category = settings.categories?.find((c) => c.key === key);
+  if (!category) return rateFactor(settings.customRate, years);
+  if (!category.useComponents) return rateFactor(category.rate, years);
+
+  const nature = String(params.nature ?? "").toLowerCase();
+  if (nature === "etudes") return rateFactor(category.rate, years);
+  const component = NATURE_TO_COMPONENT[nature];
+  if (component) return rateFactor(category.components[component], years);
+
+  // Aucune nature exploitable : moyenne pondérée des composantes (la somme
+  // des parts vaut 1, le coût de référence n'est donc majoré qu'une fois).
+  const mix = DEFAULT_COST_MIX;
+  return (
+    mix.materials * rateFactor(category.components.materials, years) +
+    mix.labor * rateFactor(category.components.labor, years) +
+    mix.transport * rateFactor(category.components.transport, years) +
+    mix.equipment * rateFactor(category.components.equipment, years)
+  );
+}
+
+// ── Application à un résultat d'estimation ───────────────────────────────
+
+/** Détail multi-niveaux (`costEstimate.levelBreakdown`). */
+function scaleLevelBreakdown(lb: any, factor: number): void {
+  if (!lb || typeof lb !== "object") return;
+  const r = (value: any) => (typeof value === "number" ? Math.round(value * factor) : value);
+  // Prix au m² NON arrondi : le contrôle « niveau = prix × surface ×
+  // coefficient » reste exact après majoration.
+  if (typeof lb.pricePerM2 === "number") lb.pricePerM2 = lb.pricePerM2 * factor;
+  for (const level of lb.levels ?? []) {
+    if (!level) continue;
+    level.amount = r(level.amount);
+    level.commonAmount = r(level.commonAmount);
+  }
+  if (lb.roof) lb.roof.amount = r(lb.roof.amount);
+  if (lb.common) lb.common.amount = r(lb.common.amount);
+  for (const adjustment of lb.costAdjustments ?? []) {
+    if (adjustment) adjustment.amount = r(adjustment.amount);
+  }
+  // L'invariant « total = Σ niveaux + toiture + ajustements » est RECALCULÉ :
+  // il reste exact après l'arrondi de chaque ligne.
+  if (Array.isArray(lb.levels)) {
+    const sum =
+      lb.levels.reduce((s: number, l: any) => s + (Number(l?.amount) || 0), 0) +
+      (Number(lb.roof?.amount) || 0) +
+      (lb.costAdjustments ?? []).reduce((s: number, a: any) => s + (Number(a?.amount) || 0), 0);
+    lb.total = sum;
+    const area = Number(lb.realBuiltArea) || 0;
+    if (area > 0) lb.costPerM2Real = Math.round(sum / area);
+  }
+}
+
+const DQE_NATURES: Array<{ key: "materiaux" | "mainOeuvre" | "equipements" | "transport" | "etudes"; nature: string }> = [
+  { key: "materiaux", nature: "materiaux" },
+  { key: "mainOeuvre", nature: "main_oeuvre" },
+  { key: "equipements", nature: "equipements" },
+  { key: "transport", nature: "transport" },
+  { key: "etudes", nature: "etudes" },
+];
+
+export interface ApplyCostEvolutionResult {
+  fingerprint: EstimateEvolutionFingerprint;
+  /** true ⇒ les montants ont réellement été majorés (barème actif et en vigueur). */
+  applied: boolean;
+  years: number;
+  /** Facteur global appliqué aux agrégats de la grille. */
+  gridFactor: number;
+}
+
+/**
+ * Applique le barème d'évolution annuelle à un résultat d'estimation NEUF.
+ *
+ * L'entrée est MUTÉE EN PLACE (les documents sont fraîchement produits par le
+ * moteur, jamais enregistrés) :
+ *   • `costEstimate.breakdown` — chaque poste et ses articles à leur propre
+ *     facteur ; les agrégats (total, scénarios, détail multi-niveaux) suivent
+ *     le facteur pondéré de la grille ;
+ *   • `dqe` — chaque ligne du Quantitatif détaillé reçoit le facteur de SA
+ *     catégorie (les quantités et les unités ne changent jamais), les
+ *     sous-totaux, les totaux par nature et le total TTC sont recalculés ;
+ *   • `aiAnalysis.laborEstimate.estimatedCost` suit la main-d'œuvre.
+ *
+ * Aucune modification n'est faite lorsque le mécanisme est inactif, lorsque
+ * sa date d'application est à venir ou lorsque le chiffrage est déjà validé.
+ */
+export function applyCostEvolutionToEstimate(params: {
+  settings: CostEvolutionSettings;
+  version: number;
+  now?: number;
+  chiffrageValide?: boolean;
+  costEstimate?: any;
+  dqe?: any;
+  aiAnalysis?: any;
+  /** Surface réellement construite (coût au m² du Quantitatif). */
+  builtSurface?: number;
+}): ApplyCostEvolutionResult {
+  const now = params.now ?? Date.now();
+  const settings = params.settings;
+  const ce = params.costEstimate ?? null;
+  const dqe = params.dqe ?? null;
+  const baseGrid = Number(ce?.totalCost) || 0;
+  const baseTotal = Number(dqe?.totals?.total) || baseGrid;
+  const years = estimateEvolutionHorizonYears(settings.effectiveFrom, now);
+
+  const fingerprint = (
+    status: EstimateEvolutionFingerprint["status"],
+    projected: number,
+  ): EstimateEvolutionFingerprint => ({
+    version: params.version,
+    status,
+    appliedAt: now,
+    referenceYear: settings.referenceYear,
+    effectiveFrom: settings.effectiveFrom,
+    scenario: settings.defaultScenario,
+    scenarioLabel:
+      COST_EVOLUTION_SCENARIO_LABELS[settings.defaultScenario] ?? settings.defaultScenario,
+    years,
+    globalRate: settings.customRate,
+    referenceCost: roundMillimes(baseTotal),
+    projectedCost: roundMillimes(projected),
+    increase: roundMillimes(projected - baseTotal),
+    increasePct:
+      baseTotal > 0 ? roundMillimes(((projected - baseTotal) / baseTotal) * 100) : 0,
+  });
+
+  // Aucun cas n'altère un calcul déjà enregistré : seules les valeurs
+  // explicitement calculées ici peuvent porter une majoration.
+  if (params.chiffrageValide) {
+    return { fingerprint: fingerprint("validated", baseTotal), applied: false, years, gridFactor: 1 };
+  }
+  if (settings.enabled !== true) {
+    return { fingerprint: fingerprint("inactive", baseTotal), applied: false, years, gridFactor: 1 };
+  }
+  if (years === 0) {
+    // Barème actif mais pas encore en vigueur : rien n'est appliqué.
+    return { fingerprint: fingerprint("active", baseTotal), applied: false, years, gridFactor: 1 };
+  }
+
+  // ── 1. Répartition du coût estimatif (postes + articles) ───────────────
+  const rows: any[] = Array.isArray(ce?.breakdown) ? ce.breakdown : [];
+  let baseSum = 0;
+  let scaledSum = 0;
+  for (const row of rows) {
+    const base = Number(row.estimatedCost) || 0;
+    const rowKey =
+      evolutionKeyForCostCategory(row.category) ?? evolutionKeyForText(row.label ?? "");
+    const rowFactor = evolutionFactorFor({ settings, key: rowKey, years });
+    baseSum += base;
+
+    const items: any[] = Array.isArray(row.items) ? row.items : [];
+    if (items.length > 0) {
+      let itemSum = 0;
+      for (const item of items) {
+        const itemKey = evolutionKeyForText(item?.name ?? "") ?? rowKey;
+        const factor = evolutionFactorFor({ settings, key: itemKey, years });
+        const quantity = Number(item?.quantity) || 0;
+        const baseItem = Number(item?.totalPrice) || 0;
+        if (quantity > 0) {
+          const unitPrice = round2((Number(item?.unitPrice) || 0) * factor);
+          item.unitPrice = unitPrice;
+          item.totalPrice = Math.round(unitPrice * quantity);
+        } else {
+          item.totalPrice = Math.round(baseItem * factor);
+        }
+        itemSum += Number(item.totalPrice) || 0;
+      }
+      row.estimatedCost = Math.round(itemSum);
+    } else {
+      row.estimatedCost = Math.round(base * rowFactor);
+    }
+    scaledSum += Number(row.estimatedCost) || 0;
+  }
+
+  // Facteur global de la grille : moyenne pondérée des postes réels.
+  const gridFactor =
+    baseSum > 0
+      ? scaledSum / baseSum
+      : evolutionFactorFor({ settings, key: null, years });
+  const gridTotal = Math.round(baseGrid * gridFactor);
+
+  if (ce) {
+    ce.totalCost = gridTotal;
+    if (typeof ce.costPerSquareMeter === "number") {
+      ce.costPerSquareMeter = Math.round(ce.costPerSquareMeter * gridFactor);
+    }
+    for (const row of rows) {
+      if (gridTotal > 0) {
+        row.percentage = Math.round(((Number(row.estimatedCost) || 0) / gridTotal) * 100);
+      }
+    }
+    const scenarios = ce.budgetScenarios;
+    if (scenarios) {
+      for (const key of ["economique", "standard", "premium"] as const) {
+        const scenario = scenarios[key];
+        if (!scenario) continue;
+        if (typeof scenario.totalCost === "number") {
+          scenario.totalCost = Math.round(scenario.totalCost * gridFactor);
+        }
+        if (typeof scenario.costPerM2 === "number") {
+          scenario.costPerM2 = Math.round(scenario.costPerM2 * gridFactor);
+        }
+      }
+    }
+    scaleLevelBreakdown(ce.levelBreakdown, gridFactor);
+  }
+
+  // ── 2. Quantitatif détaillé : un facteur par poste, quantités inchangées ──
+  if (dqe && Array.isArray(dqe.lots)) {
+    for (const lot of dqe.lots) {
+      const lotKey =
+        evolutionKeyForCostCategory(lot?.id) ?? evolutionKeyForText(lot?.name ?? "");
+      const lines: any[] = Array.isArray(lot?.lines) ? lot.lines : [];
+      if (lines.length === 0) {
+        if (typeof lot?.subtotal === "number") lot.subtotal = Math.round(lot.subtotal * gridFactor);
+        continue;
+      }
+      for (const line of lines) {
+        if (!line) continue;
+        const key =
+          evolutionKeyForText(`${line.designation ?? ""} ${line.sousLot ?? ""}`) ?? lotKey;
+        const factor = evolutionFactorFor({ settings, key, nature: line.nature, years });
+        const quantity = Number(line.quantity) || 0;
+        if (quantity > 0) {
+          const unitPrice = round2((Number(line.unitPrice) || 0) * factor);
+          line.unitPrice = unitPrice;
+          line.total = Math.round(unitPrice * quantity);
+        } else {
+          line.total = Math.round((Number(line.total) || 0) * factor);
+        }
+        // Part main-d'œuvre affichée sous le poste (jamais recomptée) : elle
+        // suit le taux de la composante main-d'œuvre du barème.
+        if (line.labor && typeof line.labor === "object") {
+          const laborRate = evolutionFactorFor({ settings, key, nature: "main_oeuvre", years });
+          const laborQuantity = Number(line.labor.quantity) || 0;
+          if (laborQuantity > 0) {
+            const unitPrice = round2((Number(line.labor.unitPrice) || 0) * laborRate);
+            line.labor.unitPrice = unitPrice;
+            line.labor.total = Math.round(unitPrice * laborQuantity);
+          } else if (typeof line.labor.total === "number") {
+            line.labor.total = Math.round(line.labor.total * laborRate);
+          }
+        }
+        // Décomposition HT / TVA : proportionnelle, la règle
+        // « montant TTC = total HT + TVA » reste exacte.
+        if (typeof line.totalHT === "number") {
+          line.totalHT = Math.round(line.totalHT * factor);
+          if (typeof line.vatAmount === "number") line.vatAmount = line.total - line.totalHT;
+        }
+      }
+      lot.subtotal = lines.reduce((s: number, l: any) => s + (Number(l?.total) || 0), 0);
+      // Budget alloué : suit le facteur GLOBAL de la grille, ce qui garantit
+      // que la somme des écarts (sous-total réel − alloué) retombe exactement
+      // sur l'évolution du total.
+      if (typeof lot.allocatedSubtotal === "number") {
+        lot.allocatedSubtotal = Math.round(lot.allocatedSubtotal * gridFactor);
+      }
+    }
+
+    const grandTotal = dqe.lots.reduce(
+      (s: number, l: any) => s + (Number(l?.subtotal) || 0),
+      0,
+    );
+    for (const lot of dqe.lots) {
+      lot.percent =
+        grandTotal > 0 ? Math.round(((Number(lot?.subtotal) || 0) / grandTotal) * 1000) / 10 : 0;
+    }
+
+    const totals = dqe.totals ?? {};
+    const linesHaveNature = dqe.lots.every((lot: any) =>
+      (Array.isArray(lot?.lines) ? lot.lines : []).every((l: any) =>
+        DQE_NATURES.some((n) => n.nature === l?.nature),
+      ),
+    );
+    const laborOf = (line: any) => Number(line?.labor?.total) || 0;
+    if (linesHaveNature) {
+      // Même ventilation que le moteur : la part main-d'œuvre d'un poste est
+      // comptée dans la nature « main_oeuvre », jamais deux fois.
+      const own = (nature: string) =>
+        dqe.lots.reduce(
+          (s: number, lot: any) =>
+            s +
+            (Array.isArray(lot?.lines) ? lot.lines : []).reduce(
+              (a: number, l: any) =>
+                l?.nature === nature ? a + (Number(l.total) || 0) - laborOf(l) : a,
+              0,
+            ),
+          0,
+        );
+      const laborIncluded = dqe.lots.reduce(
+        (s: number, lot: any) =>
+          s +
+          (Array.isArray(lot?.lines) ? lot.lines : []).reduce(
+            (a: number, l: any) => a + laborOf(l),
+            0,
+          ),
+        0,
+      );
+      for (const { key, nature } of DQE_NATURES) {
+        const value = own(nature) + (nature === "main_oeuvre" ? laborIncluded : 0);
+        if (typeof totals[key] === "number") totals[key] = value;
+      }
+    } else {
+      const previousTotal = Number(totals.total) || 0;
+      const ratio = previousTotal > 0 ? grandTotal / previousTotal : 1;
+      for (const { key } of DQE_NATURES) {
+        if (typeof totals[key] === "number") totals[key] = Math.round(totals[key] * ratio);
+      }
+    }
+    const surface = Number(params.builtSurface) || 0;
+    totals.total = grandTotal;
+    totals.costPerM2 = surface > 0 ? Math.round(grandTotal / surface) : 0;
+    dqe.totals = totals;
+    if (typeof dqe.referenceTotal === "number") {
+      dqe.referenceTotal = Math.round(dqe.referenceTotal * gridFactor);
+    }
+  }
+
+  // ── 3. Analyse IA : estimation de main-d'œuvre alignée ──────────────────
+  const laborEstimate = params.aiAnalysis?.laborEstimate;
+  if (laborEstimate && typeof laborEstimate.estimatedCost === "number") {
+    const laborFactor = evolutionFactorFor({ settings, key: "main_oeuvre", years });
+    laborEstimate.estimatedCost = Math.round(laborEstimate.estimatedCost * laborFactor);
+  }
+
+  const projected = Number(dqe?.totals?.total) || Number(ce?.totalCost) || baseTotal;
+  return { fingerprint: fingerprint("active", projected), applied: true, years, gridFactor };
+}
+
+// ── Bloc PDF issu de l'empreinte du calcul ────────────────────────────────
+
+/**
+ * Section « Hypothèses d'évolution des coûts » reconstruite À PARTIR DE
+ * L'EMPREINTE enregistrée avec l'estimation : les rapports des projets déjà
+ * chiffrés (sans empreinte) ne gagnent jamais de section, et les montants
+ * affichés sont exactement ceux appliqués à CE calcul.
+ */
+export function buildAppliedCostEvolutionPdfBlock(
+  fingerprint: EstimateEvolutionFingerprint | null | undefined,
+): CostEvolutionPdfBlock | null {
+  if (!fingerprint || fingerprint.status !== "active") return null;
+  return {
+    title: "Hypothèses d'évolution des coûts",
+    disclaimer: COST_EVOLUTION_DISCLAIMER,
+    referenceYear: fingerprint.referenceYear,
+    effectiveFrom: fingerprint.effectiveFrom,
+    scenarioLabel: fingerprint.scenarioLabel,
+    rate: fingerprint.globalRate,
+    years: fingerprint.years,
+    referenceCost: fingerprint.referenceCost,
+    projectedCost: fingerprint.projectedCost,
+    increase: fingerprint.increase,
+    rows: [
+      {
+        label: "Barème de référence",
+        value: `${fingerprint.referenceYear} · appliqué le ${fmtDateLong(fingerprint.effectiveFrom)}`,
+      },
+      { label: "Version des taux", value: `v${fingerprint.version}` },
+      { label: "Statut", value: COST_EVOLUTION_STATUS_LABELS[fingerprint.status] },
+      { label: "Date du calcul", value: fmtDateLong(fingerprint.appliedAt) },
+      { label: "Scénario", value: fingerprint.scenarioLabel },
+      { label: "Taux annuel global", value: `${fingerprint.globalRate} %/an` },
+      { label: "Horizon de projection", value: `${fingerprint.years} an(s)` },
+      { label: "Coût de référence", value: fmtTnd(fingerprint.referenceCost) },
+      { label: "Coût projeté", value: fmtTnd(fingerprint.projectedCost) },
+      {
+        label: "Différence",
+        value: `+${fmtTnd(fingerprint.increase)} (${fingerprint.increasePct} %)`,
+      },
     ],
   };
 }

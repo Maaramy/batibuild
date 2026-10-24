@@ -570,6 +570,30 @@ const schema = defineSchema(
           // Détail du calcul multi-niveaux (RDC, étages, toiture, frais communs,
           // surfaces réelles) et vérification automatique des anomalies.
           levelBreakdown: v.optional(v.any()),
+          // Empreinte du barème d'évolution annuelle appliqué à CE calcul :
+          // version, date et statut conservés pour l'affichage du détail et les
+          // rapports PDF. Absente sur les estimations antérieures au module.
+          costEvolution: v.optional(
+            v.object({
+              version: v.number(),
+              status: v.union(
+                v.literal("active"),
+                v.literal("inactive"),
+                v.literal("validated"),
+              ),
+              appliedAt: v.number(),
+              referenceYear: v.number(),
+              effectiveFrom: v.number(),
+              scenario: v.string(),
+              scenarioLabel: v.string(),
+              years: v.number(),
+              globalRate: v.number(),
+              referenceCost: v.number(),
+              projectedCost: v.number(),
+              increase: v.number(),
+              increasePct: v.number(),
+            }),
+          ),
         }),
       ),
       
@@ -648,6 +672,11 @@ const schema = defineSchema(
       ),
       
       isFavorite: v.optional(v.boolean()),
+      // Chiffrage validé par le propriétaire du projet : à partir de cet
+      // instant, aucun barème d'évolution annuelle n'est appliqué aux
+      // recalculs de ce projet (les montants déjà enregistrés ne sont jamais
+      // modifiés automatiquement).
+      costEstimateValidatedAt: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })

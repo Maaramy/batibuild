@@ -12,7 +12,10 @@ import {
   resolvePdfScenarioValues,
   type PersonalizedScenarioData,
 } from "./projectPdfScenario";
-import { buildCostEvolutionPdfBlock, type CostEvolutionSettings } from "./costEvolution";
+import {
+  buildAppliedCostEvolutionPdfBlock,
+  type EstimateEvolutionFingerprint,
+} from "./costEvolution";
 
 applyAutotablePlugin(jsPDF);
 
@@ -55,13 +58,13 @@ export interface ProjectPdfOptions {
    */
   personalized?: PersonalizedScenarioData | null;
   /**
-   * Barème d'évolution annuelle des coûts (paramétré par l'administrateur).
-   * `null` / absent, ou mécanisme inactif ⇒ AUCUNE section ajoutée : les devis
-   * existants restent strictement identiques.
+   * Empreinte du barème d'évolution annuelle enregistrée AVEC CE calcul
+   * (`projects.costEstimate.costEvolution`).
+   * `null` / absent, statut inactif ou chiffrage validé ⇒ AUCUNE section
+   * ajoutée : les devis des projets déjà chiffrés restent strictement
+   * identiques, seuls les nouveaux calculs concernés sont synchronisés.
    */
-  costEvolutionSettings?: CostEvolutionSettings | null;
-  /** Horizon de projection de la section « Hypothèses d'évolution » (années). */
-  costEvolutionYears?: number;
+  costEvolution?: EstimateEvolutionFingerprint | null;
   onStart: () => void;
   onProgress: (step: number) => void;
   onSuccess: () => void;
@@ -83,8 +86,7 @@ export async function generateProjectPdf({
   dqe,
   dqeScaleFactor = 1,
   personalized = null,
-  costEvolutionSettings = null,
-  costEvolutionYears = 1,
+  costEvolution = null,
   onStart,
   onProgress,
   onSuccess,
@@ -718,15 +720,11 @@ export async function generateProjectPdf({
     }
 
     // ═══ HYPOTHÈSES D'ÉVOLUTION DES COÛTS (facultatif) ══════════
-    // Section ajoutée UNIQUEMENT si l'administrateur a activé le barème :
-    // aucun devis existant ne gagne de section par surprise.
-    const costEvolutionBlock = costEvolutionSettings
-      ? buildCostEvolutionPdfBlock({
-          settings: costEvolutionSettings,
-          referenceCost: totalCost,
-          years: costEvolutionYears,
-        })
-      : null;
+    // Section reprise de l'EMPREINTE enregistrée avec CE calcul : elle n'est
+    // affichée que si les taux ont réellement été appliqués à cette
+    // estimation. Les devis des projets déjà chiffrés (sans empreinte) ne
+    // gagnent jamais de section par surprise.
+    const costEvolutionBlock = buildAppliedCostEvolutionPdfBlock(costEvolution);
 
     if (costEvolutionBlock) {
       addPageIfNeeded(70);
