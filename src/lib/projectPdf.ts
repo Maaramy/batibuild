@@ -12,6 +12,7 @@ import {
   resolvePdfScenarioValues,
   type PersonalizedScenarioData,
 } from "./projectPdfScenario";
+import { buildCostEvolutionPdfBlock, type CostEvolutionSettings } from "./costEvolution";
 
 applyAutotablePlugin(jsPDF);
 
@@ -53,6 +54,14 @@ export interface ProjectPdfOptions {
    * mentionne jamais « Personnalisé ».
    */
   personalized?: PersonalizedScenarioData | null;
+  /**
+   * Barème d'évolution annuelle des coûts (paramétré par l'administrateur).
+   * `null` / absent, ou mécanisme inactif ⇒ AUCUNE section ajoutée : les devis
+   * existants restent strictement identiques.
+   */
+  costEvolutionSettings?: CostEvolutionSettings | null;
+  /** Horizon de projection de la section « Hypothèses d'évolution » (années). */
+  costEvolutionYears?: number;
   onStart: () => void;
   onProgress: (step: number) => void;
   onSuccess: () => void;
@@ -74,6 +83,8 @@ export async function generateProjectPdf({
   dqe,
   dqeScaleFactor = 1,
   personalized = null,
+  costEvolutionSettings = null,
+  costEvolutionYears = 1,
   onStart,
   onProgress,
   onSuccess,
@@ -704,6 +715,56 @@ export async function generateProjectPdf({
       });
 
       y += 3;
+    }
+
+    // ═══ HYPOTHÈSES D'ÉVOLUTION DES COÛTS (facultatif) ══════════
+    // Section ajoutée UNIQUEMENT si l'administrateur a activé le barème :
+    // aucun devis existant ne gagne de section par surprise.
+    const costEvolutionBlock = costEvolutionSettings
+      ? buildCostEvolutionPdfBlock({
+          settings: costEvolutionSettings,
+          referenceCost: totalCost,
+          years: costEvolutionYears,
+        })
+      : null;
+
+    if (costEvolutionBlock) {
+      addPageIfNeeded(70);
+
+      doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
+      doc.rect(ml, y, cw, 7, "F");
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.text(stripEmojis(costEvolutionBlock.title).toUpperCase(), ml + 2, y + 4.8);
+      y += 10;
+
+      doc.setFontSize(7.5);
+      for (const row of costEvolutionBlock.rows) {
+        addPageIfNeeded(6);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+        doc.text(row.label, ml + 2, y);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(C.text[0], C.text[1], C.text[2]);
+        doc.text(row.value, ml + cw - 2, y, { align: "right" });
+        doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+        doc.setLineWidth(0.1);
+        doc.line(ml + 2, y + 1.6, ml + cw - 2, y + 1.6);
+        y += 5.6;
+      }
+
+      addPageIfNeeded(12);
+      y += 1.5;
+      doc.setFontSize(6);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(C.textLight[0], C.textLight[1], C.textLight[2]);
+      const evolutionLines = doc.splitTextToSize(
+        stripEmojis(costEvolutionBlock.disclaimer),
+        cw - 4,
+      );
+      doc.text(evolutionLines, ml + 2, y);
+      y += evolutionLines.length * 2.7 + 5;
     }
 
     // ═══ STAMP & SIGNATURE ═══════════════════════════════════════

@@ -14,6 +14,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import SeoSettings from "./SeoSettings";
 import BlogAdmin from "./BlogAdmin";
 import BIMSettings from "./BIMSettings";
+import CostEvolutionSettings from "@/components/admin/CostEvolutionSettings";
 import EmailSettings from "./EmailSettings";
 import EmailTemplates from "./EmailTemplates";
 import EmailHistory from "./EmailHistory";
@@ -117,7 +118,7 @@ export default function AdminPanel() {
     "dashboard", "users", "projects", "materials", "virements",
     "recus", "recusFournisseurs", "recusExperts", "subscriptions", "invoices",
     "fournisseurs", "experts", "analytics", "support", "journal", "paiement",
-    "limites", "seo", "blog", "bim", "emails", "modeles", "historique", "features",
+    "limites", "seo", "blog", "bim", "bareme", "emails", "modeles", "historique", "features",
     "stockage",
   ];
   const initialTab =
@@ -788,6 +789,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <TabsTrigger value="bim" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Cpu className="h-3.5 w-3.5" />
                 <span>BIM</span>
+              </TabsTrigger>
+              )}
+              {canSee("bareme") && (
+              <TabsTrigger value="bareme" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <TrendingUp className="h-3.5 w-3.5" />
+                <span>Barème des coûts</span>
               </TabsTrigger>
               )}
               {canSee("emails") && (
@@ -4335,6 +4342,10 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
           </TabsContent>
 
           {/* BIM Configuration */}
+          <TabsContent value="bareme">
+            <CostEvolutionSettings />
+          </TabsContent>
+
           <TabsContent value="bim">
             <BIMSettings />
           </TabsContent>

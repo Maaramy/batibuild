@@ -16,6 +16,7 @@ import { useParams, useNavigate, useLocation } from "react-router";
 import { useState, useMemo, Fragment, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { generateProjectPdf, REGION_LABELS } from "@/lib/projectPdf";
+import { normalizeCostEvolutionSettings } from "@/lib/costEvolution";
 import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { ProjectJourneyNav } from "@/components/ProjectJourneyNav";
@@ -564,6 +565,8 @@ export default function ProjectDetail() {
       // Scénario « Personnalisé » : `null` s'il n'y a aucune modification — le
       // devis n'en fait alors aucune mention.
       personalized: personalized ?? null,
+      costEvolutionSettings,
+      costEvolutionYears: 1,
       onStart: () => {
         setExporting(true);
       },
@@ -756,6 +759,13 @@ export default function ProjectDetail() {
   const bimConfig = useQuery(api.bimConfig.getBIMConfig);
   const sdbVatRate = resolveSdbVatRate(
     bimConfig?.sdbVatRate as number | undefined,
+  );
+  // Barème d'évolution annuelle des coûts (section facultative du devis PDF).
+  // Mécanisme inactif ⇒ section absente, le devis reste inchangé.
+  const costEvolutionConfig = useQuery(api.costEvolution.getConfig);
+  const costEvolutionSettings = useMemo(
+    () => normalizeCostEvolutionSettings(costEvolutionConfig as never),
+    [costEvolutionConfig],
   );
   // Le résolveur ramène les prix administrés (TTC) en HT avec le taux effectif :
   // sans cela, un taux ≠ 19 % produirait un HT différent de celui du moteur.

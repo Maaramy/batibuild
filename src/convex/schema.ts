@@ -1322,6 +1322,62 @@ const schema = defineSchema(
       refreshedBy: v.id("users"),
     }).index("by_refreshed", ["refreshedAt"]),
 
+    // ── Évolution annuelle des coûts de construction ─────────────────────
+    // Paramétrage UNIQUE (la dernière ligne est la version en vigueur) :
+    // taux annuels par catégorie, trois scénarios, année et date de
+    // référence, statut du mécanisme. Les estimations existantes ne sont
+    // jamais recalculées automatiquement (aucun champ de projet n'est
+    // modifié par ce paramétrage).
+    costEvolutionConfig: defineTable({
+      referenceYear: v.number(),
+      effectiveFrom: v.number(),
+      defaultScenario: v.union(
+        v.literal("moderee"),
+        v.literal("moyen"),
+        v.literal("eleve"),
+      ),
+      customRate: v.number(),
+      enabled: v.boolean(),
+      scenarioRates: v.object({
+        moderee: v.number(),
+        moyen: v.number(),
+        eleve: v.number(),
+      }),
+      categories: v.array(
+        v.object({
+          key: v.string(),
+          rate: v.number(),
+          useComponents: v.boolean(),
+          components: v.object({
+            materials: v.number(),
+            labor: v.number(),
+            transport: v.number(),
+            equipment: v.number(),
+          }),
+        }),
+      ),
+      version: v.number(),
+      updatedAt: v.number(),
+      updatedBy: v.id("users"),
+    }).index("by_updated", ["updatedAt"]),
+
+    // Historique des versions du barème : auteur, date, valeurs précédentes
+    // et nouvelles. Une ligne par modification (aucune n'est supprimée).
+    costEvolutionHistory: defineTable({
+      version: v.number(),
+      action: v.union(
+        v.literal("save"),
+        v.literal("reset"),
+        v.literal("toggle"),
+      ),
+      previous: v.string(),
+      next: v.string(),
+      details: v.string(),
+      changedBy: v.id("users"),
+      changedByName: v.string(),
+      changedAt: v.number(),
+    }).index("by_changed", ["changedAt"]),
+
     emailConfig: defineTable({
       senderName: v.string(),
       senderEmail: v.string(),
