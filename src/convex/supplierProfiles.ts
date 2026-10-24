@@ -527,6 +527,53 @@ export const adminApproveSupplierSubscription = mutation({
       updatedAt: now,
     });
 
+    // ── SYNCHRONISATION COMPTE ↔ FORFAIT ACTIVÉ ──
+    // L'activation Fournisseur écrit aussi le forfait sur le compte et
+    // garantit un enregistrement d'abonnement ACTIF : la colonne
+    // « Abonnement » de Admin → Utilisateurs et la source de vérité de la
+    // plateforme affichent alors le forfait correspondant. Un enregistrement
+    // payé d'un autre type n'est jamais modifié (historique conservé) : seul
+    // un renouvellement Fournisseur du même type met les dates à jour.
+    await ctx.db.patch(profile.userId, {
+      subscriptionPlan: "supplier",
+      subscriptionStartDate: now,
+      subscriptionEndDate: endDate,
+      subscriptionDaysTotal: MONTHLY_DAYS,
+      subscriptionDaysRemaining: MONTHLY_DAYS,
+      subscriptionStatus: "active",
+      updatedAt: now,
+    });
+
+    const existingSubs = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", profile.userId))
+      .collect();
+    const activeSupplierSub = existingSubs.find(
+      (s) => s.status === "active" && s.plan === "supplier",
+    );
+    if (activeSupplierSub) {
+      await ctx.db.patch(activeSupplierSub._id, {
+        startDate: now,
+        endDate,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("subscriptions", {
+        userId: profile.userId,
+        plan: "supplier",
+        status: "active",
+        startDate: now,
+        endDate,
+        paymentMethod: profile.paymentMethod ?? "admin",
+        amount: profile.paymentAmount ?? 0,
+        currency: "TND",
+        monthlyDownloadCount: 0,
+        downloadLimit: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
     try {
       await ctx.db.insert("adminLogs", {
         adminId: admin._id,

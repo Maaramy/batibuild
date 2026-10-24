@@ -22,11 +22,13 @@ import {
   checkProfileSubscriptionCompatibility,
   expectedPlanForProfile,
   getReferenceSubscriptionPlan,
+  pickActiveSubscription,
   pickReferenceSubscription,
+  planFromProfileSubscription,
   resolveProfileRole,
   resolveProfileRoleFrom,
   type ReferenceSubscriptionDoc,
-} from "./profileSubscription";;
+} from "./profileSubscription";
 
 /**
  * Get the current signed in user. Returns null if the user is not signed in.
@@ -83,8 +85,8 @@ export const getAllUsers = query({
       ReferenceSubscriptionDoc & { userId: Id<"users"> }
     >;
 
-    const expertIds = new Set(expertRows.map((p) => p.userId));
-    const supplierIds = new Set(supplierRows.map((p) => p.userId));
+    const expertByUser = new Map(expertRows.map((p) => [String(p.userId), p] as const));
+    const supplierByUser = new Map(supplierRows.map((p) => [String(p.userId), p] as const));
     const subsByUser = new Map<string, ReferenceSubscriptionDoc[]>();
     for (const sub of subscriptionRows) {
       const key = String(sub.userId);
@@ -96,12 +98,28 @@ export const getAllUsers = query({
 
     // Sort by creation date descending
     return users.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)).map((u) => {
+      const key = String(u._id);
       const profileRole = resolveProfileRoleFrom(u, {
-        hasExpertProfile: expertIds.has(u._id),
-        hasSupplierProfile: supplierIds.has(u._id),
+        hasExpertProfile: expertByUser.has(key),
+        hasSupplierProfile: supplierByUser.has(key),
       });
-      const reference = pickReferenceSubscription(subsByUser.get(String(u._id)) ?? [], now);
-      const referencePlan = reference?.plan ?? u.subscriptionPlan ?? null;
+      const subs = subsByUser.get(key) ?? [];
+      // Priorité d'affichage du forfait :
+      //   1. abonnement mensuel ACTIF (`subscriptions`) — Client Pro notamm. ;
+      //   2. forfait porté par un profil Expert / Fournisseur actif — les
+      //      activations Expert et Fournisseur écrivent dans la table du
+      //      profil, y compris pour les comptes déjà activés ;
+      //   3. abonnement de référence (le plus récent) ;
+      //   4. forfait enregistré sur le compte.
+      const activeSubscription = pickActiveSubscription(subs, now);
+      const reference = pickReferenceSubscription(subs, now);
+      const referencePlan =
+        activeSubscription?.plan ??
+        planFromProfileSubscription(expertByUser.get(key), "expert", now) ??
+        planFromProfileSubscription(supplierByUser.get(key), "supplier", now) ??
+        reference?.plan ??
+        u.subscriptionPlan ??
+        null;
       const compatibility = checkProfileSubscriptionCompatibility(
         { userRole: profileRole },
         referencePlan,

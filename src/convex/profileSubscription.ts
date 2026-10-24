@@ -205,14 +205,52 @@ export function pickReferenceSubscription(
   now = Date.now(),
 ): ReferenceSubscriptionDoc | null {
   if (monthly.length === 0) return null;
+  return pickActiveSubscription(monthly, now) ?? mostRecentSubscription(monthly);
+}
 
-  const byRecent = (a: ReferenceSubscriptionDoc, b: ReferenceSubscriptionDoc) =>
-    (b.startDate ?? 0) - (a.startDate ?? 0);
+/** Le plus récent des abonnements (payé, en attente ou expiré). */
+function mostRecentSubscription(monthly: ReferenceSubscriptionDoc[]): ReferenceSubscriptionDoc | null {
+  if (monthly.length === 0) return null;
+  return monthly
+    .slice()
+    .sort((a, b) => (b.startDate ?? 0) - (a.startDate ?? 0))[0] ?? null;
+}
 
-  const active = monthly
-    .filter((s) => s.status === "active" && s.endDate != null && s.endDate > now)
-    .sort(byRecent)[0];
-  return active ?? monthly.slice().sort(byRecent)[0];
+/**
+ * Abonnement mensuel PAYÉ encore valide (le plus récent s'il y en a
+ * plusieurs) — sinon null. Exposé séparément pour que l'administration
+ * affiche en priorité un forfait réellement ACTIF, avant tout repli.
+ */
+export function pickActiveSubscription(
+  monthly: ReferenceSubscriptionDoc[],
+  now = Date.now(),
+): ReferenceSubscriptionDoc | null {
+  if (monthly.length === 0) return null;
+  return (
+    monthly
+      .filter((s) => s.status === "active" && s.endDate != null && s.endDate > now)
+      .sort((a, b) => (b.startDate ?? 0) - (a.startDate ?? 0))[0] ?? null
+  );
+}
+
+/**
+ * Forfait porté par l'abonnement d'un profil spécialisé (Expert /
+ * Fournisseur). Les flux d'activation écrivent dans la TABLE DU PROFIL
+ * (`subscriptionStatus: "active"` + `subscriptionEndDate`) : ce repli pur
+ * permet à l'administration d'afficher le forfait correspondant — y compris
+ * pour les comptes déjà activés — sans migration de données existantes.
+ */
+export function planFromProfileSubscription(
+  profile:
+    | { subscriptionStatus?: string | null; subscriptionEndDate?: number | null }
+    | null
+    | undefined,
+  plan: "expert" | "supplier",
+  now = Date.now(),
+): SubscriptionPlanValue | null {
+  if (profile?.subscriptionStatus !== "active") return null;
+  if (profile.subscriptionEndDate != null && profile.subscriptionEndDate <= now) return null;
+  return plan;
 }
 
 /** Forfait de l'abonnement mensuel de référence d'un utilisateur. */

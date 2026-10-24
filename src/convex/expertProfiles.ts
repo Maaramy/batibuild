@@ -777,6 +777,54 @@ export const adminApproveExpertSubscription = mutation({
       updatedAt: now,
     });
 
+    // ── SYNCHRONISATION COMPTE ↔ FORFAIT ACTIVÉ ──
+    // L'activation Expert écrit aussi le forfait sur le compte et garantit un
+    // enregistrement d'abonnement ACTIF : la colonne « Abonnement » de
+    // Admin → Utilisateurs et la source de vérité de la plateforme affichent
+    // alors le forfait correspondant. Un enregistrement payé d'un autre type
+    // n'est jamais modifié (l'historique est conservé) : seul un renouvellement
+    // Expert du même type met simplement les dates à jour.
+    await ctx.db.patch(profile.userId, {
+      subscriptionPlan: "expert",
+      subscriptionStartDate: now,
+      subscriptionEndDate: endDate,
+      subscriptionDaysTotal: EXPERT_MONTHLY_DAYS,
+      subscriptionDaysRemaining: EXPERT_MONTHLY_DAYS,
+      subscriptionStatus: "active",
+      updatedAt: now,
+    });
+
+    const existingSubs = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", profile.userId))
+      .collect();
+    const activeExpertSub = existingSubs.find(
+      (s) => s.status === "active" && s.plan === "expert",
+    );
+    if (activeExpertSub) {
+      await ctx.db.patch(activeExpertSub._id, {
+        startDate: now,
+        endDate,
+        updatedAt: now,
+      });
+    } else {
+      const paymentConfig = await ctx.db.query("paymentConfig").order("desc").first();
+      await ctx.db.insert("subscriptions", {
+        userId: profile.userId,
+        plan: "expert",
+        status: "active",
+        startDate: now,
+        endDate,
+        paymentMethod: profile.paymentMethod ?? "admin",
+        amount: profile.paymentAmount ?? 0,
+        currency: "TND",
+        monthlyDownloadCount: 0,
+        downloadLimit: paymentConfig?.expertDownloadLimit ?? 100,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
     try {
       await ctx.db.insert("adminLogs", {
         adminId: admin._id,
