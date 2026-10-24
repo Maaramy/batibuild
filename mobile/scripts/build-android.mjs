@@ -263,6 +263,11 @@ run(process.execPath, [join(root, "scripts", "ensure-debug-keystore.mjs")]);
 // Signature Release (idempotent — réinsère le bloc si un prebuild l'a effacé).
 run(process.execPath, [join(root, "scripts", "apply-signing.mjs")]);
 
+// Niveaux de SDK EXPLICITES (minSdk/targetSdk/compileSdk en dur + versionCode /
+// versionName d'app.json) : sans eux, un catalogue expoLibs régénéré peut
+// produire un manifeste final SANS <uses-sdk> (APK refusé à l'installation).
+run(process.execPath, [join(root, "scripts", "ensure-android-sdk.mjs")]);
+
 /* ── 4. Préparation de la sortie (sans détruire les autres artefacts) ─────── */
 
 if (!existsSync(gradlew)) die(`Gradle Wrapper introuvable : ${gradlew}`);
@@ -338,8 +343,31 @@ copyFileSync(artifact, destination);
 
 /* ── 7. Vérification de l'artefact final (taille, ZIP, entrées, signature) ─ */
 
+// Valeurs attendues dans le manifeste final : source de vérité
+// android/gradle.properties (niveaux de SDK) + app.json (versionName).
+const readAndroidProperty = (key) => {
+  try {
+    const content = readFileSync(join(androidDir, "gradle.properties"), "utf8");
+    const match = content.match(new RegExp(`^\\s*${key}\\s*=\\s*(\\S+)`, "m"));
+    return match ? match[1] : undefined;
+  } catch {
+    return undefined;
+  }
+};
+let localVersionName;
+try {
+  localVersionName = JSON.parse(readFileSync(join(root, "app.json"), "utf8")).expo?.version;
+} catch {
+  /* app.json déjà contrôlé par le préflight */
+}
+const expectMinSdk = Number(readAndroidProperty("android.minSdkVersion"));
+const expectTargetSdk = Number(readAndroidProperty("android.targetSdkVersion"));
+
 const verification = verifyArtifact(destination, {
   kind: mode === "aab" ? "aab" : "apk",
+  expectMinSdk: Number.isFinite(expectMinSdk) ? expectMinSdk : undefined,
+  expectTargetSdk: Number.isFinite(expectTargetSdk) ? expectTargetSdk : undefined,
+  expectVersionName: localVersionName,
 });
 for (const line of verification.details) console.log(`  ${line}`);
 if (!verification.ok) {

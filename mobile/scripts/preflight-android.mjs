@@ -25,7 +25,8 @@
  *   9. build TypeScript (tsc --noEmit) du projet mobile.
  *
  * Aucune écriture hors de `mobile/` : le script ne fait que lire, nettoyer des
- * fichiers temporaires et lancer `tsc`.
+ * fichiers temporaires, réparer la configuration Android en mode `--repair`
+ * (clé debug, niveaux de SDK explicites) et lancer `tsc`.
  */
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -268,6 +269,24 @@ function checkAndroidConfig(repair) {
     }
   } else {
     ok("clé de signature debug présente");
+  }
+
+  // Niveaux de SDK Android : `minSdkVersion` doit être LITTÉRAL dans
+  // android/app/build.gradle, sinon le manifeste final peut sortir sans
+  // <uses-sdk> (installation refusée). Une seule implémentation : le script
+  // ensure-android-sdk.mjs, appelé ici en réparation ou en contrôle.
+  const sdkRes = spawnSync(
+    process.execPath,
+    [join(root, "scripts", "ensure-android-sdk.mjs"), ...(repair ? [] : ["--check"])],
+    { stdio: "inherit" },
+  );
+  if (sdkRes.status !== 0) {
+    fail(
+      "niveaux de SDK Android",
+      "minSdkVersion/targetSdkVersion non explicites ou incohérents (voir la sortie de ensure-android-sdk.mjs)",
+    );
+  } else {
+    ok("minSdkVersion / targetSdkVersion / compileSdk déclarés explicitement");
   }
 }
 

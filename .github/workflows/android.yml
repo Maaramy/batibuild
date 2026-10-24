@@ -424,6 +424,10 @@ jobs:
           else
             echo "✅ Projet natif android/ déjà présent dans le dépôt — prebuild inutile."
           fi
+          # prebuild régénère android/app/build.gradle et android/gradle.properties :
+          # on réapplique les niveaux de SDK EXPLICITES (minSdk/targetSdk/compileSdk)
+          # pour que le manifeste final porte toujours <uses-sdk>.
+          node scripts/ensure-android-sdk.mjs
           chmod +x android/gradlew
           test -f android/app/build.gradle
           test -x android/gradlew
@@ -468,26 +472,45 @@ jobs:
           set -euo pipefail
 
           CATALOG=node_modules/react-native/gradle/libs.versions.toml
+          PROPERTIES=android/gradle.properties
 
           read_version() {
-            # awk renvoie toujours 0 → pas de « || true » masquant une erreur.
-            local key="$1" fallback="$2" value=""
-            if [ -f "$CATALOG" ]; then
+            # Priorité à android/gradle.properties (SOURCE DE VÉRITÉ des niveaux
+            # de SDK, la même que celle lue par Gradle et par
+            # ensure-android-sdk.mjs), puis au catalogue React Native.
+            # awk/sed renvoient toujours 0 → pas de « || true » masquant une erreur.
+            local key="$1" fallback="$2" prop="${3:-}" value=""
+            if [ -n "$prop" ] && [ -f "$PROPERTIES" ]; then
+              value=$(sed -n "s/^${prop}=\([^[:space:]]*\).*/\1/p" "$PROPERTIES" | head -1)
+            fi
+            if [ -z "$value" ] && [ -f "$CATALOG" ]; then
               value=$(awk -v k="$key" '$1==k { gsub(/\"/,"",$3); print $3; exit }' "$CATALOG")
             fi
             if [ -z "$value" ]; then value="$fallback"; fi
             printf '%s' "$value"
           }
 
-          COMPILE_SDK=$(read_version compileSdk 36)
-          TARGET_SDK=$(read_version targetSdk 36)
-          BUILD_TOOLS=$(read_version buildTools 36.0.0)
+          COMPILE_SDK=$(read_version compileSdk 36 android.compileSdkVersion)
+          TARGET_SDK=$(read_version targetSdk 36 android.targetSdkVersion)
+          BUILD_TOOLS=$(read_version buildTools 36.0.0 android.buildToolsVersion)
           NDK_VERSION=$(read_version ndkVersion 27.1.12297006)
+          MIN_SDK=$(read_version minSdk 24 android.minSdkVersion)
+
+          # Le minSdk est indispensable au manifeste final : on refuse tôt une
+          # valeur absente, non numérique ou inférieure au minimum de la pile
+          # (react-android / Expo sont publiés en minSdk 24).
+          case "$MIN_SDK" in
+            ''|*[!0-9]*) echo "❌ minSdk invalide : « $MIN_SDK » (android.minSdkVersion)."; exit 1 ;;
+          esac
+          if [ "$MIN_SDK" -lt 24 ]; then
+            echo "❌ minSdk $MIN_SDK refusé : React Native 0.86 / Expo 57 exigent l'API 24 minimum."
+            exit 1
+          fi
           # CMake 3.22.1 = version par défaut d'AGP 8.12 (utilisée par
           # expo-modules-core). Installé explicitement : évite tout
           # téléchargement automatique hasardeux en pleine compilation.
           CMAKE_VERSION=3.22.1
-          echo "Versions lues dans le projet : compileSdk=$COMPILE_SDK targetSdk=$TARGET_SDK buildTools=$BUILD_TOOLS ndk=$NDK_VERSION cmake=$CMAKE_VERSION"
+          echo "Versions lues dans le projet : minSdk=$MIN_SDK compileSdk=$COMPILE_SDK targetSdk=$TARGET_SDK buildTools=$BUILD_TOOLS ndk=$NDK_VERSION cmake=$CMAKE_VERSION"
 
           # UN SEUL SDK : celui configuré par setup-android@v4 (puis normalisé par
           # l'étape « Vérifier le SDK Android et normaliser PATH »). L'ancien SDK
@@ -794,6 +817,13 @@ jobs:
       # par apksigner (v1 JAR + v2 + v3), dans l'étape suivante : plus aucune
       # ambiguïté entre APK « signed », « unsigned », « aligned » ni double
       # signature Gradle → apksigner.
+      # Contrôle BLOQUANT des niveaux de SDK juste avant le build : un
+      # `minSdkVersion rootProject.ext.minSdkVersion` (indirection par catalogue)
+      # ou un minSdk absent produirait un manifeste final sans <uses-sdk>, donc
+      # un APK refusé à l'installation.
+      - name: Contrôle des niveaux de SDK Android (minSdkVersion garanti)
+        run: node scripts/ensure-android-sdk.mjs --check
+
       - name: Build — APK release (non signé — signé par apksigner ensuite)
         run: bash scripts/ci-gradle.sh :app:assembleRelease release -PbatibuildSigning=apksigner
 
@@ -1171,16 +1201,41 @@ jobs:
           echo "✅ APK signé et prêt (1 fichier, aucun .idsig) : $SIGNED"
           echo "   SHA-256 : $APK_SHA256"
 
-      - name: Vérifier l'APK release (manifeste, signature, intégrité, ABI)
+      # Niveaux de SDK attendus, lus dans la SOURCE DE VÉRITÉ
+      # (android/gradle.properties). Exposés aux étapes suivantes via GITHUB_ENV.
+      - name: Niveaux de SDK attendus (android/gradle.properties)
+        shell: bash
+        run: |
+          set -euo pipefail
+          read_level() {
+            local key="$1" value
+            value=$(sed -n "s/^${key}=\([0-9][0-9]*\).*/\1/p" android/gradle.properties | head -1)
+            if [ -z "$value" ]; then
+              echo "❌ ${key} absent de android/gradle.properties : le manifeste final n'aurait pas de minSdkVersion garanti."
+              exit 1
+            fi
+            printf '%s' "$value"
+          }
+          EXPECTED_MIN_SDK=$(read_level android.minSdkVersion)
+          EXPECTED_TARGET_SDK=$(read_level android.targetSdkVersion)
+          echo "EXPECTED_MIN_SDK=$EXPECTED_MIN_SDK" >> "$GITHUB_ENV"
+          echo "EXPECTED_TARGET_SDK=$EXPECTED_TARGET_SDK" >> "$GITHUB_ENV"
+          echo "Niveaux attendus — minSdk $EXPECTED_MIN_SDK / targetSdk $EXPECTED_TARGET_SDK"
+
+      - name: Vérifier l'APK release (manifeste, minSdkVersion, signature, intégrité, ABI)
         shell: bash
         run: |
           set -euo pipefail
           BUNDLE=$(node -p "require('./app.json').expo.android.package")
           CODE=$(node -p "require('./app.json').expo.android.versionCode")
+          VERSION_NAME=$(node -p "require('./app.json').expo.version")
           ARGS=(
             /tmp/dist/Batibuild-release.apk
             --expect-package "$BUNDLE"
             --expect-version-code "$CODE"
+            --expect-version-name "$VERSION_NAME"
+            --expect-min-sdk "${EXPECTED_MIN_SDK:?EXPECTED_MIN_SDK non fourni par l'étape précédente}"
+            --expect-target-sdk "${EXPECTED_TARGET_SDK:?EXPECTED_TARGET_SDK non fourni par l'étape précédente}"
             --require-schemes v1,v2
           )
           if [ -n "${EXPECTED_CERT_SHA256:-}" ]; then
@@ -1188,19 +1243,76 @@ jobs:
           fi
           node scripts/verify-artifact.mjs "${ARGS[@]}"
 
-      # Contrôle INDÉPENDANT du manifeste : aapt2 relit l'APK avec l'outil
-      # officiel du SDK Android (aucun code du projet n'intervient).
-      - name: Contrôle indépendant du manifeste (aapt2 badging)
+      # Contrôle INDÉPENDANT du manifeste final : aapt2 (build-tools du SDK) et
+      # apkanalyzer (cmdline-tools) relisent l'APK PUBLIÉ. Aucun code du projet
+      # n'intervient dans la lecture. minSdkVersion/targetSdkVersion doivent être
+      # PRÉSENTS **et** égaux aux valeurs de android/gradle.properties : un
+      # simple `grep -q "^sdkVersion:"` ne détectait ni l'absence réelle de
+      # <uses-sdk> ni une valeur différente.
+      - name: Contrôle indépendant du manifeste (aapt2 + apkanalyzer)
         shell: bash
         run: |
           set -euo pipefail
+          APK=/tmp/dist/Batibuild-release.apk
           BT_VERSION="${ANDROID_BUILD_TOOLS:?ANDROID_BUILD_TOOLS non fourni par la CI — voir installation du SDK}"
           AAPT2="${ANDROID_SDK_ROOT:?ANDROID_SDK_ROOT non défini}/build-tools/${BT_VERSION}/aapt2"
           [ -x "$AAPT2" ] || { echo "❌ aapt2 introuvable : $AAPT2"; exit 1; }
-          "$AAPT2" dump badging /tmp/dist/Batibuild-release.apk > /tmp/badging.txt
           BUNDLE=$(node -p "require('./app.json').expo.android.package")
           CODE=$(node -p "require('./app.json').expo.android.versionCode")
+          VERSION_NAME=$(node -p "require('./app.json').expo.version")
+          MIN_SDK="${EXPECTED_MIN_SDK:?EXPECTED_MIN_SDK non fourni}"
+          TARGET_SDK="${EXPECTED_TARGET_SDK:?EXPECTED_TARGET_SDK non fourni}"
+
+          # ── 0. Manifeste FUSIONNÉ produit par Gradle (avant empaquetage) ────
+          # Si <uses-sdk> disparaît, on le voit ici, avant la signature.
+          MERGED=$(find android/app/build/intermediates -type f \
+            -path "*merged_manifest*release*" -name AndroidManifest.xml 2>/dev/null | head -1 || true)
+          if [ -n "$MERGED" ]; then
+            echo "Manifeste fusionné : $MERGED"
+            if ! grep -q 'android:minSdkVersion' "$MERGED"; then
+              echo "❌ <uses-sdk android:minSdkVersion> ABSENT du manifeste fusionné :"
+              echo "   $MERGED"
+              exit 1
+            fi
+            echo "✅ Manifeste fusionné : android:minSdkVersion présent."
+          else
+            echo "ℹ️  Manifeste fusionné introuvable (chemin interne AGP variable)."
+            echo "   Le contrôle bloquant porte sur l'APK final ci-dessous."
+          fi
+
+          # ── 1. aapt2 badging ────────────────────────────────────────────────
+          if ! "$AAPT2" dump badging "$APK" > /tmp/badging.txt 2>/tmp/badging.err; then
+            echo "❌ aapt2 n'a pas pu lire le manifeste de l'APK :"
+            cat /tmp/badging.err
+            exit 1
+          fi
           grep -E "^(package|sdkVersion|targetSdkVersion|native-code)" /tmp/badging.txt | head -6
+
+          AAPT_MIN_SDK=$(sed -n "s/^sdkVersion:'\([0-9][0-9]*\)'.*/\1/p" /tmp/badging.txt | head -1)
+          AAPT_TARGET_SDK=$(sed -n "s/^targetSdkVersion:'\([0-9][0-9]*\)'.*/\1/p" /tmp/badging.txt | head -1)
+
+          if [ -z "$AAPT_MIN_SDK" ]; then
+            echo "❌ minSdkVersion ABSENT du manifeste final de l'APK."
+            echo "   aapt2 ne trouve aucune ligne « sdkVersion:'…' » : le manifeste"
+            echo "   ne contient pas <uses-sdk> — Android refuse l'installation."
+            echo "   Extrait de aapt2 :"
+            head -20 /tmp/badging.txt
+            exit 1
+          fi
+          if [ "$AAPT_MIN_SDK" != "$MIN_SDK" ]; then
+            echo "❌ minSdkVersion inattendu : ${AAPT_MIN_SDK} (attendu ${MIN_SDK}, android/gradle.properties)."
+            exit 1
+          fi
+          if [ -z "$AAPT_TARGET_SDK" ]; then
+            echo "❌ targetSdkVersion ABSENT du manifeste final de l'APK."
+            exit 1
+          fi
+          if [ "$AAPT_TARGET_SDK" != "$TARGET_SDK" ]; then
+            echo "❌ targetSdkVersion inattendu : ${AAPT_TARGET_SDK} (attendu ${TARGET_SDK})."
+            exit 1
+          fi
+          echo "✅ aapt2 : minSdkVersion ${AAPT_MIN_SDK} / targetSdkVersion ${AAPT_TARGET_SDK}"
+
           grep -q "^package: name='${BUNDLE}'" /tmp/badging.txt || {
             echo "❌ applicationId inattendu dans l'APK :"
             grep '^package:' /tmp/badging.txt || true
@@ -1210,14 +1322,38 @@ jobs:
             echo "❌ versionCode inattendu dans l'APK (attendu ${CODE})."
             exit 1
           }
-          grep -q "^sdkVersion:" /tmp/badging.txt || { echo "❌ minSdkVersion absent du manifeste."; exit 1; }
-          grep -q "^targetSdkVersion:" /tmp/badging.txt || { echo "❌ targetSdkVersion absent du manifeste."; exit 1; }
+          grep -q "versionName='${VERSION_NAME}'" /tmp/badging.txt || {
+            echo "❌ versionName inattendu dans l'APK (attendu ${VERSION_NAME})."
+            exit 1
+          }
           if ! grep -q "^native-code:.*arm64-v8a\|^native-code:.*armeabi-v7a" /tmp/badging.txt; then
             echo "❌ Aucune ABI ARM dans l'APK :"
             grep '^native-code' /tmp/badging.txt || echo "   (aucune bibliothèque native)"
             exit 1
           fi
-          echo "✅ Manifeste, applicationId, versionCode, SDK et ABI validés par aapt2."
+
+          # ── 2. apkanalyzer (seconde implémentation, cmdline-tools) ──────────
+          APKANALYZER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/apkanalyzer"
+          if [ ! -x "$APKANALYZER" ]; then
+            APKANALYZER=$(command -v apkanalyzer || true)
+          fi
+          if [ -n "$APKANALYZER" ] && [ -x "$APKANALYZER" ]; then
+            ANALYZER_MIN_SDK=$("$APKANALYZER" manifest min-sdk "$APK" | tr -d '[:space:]')
+            ANALYZER_TARGET_SDK=$("$APKANALYZER" manifest target-sdk "$APK" | tr -d '[:space:]')
+            if [ "$ANALYZER_MIN_SDK" != "$MIN_SDK" ]; then
+              echo "❌ apkanalyzer : minSdk ${ANALYZER_MIN_SDK:-absent} (attendu ${MIN_SDK})."
+              exit 1
+            fi
+            if [ "$ANALYZER_TARGET_SDK" != "$TARGET_SDK" ]; then
+              echo "❌ apkanalyzer : targetSdk ${ANALYZER_TARGET_SDK:-absent} (attendu ${TARGET_SDK})."
+              exit 1
+            fi
+            echo "✅ apkanalyzer : minSdk ${ANALYZER_MIN_SDK} / targetSdk ${ANALYZER_TARGET_SDK}"
+          else
+            echo "ℹ️  apkanalyzer non installé — contrôle assuré par aapt2 et par scripts/verify-artifact.mjs (lecture directe du manifeste binaire)."
+          fi
+
+          echo "✅ Manifeste, applicationId, versionCode, versionName, minSdkVersion (${MIN_SDK}), targetSdkVersion (${TARGET_SDK}) et ABI validés."
 
       # (Pas d'upload ici : publication groupée en fin de job.)
 

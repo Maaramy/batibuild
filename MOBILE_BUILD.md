@@ -324,9 +324,12 @@ echo $ANDROID_HOME
 ls $ANDROID_HOME/platforms        # doit contenir android-36
 ```
 
-> Les versions cibles (`compileSdk`, `targetSdk`, `minSdk`, `buildTools`, `ndk`)
-> sont définies par Expo SDK 57 — **ne pas les modifier** : le build local les
-> résout automatiquement.
+> Les versions cibles (`compileSdk`, `targetSdk`, `minSdk`, `buildTools`) sont
+> **déclarées explicitement** dans `mobile/android/gradle.properties`
+> (`android.minSdkVersion`, `android.compileSdkVersion`, …) et recopiées en dur
+> dans `mobile/android/app/build.gradle` par `scripts/ensure-android-sdk.mjs`.
+> Voir §11ter : `minSdk` = **24** (minimum de React Native 0.86 / Expo 57 ; 23
+> est refusé par la fusion de manifestes), `targetSdk`/`compileSdk` = 36.
 
 ## 5. Configuration d'ADB
 
@@ -467,7 +470,7 @@ passer un APK qu'Android rejetterait.
 | Existence / taille | fichier présent, ≥ 1 Mo et < 600 Mo (détecte un build interrompu) |
 | Structure ZIP | en-tête `PK\x03\x04`, End Of Central Directory cohérent, répertoire central **entièrement** lisible, entrées en double refusées (détecte un APK **tronqué**) |
 | Entrées obligatoires | APK : `AndroidManifest.xml`, `classes.dex`, `resources.arsc` · AAB : `BundleConfig.pb`, `base/manifest/AndroidManifest.xml` |
-| Manifeste | lecture du manifeste binaire : `package`, `versionCode`, `minSdk`/`targetSdk`, refus si `testOnly="true"` ; comparaison possible au `applicationId` et au `versionCode` attendus (`--expect-package`, `--expect-version-code`) |
+| Manifeste | lecture du manifeste binaire : `package`, `versionCode`, `versionName`, `minSdk`/`targetSdk`, refus si `testOnly="true"` ; **refus si `minSdkVersion` ou `targetSdkVersion` est absent** ; comparaison possible aux valeurs attendues (`--expect-package`, `--expect-version-code`, `--expect-version-name`, `--expect-min-sdk`, `--expect-target-sdk`) |
 | Signature | schémas **réellement présents** (v1 JAR, v2, v3) ; un APK sans aucune signature est refusé (Android : « le package semble ne pas être valide ») |
 | Intégrité | digest de contenu du schéma v2 **recalculé** (chunks de 1 Mo) et comparé au digest signé — détecte toute modification après signature (re-zip, recompression, `zipalign` après coup) |
 | Signature cryptographique | vérification RSA PKCS#1 / RSA-PSS / ECDSA / DSA des données signées avec la clé du certificat |
@@ -480,6 +483,7 @@ npm run android:verify        # sur mobile/build/Batibuild-release.apk
 # ou, avec les contrôles attendus :
 node scripts/verify-artifact.mjs build/Batibuild-release.apk \
   --expect-package com.batibuild.app --expect-version-code 13 \
+  --expect-version-name 1.3.3 --expect-min-sdk 24 --expect-target-sdk 36 \
   --require-schemes v1,v2 --require-release-cert \
   --expect-cert-sha256 AB:CD:…
 ```
@@ -729,6 +733,65 @@ Plusieurs défauts réels ont été constatés sur ce fichier :
 > Conservez ce keystore hors du dépôt : **sans lui, aucune mise à jour de
 > l'application publiée n'est possible** (Android refuse un changement de
 > signature).
+
+## 11ter. `minSdkVersion` absent du manifeste final — garantie et contrôle
+
+### Pourquoi le manifeste pouvait sortir sans `<uses-sdk>`
+
+`android/app/build.gradle` lisait :
+
+```groovy
+compileSdk rootProject.ext.compileSdkVersion
+minSdkVersion rootProject.ext.minSdkVersion
+targetSdkVersion rootProject.ext.targetSdkVersion
+```
+
+Ces valeurs provenaient du catalogue `expoLibs`, lui-même construit par
+`expoAutolinking.useExpoVersionCatalog()` depuis
+`node_modules/react-native/gradle/libs.versions.toml` + le plugin
+`expo-root-project`. Un `expo prebuild` qui régénère `android/`, un catalogue
+absent ou une propriété non propagée suffisaient donc à produire un manifeste
+fusionné **sans `<uses-sdk android:minSdkVersion>`**, donc un APK refusé à
+l'installation (« le package semble ne pas être valide »).
+
+### minSdk = 24, pas 23
+
+L'API 23 **n'est pas possible** avec cette pile : `react-android`
+(React Native 0.86) est publié avec `minSdkVersion 24` et Expo 57 exige la même
+valeur. Descendre à 23 fait échouer la fusion de manifestes :
+`uses-sdk:minSdkVersion 23 cannot be smaller than version 24 declared in library`.
+Le minimum réellement supporté est donc **24** (Android 7.0).
+
+### Ce qui est désormais garanti
+
+| Élément | Emplacement | Valeur |
+|---|---|---|
+| Source de vérité SDK | `mobile/android/gradle.properties` | `android.minSdkVersion=24`, `android.compileSdkVersion=36`, `android.targetSdkVersion=36`, `android.buildToolsVersion=36.0.0` |
+| Littéraux du module `:app` | `mobile/android/app/build.gradle` | `compileSdk 36`, `minSdkVersion 24`, `targetSdkVersion 36` |
+| Réapplication après `expo prebuild` | `mobile/scripts/ensure-android-sdk.mjs` (`npm run android:apk`, CI) | idempotent |
+| Garde Gradle | `app/build.gradle` (bloc après `android { }`) | échoue si `minSdk < 24` ou `targetSdk < minSdk` |
+| Contrôle avant build | `scripts/preflight-android.mjs` + étape CI dédiée | `ensure-android-sdk.mjs --check` |
+| Contrôle de l'APK final | `scripts/verify-artifact.mjs` | `--expect-min-sdk 24 --expect-target-sdk 36 --expect-version-name 1.3.3` (lecture directe du manifeste binaire) |
+| Contrôle indépendant | CI, étape « aapt2 + apkanalyzer » | `sdkVersion:'24'` et `targetSdkVersion:'36'` **présents et égaux** aux valeurs attendues ; manifeste fusionné inspecté |
+
+### Lire le résultat en CI
+
+Un run correct affiche :
+
+```
+📱 SDK Android du paquet : minSdk 24 / targetSdk 36
+✅ aapt2 : minSdkVersion 24 / targetSdkVersion 36
+✅ apkanalyzer : minSdk 24 / targetSdk 36
+✅ Manifeste, applicationId, versionCode, versionName, minSdkVersion (24), targetSdkVersion (36) et ABI validés.
+```
+
+Si un contrôle échoue, le message donne la cause exacte (valeur lue, valeur
+attendue, fichier concerné) : corriger `android/gradle.properties`, puis
+relancer `node mobile/scripts/ensure-android-sdk.mjs` avant de rebuild.
+
+> Vérification d'installation sur téléphone (`adb install`) : à faire sur un
+> appareil Android 7.0+ après téléchargement de l'APK de la Release ; elle ne
+> peut pas être réalisée dans l'environnement de build (aucun appareil).
 
 ## 12. Build iOS (macOS uniquement)
 

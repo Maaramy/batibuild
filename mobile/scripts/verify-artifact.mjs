@@ -30,7 +30,8 @@
  *   node scripts/verify-artifact.mjs build/Batibuild-release.apk
  *   node scripts/verify-artifact.mjs build/Batibuild-release.aab --kind aab
  *   node scripts/verify-artifact.mjs app.apk --expect-package com.batibuild.app \
- *        --expect-version-code 13 --require-schemes v1,v2 \
+ *        --expect-version-code 13 --expect-min-sdk 24 --expect-target-sdk 36 \
+ *        --expect-version-name 1.3.3 --require-schemes v1,v2 \
  *        --expect-cert-sha256 AB:CD:… --require-release-cert
  *
  * Code de sortie 0 si tout est conforme, 1 sinon (avec la cause exacte).
@@ -539,6 +540,41 @@ export function verifyArtifact(targetPath, options = {}) {
               `versionCode inattendu : ${manifest.versionCode} (attendu ${options.expectVersionCode})`,
             );
           }
+          // <uses-sdk> : sans minSdkVersion, Android refuse l'installation
+          // (« le package semble ne pas être valide »). Le manifeste binaire
+          // est lu ici indépendamment de Gradle, d'aapt2 et d'apkanalyzer.
+          if (manifest.minSdkVersion === undefined || manifest.minSdkVersion === null) {
+            fail(
+              "minSdkVersion ABSENT du manifeste final (aucun <uses-sdk android:minSdkVersion>) — Android refuse l'installation",
+            );
+          } else if (
+            Number.isFinite(options.expectMinSdk) &&
+            Number(manifest.minSdkVersion) !== options.expectMinSdk
+          ) {
+            fail(
+              `minSdkVersion inattendu : ${manifest.minSdkVersion} (attendu ${options.expectMinSdk})`,
+            );
+          }
+          if (manifest.targetSdkVersion === undefined || manifest.targetSdkVersion === null) {
+            fail(
+              "targetSdkVersion ABSENT du manifeste final (aucun <uses-sdk android:targetSdkVersion>)",
+            );
+          } else if (
+            Number.isFinite(options.expectTargetSdk) &&
+            Number(manifest.targetSdkVersion) !== options.expectTargetSdk
+          ) {
+            fail(
+              `targetSdkVersion inattendu : ${manifest.targetSdkVersion} (attendu ${options.expectTargetSdk})`,
+            );
+          }
+          if (
+            options.expectVersionName &&
+            String(manifest.versionName ?? "") !== options.expectVersionName
+          ) {
+            fail(
+              `versionName inattendu : ${manifest.versionName ?? "absent"} (attendu ${options.expectVersionName})`,
+            );
+          }
         }
       }
 
@@ -818,6 +854,9 @@ const VALUE_FLAGS = new Set([
   "--kind",
   "--expect-package",
   "--expect-version-code",
+  "--expect-min-sdk",
+  "--expect-target-sdk",
+  "--expect-version-name",
   "--expect-cert-sha256",
   "--require-schemes",
 ]);
@@ -855,11 +894,16 @@ function main() {
   }
 
   const versionCode = flags.get("--expect-version-code");
+  const minSdk = flags.get("--expect-min-sdk");
+  const targetSdk = flags.get("--expect-target-sdk");
   const schemes = flags.get("--require-schemes");
   const result = verifyArtifact(target, {
     kind: flags.get("--kind"),
     expectPackage: flags.get("--expect-package"),
     expectVersionCode: versionCode === undefined ? undefined : Number(versionCode),
+    expectMinSdk: minSdk === undefined ? undefined : Number(minSdk),
+    expectTargetSdk: targetSdk === undefined ? undefined : Number(targetSdk),
+    expectVersionName: flags.get("--expect-version-name"),
     expectCertSha256: flags.get("--expect-cert-sha256") || undefined,
     requireSchemes:
       typeof schemes === "string" ? schemes.split(",").map((scheme) => scheme.trim()) : undefined,

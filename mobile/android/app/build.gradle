@@ -135,13 +135,33 @@ android {
     ndkVersion rootProject.ext.ndkVersion
 
     buildToolsVersion rootProject.ext.buildToolsVersion
-    compileSdk rootProject.ext.compileSdkVersion
+
+    // ── NIVEAUX DE SDK EXPLICITES (littéraux, jamais implicites) ────────────
+    // Le manifeste final DOIT porter :
+    //   <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36" />
+    // Un `minSdkVersion rootProject.ext.minSdkVersion` dépendait du catalogue
+    // `expoLibs` (node_modules/react-native/gradle/libs.versions.toml) et du
+    // plugin `expo-root-project` : si l'un des deux manque ou est régénéré,
+    // la valeur peut être perdue et le manifeste fusionné sortir SANS
+    // minSdkVersion. Les littéraux rendent le paquet déterministe.
+    //
+    // `android/gradle.properties` reste la source de vérité : ses propriétés
+    // `android.minSdkVersion` / `android.targetSdkVersion` / `android.compileSdkVersion`
+    // alimentent les modules Expo (via `useExpoVersionCatalog()`), et
+    // `scripts/ensure-android-sdk.mjs` réaligne ces littéraux après chaque
+    // `expo prebuild` (qui régénère ce fichier) puis les vérifie en CI.
+    //
+    // minSdk 24 (et non 23) : React Native 0.86 publie `react-android` avec
+    // minSdkVersion 24, Expo 57 exige la même valeur — descendre à 23 ferait
+    // échouer la fusion de manifestes (« uses-sdk:minSdkVersion 23 cannot be
+    // smaller than version 24 declared in library »).
+    compileSdk 36
 
     namespace 'com.batibuild.app'
     defaultConfig {
         applicationId 'com.batibuild.app'
-        minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
+        minSdkVersion 24
+        targetSdkVersion 36
         versionCode 13
         versionName "1.3.3"
 
@@ -199,6 +219,23 @@ android {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
 }
+
+// Garde-fou exécuté à la configuration : un minSdk trop bas casserait la fusion
+// de manifestes AVANT même la compilation, et un minSdk absent produirait un
+// APK sans <uses-sdk> (installation refusée). On échoue ici, explicitement.
+def effectiveMinSdk = android.defaultConfig.minSdkVersion.apiLevel
+def effectiveTargetSdk = android.defaultConfig.targetSdkVersion.apiLevel
+if (effectiveMinSdk == null || effectiveMinSdk < 24) {
+    throw new GradleException(
+        "minSdkVersion ${effectiveMinSdk} refusé : React Native 0.86 / Expo 57 exigent l'API 24 minimum " +
+        "(react-android est publié en minSdkVersion 24 ; 23 casse la fusion de manifestes). " +
+        "Corrigez android/app/build.gradle et android.minSdkVersion dans android/gradle.properties."
+    )
+}
+if (effectiveTargetSdk == null || effectiveTargetSdk < effectiveMinSdk) {
+    throw new GradleException("targetSdkVersion ${effectiveTargetSdk} incohérent (minSdkVersion ${effectiveMinSdk}).")
+}
+println "📱 SDK Android du paquet : minSdk ${effectiveMinSdk} / targetSdk ${effectiveTargetSdk}"
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
 // Accepts values in comma delimited lists, example:
