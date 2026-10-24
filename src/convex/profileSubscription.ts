@@ -142,12 +142,26 @@ export function checkProfileSubscriptionCompatibility(
 // ============================================================================
 
 /**
- * Résout le type de profil actif d'un utilisateur.
+ * Règle pure de résolution du profil — SANS accès à la base.
  *
  * Lit d'abord `user.userRole` ; à défaut (comptes legacy créés avant
- * l'introduction du champ), infère le rôle depuis les profils spécialisés
- * existants — même logique que `users.adminFixUserRoles` — afin de ne jamais
- * bloquer un utilisateur dont le champ n'a simplement pas été écrit.
+ * l'introduction du champ), le profil est celui des profils spécialisés
+ * existants (expert avant fournisseur). Utilisée par `resolveProfileRole` et
+ * par l'administration, qui calcule la même vérité pour une LISTE de comptes
+ * en une seule lecture de chaque table — jamais une comparaison recopiée.
+ */
+export function resolveProfileRoleFrom(
+  user: { userRole?: string | null } | null | undefined,
+  profiles: { hasExpertProfile: boolean; hasSupplierProfile: boolean },
+): UserRole | null {
+  if (user?.userRole) return user.userRole as UserRole;
+  if (profiles.hasExpertProfile) return "expert";
+  if (profiles.hasSupplierProfile) return "supplier";
+  return null;
+}
+
+/**
+ * Résout le type de profil actif d'un utilisateur (règle ci-dessus, accès base).
  * Renvoie null si aucun profil n'est identifiable (particulier standard).
  */
 export async function resolveProfileRole(
@@ -160,18 +174,21 @@ export async function resolveProfileRole(
     .query("expertProfiles")
     .withIndex("by_user", (q) => q.eq("userId", user._id as Id<"users">))
     .first();
-  if (expertProfile) return "expert";
+  if (expertProfile) {
+    return resolveProfileRoleFrom(user, { hasExpertProfile: true, hasSupplierProfile: false });
+  }
 
   const supplierProfile = await ctx.db
     .query("supplierProfiles")
     .withIndex("by_user", (q) => q.eq("userId", user._id as Id<"users">))
     .first();
-  if (supplierProfile) return "supplier";
-
-  return null;
+  return resolveProfileRoleFrom(user, {
+    hasExpertProfile: false,
+    hasSupplierProfile: !!supplierProfile,
+  });
 }
 
-interface ReferenceSubscriptionDoc {
+export interface ReferenceSubscriptionDoc {
   plan: string;
   status: string;
   startDate?: number | null;
@@ -179,10 +196,26 @@ interface ReferenceSubscriptionDoc {
 }
 
 /**
- * Forfait de l'abonnement mensuel de référence d'un utilisateur : le premier
- * abonnement PAYÉ encore valide, sinon le plus récent (payé, en attente ou
- * expiré). Même priorité que `subscriptionStatus.getUserSubscriptionStatus`.
+ * Règle pure de sélection de l'abonnement de référence (SANS accès base) :
+ * le premier abonnement PAYÉ encore valide, sinon le plus récent (payé, en
+ * attente ou expiré). Même priorité que `subscriptionStatus.getUserSubscriptionStatus`.
  */
+export function pickReferenceSubscription(
+  monthly: ReferenceSubscriptionDoc[],
+  now = Date.now(),
+): ReferenceSubscriptionDoc | null {
+  if (monthly.length === 0) return null;
+
+  const byRecent = (a: ReferenceSubscriptionDoc, b: ReferenceSubscriptionDoc) =>
+    (b.startDate ?? 0) - (a.startDate ?? 0);
+
+  const active = monthly
+    .filter((s) => s.status === "active" && s.endDate != null && s.endDate > now)
+    .sort(byRecent)[0];
+  return active ?? monthly.slice().sort(byRecent)[0];
+}
+
+/** Forfait de l'abonnement mensuel de référence d'un utilisateur. */
 export async function getReferenceSubscriptionPlan(
   ctx: Pick<QueryCtx, "db">,
   userId: Id<"users">,
@@ -193,18 +226,8 @@ export async function getReferenceSubscriptionPlan(
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect()) as unknown as ReferenceSubscriptionDoc[];
 
-  const monthly = subs;
-  if (monthly.length === 0) return { plan: null, reference: null };
-
-  const byRecent = (a: ReferenceSubscriptionDoc, b: ReferenceSubscriptionDoc) =>
-    (b.startDate ?? 0) - (a.startDate ?? 0);
-
-  const active = monthly
-    .filter((s) => s.status === "active" && s.endDate != null && s.endDate > now)
-    .sort(byRecent)[0];
-  const reference = active ?? monthly.slice().sort(byRecent)[0];
-
-  return { plan: reference?.plan ?? null, reference: reference ?? null };
+  const reference = pickReferenceSubscription(subs, now);
+  return { plan: reference?.plan ?? null, reference };
 }
 
 /**

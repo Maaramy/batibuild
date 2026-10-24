@@ -1421,12 +1421,17 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         <p className="text-[9px] text-muted-foreground">Forfait</p>
                         <Badge className={cn(
                           "text-[9px] mt-0.5",
-                          selectedUser.subscriptionPlan === "supplier" ? "bg-amber-400/10 text-amber-600" :
-                          selectedUser.subscriptionPlan === "expert" ? "bg-emerald-500/10 text-emerald-600" :
+                          (selectedUser.referencePlan ?? selectedUser.subscriptionPlan) === "supplier" ? "bg-amber-400/10 text-amber-600" :
+                          (selectedUser.referencePlan ?? selectedUser.subscriptionPlan) === "expert" ? "bg-emerald-500/10 text-emerald-600" :
                           "bg-slate-500/10 text-slate-600"
                         )}>
-                          {selectedUser.subscriptionPlan === "supplier" ? "Fournisseur" :
-                           selectedUser.subscriptionPlan === "expert" ? "Expert" : "Client Pro"}
+                          {(() => {
+                            const plan = selectedUser.referencePlan ?? selectedUser.subscriptionPlan;
+                            return plan === "supplier" ? "Fournisseur"
+                              : plan === "expert" ? "Expert"
+                              : plan === "pro" ? "Client Pro"
+                              : "Aucun";
+                          })()}
                         </Badge>
                       </div>
                       <div>
@@ -1449,12 +1454,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         <p className="text-[9px] text-muted-foreground">Type de compte</p>
                         <Badge className={cn(
                           "text-[9px] mt-0.5",
-                          selectedUser.userRole === "supplier" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" :
-                          selectedUser.userRole === "expert" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" :
+                          (selectedUser.profileRole ?? selectedUser.userRole) === "supplier" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" :
+                          (selectedUser.profileRole ?? selectedUser.userRole) === "expert" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" :
                           "bg-muted/30 text-muted-foreground"
                         )}>
-                          {selectedUser.userRole === "supplier" ? "Fournisseur" :
-                           selectedUser.userRole === "expert" ? "Expert" : "Client"}
+                          {(selectedUser.profileRole ?? selectedUser.userRole) === "supplier" ? "Fournisseur" :
+                           (selectedUser.profileRole ?? selectedUser.userRole) === "expert" ? "Expert" : "Client"}
                         </Badge>
                       </div>
                       <div>
@@ -3349,12 +3354,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         </td>
                         <td className="py-2.5 px-2 text-center">
                           {isModerator ? (
-                            <Badge className={cn("text-[9px]", u.userRole === "supplier" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" : u.userRole === "expert" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : "bg-muted/30 text-muted-foreground")}>
-                              {u.userRole === "supplier" ? "Fournisseur" : u.userRole === "expert" ? "Expert" : "Client Pro"}
+                            <Badge className={cn("text-[9px]", (u.profileRole ?? u.userRole) === "supplier" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" : (u.profileRole ?? u.userRole) === "expert" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : "bg-muted/30 text-muted-foreground")}>
+                              {(u.profileRole ?? u.userRole) === "supplier" ? "Fournisseur" : (u.profileRole ?? u.userRole) === "expert" ? "Expert" : "Client Pro"}
                             </Badge>
                           ) : (
                             <select
-                              value={u.userRole || "client"}
+                              value={(u.profileRole ?? u.userRole) || "client"}
                               onChange={async (e) => {
                                 try {
                                   await setUserProfileRole({ userId: u._id, userRole: e.target.value as any });
@@ -3365,8 +3370,8 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                               }}
                               className={cn(
                                 "text-[9px] h-6 rounded-md border border-border/30 bg-background px-1.5 font-medium",
-                                u.userRole === "supplier" ? "text-amber-600 bg-amber-400/10" :
-                                u.userRole === "expert" ? "text-blue-600 bg-blue-500/5" :
+                                (u.profileRole ?? u.userRole) === "supplier" ? "text-amber-600 bg-amber-400/10" :
+                                (u.profileRole ?? u.userRole) === "expert" ? "text-blue-600 bg-blue-500/5" :
                                 "text-muted-foreground"
                               )}
                             >
@@ -3378,17 +3383,19 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         </td>
                         <td className="py-2.5 px-2 text-center">
                           {isModerator ? (
-                            <Badge className={cn("text-[9px]", u.subscriptionPlan === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : u.subscriptionPlan === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : u.subscriptionPlan === "supplier" ? "bg-amber-400/10 text-amber-600 border-amber-200/30" : "bg-muted/30 text-muted-foreground")}>
-                              {u.subscriptionPlan === "supplier" ? "Fournisseur" : u.subscriptionPlan === "expert" ? "Expert" : u.subscriptionPlan === "pro" ? "Client Pro" : "Aucun"}
+                            <Badge className={cn("text-[9px]", (u.referencePlan ?? u.subscriptionPlan) === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : (u.referencePlan ?? u.subscriptionPlan) === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : (u.referencePlan ?? u.subscriptionPlan) === "supplier" ? "bg-amber-400/10 text-amber-600 border-amber-200/30" : "bg-muted/30 text-muted-foreground")}>
+                              {(u.referencePlan ?? u.subscriptionPlan) === "supplier" ? "Fournisseur" : (u.referencePlan ?? u.subscriptionPlan) === "expert" ? "Expert" : (u.referencePlan ?? u.subscriptionPlan) === "pro" ? "Client Pro" : "Aucun"}
                             </Badge>
                           ) : (
                             <select
-                              value={u.subscriptionPlan || "free"}
+                              value={(u.referencePlan ?? u.subscriptionPlan) || "free"}
                               onChange={async (e) => {
                                 try {
                                   const res = await updateUserPlan({ userId: u._id, plan: e.target.value as any });
                                   if (res?.planCompatible === false && res?.message) {
                                     toast.warning(res.message, { duration: 8000 });
+                                  } else if (res?.message) {
+                                    toast.success(res.message);
                                   } else {
                                     toast.success("Plan mis à jour");
                                   }
@@ -3398,12 +3405,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                               }}
                               className={cn(
                                 "text-[9px] h-6 rounded-md border border-border/30 bg-background px-1.5 font-medium",
-                                u.subscriptionPlan === "pro" ? "text-blue-600 bg-blue-500/5" :
-                                u.subscriptionPlan === "expert" ? "text-emerald-600 bg-emerald-500/5" :
-                                u.subscriptionPlan === "supplier" ? "text-amber-600 bg-amber-400/10" :
+                                (u.referencePlan ?? u.subscriptionPlan) === "pro" ? "text-blue-600 bg-blue-500/5" :
+                                (u.referencePlan ?? u.subscriptionPlan) === "expert" ? "text-emerald-600 bg-emerald-500/5" :
+                                (u.referencePlan ?? u.subscriptionPlan) === "supplier" ? "text-amber-600 bg-amber-400/10" :
                                 "text-muted-foreground"
                               )}
                             >
+                              <option value="free">Aucun</option>
                               <option value="pro">Client Pro</option>
                               <option value="expert">Expert</option>
                               <option value="supplier">Fournisseur</option>
@@ -3413,22 +3421,30 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         <td className="py-2.5 px-2 text-right text-[10px] text-muted-foreground">
                           <div className="flex items-center justify-end gap-1.5">
                             {(() => {
-                              const role = u.userRole as string | undefined;
-                              const plan = u.subscriptionPlan as string | undefined;
+                              // Vérité calculée côté serveur (profil résolu +
+                              // abonnement de référence) — la même que celle
+                              // utilisée par les règles d'accès. Le « ! » n'est
+                              // affiché qu'en cas d'incompatibilité réelle, avec
+                              // un titre expliquant quoi corriger.
+                              const role = (u.profileRole ?? u.userRole) as string | undefined;
+                              const plan = (u.referencePlan ?? u.subscriptionPlan) as string | undefined;
                               if (!plan || plan === "free") return null;
                               const expected =
                                 role === "supplier" ? "supplier" : role === "expert" ? "expert" : "pro";
-                              const ok = plan === expected;
+                              const ok =
+                                typeof u.profileSubscriptionCompatible === "boolean"
+                                  ? u.profileSubscriptionCompatible
+                                  : plan === expected;
+                              const roleLabel =
+                                role === "supplier" ? "Fournisseur" : role === "expert" ? "Expert" : "Client Pro";
+                              const planLabel =
+                                plan === "supplier" ? "Fournisseur" : plan === "expert" ? "Expert" : "Client Pro";
                               return (
                                 <span
                                   title={
                                     ok
-                                      ? "Abonnement compatible avec le profil"
-                                      : `Incompatibilité : profil ${
-                                          role === "supplier" ? "Fournisseur" : role === "expert" ? "Expert" : "Client Pro"
-                                        } avec abonnement ${
-                                          plan === "supplier" ? "Fournisseur" : plan === "expert" ? "Expert" : "Client Pro"
-                                        }`
+                                      ? `Profil ${roleLabel} et abonnement ${planLabel} cohérents`
+                                      : `Incompatibilité : profil « ${roleLabel} » avec abonnement « ${planLabel} » — choisissez l'offre « ${roleLabel} » dans la colonne Abonnement.`
                                   }
                                   className={cn(
                                     "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold",

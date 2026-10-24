@@ -61,10 +61,59 @@ interface AuthProps {
 
 // Récupère le message d'erreur réel renvoyé par le serveur (AuthError de
 // Convex Auth, qui propage le message de l'action d'envoi de code) au lieu
-// d'afficher un message générique. Repli sûr si le message est vide ou brut.
-function authErrorMessage(err: unknown, fallback: string): string {
-  const msg = err instanceof Error && err.message ? err.message.trim() : "";
-  if (!msg || msg.includes("Server Error")) return fallback;
+// d'afficher un message générique. Mais JAMAIS de message technique brut :
+// chaque échec d'inscription / connexion explique en français ce qui s'est
+// passé et la marche à suivre — jamais un simple « ! » ni une erreur interne
+// (« Server Error », pile d'appels, URL…) que l'utilisateur ne peut pas
+// comprendre. Exporté pour être couvert par les tests.
+export function authErrorMessage(err: unknown, fallback: string): string {
+  const raw = err instanceof Error && err.message ? err.message.trim() : "";
+  if (!raw) return fallback;
+
+  const msg = raw
+    .replace(/^Uncaught\s+(?:Error:\s*)?/i, "")
+    .replace(/^Error:\s*/i, "")
+    .replace(/^AuthError:\s*/i, "")
+    .trim();
+  if (!msg) return fallback;
+
+  // Causes connues → message explicite en français.
+  const known: Array<[RegExp, string]> = [
+    [
+      /already exists|already registered|duplicate (entry|user)|user already/i,
+      "Un compte existe déjà avec cette adresse e-mail. Connectez-vous ou réinitialisez votre mot de passe.",
+    ],
+    [
+      /password.*(at least|minimum|8 characters?)|at least 8 characters/i,
+      "Le mot de passe doit contenir au moins 8 caractères.",
+    ],
+    [/passwords? (do not match|must match)/i, "Les mots de passe ne correspondent pas."],
+    [
+      /rate.?limit|too many (requests|attempts)|try again later/i,
+      "Trop de tentatives. Patientez quelques instants avant de réessayer.",
+    ],
+    [
+      /\bfetch\b|network|websocket|timed? ?out|offline|connection (lost|failed)/i,
+      "Problème de connexion. Vérifiez votre accès Internet puis réessayez.",
+    ],
+    // Identifiants / code incorrects : le message du appelant suffit.
+    [
+      /invalid.*(e-?mail|password|code|credentials|verification)|incorrect (code|password)|wrong password/i,
+      fallback,
+    ],
+  ];
+  for (const [pattern, text] of known) {
+    if (pattern.test(msg)) return text;
+  }
+
+  // Message interne Convex / serveur : jamais affiché tel quel.
+  const technical =
+    /server error|internal_server_error|uncaught|at object\.|at async|https?:\/\/|convex|invalid_argument|invalid argument|could not find|unexpected token|undefined is not/i;
+  if (technical.test(msg)) return fallback;
+
+  // Un message sans lettres (« ! », « … ») n'explique rien → on explique.
+  if (!/[a-zà-ÿ]/i.test(msg)) return fallback;
+
   return msg;
 }
 

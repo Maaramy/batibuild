@@ -22,7 +22,11 @@ import {
   checkProfileSubscriptionCompatibility,
   expectedPlanForProfile,
   getReferenceSubscriptionPlan,
-} from "./profileSubscription";
+  pickReferenceSubscription,
+  resolveProfileRole,
+  resolveProfileRoleFrom,
+  type ReferenceSubscriptionDoc,
+} from "./profileSubscription";;
 
 /**
  * Get the current signed in user. Returns null if the user is not signed in.
@@ -66,8 +70,49 @@ export const getAllUsers = query({
 
     const users = await ctx.db.query("users").collect();
 
+    // ── Vérité serveur profil ↔ abonnement (une seule lecture par table) ──
+    // L'administration affiche le profil RÉSOLU (userRole, sinon profil
+    // expert/fournisseur existant) et l'abonnement de RÉFÉRENCE (mensuel
+    // actif, sinon le plus récent), puis la compatibilité calculée par la
+    // MÊME fonction que le reste du backend. Sans cela, un compte qui a
+    // choisi « Expert » à l'inscription mais dont le champ `userRole` n'a
+    // jamais été écrit affichait à tort un « ! » dans la colonne Inscription.
+    const expertRows = await ctx.db.query("expertProfiles").collect();
+    const supplierRows = await ctx.db.query("supplierProfiles").collect();
+    const subscriptionRows = (await ctx.db.query("subscriptions").collect()) as unknown as Array<
+      ReferenceSubscriptionDoc & { userId: Id<"users"> }
+    >;
+
+    const expertIds = new Set(expertRows.map((p) => p.userId));
+    const supplierIds = new Set(supplierRows.map((p) => p.userId));
+    const subsByUser = new Map<string, ReferenceSubscriptionDoc[]>();
+    for (const sub of subscriptionRows) {
+      const key = String(sub.userId);
+      const list = subsByUser.get(key);
+      if (list) list.push(sub);
+      else subsByUser.set(key, [sub]);
+    }
+    const now = Date.now();
+
     // Sort by creation date descending
-    return users.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+    return users.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)).map((u) => {
+      const profileRole = resolveProfileRoleFrom(u, {
+        hasExpertProfile: expertIds.has(u._id),
+        hasSupplierProfile: supplierIds.has(u._id),
+      });
+      const reference = pickReferenceSubscription(subsByUser.get(String(u._id)) ?? [], now);
+      const referencePlan = reference?.plan ?? u.subscriptionPlan ?? null;
+      const compatibility = checkProfileSubscriptionCompatibility(
+        { userRole: profileRole },
+        referencePlan,
+      );
+      return {
+        ...u,
+        profileRole,
+        referencePlan,
+        profileSubscriptionCompatible: compatibility.compatible,
+      };
+    });
   },
 });
 
@@ -166,13 +211,26 @@ export const adminUpdateUserPlan = mutation({
     const planDuration = MONTHLY_DURATION_DAYS * DAY_MS;
 
     // ── Compatibilité profil ↔ abonnement (règle obligatoire) ──
-    // L'administrateur conserve la main (override manuel) mais l'état
-    // incompatible est signalé dans la réponse pour affichage immédiat.
+    // Le profil est résolu comme partout ailleurs (userRole, sinon profil
+    // expert/fournisseur existant) : un compte legacy sans `userRole` mais
+    // avec un profil expert n'est pas déclaré « Client Pro » par défaut.
     const targetBefore = await ctx.db.get(args.userId);
-    const expectedPlan = expectedPlanForProfile(targetBefore?.userRole);
+    const resolvedRole = targetBefore ? await resolveProfileRole(ctx, targetBefore) : null;
+    const expectedPlan = expectedPlanForProfile(resolvedRole ?? targetBefore?.userRole ?? null);
     const planCompatible = args.plan === "free" || args.plan === expectedPlan;
 
+    // ── Synchronisation EXPLICITE profil ↔ abonnement ──
+    // Le profil n'est JAMAIS changé en silence : on ne fait que persister le
+    // rôle déjà résolu (leur profil réel) quand le champ `userRole` n'a
+    // simplement jamais été écrit, puis on le signale à l'administrateur
+    // (réponse + journal admin).
+    const profileAligned = !!targetBefore && !targetBefore.userRole && resolvedRole !== null;
+    const alignedRole = profileAligned ? resolvedRole : null;
+    const profileLabel = PROFILE_ROLE_LABELS[resolvedRole ?? targetBefore?.userRole ?? "client"];
+    const planLabel = PLAN_VALUE_LABELS[args.plan] ?? args.plan;
+
     await ctx.db.patch(args.userId, {
+      ...(alignedRole ? { userRole: alignedRole } : {}),
       subscriptionPlan: args.plan,
       subscriptionEndDate: now + planDuration,
       subscriptionStartDate: now,
@@ -224,16 +282,25 @@ export const adminUpdateUserPlan = mutation({
       });
     }
 
+    if (profileAligned) {
+      await logAdminAction(
+        ctx, admin, "update_user_role",
+        { userId: args.userId, email: targetBefore?.email },
+        `Profil « ${profileLabel} » confirmé sur le compte (champ profil manquant) — abonnement « ${planLabel} » associé`,
+      );
+    }
+
     return {
       success: true,
       planCompatible,
       expectedPlan,
-      message: planCompatible
-        ? undefined
-        : `Attention : profil « ${
-            PROFILE_ROLE_LABELS[targetBefore?.userRole ?? "client"]
-          } » — l'offre attendue est ${PLAN_VALUE_LABELS[expectedPlan]}. ` +
-          "L'abonnement attribué reste incompatible tant que le profil n'est pas aligné.",
+      profileAligned,
+      message: !planCompatible
+        ? `Attention : profil « ${profileLabel} » — l'offre attendue est ${PLAN_VALUE_LABELS[expectedPlan]}. ` +
+            "L'abonnement attribué reste incompatible tant que le profil n'est pas aligné."
+        : profileAligned
+          ? `Profil « ${profileLabel} » confirmé et abonnement « ${planLabel} » associé et actif.`
+          : undefined,
     };
   },
 });
