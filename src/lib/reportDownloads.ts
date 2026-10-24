@@ -2,7 +2,7 @@
  * TÉLÉCHARGEMENTS DES RAPPORTS PDF
  *
  * Chaque fonction réutilise EXACTEMENT le générateur du module concerné
- * (devis estimatif, plan IA, rapport Matériaux AI, guide construction A-Z) :
+ * (devis estimatif, plan IA, aide à la décision, guide construction A-Z) :
  * le PDF téléchargé depuis « Rapports
  * PDF » est donc le rapport réellement généré pour ce projet, avec le branding
  * centralisé (`src/lib/pdfBranding.ts` — nom batibuild, logo officiel, en-tête
@@ -39,7 +39,6 @@ import { exportDecisionSupportPdf } from "./decisionSupportPdf";
 import { regionLabel } from "./providerRegions";
 import { generateFloorPlans, repairFloorPlan } from "./floorPlanEngine";
 import { downloadFloorPlanPdf } from "./floorPlanPdf";
-import { generateMaterialReportPdf } from "./materialReportPdf";
 import { generateProjectPdf } from "./projectPdf";
 import { exportRoadmapPdf } from "./roadmapReportPdf";
 
@@ -197,19 +196,6 @@ export async function downloadPlansReport(project: ProjectLike): Promise<void> {
     surfaces: best.surfaces,
     site: best.site,
   });
-}
-
-/** Matériaux AI — rapport de recommandation à partir de l'analyse enregistrée. */
-export async function downloadMaterialsReport(
-  convex: ConvexReactClient,
-  analysisId: string,
-): Promise<void> {
-  const doc = await convex.query(api.aiMaterials.getCopilotAnalysis, {
-    analysisId: analysisId as never,
-  });
-  const result = doc?.results?.recommend;
-  if (!result) throw new Error("report-unavailable");
-  generateMaterialReportPdf({ result });
 }
 
 /**

@@ -15,7 +15,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
-import { JOURNEY_FLAG_KEYS } from "@/lib/projectJourney";
+import { JOURNEY_FLAG_KEYS, JOURNEY_REQUIRED_FLAGS } from "@/lib/projectJourney";
 import { ResultPlaceholder, StepResultPanel } from "@/components/LifecycleStepResults";
 
 /**
@@ -191,7 +191,12 @@ export function ProjectLifecycle({ className }: { className?: string }) {
 
   // Étapes réellement disponibles (flags admin) — l'ordre officiel est conservé.
   const steps = useMemo(
-    () => LIFECYCLE_STEPS.filter((s) => !s.flag || isEnabled(s.flag)),
+    () =>
+      LIFECYCLE_STEPS.filter(
+        (s) =>
+          (!s.flag || isEnabled(s.flag)) &&
+          (JOURNEY_REQUIRED_FLAGS[s.key] ?? []).every((flag) => isEnabled(flag)),
+      ),
     // `isEnabled` dépend de la souscription Convex aux flags : on recalcule à
     // chaque rendu du parent (petit tableau, coût négligeable).
     [isEnabled],

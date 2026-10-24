@@ -14,13 +14,7 @@ const keys = (category: string): ReportModuleKey[] =>
 
 describe("règle du rapport PDF selon le groupe du projet", () => {
   it("Groupe A — rapport complet, dans l'ordre du registre", () => {
-    expect(keys("villa")).toEqual([
-      "cost",
-      "plans",
-      "decision",
-      "materials",
-      "execution",
-    ]);
+    expect(keys("villa")).toEqual(["cost", "plans", "decision", "execution"]);
   });
 
   it("Groupe A — le studio, le local et la rénovation complète suivent le parcours complet", () => {
@@ -29,13 +23,12 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
         "cost",
         "plans",
         "decision",
-        "materials",
         "execution",
       ]);
     }
   });
 
-  it("Groupe D — les 5 locaux professionnels ont le rapport complet", () => {
+  it("Groupe D — les locaux professionnels ont le rapport complet", () => {
     for (const type of [
       "local_commercial",
       "bureau",
@@ -47,7 +40,6 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
         "cost",
         "plans",
         "decision",
-        "materials",
         "execution",
       ]);
     }
@@ -76,15 +68,14 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
   });
 
   it("le groupe est déduit du type, sans sélection manuelle", () => {
-    expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(5);
-    expect(REPORT_MODULE_KEYS_BY_GROUP.D).toHaveLength(5);
+    expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(4);
+    expect(REPORT_MODULE_KEYS_BY_GROUP.D).toHaveLength(4);
     expect(REPORT_MODULE_KEYS_BY_GROUP.B).toHaveLength(1);
     expect(REPORT_MODULE_KEYS_BY_GROUP.C).toHaveLength(1);
     expect(reportModuleKeysForGroup("D")).toEqual([
       "cost",
       "plans",
       "decision",
-      "materials",
       "execution",
     ]);
     expect(reportModuleKeysForGroup("B")).toEqual(["cost"]);
@@ -113,7 +104,6 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
       costEstimate: {},
     };
     const statuses = reportStatuses(project, {
-      materialsAnalysisId: "m1",
       roadmapId: "r1",
       budgetAnalysisId: "b1",
     });
@@ -127,5 +117,19 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     expect(reportStatuses(project, { budgetAnalysisId: "b1" }).decision).toBe(
       "available",
     );
+  });
+
+  it("aucun rapport « Matériaux AI » ne subsiste dans le centre de rapports", () => {
+    for (const type of ["villa", "local_commercial", "piscine"]) {
+      expect(keys(type)).not.toContain("materials");
+    }
+  });
+
+  it("« Aide à la décision » est pilotable par son propre feature flag", () => {
+    expect(
+      visibleReportModules((flag) => flag !== "decision_support", "villa").map(
+        (m) => m.key,
+      ),
+    ).toEqual(["cost", "plans", "execution"]);
   });
 });

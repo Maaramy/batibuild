@@ -40,7 +40,7 @@ describe("featureFlags.getFlagsMap", () => {
     t = convexTest(schema, modules);
   });
 
-  it("retourne les 5 fonctionnalités par défaut (toutes actives)", async () => {
+  it("retourne les fonctionnalités par défaut (toutes actives)", async () => {
     const userId = await createTestUser(t);
     const map = await t.withIdentity({ subject: userId }).query(
       api.featureFlags.getFlagsMap,
@@ -49,6 +49,7 @@ describe("featureFlags.getFlagsMap", () => {
 
     expect(map).toEqual({
       construction_cost_estimation: true,
+      decision_support: true,
       ai_materials: true,
       architectural_plans: true,
       construction_guide: true,
@@ -174,7 +175,7 @@ describe("featureFlags.getAllFlags", () => {
     t = convexTest(schema, modules);
   });
 
-  it("liste toutes les fonctionnalités pour un admin", async () => {
+  it("liste les fonctionnalités pilotables — sans « Matériaux AI », avec « Aide à la décision »", async () => {
     const adminId = await createTestUser(t, { role: "admin" });
     const flags = await t.withIdentity({ subject: adminId }).query(
       api.featureFlags.getAllFlags,
@@ -185,11 +186,13 @@ describe("featureFlags.getAllFlags", () => {
     expect(flags!.every((f) => f.enabled === true)).toBe(true);
     expect(flags!.map((f) => f.key)).toEqual([
       "construction_cost_estimation",
-      "ai_materials",
+      "decision_support",
       "architectural_plans",
       "construction_guide",
       "plans_3d_enhanced",
     ]);
+    expect(flags!.map((f) => f.name)).toContain("Aide à la décision");
+    expect(flags!.map((f) => f.name)).not.toContain("Matériaux AI");
   });
 
   it("est nulle pour un utilisateur standard (jamais exposée)", async () => {
@@ -217,7 +220,7 @@ describe("featureFlags.ensureFlagDocs", () => {
     const { internal } = await import("./_generated/api.js");
 
     const first = await t.mutation(internal.featureFlags.ensureFlagDocs, {});
-    expect(first.created).toBe(5);
+    expect(first.created).toBe(6);
 
     const second = await t.mutation(internal.featureFlags.ensureFlagDocs, {});
     expect(second.created).toBe(0);

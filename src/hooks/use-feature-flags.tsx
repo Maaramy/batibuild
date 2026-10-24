@@ -25,6 +25,7 @@ export type FeatureFlagsMap = Record<string, FeatureFlagMode>;
 /** Repli local pendant le chargement / déconnecté : tout actif (état actuel). */
 export const LOCAL_DEFAULT_FLAGS: Record<string, boolean> = {
   construction_cost_estimation: true,
+  decision_support: true,
   ai_materials: true,
   architectural_plans: true,
   construction_guide: true,

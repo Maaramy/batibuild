@@ -6,8 +6,8 @@ import { getCurrentUser } from "./users";
 // ============================================================================
 // FEATURE FLAGS — système central de gestion des fonctionnalités
 // ============================================================================
-// Chaque fonctionnalité majeure de la plateforme (estimation, matériaux IA,
-// plans…) peut être activée/désactivée par l'administrateur.
+// Chaque fonctionnalité majeure de la plateforme (estimation, aide à la
+// décision, plans…) peut être activée/désactivée par l'administrateur.
 //
 // Le flag contrôle UNIQUEMENT la visibilité et l'accessibilité dans l'UI :
 //   - désactivé → entrées masquées (menus, cartes, CTA) + routes bloquées
@@ -31,9 +31,19 @@ export const FEATURE_FLAGS_CATALOG = [
     description: "Estimation des projets de construction",
   },
   {
+    key: "decision_support",
+    name: "Aide à la décision",
+    description:
+      "Analyse du budget disponible, capacité de construction et recommandations",
+  },
+  {
     key: "ai_materials",
     name: "Matériaux AI",
     description: "Assistant intelligent de choix des matériaux",
+    // Module retiré de l'interface : le flag reste supporté côté serveur pour
+    // les données existantes, mais il n'est plus proposé dans la gestion des
+    // fonctionnalités de l'administration.
+    hidden: true,
   },
   {
     key: "architectural_plans",
@@ -81,7 +91,9 @@ export const getAllFlags = query({
     const rows = await ctx.db.query("featureFlags").collect();
     const byKey = new Map(rows.map((r) => [r.key, r]));
 
-    return FEATURE_FLAGS_CATALOG.map((entry) => {
+    return FEATURE_FLAGS_CATALOG.filter(
+      (entry) => !isHiddenFromAdmin(entry),
+    ).map((entry) => {
       const row = byKey.get(entry.key);
       const mode = (row as any)?.mode as FlagMode | undefined;
       return {
@@ -96,6 +108,14 @@ export const getAllFlags = query({
     });
   },
 });
+
+/**
+ * Entrée volontairement retirée de la liste « Gestion des fonctionnalités »
+ * (module retiré de l'interface). Le flag continue d'être lu côté serveur.
+ */
+function isHiddenFromAdmin(entry: { key: string; hidden?: boolean }): boolean {
+  return entry.hidden === true;
+}
 
 /** Mode par défaut d'un flag selon sa nature (classique → binary, progressif → beta). */
 function defaultModeFor(key: string): FlagMode {

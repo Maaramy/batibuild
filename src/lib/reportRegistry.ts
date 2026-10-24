@@ -10,8 +10,8 @@
  *
  * Aucune donnée n'est inventée : l'état de chaque rapport est déduit des
  * données réellement enregistrées sur le projet (`costEstimate`, `surface`) et
- * des artefacts persistés côté serveur (`aiMaterialAnalyses`,
- * `projectRoadmaps`). Voir `src/convex/reportCenter.ts`.
+ * des artefacts persistés côté serveur (`projectRoadmaps`, `budgetAnalyses`).
+ * Voir `src/convex/reportCenter.ts`.
  */
 
 import {
@@ -19,7 +19,6 @@ import {
   Calculator,
   HardHat,
   Ruler,
-  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { projectJourneyGroup, type ProjectJourneyGroup } from "./projectJourney";
@@ -29,7 +28,6 @@ export type ReportModuleKey =
   | "cost"
   | "plans"
   | "decision"
-  | "materials"
   | "execution";
 
 /**
@@ -82,18 +80,11 @@ export const REPORT_MODULES: readonly ReportModuleDef[] = [
     label: "Aide à la décision",
     description: "Capacité de construction — budget analysé, priorisation et recommandations.",
     icon: BrainCircuit,
-    // Le rapport lit le coût estimatif du projet : désactiver l'estimation
-    // masque aussi logiquement ce rapport (aucune donnée à restituer).
-    flag: "construction_cost_estimation",
+    // Fonctionnalité pilotable depuis « Gestion des fonctionnalités ». Le
+    // rapport lit le coût estimatif du projet : sans estimation, l'analyse ne
+    // peut pas être produite (statut « non exécuté »).
+    flag: "decision_support",
     buildHref: (id) => `/dashboard/decision/${projectId(id)}`,
-  },
-  {
-    key: "materials",
-    label: "Matériaux AI",
-    description: "Recommandations de matériaux, optimisation budgétaire et performance.",
-    icon: Sparkles,
-    flag: "ai_materials",
-    buildHref: (id) => `/dashboard/ai-materials?project=${projectId(id)}`,
   },
   {
     key: "execution",
@@ -115,7 +106,6 @@ export interface ProjectReportInput {
 
 /** Artefacts persistés côté serveur (`reportCenter.getMyReportArtifacts`). */
 export interface ProjectReportArtifacts {
-  materialsAnalysisId?: string | null;
   roadmapId?: string | null;
   /** Budget réellement analysé dans « Aide à la décision ». */
   budgetAnalysisId?: string | null;
@@ -135,7 +125,6 @@ export function reportStatuses(
     // Aide à la décision : uniquement après une analyse de budget réellement
     // enregistrée (jamais de rapport sans budget analysé).
     decision: artifacts?.budgetAnalysisId ? "available" : "not_executed",
-    materials: artifacts?.materialsAnalysisId ? "available" : "not_executed",
     execution: artifacts?.roadmapId ? "available" : "not_executed",
   };
 }
@@ -150,7 +139,7 @@ export function reportStatuses(
  *
  *   • **Groupes A et D** — rapport PDF complet : toutes les fonctionnalités du
  *     parcours réellement activées et compatibles avec le type de projet
- *     (Coût estimatif, Plan IA, Matériaux AI, Exécution).
+ *     (Coût estimatif, Plan IA, Aide à la décision, Exécution).
  *   • **Groupes B et C** — rapport d'estimation uniquement : seule la section
  *     « Coût estimatif » est présente. Leur parcours se limite au coût
  *     estimatif puis à la mise en relation : ni Plan IA, ni Exécution & suivi.
@@ -163,8 +152,8 @@ export function reportStatuses(
  * il n'en crée jamais.
  */
 export const REPORT_MODULE_KEYS_BY_GROUP: Record<ProjectJourneyGroup, readonly ReportModuleKey[]> = {
-  A: ["cost", "plans", "decision", "materials", "execution"],
-  D: ["cost", "plans", "decision", "materials", "execution"],
+  A: ["cost", "plans", "decision", "execution"],
+  D: ["cost", "plans", "decision", "execution"],
   B: ["cost"],
   C: ["cost"],
 };

@@ -71,7 +71,6 @@ export type ProjectJourneyReportKey =
   | "cost"
   | "plans"
   | "decision"
-  | "materials"
   | "execution";
 
 /**
@@ -84,15 +83,26 @@ export type ProjectJourneyFlags = Record<string, boolean> | null | undefined;
 /** Clés de feature flags qui pilotent les étapes du parcours. */
 export const JOURNEY_FLAG_KEYS = {
   cost: "construction_cost_estimation",
-  // « Aide à la décision » est une page dédiée qui exploite le résultat déjà
-  // calculé du « Coût estimatif » (Intelligence prédictive IA) : elle suit donc
-  // l'activation du module de coût.
-  decision: "construction_cost_estimation",
+  // « Aide à la décision » dispose de son propre interrupteur dans « Gestion
+  // des fonctionnalités » (elle exploite le résultat du « Coût estimatif »,
+  // d'où le flag supplémentaire ci-dessous).
+  decision: "decision_support",
   plans: "architectural_plans",
   materials: "ai_materials",
   priceList: "ai_materials",
   execution: "construction_guide",
 } as const;
+
+/**
+ * Flags dont une étape dépend EN PLUS de `JOURNEY_FLAG_KEYS` (tous requis).
+ * L'étape « Aide à la décision » analyse le budget du « Coût estimatif » :
+ * sans estimation, elle ne peut rien afficher.
+ */
+export const JOURNEY_REQUIRED_FLAGS: Partial<
+  Record<string, readonly string[]>
+> = {
+  decision: ["construction_cost_estimation"],
+};
 
 /**
  * Une étape est affichée si le flag qui pilote son module est activé.
@@ -110,7 +120,11 @@ function filterDisabledSteps(
 ): ProjectJourneyStep[] {
   return steps.filter((step) => {
     const flagKey = JOURNEY_FLAG_KEYS[step.key as keyof typeof JOURNEY_FLAG_KEYS];
-    return !flagKey || isFlagEnabled(flags, flagKey);
+    const required = JOURNEY_REQUIRED_FLAGS[step.key] ?? [];
+    return (
+      (!flagKey || isFlagEnabled(flags, flagKey)) &&
+      required.every((key) => isFlagEnabled(flags, key))
+    );
   });
 }
 

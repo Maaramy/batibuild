@@ -591,6 +591,20 @@ describe("buildProjectJourney — filtrage par feature flags de l'administration
     ).toEqual(["consult"]);
   });
 
+  it("« Aide à la décision » disparaît quand son propre flag est désactivé", () => {
+    const flags = { decision_support: false };
+    expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([
+      "cost",
+      "plans",
+      "consult",
+      "execution",
+    ]);
+    // Les groupes B et C n'ont pas cette étape : parcours inchangé.
+    expect(buildProjectJourney("piscine", PID, flags).map((s) => s.key)).toEqual(
+      GROUP_B_KEYS,
+    );
+  });
+
   it("« Exécution & suivi » disparaît quand construction_guide est désactivé (groupes A et D)", () => {
     const flags = { construction_guide: false };
     expect(buildProjectJourney("maison", PID, flags).map((s) => s.key)).toEqual([

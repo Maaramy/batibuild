@@ -54,8 +54,8 @@ vi.mock("@/components/HeaderNav", () => ({
 // Les générateurs PDF ne participent pas à la navigation testée.
 vi.mock("@/lib/reportDownloads", () => ({
   downloadCostReport: async () => undefined,
+  downloadDecisionSupportReport: async () => undefined,
   downloadExecutionReport: async () => undefined,
-  downloadMaterialsReport: async () => undefined,
   downloadPlansReport: async () => undefined,
 }));
 

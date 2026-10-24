@@ -312,8 +312,13 @@ createRoot(document.getElementById("root")!).render(
                   path="/dashboard/decision/:id"
                   element={
                     <RequireAuth>
+                      {/* Deux gardes : l'estimation est la source de données de
+                          l'analyse, et « Aide à la décision » possède son propre
+                          interrupteur dans la gestion des fonctionnalités. */}
                       <FeatureGate flag="construction_cost_estimation">
-                        <DecisionSupport />
+                        <FeatureGate flag="decision_support">
+                          <DecisionSupport />
+                        </FeatureGate>
                       </FeatureGate>
                     </RequireAuth>
                   }

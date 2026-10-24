@@ -32,7 +32,6 @@ import {
   downloadCostReport,
   downloadDecisionSupportReport,
   downloadExecutionReport,
-  downloadMaterialsReport,
   downloadPlansReport,
 } from "@/lib/reportDownloads";
 import {
@@ -84,7 +83,6 @@ type ProjectCardData = {
 
 type ArtifactRow = {
   projectId: string;
-  materialsAnalysisId: string | null;
   roadmapId: string | null;
   budgetAnalysisId?: string | null;
 };
@@ -102,7 +100,7 @@ export default function ReportCenter() {
   usePageSEO({
     title: "Rapports PDF - batibuild",
     description:
-      "Consultez et téléchargez les rapports PDF de vos projets : devis estimatif, plan IA, matériaux AI et guide construction A-Z.",
+      "Consultez et téléchargez les rapports PDF de vos projets : devis estimatif, plan IA, aide à la décision et guide construction A-Z.",
   });
 
   // Projets de l'utilisateur connecté (lecture strictement privée, côté serveur).
@@ -117,7 +115,6 @@ export default function ReportCenter() {
     const map = new Map<string, ProjectReportArtifacts>();
     for (const row of artifacts ?? []) {
       map.set(row.projectId, {
-        materialsAnalysisId: row.materialsAnalysisId,
         roadmapId: row.roadmapId,
         budgetAnalysisId: row.budgetAnalysisId ?? null,
       });
@@ -134,7 +131,6 @@ export default function ReportCenter() {
   const runDownload = async (
     project: ProjectCardData,
     moduleKey: ReportModuleKey,
-    artifact?: ProjectReportArtifacts,
   ) => {
     setBusy({ projectId: project._id, module: moduleKey });
     try {
@@ -152,10 +148,6 @@ export default function ReportCenter() {
           break;
         case "decision":
           await downloadDecisionSupportReport(convex, project._id);
-          break;
-        case "materials":
-          if (!artifact?.materialsAnalysisId) throw new Error("report-unavailable");
-          await downloadMaterialsReport(convex, artifact.materialsAnalysisId);
           break;
         case "execution":
           await downloadExecutionReport(convex, project._id);
@@ -178,9 +170,8 @@ export default function ReportCenter() {
   const handleDownload = (
     project: ProjectCardData,
     moduleKey: ReportModuleKey,
-    artifact?: ProjectReportArtifacts,
   ) => {
-    pdfGate.requestPdfDownload(() => runDownload(project, moduleKey, artifact));
+    pdfGate.requestPdfDownload(() => runDownload(project, moduleKey));
   };
 
   return (
@@ -353,7 +344,7 @@ export default function ReportCenter() {
                               }
                               onClick={() =>
                                 isAvailable
-                                  ? handleDownload(project, module.key, artifact)
+                                  ? handleDownload(project, module.key)
                                   : setPending({
                                       label: module.label,
                                       href: module.buildHref(project._id),
