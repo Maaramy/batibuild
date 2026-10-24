@@ -2,7 +2,6 @@ import { useMutation } from "convex/react";
 import { useNavigate } from "react-router";
 import {
   ArrowUpRight,
-  Blocks,
   Building2,
   Clock,
   HardHat,
@@ -11,6 +10,7 @@ import {
   MoreHorizontal,
   PencilRuler,
   Rocket,
+  Scale,
   Trash2,
   Users,
 } from "lucide-react";
@@ -41,15 +41,16 @@ import { isFullJourneyGroup, projectJourneyGroup } from "@/lib/projectJourney";
 /**
  * Icônes des accès rapides — famille **lucide**, la même que le reste de la
  * plateforme (aucune image externe) :
- *   Matériaux → `Blocks` (briques / cubes) · Démarche → `Rocket` (guide de
- *   construction A-Z, la même icône que sur la page projet) ·
- *   Expert → `Users` · Plan AI → `PencilRuler` (plan / règle).
+ *   Plans AI → `PencilRuler` (plan / règle) · Décision → `Scale` (balance de
+ *   l'aide à la décision) · Expert → `Users` (mise en relation) ·
+ *   Démarche → `Rocket` (Exécution & Suivi, la même icône que sur la page
+ *   projet).
  */
 export const PROJECT_QUICK_ICONS: Record<string, any> = {
-  materials: Blocks,
-  guide: Rocket,
-  expert: Users,
   plan: PencilRuler,
+  decision: Scale,
+  expert: Users,
+  guide: Rocket,
 };
 
 export function ProjectCard({ project }: { project: any }) {
@@ -66,9 +67,13 @@ export function ProjectCard({ project }: { project: any }) {
   // relation.
   const journeyGroup = projectJourneyGroup(project.category);
   const quickActions = buildProjectQuickActions(project).filter((a) => {
-    // « Plan AI » et « Démarche » (Exécution & Suivi) n'existent que pour les
-    // groupes A et D : aucun lien résiduel vers une étape absente du parcours.
-    if ((a.key === "plan" || a.key === "guide") && !isFullJourneyGroup(journeyGroup)) {
+    // « Plans AI », « Décision » (Aide à la décision) et « Démarche »
+    // (Exécution & Suivi) n'existent que pour les groupes A et D : aucun lien
+    // résiduel vers une étape absente du parcours.
+    if (
+      (a.key === "plan" || a.key === "decision" || a.key === "guide") &&
+      !isFullJourneyGroup(journeyGroup)
+    ) {
       return false;
     }
     // Feature flags : les modules désactivés par l'admin disparaissent des
@@ -76,7 +81,7 @@ export function ProjectCard({ project }: { project: any }) {
     // les gardes de routes et le parcours du projet — aucun lien résiduel
     // vers une page devenue inaccessible.
     if (a.key === "plan") return isFeatureEnabled("architectural_plans");
-    if (a.key === "materials") return isFeatureEnabled("ai_materials");
+    if (a.key === "decision") return isFeatureEnabled("decision_support");
     if (a.key === "guide") return isFeatureEnabled("construction_guide");
     return true;
   });
@@ -170,10 +175,10 @@ export function ProjectCard({ project }: { project: any }) {
         </div>
 
         {/* ─── Accès rapides : modules réellement accessibles au projet ───
-          * « Plan AI » et « Démarche » (Exécution & Suivi) réservés aux groupes
-          * A et D : les groupes B et C ne conservent que les modules de leur
-          * parcours (coût estimatif → mise en relation). Aucun lien direct vers
-          * une étape absente du parcours.
+          * « Plans AI », « Décision » et « Démarche » (Exécution & Suivi)
+          * réservés aux groupes A et D : les groupes B et C ne conservent que
+          * les modules de leur parcours (coût estimatif → mise en relation).
+          * Aucun lien direct vers une étape absente du parcours.
           */}
         {quickActions.length > 0 && (
         <div className="pt-2 border-t border-border/20">
