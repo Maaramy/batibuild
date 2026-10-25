@@ -33,7 +33,6 @@ import {
   MockAnalysisScreen,
   MockReportScreen,
 } from "@/components/LandingMockScreens";
-import { ProjectLifecycleSection } from "@/components/ProjectLifecycle";
 import { AppDownloadFooterBanner } from "@/components/AppDownloadFooterBanner";
 import { AppDownloadBanner } from "@/components/AppDownloadBanner";
 import { useAppDownloadBannerVisible } from "@/hooks/use-app-download-banner";
@@ -1001,7 +1000,6 @@ export default function Landing() {
     >
       <Navbar />
       <HeroSection />
-      <ProjectLifecycleSection />
       <BenefitsSection />
       <HowItWorksSection />
       <FeaturesSection />
