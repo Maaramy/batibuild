@@ -2,7 +2,13 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { subscriptionPlanValidator } from "./schema";
-import { scheduleEmailEvent, formatDateFr, planLabel, splitName } from "./emailNotifications";
+import {
+  scheduleAdminNotification,
+  scheduleEmailEvent,
+  formatDateFr,
+  planLabel,
+  splitName,
+} from "./emailNotifications";
 import { DAY_MS, MONTHLY_DURATION_DAYS } from "./subscriptionPeriods";
 import {
   PROFILE_ROLE_LABELS,
@@ -300,7 +306,29 @@ export const createSubscription = mutation({
           sendToAdmins: true,
         });
       }
+
     }
+
+    // ── Notification administrateur — indépendante des préférences e-mail de
+    // l'utilisateur : l'administrateur est informé de TOUTE nouvelle
+    // souscription, qu'elle soit active ou en attente de validation.
+    await scheduleAdminNotification(ctx, {
+      templateKey: "admin_new_subscription",
+      // Une demande en attente puis son activation sont deux événements
+      // distincts, jamais dédupliqués l'un contre l'autre.
+      entityId:
+        status === "pending" ? `${subscriptionId}:pending` : String(subscriptionId),
+      vars: {
+        ...splitName(user.name),
+        email: user.email || "",
+        profil: PROFILE_ROLE_LABELS[profileRole ?? user.userRole ?? "client"],
+        typeAbonnement: planLabel(args.plan),
+        montant: isFreePlan ? "0 TND" : `${args.amount ?? 0} ${args.currency || "TND"}`,
+        statut:
+          status === "pending" ? "En attente de validation du paiement" : "Actif",
+        date: formatDateFr(now),
+      },
+    });
 
     return subscriptionId;
   },
@@ -550,6 +578,26 @@ export const adminApproveSubscription = mutation({
         invoiceId: approvedInvoice?._id,
         dedupeKey: `${isRenewal ? "subscription_renewed" : "subscription_activated"}:${targetUser.email}:${sub._id}`,
         sendToAdmins: true,
+      });
+    }
+
+    // ── Notification administrateur : abonnement validé / activé ──
+    if (targetUser?.email) {
+      await scheduleAdminNotification(ctx, {
+        templateKey: "admin_new_subscription",
+        entityId: String(sub._id),
+        vars: {
+          ...splitName(targetUser.name),
+          email: targetUser.email,
+          profil:
+            PROFILE_ROLE_LABELS[
+              (await resolveProfileRole(ctx, targetUser)) ?? targetUser.userRole ?? "client"
+            ],
+          typeAbonnement: planDisplayName,
+          montant: sub.amount ? `${sub.amount} ${sub.currency || "TND"}` : "0 TND",
+          statut: "Paiement validé — abonnement actif",
+          date: formatDateFr(now),
+        },
       });
     }
 

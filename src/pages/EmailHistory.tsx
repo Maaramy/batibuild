@@ -51,6 +51,10 @@ const EVENT_LABELS: Record<string, string> = {
   expert_quote_received: "Réponse de l'Expert (devis)",
   expert_appointment_response: "Rendez-vous Expert — réponse / statut",
   expert_urgent_response: "Demande urgente Expert — réponse / statut",
+  // Notifications administrateur
+  admin_new_user: "Administrateur — nouvelle inscription",
+  admin_new_subscription: "Administrateur — nouvel abonnement",
+  admin_new_project: "Administrateur — nouveau projet",
 };
 
 const STATUS_META: Record<string, { label: string; cls: string; dot: string }> = {

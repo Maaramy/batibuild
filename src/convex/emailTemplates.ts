@@ -49,7 +49,28 @@ export const EMAIL_EVENT_TYPES = [
   // Support & Messagerie
   "support_ticket_created",
   "support_reply",
+  // Notifications destinées à l'administrateur de la plateforme
+  "admin_new_user",
+  "admin_new_subscription",
+  "admin_new_project",
 ] as const;
+
+/**
+ * Types de notification adressés à l'ADMINISTRATEUR (et non à un utilisateur).
+ * Seuls ces événements utilisent les destinataires configurés dans
+ * « Destinataires des notifications administrateur ».
+ */
+export const ADMIN_NOTIFICATION_EVENT_TYPES = [
+  "admin_new_user",
+  "admin_new_subscription",
+  "admin_new_project",
+] as const;
+
+export type AdminNotificationEventType =
+  (typeof ADMIN_NOTIFICATION_EVENT_TYPES)[number];
+
+/** Catégorie « toutes les notifications » pour les destinataires. */
+export const ADMIN_NOTIFICATION_ALL_TOPIC = "all";
 
 export type EmailEventType = (typeof EMAIL_EVENT_TYPES)[number];
 
@@ -75,6 +96,10 @@ export const EMAIL_EVENT_LABELS: Record<EmailEventType, string> = {
   expert_urgent_response: "Demande urgente Expert — réponse / statut",
   support_ticket_created: "Nouvelle demande de support",
   support_reply: "Réponse du support",
+  // Notifications administrateur
+  admin_new_user: "Administrateur — nouvelle inscription",
+  admin_new_subscription: "Administrateur — nouvel abonnement",
+  admin_new_project: "Administrateur — nouveau projet",
 };
 
 export const EMAIL_VARIABLES = [
@@ -105,6 +130,9 @@ export const EMAIL_VARIABLES = [
   { token: "{{Motif}}", label: "Motif de la demande / besoin exprimé" },
   { token: "{{Région}}", label: "Région / zone du projet" },
   { token: "{{SurfaceProjet}}", label: "Surface du projet (m²)" },
+  // Variables des notifications administrateur
+  { token: "{{Email}}", label: "Adresse e-mail de l'utilisateur concerné" },
+  { token: "{{Profil}}", label: "Profil du compte (Client, Fournisseur, Expert)" },
 ] as const;
 
 export interface DefaultTemplate {
@@ -573,6 +601,92 @@ Connectez-vous à la messagerie de la plateforme pour accepter ou refuser cette 
 <br/><br/>
 L'équipe {{NomPlateforme}}`,
   },
+
+  // ── Notifications destinées à l'administrateur de la plateforme ──
+  {
+    key: "admin_new_user",
+    label: "Administrateur — nouvelle inscription",
+    subject: "Nouvelle inscription — {{Prénom}} {{Nom}} ({{Profil}})",
+    bodyHtml: `Bonjour,
+<br/><br/>
+Un <strong>nouveau compte</strong> vient d'être créé sur la plateforme.
+<br/><br/>
+<table cellpadding="0" cellspacing="0" style="background:#f0fdfa;border-radius:10px;padding:14px 18px;margin:10px 0;border:1px solid #ccfbf1;">
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Nom :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Prénom}} {{Nom}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Adresse e-mail :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Email}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Profil :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Profil}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Date d'inscription :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Date}}</td></tr>
+</table>
+Connectez-vous à l'espace d'administration pour consulter le compte et son éventuelle demande d'abonnement.
+<br/><br/>
+<a href="{{LienConnexion}}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Ouvrir l'administration</a>
+<br/><br/>
+L'équipe {{NomPlateforme}}`,
+  },
+  {
+    key: "admin_new_subscription",
+    label: "Administrateur — nouvel abonnement",
+    subject: "Nouvel abonnement — {{TypeAbonnement}} ({{Prénom}} {{Nom}})",
+    bodyHtml: `Bonjour,
+<br/><br/>
+Un utilisateur a souscrit ou activé un <strong>abonnement</strong> sur la plateforme.
+<br/><br/>
+<table cellpadding="0" cellspacing="0" style="background:#f0fdfa;border-radius:10px;padding:14px 18px;margin:10px 0;border:1px solid #ccfbf1;">
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Utilisateur :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Prénom}} {{Nom}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Adresse e-mail :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Email}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Profil :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Profil}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Abonnement :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{TypeAbonnement}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Montant :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Montant}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Statut :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Statut}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Date de souscription :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Date}}</td></tr>
+</table>
+Consultez l'abonnement et sa facture depuis l'espace d'administration.
+<br/><br/>
+<a href="{{LienConnexion}}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Ouvrir l'administration</a>
+<br/><br/>
+L'équipe {{NomPlateforme}}`,
+  },
+  {
+    key: "admin_new_project",
+    label: "Administrateur — nouveau projet",
+    subject: "Nouveau projet — {{NomProjet}}",
+    bodyHtml: `Bonjour,
+<br/><br/>
+Un utilisateur vient de créer un <strong>nouveau projet</strong> sur la plateforme.
+<br/><br/>
+<table cellpadding="0" cellspacing="0" style="background:#f0fdfa;border-radius:10px;padding:14px 18px;margin:10px 0;border:1px solid #ccfbf1;">
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Utilisateur :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Prénom}} {{Nom}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Adresse e-mail :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Email}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Profil :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Profil}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Nom du projet :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{NomProjet}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Type de projet :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{TypeProjet}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Surface :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{SurfaceProjet}}</td></tr>
+  <tr><td style="color:#6b7280;font-size:13px;padding:3px 0;">Date de création :</td></tr>
+  <tr><td style="color:#111827;font-size:14px;font-weight:600;padding:3px 0;">{{Date}}</td></tr>
+</table>
+Consultez les projets depuis l'espace d'administration.
+<br/><br/>
+<a href="{{LienConnexion}}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;">Ouvrir l'administration</a>
+<br/><br/>
+L'équipe {{NomPlateforme}}`,
+  },
 ];
 
 // ----------------------------------------------------------------------------
@@ -587,9 +701,16 @@ export const getEmailTemplates = query({
     if (!admin || admin.role !== "admin") return [];
 
     const stored = await ctx.db.query("emailTemplates").collect();
-    const storedMap = new Map(stored.map((t) => [t.key, t]));
+    // Les modèles SUPPRIMÉS (tombstone `deletedAt`) ne sont ni affichés ni
+    // envoyés : les inclure ici les ressusciterait depuis le code.
+    const deletedKeys = new Set(
+      stored.filter((t) => t.deletedAt != null).map((t) => String(t.key)),
+    );
+    const storedMap = new Map(
+      stored.filter((t) => t.deletedAt == null).map((t) => [t.key, t]),
+    );
 
-    return DEFAULT_TEMPLATES.map((def) => {
+    return DEFAULT_TEMPLATES.filter((def) => !deletedKeys.has(def.key)).map((def) => {
       const s = storedMap.get(def.key);
       return {
         key: def.key,
@@ -597,6 +718,9 @@ export const getEmailTemplates = query({
         subject: s?.subject ?? def.subject,
         bodyHtml: s?.bodyHtml ?? def.bodyHtml,
         active: s?.active ?? true,
+        // Personnalisé = une ligne en base existe (sinon c'est le modèle du code).
+        customized: !!s,
+        adminEvent: (ADMIN_NOTIFICATION_EVENT_TYPES as readonly string[]).includes(def.key),
         updatedAt: s?.updatedAt ?? undefined,
       };
     });
@@ -630,6 +754,9 @@ export const adminSaveEmailTemplate = mutation({
       v.literal("expert_urgent_response"),
       v.literal("support_ticket_created"),
       v.literal("support_reply"),
+      v.literal("admin_new_user"),
+      v.literal("admin_new_subscription"),
+      v.literal("admin_new_project"),
     ),
     subject: v.string(),
     bodyHtml: v.string(),
@@ -653,6 +780,8 @@ export const adminSaveEmailTemplate = mutation({
         subject: args.subject,
         bodyHtml: args.bodyHtml,
         active: args.active ?? true,
+        // Enregistrer (ou ré-ajouter) un modèle efface la suppression.
+        deletedAt: undefined,
         updatedAt: Date.now(),
         updatedBy: admin._id,
       });
@@ -674,6 +803,150 @@ export const adminSaveEmailTemplate = mutation({
         adminName: admin.name,
         action: "email_template_save",
         details: `Modèle e-mail mis à jour — ${label}`,
+        createdAt: Date.now(),
+      });
+    } catch (e) { /* optional */ }
+
+    return { success: true };
+  },
+});
+
+/**
+ * Supprime un modèle (administrateur uniquement).
+ *
+ * Suppression LOGIQUE : la ligne est conservée avec `deletedAt` et
+ * `active: false`. Conséquences immédiates, sans redéploiement :
+ *  - le modèle disparaît de la liste « Modèles de notification » ;
+ *  - aucun e-mail de ce type n'est plus envoyé (le modèle du code n'est pas
+ *    utilisé en remplacement) ;
+ *  - l'historique des e-mails déjà envoyés n'est pas modifié ;
+ *  - le modèle peut être ré-ajouté à tout moment avec « Ajouter un modèle ».
+ */
+export const adminDeleteEmailTemplate = mutation({
+  args: {
+    key: v.union(
+      v.literal("subscription_activated"),
+      v.literal("subscription_renewed"),
+      v.literal("subscription_expired"),
+      v.literal("payment_confirmed"),
+      v.literal("payment_rejected"),
+      v.literal("subscription_suspended"),
+      v.literal("subscription_canceled"),
+      v.literal("quote_request_sent"),
+      v.literal("service_request_sent"),
+      v.literal("expert_quote_request"),
+      v.literal("expert_appointment_request"),
+      v.literal("expert_urgent_request"),
+      v.literal("quote_received"),
+      v.literal("service_received"),
+      v.literal("expert_quote_received"),
+      v.literal("expert_appointment_response"),
+      v.literal("expert_urgent_response"),
+      v.literal("support_ticket_created"),
+      v.literal("support_reply"),
+      v.literal("admin_new_user"),
+      v.literal("admin_new_subscription"),
+      v.literal("admin_new_project"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const now = Date.now();
+    const label = EMAIL_EVENT_LABELS[args.key];
+    const def = DEFAULT_TEMPLATES.find((t) => t.key === args.key);
+    const existing = await ctx.db
+      .query("emailTemplates")
+      .withIndex("by_key", (q) => q.eq("key", args.key))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        active: false,
+        deletedAt: now,
+        updatedAt: now,
+        updatedBy: admin._id,
+      });
+    } else {
+      await ctx.db.insert("emailTemplates", {
+        key: args.key,
+        label,
+        subject: def?.subject ?? label,
+        bodyHtml: def?.bodyHtml ?? "",
+        active: false,
+        deletedAt: now,
+        updatedAt: now,
+        updatedBy: admin._id,
+      } as any);
+    }
+
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "email_template_delete",
+        details: `Modèle e-mail supprimé — ${label}`,
+        createdAt: now,
+      });
+    } catch (e) { /* optional */ }
+
+    return { success: true };
+  },
+});
+
+/**
+ * Ré-ajoute un modèle supprimé (administrateur uniquement) : la suppression
+ * logique est effacée et le modèle normalisé du code redevient actif.
+ * Aucun historique d'envoi n'est modifié.
+ */
+export const adminRestoreEmailTemplate = mutation({
+  args: {
+    key: v.union(
+      v.literal("subscription_activated"),
+      v.literal("subscription_renewed"),
+      v.literal("subscription_expired"),
+      v.literal("payment_confirmed"),
+      v.literal("payment_rejected"),
+      v.literal("subscription_suspended"),
+      v.literal("subscription_canceled"),
+      v.literal("quote_request_sent"),
+      v.literal("service_request_sent"),
+      v.literal("expert_quote_request"),
+      v.literal("expert_appointment_request"),
+      v.literal("expert_urgent_request"),
+      v.literal("quote_received"),
+      v.literal("service_received"),
+      v.literal("expert_quote_received"),
+      v.literal("expert_appointment_response"),
+      v.literal("expert_urgent_response"),
+      v.literal("support_ticket_created"),
+      v.literal("support_reply"),
+      v.literal("admin_new_user"),
+      v.literal("admin_new_subscription"),
+      v.literal("admin_new_project"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const existing = await ctx.db
+      .query("emailTemplates")
+      .withIndex("by_key", (q) => q.eq("key", args.key))
+      .first();
+    if (existing) await ctx.db.delete(existing._id);
+
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: "email_template_save",
+        details: `Modèle e-mail ré-ajouté — ${EMAIL_EVENT_LABELS[args.key]}`,
         createdAt: Date.now(),
       });
     } catch (e) { /* optional */ }

@@ -26,6 +26,9 @@ import {
 } from "../lib/buildingLevels";
 import { parseLevelCoefficients } from "./bimConfig";
 import { categoryForLot } from "../lib/budgetEngine";
+import { scheduleAdminNotification, formatDateFr, splitName } from "./emailNotifications";
+import { PROJECT_TYPE_LABELS } from "./projectTypes";
+import { PROFILE_ROLE_LABELS, resolveProfileRole } from "./profileSubscription";
 
 type DbCtx = MutationCtx | QueryCtx;
 
@@ -426,6 +429,30 @@ export const createProject = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // ── Notification administrateur : nouveau projet créé ──
+    // Après l'insertion effective ; l'échec d'envoi ne bloque jamais la
+    // création (`scheduleAdminNotification` est best-effort).
+    if (user.email) {
+      const profileRole = await resolveProfileRole(ctx, user);
+      await scheduleAdminNotification(ctx, {
+        templateKey: "admin_new_project",
+        // Un même projet n'est notifié qu'une fois ; deux projets distincts le
+        // sont indépendamment.
+        entityId: String(projectId),
+        vars: {
+          ...splitName(user.name),
+          email: user.email,
+          profil: PROFILE_ROLE_LABELS[profileRole ?? user.userRole ?? "client"],
+          nomProjet: name,
+          typeProjet:
+            PROJECT_TYPE_LABELS[args.category as keyof typeof PROJECT_TYPE_LABELS] ??
+            args.category,
+          surfaceProjet: args.surface ? `${args.surface} m²` : undefined,
+          date: formatDateFr(now),
+        },
+      });
+    }
 
     return projectId;
   },

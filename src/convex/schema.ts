@@ -1165,6 +1165,9 @@ const schema = defineSchema(
         v.literal("update_invoice_status"),
         v.literal("update_trial_config"),
         v.literal("migrate_free_plan_users"),
+        v.literal("email_template_delete"),
+        v.literal("notification_recipient_save"),
+        v.literal("notification_recipient_delete"),
       ),
       targetUserId: v.optional(v.id("users")),
       targetUserEmail: v.optional(v.string()),
@@ -1472,15 +1475,39 @@ const schema = defineSchema(
         v.literal("expert_appointment_response"),
         v.literal("expert_urgent_response"),
         v.literal("support_ticket_created"),
-        v.literal("support_reply")
+        v.literal("support_reply"),
+        // Notifications destinées à l'administrateur de la plateforme
+        v.literal("admin_new_user"),
+        v.literal("admin_new_subscription"),
+        v.literal("admin_new_project")
       ),
       label: v.string(),
       subject: v.string(),
       bodyHtml: v.string(),
       active: v.optional(v.boolean()),
+      /**
+       * Modèle supprimé par l'administrateur (tombstone). La ligne est conservée
+       * pour ne jamais ressusciter un modèle supprimé via la version par défaut
+       * du code : `getEmailTemplates` le masque et aucun envoi n'est effectué.
+       * Ré-ajouter le modèle efface ce champ.
+       */
+      deletedAt: v.optional(v.number()),
       updatedAt: v.number(),
       updatedBy: v.id("users"),
     }).index("by_key", ["key"]),
+
+    // Destinataires des notifications administrateur (adresses gérées depuis
+    // l'administration, sans intervention dans le code).
+    adminNotificationRecipients: defineTable({
+      email: v.string(),
+      name: v.optional(v.string()),
+      /** Types de notification reçus ; `all` = toutes les catégories. */
+      topics: v.array(v.string()),
+      active: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+      createdBy: v.optional(v.id("users")),
+    }).index("by_created", ["createdAt"]),
 
     emailHistory: defineTable({
       to: v.string(),

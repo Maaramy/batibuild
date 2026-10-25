@@ -3,6 +3,7 @@ import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { DEFAULT_TEMPLATES, EMAIL_EVENT_LABELS } from "./emailTemplates";
+import type { AdminNotificationEventType } from "./emailTemplates";
 import { decryptPassword } from "./emailConfig";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 
@@ -43,6 +44,9 @@ export type EmailVars = {
   statut?: string;
   date?: string;
   heure?: string;
+  // Notifications administrateur (compte / abonnement / projet concerné)
+  email?: string;
+  profil?: string;
 };
 
 export const emailEventValidator = v.union(
@@ -65,7 +69,41 @@ export const emailEventValidator = v.union(
   v.literal("expert_urgent_response"),
   v.literal("support_ticket_created"),
   v.literal("support_reply"),
+  v.literal("admin_new_user"),
+  v.literal("admin_new_subscription"),
+  v.literal("admin_new_project"),
 );
+
+/** Validateur des variables de modèle (partagé par les deux diffusions). */
+const emailVarsValidator = v.object({
+  nom: v.optional(v.string()),
+  prenom: v.optional(v.string()),
+  nomEntreprise: v.optional(v.string()),
+  typeAbonnement: v.optional(v.string()),
+  dateActivation: v.optional(v.string()),
+  dateExpiration: v.optional(v.string()),
+  montant: v.optional(v.string()),
+  numeroFacture: v.optional(v.string()),
+  lienConnexion: v.optional(v.string()),
+  nomPlateforme: v.optional(v.string()),
+  nomProjet: v.optional(v.string()),
+  typeProjet: v.optional(v.string()),
+  entreprise: v.optional(v.string()),
+  detailsDemande: v.optional(v.string()),
+  montantDevis: v.optional(v.string()),
+  message: v.optional(v.string()),
+  creneau: v.optional(v.string()),
+  motif: v.optional(v.string()),
+  region: v.optional(v.string()),
+  surfaceProjet: v.optional(v.string()),
+  expediteur: v.optional(v.string()),
+  typeDemande: v.optional(v.string()),
+  statut: v.optional(v.string()),
+  date: v.optional(v.string()),
+  heure: v.optional(v.string()),
+  email: v.optional(v.string()),
+  profil: v.optional(v.string()),
+});
 
 // ----------------------------------------------------------------------------
 // Shared helpers used by the trigger hooks
@@ -132,7 +170,10 @@ export async function scheduleEmailEvent(
       | "expert_appointment_response"
       | "expert_urgent_response"
       | "support_ticket_created"
-      | "support_reply";
+      | "support_reply"
+      | "admin_new_user"
+      | "admin_new_subscription"
+      | "admin_new_project";
     vars: EmailVars;
     dedupeKey?: string;
     sendToAdmins?: boolean;
@@ -148,6 +189,38 @@ export async function scheduleEmailEvent(
     await ctx.scheduler.runAfter(0, internal.emailNotifications.processEmailEvent, params);
   } catch (e) {
     // Sending is best-effort — never block the subscription flow
+  }
+}
+
+/**
+ * Notifie l'ADMINISTRATEUR de la plateforme d'un événement (nouvelle
+ * inscription, nouvel abonnement, nouveau projet).
+ *
+ * À appeler DANS la mutation concernée, après la réussite effective de
+ * l'opération : la diffusion (modèle actif ? destinataires ?) est résolue par
+ * `dispatchAdminNotification`, qui planifie un envoi distinct par destinataire
+ * — chacun tracé dans `emailHistory` (type, destinataire, date, statut).
+ *
+ * `entityId` rend la déduplication fiable : un même événement (même compte,
+ * même abonnement, même projet) n'est jamais notifié deux fois, alors que deux
+ * événements distincts du même utilisateur le sont normalement.
+ */
+export async function scheduleAdminNotification(
+  ctx: any,
+  params: {
+    templateKey: AdminNotificationEventType;
+    entityId: string;
+    vars: EmailVars;
+  },
+) {
+  try {
+    await ctx.scheduler.runAfter(0, internal.emailNotifications.dispatchAdminNotification, {
+      templateKey: params.templateKey,
+      entityId: params.entityId,
+      vars: params.vars,
+    });
+  } catch (e) {
+    // La notification ne doit jamais faire échouer l'opération métier.
   }
 }
 
@@ -191,6 +264,8 @@ export function renderTokens(text: string, vars: Record<string, string>): string
       Statut: vars.statut || "",
       Date: vars.date || "",
       Heure: vars.heure || "",
+      Email: vars.email || "",
+      Profil: vars.profil || "",
     };
     return lookup[key] !== undefined ? lookup[key] : m;
   });
@@ -247,6 +322,80 @@ function buildBrandedHtml(bodyHtml: string, opts: {
 }
 
 // ----------------------------------------------------------------------------
+// Diffusion administrateur (internal mutation)
+// ----------------------------------------------------------------------------
+
+/**
+ * Résout le modèle puis les destinataires et planifie un envoi PAR destinataire.
+ *
+ * Aucun e-mail n'est envoyé si :
+ *  - le modèle a été supprimé (`deletedAt`) ou désactivé par l'administrateur ;
+ *  - aucun destinataire actif n'est configuré pour cette catégorie.
+ * Ces deux cas sont retournés explicitement (jamais silencieux).
+ */
+export const dispatchAdminNotification = internalMutation({
+  args: {
+    templateKey: emailEventValidator,
+    entityId: v.string(),
+    vars: v.optional(emailVarsValidator),
+  },
+  handler: async (ctx, args) => {
+    const templateKey = args.templateKey as AdminNotificationEventType;
+
+    const stored = await ctx.db
+      .query("emailTemplates")
+      .withIndex("by_key", (q) => q.eq("key", args.templateKey))
+      .first();
+
+    if ((stored as { deletedAt?: number } | null)?.deletedAt != null) {
+      return { success: true, skipped: "deleted", sentTo: [] as string[] };
+    }
+
+    const template = stored || DEFAULT_TEMPLATES.find((t) => t.key === templateKey);
+    if (!template || template.active === false) {
+      return { success: true, skipped: "disabled", sentTo: [] as string[] };
+    }
+
+    // Destinataires ACTIFS de cette catégorie (table dédiée, gérée depuis
+    // l'administration). Lecture directe : évite un cycle d'imports entre le
+    // moteur d'envoi et les modules d'administration.
+    const recipientRows = await ctx.db
+      .query("adminNotificationRecipients")
+      .collect();
+    const recipients = Array.from(
+      new Set(
+        recipientRows
+          .filter((r: any) => r.active !== false)
+          .filter((r: any) => {
+            const list: string[] = (r.topics || []).map((t: any) => String(t));
+            return list.length === 0 || list.includes("all") || list.includes(templateKey);
+          })
+          .map((r: any) => String(r.email || "").trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ) as string[];
+    if (recipients.length === 0) {
+      // Aucune adresse configurée : rien n'est envoyé (jamais aux comptes
+      // administrateur par défaut — la liste est gérée par l'administrateur).
+      return { success: true, skipped: "no_recipients", sentTo: [] as string[] };
+    }
+
+    const vars = (args.vars || {}) as EmailVars;
+    for (const email of recipients) {
+      await ctx.scheduler.runAfter(0, internal.emailNotifications.processEmailEvent, {
+        to: email,
+        templateKey: args.templateKey,
+        vars,
+        // Déduplication par événement ET par destinataire.
+        dedupeKey: `admin:${templateKey}:${args.entityId}:${email}`,
+      });
+    }
+
+    return { success: true, status: "scheduled", sentTo: recipients };
+  },
+});
+
+// ----------------------------------------------------------------------------
 // Orchestration (internal mutation)
 // ----------------------------------------------------------------------------
 
@@ -255,35 +404,7 @@ export const processEmailEvent = internalMutation({
     to: v.string(),
     recipientName: v.optional(v.string()),
     templateKey: emailEventValidator,
-    vars: v.optional(
-      v.object({
-        nom: v.optional(v.string()),
-        prenom: v.optional(v.string()),
-        nomEntreprise: v.optional(v.string()),
-        typeAbonnement: v.optional(v.string()),
-        dateActivation: v.optional(v.string()),
-        dateExpiration: v.optional(v.string()),
-        montant: v.optional(v.string()),
-        numeroFacture: v.optional(v.string()),
-        lienConnexion: v.optional(v.string()),
-        nomPlateforme: v.optional(v.string()),
-        nomProjet: v.optional(v.string()),
-        typeProjet: v.optional(v.string()),
-        entreprise: v.optional(v.string()),
-        detailsDemande: v.optional(v.string()),
-        montantDevis: v.optional(v.string()),
-        message: v.optional(v.string()),
-        creneau: v.optional(v.string()),
-        motif: v.optional(v.string()),
-        region: v.optional(v.string()),
-        surfaceProjet: v.optional(v.string()),
-        expediteur: v.optional(v.string()),
-        typeDemande: v.optional(v.string()),
-        statut: v.optional(v.string()),
-        date: v.optional(v.string()),
-        heure: v.optional(v.string()),
-      }),
-    ),
+    vars: v.optional(emailVarsValidator),
     dedupeKey: v.optional(v.string()),
     sendToAdmins: v.optional(v.boolean()),
     force: v.optional(v.boolean()),
@@ -360,7 +481,10 @@ export const processEmailEvent = internalMutation({
     const template =
       storedTemplate ||
       DEFAULT_TEMPLATES.find((t) => t.key === args.templateKey);
-    if (!template || template.active === false) {
+    // Modèle supprimé par l'administrateur (tombstone) = aucun envoi, et le
+    // modèle du code n'est PAS utilisé en remplacement.
+    const deleted = (storedTemplate as { deletedAt?: number } | null)?.deletedAt != null;
+    if (!template || deleted || template.active === false) {
       await recordFailed(
         "Modèle de notification désactivé ou introuvable",
         EMAIL_EVENT_LABELS[args.templateKey],
@@ -398,6 +522,8 @@ export const processEmailEvent = internalMutation({
       statut: vars.statut || "",
       date: vars.date || "",
       heure: vars.heure || "",
+      email: vars.email || "",
+      profil: vars.profil || "",
     };
 
     // 4bis. Facture jointe : numéro réel issu de la facture enregistrée.

@@ -14,7 +14,13 @@ const ROLE_LOG_LABELS: Record<string, string> = {
 };
 import { P, runBIMEstimation } from "./bimEngine";
 import { applyRealisticDoorsWindows } from "./bimQuantitatif";
-import { scheduleEmailEvent, formatDateFr, planLabel, splitName } from "./emailNotifications";
+import {
+  scheduleAdminNotification,
+  scheduleEmailEvent,
+  formatDateFr,
+  planLabel,
+  splitName,
+} from "./emailNotifications";
 import { DAY_MS, MONTHLY_DURATION_DAYS } from "./subscriptionPeriods";
 import {
   PLAN_VALUE_LABELS,
@@ -295,6 +301,10 @@ export const adminUpdateUserPlan = mutation({
       updatedAt: now,
     });
 
+    // Montant du forfait attribué (utilisé pour la trace ET la notification).
+    const assignedAmount =
+      args.plan === "pro" ? 80 : args.plan === "expert" ? 120 : args.plan === "supplier" ? 120 : 0;
+
     // Also update/create subscription record
     const existingSub = await ctx.db
       .query("subscriptions")
@@ -325,7 +335,7 @@ export const adminUpdateUserPlan = mutation({
         startDate: now,
         endDate: now + planDuration,
         paymentMethod: "admin",
-        amount: args.plan === "pro" ? 80 : args.plan === "expert" ? 120 : args.plan === "supplier" ? 120 : 0,
+        amount: assignedAmount,
         currency: "TND",
         monthlyDownloadCount: 0,
         downloadLimit: limit,
@@ -340,6 +350,24 @@ export const adminUpdateUserPlan = mutation({
         { userId: args.userId, email: targetBefore?.email },
         `Profil « ${profileLabel} » confirmé sur le compte (champ profil manquant) — abonnement « ${planLabel} » associé`,
       );
+    }
+
+    // ── Notification administrateur : nouvel abonnement attribué ──
+    const notifiedUser = await ctx.db.get(args.userId);
+    if (notifiedUser?.email) {
+      await scheduleAdminNotification(ctx, {
+        templateKey: "admin_new_subscription",
+        entityId: `${args.userId}:${args.plan}:${now}`,
+        vars: {
+          ...splitName(notifiedUser.name),
+          email: notifiedUser.email,
+          profil: PROFILE_ROLE_LABELS[resolvedRole ?? notifiedUser.userRole ?? "client"],
+          typeAbonnement: planLabel,
+          montant: `${assignedAmount} TND`,
+          statut: "Activé par l'administrateur",
+          date: formatDateFr(now),
+        },
+      });
     }
 
     return {
@@ -407,7 +435,32 @@ export const setUserRole = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
+
+    // ── Première attribution de profil = fin de l'inscription ──
+    // C'est le seul point où le profil choisi à l'inscription est connu côté
+    // serveur : la notification administrateur « nouvelle inscription » part
+    // donc d'ici, une seule fois (`userRole` déjà écrit = changement de profil
+    // d'un compte existant, aucune notification). L'âge du compte évite de
+    // notifier pour d'anciens comptes dont le champ profil n'avait jamais été
+    // enregistré.
+    const isNewRegistration =
+      !user.userRole &&
+      Date.now() - (user.createdAt ?? user._creationTime) < 7 * DAY_MS;
+
     await ctx.db.patch(user._id, { userRole: args.userRole, updatedAt: Date.now() });
+
+    if (isNewRegistration && user.email) {
+      await scheduleAdminNotification(ctx, {
+        templateKey: "admin_new_user",
+        entityId: String(user._id),
+        vars: {
+          ...splitName(user.name),
+          email: user.email,
+          profil: PROFILE_ROLE_LABELS[args.userRole],
+          date: formatDateFr(Date.now()),
+        },
+      });
+    }
 
     // ── Compatibilité immédiate profil ↔ abonnement ──
     // Aucune conversion automatique de forfait : si l'abonnement actif ne

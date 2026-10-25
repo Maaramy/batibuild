@@ -5,7 +5,11 @@ import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 import { requireProfileRoleForCreation, requireProfileRole } from "./profileSubscription";
 import { SUPPLIER_SPECIALTIES_LABELS } from "./schema";
 import { keepSupplierSpecialties } from "../lib/supplierSpecialties";
-import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
+import {
+  scheduleAdminNotification,
+  scheduleEmailEvent,
+  formatDateFr,
+} from "./emailNotifications";
 import { assertPaymentMethodEnabled } from "./paymentMethodStates";
 import { invoicePeriodEnd } from "../lib/invoiceStatus";
 import type { Doc } from "./_generated/dataModel";
@@ -626,6 +630,21 @@ export const adminApproveSupplierSubscription = mutation({
         sendToAdmins: true,
       });
     }
+
+    // ── Notification administrateur : abonnement Fournisseur activé ──
+    await scheduleAdminNotification(ctx, {
+      templateKey: "admin_new_subscription",
+      entityId: String(profile._id),
+      vars: {
+        nom: supplierUser?.name || profile.companyName,
+        email: to || supplierUser?.email || "",
+        profil: "Fournisseur",
+        typeAbonnement: "Fournisseur",
+        montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : "0 TND",
+        statut: "Paiement validé — abonnement actif",
+        date: formatDateFr(now),
+      },
+    });
 
     return { success: true };
   },

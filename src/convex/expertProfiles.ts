@@ -3,7 +3,11 @@ import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
 import { requireProfileRoleForCreation, requireProfileRole } from "./profileSubscription";
-import { scheduleEmailEvent, formatDateFr } from "./emailNotifications";
+import {
+  scheduleAdminNotification,
+  scheduleEmailEvent,
+  formatDateFr,
+} from "./emailNotifications";
 import { normalizeIndicativePrice } from "../lib/expertAvailability";
 import { stripCjk, sanitizeStringList } from "../lib/sanitizeText";
 import { assertPaymentMethodEnabled } from "./paymentMethodStates";
@@ -876,6 +880,21 @@ export const adminApproveExpertSubscription = mutation({
         sendToAdmins: true,
       });
     }
+
+    // ── Notification administrateur : abonnement Expert activé ──
+    await scheduleAdminNotification(ctx, {
+      templateKey: "admin_new_subscription",
+      entityId: String(profile._id),
+      vars: {
+        nom: expertUser?.name || profile.displayName,
+        email: to || expertUser?.email || "",
+        profil: "Expert",
+        typeAbonnement: "Expert",
+        montant: profile.paymentAmount ? `${profile.paymentAmount} TND` : "0 TND",
+        statut: "Paiement validé — abonnement actif",
+        date: formatDateFr(now),
+      },
+    });
 
     return { success: true };
   },
