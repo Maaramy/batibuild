@@ -38,8 +38,9 @@
 #      immédiat avec le corps de la réponse, jamais un échec muet) ;
 #   2. création CONTRÔLÉE du tag Git sur le commit du run s'il manque ;
 #   3. création de la Release, ou mise à jour si elle existe déjà ;
-#   4. remplacement des fichiers joints (suppression de l'actif homonyme puis
-#      téléversement, 3 tentatives) → aucun doublon, jamais de 422 « already_exists » ;
+#   4. envoi des fichiers joints par `gh release upload --clobber` (3 tentatives)
+#      → aucun doublon, jamais de 422 « already_exists », hôte de téléversement
+#      géré par l'outil officiel ;
 #   5. vérification par l'API : les DEUX fichiers sont présents, leur taille
 #      correspond EXACTEMENT au fichier local, et leur état est « uploaded ».
 # Le script est IDEMPOTENT et refuse de publier un tag qui ne correspond pas à
@@ -97,8 +98,6 @@ DIST_DIR="${DIST_DIR:-/tmp/dist}"
 TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 SERVER="${GITHUB_SERVER_URL:-https://github.com}"
 REPO="${GITHUB_REPOSITORY:-}"
-HOST_IS_GITHUB="0"
-if [ "$SERVER" = "https://github.com" ]; then HOST_IS_GITHUB="1"; fi
 
 # APK release + AAB release uniquement : l'APK debug n'est ni produit ni publié
 # (il ne ferait que gonfler le stockage, et la clé debug suffit déjà à signer la
@@ -321,19 +320,15 @@ list_assets() {
     --jq '.[] | "\(.id)\t\(.name)\t\(.size)\t\(.state)"' 2>"$API_ERR"
 }
 
+# Téléversement d'un actif : `gh release upload` est la SEULE voie qui gère
+# correctement l'hôte de téléversement (uploads.github.com), les gros fichiers
+# et le remplacement d'un actif homonyme (`--clobber`). Un appel REST maison
+# avec `--hostname uploads.github.com` construisait une URL d'API erronée
+# (`.../api/v3/...`) et échouait sans explication utile.
+# Toute erreur réelle de l'API est capturée et affichée par l'appelant.
 upload_asset() {
-  local file="$1" name="$2"
-  if [ "$HOST_IS_GITHUB" = "1" ]; then
-    gh api --hostname uploads.github.com --method POST \
-      "repos/${REPO}/releases/${RELEASE_ID}/assets?name=${name}" \
-      -H "Content-Type: application/octet-stream" \
-      --input "$file" >/dev/null 2>"$API_ERR"
-  else
-    gh api --method POST \
-      "repos/${REPO}/releases/${RELEASE_ID}/assets?name=${name}" \
-      -H "Content-Type: application/octet-stream" \
-      --input "$file" >/dev/null 2>"$API_ERR"
-  fi
+  local file="$1"
+  gh release upload "$TAG" "$file" --clobber --repo "$REPO" >/dev/null 2>"$API_ERR"
 }
 
 EXISTING=$(list_assets || true)
@@ -343,26 +338,15 @@ for f in "${ASSETS[@]}"; do
   LOCAL_SIZE=$(file_size "$f")
   [ "$LOCAL_SIZE" -gt 0 ] || fail "le fichier ${NAME} est vide : publication refusée."
 
-  # Actif homonyme (run relancé) : suppression AVANT téléversement, sinon
-  # l'API refuse un second fichier portant le même nom (422 already_exists).
-  if [ -n "$EXISTING" ]; then
-    while IFS=$'\t' read -r ASSET_ID ASSET_NAME ASSET_SIZE _ASSET_STATE; do
-      [ -n "${ASSET_ID:-}" ] || continue
-      if [ "$ASSET_NAME" = "$NAME" ]; then
-        echo "Actif existant « ${ASSET_NAME} » (${ASSET_SIZE} octets) → remplacement."
-        if ! gh api --method DELETE "repos/${REPO}/releases/assets/${ASSET_ID}" \
-          >/dev/null 2>"$API_ERR"; then
-          fail "suppression de l'ancien fichier « ${ASSET_NAME} » impossible :
-$(cat "$API_ERR")
-   → jeton sans « contents: write » (403)."
-        fi
-      fi
-    done <<<"$EXISTING"
+  # Actif homonyme (run relancé) : signalé, puis remplacé par `--clobber` —
+  # jamais de doublon, jamais de 422 « already_exists ».
+  if [ -n "$EXISTING" ] && printf '%s\n' "$EXISTING" | awk -F'\t' -v n="$NAME" '$2 == n { f=1 } END { exit !f }'; then
+    echo "Actif existant « ${NAME} » → remplacement (--clobber)."
   fi
 
   UPLOADED="0"
   for attempt in 1 2 3; do
-    if upload_asset "$f" "$NAME"; then
+    if upload_asset "$f"; then
       UPLOADED="1"
       break
     fi
@@ -371,6 +355,9 @@ $(cat "$API_ERR")
     if [ "$attempt" -lt 3 ]; then sleep $((attempt * 5)); fi
   done
   [ "$UPLOADED" = "1" ] || fail "le téléversement de ${NAME} a échoué après 3 tentatives (cause ci-dessus).
+   Causes réelles les plus fréquentes : jeton sans « contents: write » (403),
+   tag protégé par une règle (403/422), fichier trop volumineux, ou API
+   momentanément indisponible.
    Aucune copie durable n'existe : la Release ne contient pas les 2 fichiers."
   echo "✅ ${NAME} téléversé (${LOCAL_SIZE} octets)."
 done

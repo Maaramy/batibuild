@@ -72,6 +72,32 @@ describe("resolvePlanPagePhase — page Plans architecturaux AI", () => {
     ).toBe("loading");
   });
 
+  it("session en cours de restauration : jamais « Projet introuvable », même si la requête répond `null`", () => {
+    // Démarrage de l'application Android / rechargement de la WebView : le jeton
+    // de session n'est pas encore relu, la requête du projet n'a pas d'identité
+    // et répond `null`. Ce n'est PAS une preuve d'inexistence.
+    expect(
+      resolvePlanPagePhase({
+        introLoading: false,
+        authLoading: true,
+        projectId: PROJECT_ID,
+        project: null,
+        customWorks: null,
+      }),
+    ).toBe("loading");
+
+    // Session restaurée : la même réponse devient une vraie réponse serveur.
+    expect(
+      resolvePlanPagePhase({
+        introLoading: false,
+        authLoading: false,
+        projectId: PROJECT_ID,
+        project: null,
+        customWorks: null,
+      }),
+    ).toBe("not-found");
+  });
+
   it("scénario 6 — projet réellement inexistant : message après réponse serveur", () => {
     expect(
       resolvePlanPagePhase({

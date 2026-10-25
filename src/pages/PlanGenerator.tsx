@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { motion } from "framer-motion";
 import {
   BadgeCheck,
@@ -110,6 +110,13 @@ export default function PlanGenerator() {
 
   const hasProjectId = projectId.length > 0;
 
+  // Session Convex en cours de restauration (démarrage de l'application Android,
+  // rechargement de la WebView) : la requête du projet n'a pas encore
+  // d'identité, donc une réponse `null` à ce stade ne prouve RIEN. Même verrou
+  // que la page de détail du projet : sans lui, « Projet introuvable »
+  // s'affichait brièvement avant les plans architecturaux IA.
+  const { isLoading: authLoading } = useConvexAuth();
+
   // ── Écran de chargement partagé avec « Coût estimatif de construction » ──
   // Il n'est joué QU'UNE fois par projet : à la toute première génération de
   // ses plans. Les visites suivantes (retour sur la page, actualisation,
@@ -201,6 +208,7 @@ export default function PlanGenerator() {
     // Sans identifiant, aucune requête n'est envoyée : inutile de faire patienter
     // l'utilisateur derrière une animation.
     introLoading: !introDone && hasProjectId,
+    authLoading,
     projectId,
     project,
     customWorks,

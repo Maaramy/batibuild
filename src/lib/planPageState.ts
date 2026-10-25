@@ -19,6 +19,17 @@ export type PlanPagePhase = "intro" | "loading" | "not-found" | "ready";
 export interface PlanPageStateInput {
   /** Écran d'introduction (durée fixe) affiché au montage de la page. */
   introLoading: boolean;
+  /**
+   * Session Convex en cours de restauration (démarrage de l'application,
+   * rechargement de la WebView, retour depuis un lien direct).
+   *
+   * Pendant cette phase, la requête du projet n'a pas encore d'identité : une
+   * réponse `null` ne signifie donc PAS « projet introuvable » (même règle que
+   * la page de détail du projet). Sans ce verrou, l'application Android — qui
+   * recharge la page de génération IA avant que le jeton ne soit relu —
+   * affichait brièvement « Projet introuvable » avant les plans.
+   */
+  authLoading?: boolean;
   /** Identifiant réel du projet issu de l'URL (`/dashboard/plans/:id`). */
   projectId: string | null | undefined;
   /** Résultat de `api.projects.getProject` : `undefined` = en cours. */
@@ -29,6 +40,7 @@ export interface PlanPageStateInput {
 
 export function resolvePlanPagePhase({
   introLoading,
+  authLoading = false,
   projectId,
   project,
   customWorks,
@@ -38,6 +50,9 @@ export function resolvePlanPagePhase({
 
   if (introLoading) return "intro";
   if (!hasProjectId) return "not-found";
+  // Session pas encore restaurée : la requête n'a pas d'identité, donc un
+  // `null` ici n'est pas une preuve d'inexistence. On reste en chargement.
+  if (authLoading) return "loading";
   if (project === undefined) return "loading";
   if (project === null) return "not-found";
   // Les plans intègrent les travaux complémentaires enregistrés : attendre leur

@@ -1537,8 +1537,9 @@ jobs:
       #   · création CONTRÔLÉE du tag Git sur le commit du run s'il manque
       #     (cause n°1 des 422 « Validation Failed » de `gh release create`) ;
       #   · création de la Release, ou mise à jour si elle existe déjà ;
-      #   · remplacement des fichiers joints (suppression de l'actif homonyme
-      #     puis téléversement, 3 tentatives) — aucun doublon, aucun 422 ;
+      #   · envoi des fichiers joints par `gh release upload --clobber`
+      #     (3 tentatives) — aucun doublon, aucun 422, hôte de téléversement
+      #     géré par l'outil officiel ;
       #   · vérification par l'API : les 2 fichiers sont présents, à l'état
       #     « uploaded », et leur taille est EXACTEMENT celle du fichier local.
       # ══════════════════════════════════════════════════════════════════════

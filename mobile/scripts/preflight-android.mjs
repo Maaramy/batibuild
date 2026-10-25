@@ -345,7 +345,7 @@ function checkWebRoutes() {
 const PRODUCTION_WEB_URL = "https://batibuild.app/";
 
 function checkAppShell() {
-  console.log("\n5-bis. URL de production et guide d'utilisation");
+  console.log("\n5-bis. URL de production, guide d'utilisation et zoom");
   const config = read(join(root, "src", "config.ts"));
   const defaultUrl = config.match(/DEFAULT_WEB_APP_URL\s*=\s*"([^"]+)"/)?.[1];
 
@@ -384,6 +384,45 @@ function checkAppShell() {
     fail("navigation du guide", `libellé(s) introuvable(s) : ${missingLabels.join(", ")}`);
   } else {
     ok("navigation du guide : Précédent, Suivant, Passer et bouton final");
+  }
+
+  // ── Zoom DÉSACTIVÉ dans l'application, préservé sur le site Web ──────────
+  // `builtInZoomControls = false` supprime le pincement à deux doigts et les
+  // commandes de zoom natives ; `displayZoomControls = false` masque les
+  // boutons ; `NO_ZOOM_SCRIPT` verrouille le viewport dans la coque seule.
+  const webview = read(join(root, "src", "screens", "WebViewScreen.tsx"));
+  const injected = read(join(root, "src", "injected.ts"));
+  const noZoomBlock = injected.split("export const NO_ZOOM_SCRIPT")[1] ?? "";
+  const zoomMisses = [];
+  if (!/setBuiltInZoomControls=\{false\}/.test(webview)) {
+    zoomMisses.push("setBuiltInZoomControls={false}");
+  }
+  if (!/setDisplayZoomControls=\{false\}/.test(webview)) {
+    zoomMisses.push("setDisplayZoomControls={false}");
+  }
+  if (!/NO_ZOOM_SCRIPT/.test(webview)) zoomMisses.push("injection de NO_ZOOM_SCRIPT");
+  if (!/user-scalable=no/.test(noZoomBlock) || !/maximum-scale=1\.0/.test(noZoomBlock)) {
+    zoomMisses.push("viewport à échelle fixe dans NO_ZOOM_SCRIPT");
+  }
+  if (zoomMisses.length) {
+    fail(
+      "zoom désactivé",
+      `réglage(s) manquant(s) : ${zoomMisses.join(", ")} — le pincement resterait actif`,
+    );
+  } else {
+    ok("zoom désactivé dans la WebView (ni pincement, ni commandes, viewport verrouillé)");
+  }
+
+  // Le fichier HTML de la plateforme est PARTAGÉ avec le site : il ne doit pas
+  // désactiver le zoom des visiteurs d'un navigateur classique.
+  const indexHtml = read(join(repoRoot, "index.html"));
+  if (/user-scalable\s*=\s*no/.test(indexHtml)) {
+    fail(
+      "zoom du site Web",
+      "index.html interdit le zoom aux visiteurs du site — cette règle ne doit exister que côté application",
+    );
+  } else {
+    ok("index.html inchangé : le site ouvert dans un navigateur conserve son zoom");
   }
 }
 
