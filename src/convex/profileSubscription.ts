@@ -205,7 +205,13 @@ export function pickReferenceSubscription(
   now = Date.now(),
 ): ReferenceSubscriptionDoc | null {
   if (monthly.length === 0) return null;
-  return pickActiveSubscription(monthly, now) ?? mostRecentSubscription(monthly);
+  // Un abonnement ANNULÉ (retiré par l'utilisateur, refusé par l'admin ou
+  // remplacé) ne représente plus le forfait du compte : il ne sert jamais de
+  // référence de compatibilité profil ↔ abonnement. Les périodes payées
+  // (`active` / `expired`) restent, elles, des références valables.
+  const usable = monthly.filter((sub) => sub.status !== "canceled");
+  if (usable.length === 0) return null;
+  return pickActiveSubscription(usable, now) ?? mostRecentSubscription(usable);
 }
 
 /** Le plus récent des abonnements (payé, en attente ou expiré). */

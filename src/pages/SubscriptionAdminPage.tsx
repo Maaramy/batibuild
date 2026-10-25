@@ -34,13 +34,14 @@ import {
 // ADMIN — Essais & abonnements
 // ============================================================================
 // Vue de contrôle : pour chaque utilisateur, l'état de sa période d'essai
-// gratuite (7 jours) et de son abonnement mensuel (30 jours), avec dates et
-// jours restants. Les valeurs proviennent de `listUsersSubscriptionStatus`,
-// donc de la même source de vérité que « Mon abonnement » et le contrôle
-// d'accès Client Pro.
+// gratuite (durée configurée par l'administrateur) et de son abonnement
+// mensuel (30 jours), avec dates et jours restants. Les valeurs proviennent de
+// `listUsersSubscriptionStatus`, donc de la même source de vérité que
+// « Mon abonnement » et le contrôle d'accès Client Pro.
 //
-// Les deux interrupteurs « Offre gratuite » (activation/désactivation du
-// forfait) restent dans l'onglet « Abonnements » du panneau d'administration.
+// Le paramétrage de l'essai (activation, durée, profils, modules) et la
+// conversion des anciens comptes « Free » se font dans l'onglet « Abonnements »
+// du panneau d'administration.
 
 const dateFmt = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 const formatDate = (ts?: number | null) => (ts ? dateFmt.format(new Date(ts)) : "—");
@@ -67,6 +68,10 @@ export default function SubscriptionAdminPage() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
   const rows = useQuery(api.subscriptionStatus.listUsersSubscriptionStatus);
+  // Durée d'essai réellement configurée (jamais codée en dur).
+  const trialConfig = useQuery(api.trialConfig.getTrialConfig);
+  const trialDays = trialConfig?.config.durationDays ?? 7;
+  const trialEnabled = trialConfig?.config.enabled === true;
   const [query, setQuery] = useState("");
 
   const isAdmin = user?.role === "admin" || user?.role === "moderator";
@@ -169,8 +174,10 @@ export default function SubscriptionAdminPage() {
             <div>
               <CardTitle className="text-base">Utilisateurs ({counts.total})</CardTitle>
               <CardDescription className="text-xs">
-                Essai gratuit de 7 jours puis abonnement mensuel de 30 jours. Les jours restants sont
-                calculés depuis l'horloge serveur.
+                {trialEnabled
+                  ? `Essai gratuit de ${trialDays} jour${trialDays > 1 ? "s" : ""} (durée configurée) puis abonnement mensuel de 30 jours.`
+                  : "Période d'essai désactivée : la souscription est requise dès l'inscription. Abonnement mensuel de 30 jours."}{" "}
+                Les jours restants sont calculés depuis l'horloge serveur.
               </CardDescription>
             </div>
             <div className="relative w-full sm:w-64">
@@ -257,9 +264,10 @@ export default function SubscriptionAdminPage() {
         <Card className="border border-amber-200/20 bg-amber-500/5">
           <CardContent className="p-4 text-[11px] text-amber-700 dark:text-amber-400">
             <p>
-              <strong>Offre gratuite</strong> : activer le forfait Client Pro à 0 TND (onglet
-              « Abonnements » du panneau d'administration) déclenche, pour chaque nouveau compte, une
-              période d'essai de <strong>7 jours</strong> exactement. Passé ce délai, l'accès aux
+              <strong>Période d'essai gratuite</strong> : le forfait « Free » n'existe plus. Depuis
+              l'onglet « Abonnements » du panneau d'administration, l'administrateur active l'essai,
+              en règle la durée ({trialEnabled ? `${trialDays} jour${trialDays > 1 ? "s" : ""} actuellement` : "actuellement désactivé"}),
+              choisit les profils éligibles et les modules accessibles. Passé ce délai, l'accès aux
               services est suspendu jusqu'à la souscription d'une offre payante. Un compte ne peut
               jamais bénéficier d'un second essai gratuit.
             </p>

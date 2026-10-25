@@ -29,7 +29,11 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 // Trois catégories d'offres : Client Pro (pro), Fournisseur (supplier), Expert (expert).
-// « free » correspond à l'absence de forfait (aucun abonnement actif).
+// « free » n'est PLUS un forfait proposé (le forfait gratuit permanent a été
+// supprimé au profit de la période d'essai administrable). La valeur subsiste
+// uniquement comme LEGACY : des documents `users` / `subscriptions` déjà
+// enregistrés peuvent la porter, et l'administration l'utilise pour RETIRER un
+// abonnement (« Aucun forfait »). Elle n'accorde aucun droit.
 export const SUBSCRIPTION_PLANS = {
   FREE: "free",
   PRO: "pro", // Client Pro
@@ -401,6 +405,8 @@ const schema = defineSchema(
       subscriptionStartDate: v.optional(v.number()),
       subscriptionDaysTotal: v.optional(v.number()),
       subscriptionDaysRemaining: v.optional(v.number()),
+      // Miroir du statut d'abonnement. « free » est conservé pour la lecture des
+      // documents anciens (forfait supprimé) : il n'est plus jamais écrit.
       subscriptionStatus: v.optional(
         v.union(
           v.literal("trialing"),

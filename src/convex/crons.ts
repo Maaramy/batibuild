@@ -44,7 +44,7 @@ crons.cron(
   internal.emailNotifications.checkExpiredSubscriptions,
 );
 
-// Période d'essai (7 jours) & abonnement mensuel (30 jours) : passe les statuts
+// Période d'essai (durée configurée par l'admin) & abonnement mensuel (30 jours) : passe les statuts
 // en « Essai expiré » / « Expiré », notifie l'utilisateur et recalcule les
 // compteurs de jours restants depuis l'horloge serveur.
 // Runs every day at 06:30 AM (juste après le contrôle d'expiration des abonnements)

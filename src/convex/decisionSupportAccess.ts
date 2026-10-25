@@ -40,8 +40,8 @@ const DENY_MESSAGES: Record<DecisionSupportAccessReason, string> = {
   not_owner: "Ce projet n'existe pas ou n'est pas accessible depuis votre compte.",
   group_not_eligible:
     "« Aide à la décision » n'est pas incluse dans le parcours de ce type de projet (coût estimatif puis mise en relation).",
-  free_plan:
-    "« Aide à la décision » nécessite un abonnement Client Pro actif : passez à Client Pro pour y accéder.",
+  trial_no_module:
+    "« Aide à la décision » n'est pas inclus dans votre période d'essai : passez à Client Pro pour y accéder.",
   expired:
     "Votre abonnement Client Pro a expiré : l'accès à « Aide à la décision » est bloqué jusqu'à sa réactivation.",
   pending:

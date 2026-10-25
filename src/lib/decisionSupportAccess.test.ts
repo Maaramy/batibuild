@@ -19,10 +19,11 @@ const ACTIVE_PRO: DecisionSupportSubscription = {
   planCompatible: true,
 };
 
-const FREE_PLAN: DecisionSupportSubscription = {
-  status: "free",
-  type: "free",
-  isActive: true,
+/** Compte legacy de l'ancien forfait « Free » (supprimé) : aucun droit. */
+const LEGACY_FREE: DecisionSupportSubscription = {
+  status: "none",
+  type: "none",
+  isActive: false,
   planCompatible: true,
 };
 
@@ -33,11 +34,17 @@ const EXPIRED_PRO: DecisionSupportSubscription = {
   planCompatible: true,
 };
 
-const TRIAL: DecisionSupportSubscription = {
+const TRIAL_WITH_MODULE: DecisionSupportSubscription = {
   status: "trialing",
   type: "trial",
   isActive: true,
   planCompatible: true,
+  trialModuleAllowed: true,
+};
+
+const TRIAL_WITHOUT_MODULE: DecisionSupportSubscription = {
+  ...TRIAL_WITH_MODULE,
+  trialModuleAllowed: false,
 };
 
 function access(
@@ -66,10 +73,10 @@ describe("evaluateDecisionSupportAccess — scénarios obligatoires", () => {
     });
   });
 
-  it("2. Groupe A + compte gratuit → refusé, invitation à passer à Client Pro", () => {
-    const res = access("maison", FREE_PLAN);
+  it("2. Groupe A + ancien forfait Free (supprimé) → refusé, invitation à passer à Client Pro", () => {
+    const res = access("maison", LEGACY_FREE);
     expect(res.allowed).toBe(false);
-    expect(res.reason).toBe("free_plan");
+    expect(res.reason).toBe("not_client_pro");
     expect(res.upgradeRequired).toBe(true);
     expect(res.renewalRequired).toBe(false);
   });
@@ -90,8 +97,8 @@ describe("evaluateDecisionSupportAccess — scénarios obligatoires", () => {
     });
   });
 
-  it("5. Groupe B + compte gratuit → refusé (étape absente du parcours)", () => {
-    const res = access("piscine", FREE_PLAN);
+  it("5. Groupe B + compte sans abonnement → refusé (étape absente du parcours)", () => {
+    const res = access("piscine", LEGACY_FREE);
     expect(res.allowed).toBe(false);
     expect(res.reason).toBe("group_not_eligible");
     expect(res.group).toBe("B");
@@ -188,14 +195,24 @@ describe("evaluateDecisionSupportAccess — cas limites", () => {
     }
   });
 
-  it("essai gratuit → pas un abonnement Client Pro, donc refusé", () => {
-    const res = access("villa", TRIAL);
+  it("essai avec le module « Aide à la décision » coché → accès autorisé", () => {
+    const res = access("villa", TRIAL_WITH_MODULE);
+    expect(res).toMatchObject({ allowed: true, reason: "ok", group: "A" });
+  });
+
+  it("essai sans le module « Aide à la décision » → refusé, invitation à passer à Client Pro", () => {
+    const res = access("villa", TRIAL_WITHOUT_MODULE);
     expect(res.allowed).toBe(false);
-    expect(res.reason).toBe("not_client_pro");
+    expect(res.reason).toBe("trial_no_module");
+    expect(res.upgradeRequired).toBe(true);
   });
 
   it("essai terminé → refusé avec invitation à choisir une offre", () => {
-    const res = access("villa", { ...TRIAL, status: "trial_expired", isActive: false });
+    const res = access("villa", {
+      ...TRIAL_WITH_MODULE,
+      status: "trial_expired",
+      isActive: false,
+    });
     expect(res.allowed).toBe(false);
     expect(res.reason).toBe("trial_expired");
     expect(res.upgradeRequired).toBe(true);
@@ -241,7 +258,7 @@ describe("DECISION_SUPPORT_DENY_COPY — messages utilisateur", () => {
       "not_authenticated",
       "not_owner",
       "group_not_eligible",
-      "free_plan",
+      "trial_no_module",
       "expired",
       "pending",
       "trial_expired",
@@ -256,7 +273,7 @@ describe("DECISION_SUPPORT_DENY_COPY — messages utilisateur", () => {
     }
   });
 
-  it("le compte gratuit est invité à passer à Client Pro", () => {
-    expect(DECISION_SUPPORT_DENY_COPY.free_plan.cta).toBe("Passer à Client Pro");
+  it("un essai sans le module est invité à passer à Client Pro", () => {
+    expect(DECISION_SUPPORT_DENY_COPY.trial_no_module.cta).toBe("Passer à Client Pro");
   });
 });

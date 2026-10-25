@@ -57,30 +57,6 @@ async function insertAdmin(t: ReturnType<typeof convexTest>, email = "admin@test
   });
 }
 
-/** Document `paymentConfig` initial (comme en production : déjà existant). */
-async function seedPaymentConfig(t: ReturnType<typeof convexTest>, adminId: string) {
-  return t.run(async (ctx) => {
-    const now = Date.now();
-    return ctx.db.insert("paymentConfig", {
-      bankName: "",
-      bankTitulaire: "",
-      bankRib: "",
-      bankIban: "",
-      bankSwift: "",
-      d17MerchantName: "",
-      d17Phone: "",
-      d17Email: "",
-      d17Notice: "",
-      currency: "TND",
-      proPrice: 80,
-      supplierPrice: 120,
-      expertPrice: 120,
-      updatedAt: now,
-      updatedBy: adminId as never,
-    });
-  });
-}
-
 function applyDefaultPlan(t: ReturnType<typeof convexTest>, userId: string) {
   return t.mutation(internal.subscriptionStatus.applyDefaultPlanOnSignup, {
     userId: userId as never,

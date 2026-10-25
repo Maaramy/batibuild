@@ -108,6 +108,27 @@ export async function isProfilePaymentActive(
   return true;
 }
 
+/**
+ * Le module est-il ouvert pendant la période d'essai ?
+ *
+ * Fonctionne depuis une query/mutation (`ctx.db`) comme depuis une action
+ * (`ctx.runQuery`, sans `ctx.db`) : la même configuration serveur est lue dans
+ * les deux cas — aucune valeur n'est devinée côté client.
+ */
+async function isTrialModuleAllowed(ctx: any, module: TrialModuleKey): Promise<boolean> {
+  try {
+    if (ctx.db) {
+      const trial = await readTrialConfig(ctx);
+      return trialIncludes(trial, module);
+    }
+    const publicConfig = await ctx.runQuery(api.trialConfig.getPublicTrialConfig);
+    return Array.isArray(publicConfig?.modules) && publicConfig.modules.includes(module);
+  } catch {
+    // Config illisible → refus (jamais d'accès accordé par défaut).
+    return false;
+  }
+}
+
 /** Message d'erreur standard renvoyé par les fonctions backend gatées. */
 export function clientProAccessError(service: string): Error {
   return new Error(
@@ -165,8 +186,7 @@ export async function getClientProAccess(
     // sont ouverts : un module non configuré est refusé côté serveur (l'ancien
     // forfait « Free » n'accordait au contraire aucun droit particulier).
     if (snapshot?.type === "trial" && module) {
-      const trial = await readTrialConfig(ctx);
-      if (!trialIncludes(trial, module)) {
+      if (!(await isTrialModuleAllowed(ctx, module))) {
         return { allowed: false, reason: "trial_no_module" };
       }
     }

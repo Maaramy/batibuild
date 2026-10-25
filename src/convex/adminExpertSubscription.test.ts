@@ -243,11 +243,13 @@ describe("Inscription Expert + abonnement Expert attribué par l'administration"
       userId,
       plan: "free",
     });
-    expect(res.planCompatible).toBe(true); // « free » est compatible avec tout profil
+    // « Aucun forfait » (valeur legacy "free") : l'abonnement est retiré, le
+    // forfait gratuit permanent n'existe plus.
+    expect(res.planCompatible).toBe(true);
 
     const user = await getUser(t, userId);
     expect(user?.userRole).toBe("expert"); // profil conservé
-    expect(user?.subscriptionPlan).toBe("free");
+    expect(user?.subscriptionPlan).toBeUndefined();
 
     const compat = await asUser(t, userId).query(
       api.profileSubscription.getMyProfileSubscriptionCompatibility,

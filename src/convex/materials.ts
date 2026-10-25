@@ -324,12 +324,12 @@ export const updateAllMaterialPrices = internalMutation({
     const materials = await ctx.db.query("materialPrices").collect();
     if (materials.length === 0) return { updated: 0 };
 
-    // Get an admin user for the update
-    const admins = await ctx.db
+    // Auteur de la mise à jour : un administrateur réel (le forfait « Free »
+    // n'existe plus, il ne peut donc plus servir de repère).
+    const adminUser = await ctx.db
       .query("users")
-      .withIndex("subscriptionPlan", (q) => q.eq("subscriptionPlan", "free"))
-      .take(1);
-    const adminUser = admins[0];
+      .filter((q) => q.eq(q.field("role"), "admin"))
+      .first();
     if (!adminUser) return { updated: 0 };
 
     let updated = 0;

@@ -90,7 +90,12 @@ export function clampTrialDays(days: number | null | undefined): number {
  * l'administrateur enregistre, `trialEnabled` fait foi.
  */
 export function normalizeTrialConfig(source: TrialConfigSource | null | undefined): TrialConfig {
-  const legacyFreeOffer = source?.proPrice == null || source?.proPrice === 0;
+  // Sans aucun document `paymentConfig`, l'essai est DÉSACTIVÉ (aucune offre
+  // gratuite par défaut). Le repli legacy ne s'applique qu'à un document
+  // existant dont le prix Client Pro est explicitement null/0.
+  const hasConfig = source != null;
+  const legacyFreeOffer =
+    hasConfig && (source!.proPrice === null || source!.proPrice === 0);
   const enabled =
     typeof source?.trialEnabled === "boolean" ? source.trialEnabled : legacyFreeOffer;
 
@@ -267,9 +272,21 @@ export const updateTrialConfig = mutation({
     const unknownModule = args.modules.find((m) => !isTrialModuleKey(m));
     if (unknownModule) throw new Error(`Module inconnu : « ${unknownModule} ».`);
 
+    // La durée est validée AVANT d'être bornée : une valeur hors limites est
+    // refusée (jamais corrigée en silence).
+    if (
+      !Number.isInteger(args.durationDays) ||
+      args.durationDays < TRIAL_MIN_DAYS ||
+      args.durationDays > TRIAL_MAX_DAYS
+    ) {
+      throw new Error(
+        `La durée de l'essai doit être comprise entre ${TRIAL_MIN_DAYS} et ${TRIAL_MAX_DAYS} jours.`,
+      );
+    }
+
     const next: TrialConfig = {
       enabled: args.enabled,
-      durationDays: clampTrialDays(args.durationDays),
+      durationDays: args.durationDays,
       validFrom: args.validFrom,
       validUntil: args.validUntil,
       eligibleProfiles: sanitizeTrialProfiles(args.eligibleProfiles),

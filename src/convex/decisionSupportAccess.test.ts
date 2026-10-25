@@ -222,7 +222,7 @@ describe("getProjectDecisionSupportAccess — scénarios obligatoires", () => {
     }
   });
 
-  it("2. Groupe A + compte gratuit → accès refusé (frontend ET backend)", async () => {
+  it("2. Groupe A + ancien forfait Free (supprimé) → accès refusé (frontend ET backend)", async () => {
     await configurePricing(t, true);
     const userId = await createUser(t, { plan: "free" });
     const projectId = await createProject(t, userId, "maison");
@@ -233,7 +233,7 @@ describe("getProjectDecisionSupportAccess — scénarios obligatoires", () => {
     });
     expect(access).toMatchObject({
       allowed: false,
-      reason: "free_plan",
+      reason: "not_client_pro",
       upgradeRequired: true,
     });
 
@@ -359,7 +359,7 @@ describe("getProjectDecisionSupportAccess — cohérence de l'abonnement", () =>
     await configurePricing(t, false);
   });
 
-  it("un essai gratuit actif ne remplace pas un abonnement Client Pro", async () => {
+  it("un essai actif ouvre l'aide à la décision uniquement si le module est configuré", async () => {
     const now = Date.now();
     const userId = await createUser(t, { plan: "free" });
     await t.run(async (ctx) =>
@@ -371,12 +371,27 @@ describe("getProjectDecisionSupportAccess — cohérence de l'abonnement", () =>
       }),
     );
     const projectId = await createProject(t, userId, "villa");
-    const access = await asUser(t, userId).query(
+
+    // Module « Aide à la décision » inclus par défaut dans la configuration.
+    const allowed = await asUser(t, userId).query(
       api.decisionSupportAccess.getProjectDecisionSupportAccess,
       { projectId },
     );
-    expect(access.allowed).toBe(false);
-    expect(access.reason).toBe("not_client_pro");
+    expect(allowed.allowed).toBe(true);
+
+    // L'administrateur retire le module : l'accès se referme immédiatement.
+    await t.run(async (ctx) => {
+      const config = await ctx.db.query("paymentConfig").order("desc").first();
+      if (config) {
+        await ctx.db.patch(config._id, { trialEnabled: true, trialModules: ["estimation"] });
+      }
+    });
+    const denied = await asUser(t, userId).query(
+      api.decisionSupportAccess.getProjectDecisionSupportAccess,
+      { projectId },
+    );
+    expect(denied.allowed).toBe(false);
+    expect(denied.reason).toBe("trial_no_module");
   });
 
   it("l'accès se referme dès que l'abonnement expire (vérifié à chaque appel)", async () => {

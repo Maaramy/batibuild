@@ -8,10 +8,11 @@ import { PdfUpgradeDialog } from "@/components/PdfUpgradeDialog";
 // usePdfGate — contrôle client centralisé du téléchargement PDF
 // ============================================================================
 // Le droit réel vient du backend (`api.access.canDownloadPdf`, forfait payant
-// Client Pro). Ce hook ne fait que l'exposer : `requestPdfDownload(run)` lance
-// la génération si autorisé, sinon ouvre le dialogue « Rapport PDF disponible
-// avec Client Pro ». Le serveur reste l'autorité (les générateurs PDF passent
-// par la mutation `api.subscriptions.consumeDownload`, qui rejette le Free).
+// Client Pro — ou module PDF explicitement ouvert dans la période d'essai par
+// l'administrateur). Ce hook ne fait que l'exposer : `requestPdfDownload(run)`
+// lance la génération si autorisé, sinon ouvre le dialogue « Rapport PDF
+// disponible avec Client Pro ». Le serveur reste l'autorité (les générateurs PDF
+// passent par la mutation `api.subscriptions.consumeDownload`).
 //
 // Usage :
 //   const { requestPdfDownload, dialog } = usePdfGate();

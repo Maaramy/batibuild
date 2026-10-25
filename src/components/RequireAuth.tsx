@@ -23,7 +23,8 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   const offline = phase === "offline";
 
-  // Démarre l'essai gratuit de 7 jours à la première page protégée ouverte
+  // Démarre la période d'essai gratuite (durée configurée par l'administrateur)
+  // à la première page protégée ouverte
   // (idempotent côté serveur — jamais un second essai).
   useEnsureTrialStarted();
 

@@ -50,6 +50,12 @@ const REASON_COPY: Record<
     desc: "Votre période d'essai gratuit est terminée. Veuillez choisir une offre pour continuer à utiliser la plateforme.",
     cta: "Choisir une offre",
   },
+  trial_no_module: {
+    icon: Lock,
+    title: "Module non inclus dans votre période d'essai",
+    desc: "Votre période d'essai n'ouvre pas ce module. Choisissez une offre pour y accéder dès maintenant : vos projets, devis et données restent inchangés.",
+    cta: "Voir les offres",
+  },
   pending: {
     icon: Hourglass,
     title: "Paiement en attente de validation",

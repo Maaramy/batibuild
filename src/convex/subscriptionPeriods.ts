@@ -176,8 +176,6 @@ export interface SnapshotInput {
   subscriptionPrice?: number | null;
   /** Un paiement mensuel est en attente de validation. */
   pendingPayment?: boolean;
-  /** Le forfait Free (gratuit) est-il proposé par l'administration ? */
-  freePlanEnabled?: boolean;
   /** ── Compatibilité profil ↔ abonnement (règle obligatoire) ── */
   profileCompatibility?: {
     profileRole: "client" | "supplier" | "expert" | null;
