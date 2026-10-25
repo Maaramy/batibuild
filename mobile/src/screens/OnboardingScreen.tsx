@@ -13,46 +13,40 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Logo } from "../components/Logo";
 import { BRAND_NAME } from "../config";
+import { GUIDE_ICONS, type LucideIcon } from "../components/icons";
 import {
   IllusMaterials,
-  IllusNewProject,
-  IllusOvercosts,
   IllusPhases,
   IllusProviders,
-  IllusReports,
-  IllusWelcome,
+  IllusQuote,
   type IllusProps,
 } from "../components/GuideIllustrations";
 import { IllusPlanPreview } from "../components/GuidePlans";
 import { COLORS, useAppTheme } from "../theme";
 
 /**
- * GUIDE DE PREMIÈRE UTILISATION — parcours « De l'idée à la réalisation ».
+ * GUIDE DE PREMIÈRE UTILISATION — les 5 fonctionnalités clés de batibuild.
  *
- * Remplace TOUTES les anciennes présentations de démarrage : un seul parcours,
- * affiché au premier lancement de l'installation (voir `storage.ts` —
- * `onboardingCompleted`), jamais relancé ensuite.
+ * Affiché une seule fois, au premier lancement de l'installation (voir
+ * `storage.ts` — `onboardingCompleted`), et consultable ensuite depuis
+ * « Voir le guide » dans l'application.
  *
- * Les 8 étapes du parcours de la plateforme :
- *   1. Bienvenue sur batibuild
- *   2. Créer un projet        (type, région, surface)
- *   3. Estimer le coût
- *   4. Plans architecturaux IA (aperçus RÉELS : plan 2D → coté → vue 3D)
- *   5. Matériaux & aide à la décision
- *   6. Mise en relation
- *   7. Exécution & suivi
- *   8. Rapports PDF & abonnement Pro
+ * Les 5 étapes, dans cet ordre :
+ *   1. Coût estimatif            (portefeuille)
+ *   2. Aide à la décision        (graphique)
+ *   3. Plans architecturaux IA   (bâtiment)
+ *   4. Mise en relation          (utilisateurs)
+ *   5. Exécution & suivi         (casque de chantier)
  *
  * Navigation MANUELLE : chaque changement d'étape s'accompagne d'un fondu +
  * léger glissement. L'utilisateur avance avec « Suivant », revient avec
  * « Précédent », peut passer le guide à tout moment, et termine avec
- * « Commencer avec batibuild » à la dernière étape. Aucun minuteur ne fait
- * défiler le guide à sa place.
+ * « Commencer » à la dernière étape. Aucun minuteur ne fait défiler le guide.
  *
  * Visuels : illustrations vectorielles de la plateforme (`GuideIllustrations`)
- * et plans réellement générés (`GuidePlans` + `guidePlans`) — compacts, à
- * l'échelle uniforme, sans déformation ni débordement sur tous les écrans
- * Android, en mode clair comme en mode sombre.
+ * et plans réellement générés (`GuidePlans`) — compacts, à l'échelle uniforme,
+ * sans déformation ni débordement sur tous les écrans Android, en mode clair
+ * comme en mode sombre.
  *
  * PÉRIMÈTRE : mobile uniquement — la plateforme Web et le backend ne sont pas
  * concernés.
@@ -60,74 +54,61 @@ import { COLORS, useAppTheme } from "../theme";
 
 type Slide = {
   key: string;
+  /** Libellé court affiché dans le fil du parcours. */
+  short: string;
   title: string;
   text: string;
+  /** Icône de l'étape (même famille lucide que le reste de la coque). */
+  Icon: LucideIcon;
   Illustration: React.ComponentType<IllusProps>;
 };
 
-/** Les 8 étapes, dans l'ordre du parcours. */
+/** Les 5 étapes, dans l'ordre du parcours. */
 const SLIDES: Slide[] = [
   {
-    key: "welcome",
-    title: "Bienvenue sur batibuild",
-    text: "Estimez votre budget, générez vos plans, choisissez vos matériaux et suivez votre chantier — de l'idée à la réalisation.",
-    Illustration: IllusWelcome,
-  },
-  {
-    key: "project",
-    title: "Créer un projet",
-    text: "Choisissez le type de projet, la région et la surface couverte : votre estimation part de vos données réelles.",
-    Illustration: IllusNewProject,
-  },
-  {
     key: "cost",
-    title: "Estimer le coût",
-    text: "Consultez le coût estimatif et comparez les scénarios économique, standard et premium.",
-    Illustration: IllusOvercosts,
+    short: "Coût",
+    title: "Coût estimatif",
+    text: "Estimez le coût de votre projet grâce à un quantitatif détaillé et aux prix du marché tunisien.",
+    Icon: GUIDE_ICONS.wallet,
+    Illustration: IllusQuote,
   },
   {
-    key: "plans",
-    title: "Plans architecturaux IA",
-    text: "Générez vos plans 2D/3D, vos plans électriques et de plomberie, et découvrez les mesures de chaque espace.",
-    Illustration: IllusPlanPreview,
-  },
-  {
-    key: "materials",
-    title: "Matériaux & aide à la décision",
-    text: "Consultez le quantitatif, les prix et les alternatives pour tenir votre budget.",
+    key: "decision",
+    short: "Décision",
+    title: "Aide à la décision",
+    text: "Analysez votre budget et découvrez les meilleures options pour concrétiser votre projet.",
+    Icon: GUIDE_ICONS.chartLine,
     Illustration: IllusMaterials,
   },
   {
-    key: "experts",
+    key: "plans",
+    short: "Plans",
+    title: "Plans architecturaux IA",
+    text: "Générez des plans architecturaux 2D et 3D adaptés à votre projet.",
+    Icon: GUIDE_ICONS.building,
+    Illustration: IllusPlanPreview,
+  },
+  {
+    key: "providers",
+    short: "Experts",
     title: "Mise en relation",
-    text: "Trouvez les fournisseurs et les professionnels vérifiés dans votre région.",
+    text: "Trouvez des fournisseurs et des professionnels du BTP adaptés à vos besoins.",
+    Icon: GUIDE_ICONS.users,
     Illustration: IllusProviders,
   },
   {
     key: "execution",
+    short: "Suivi",
     title: "Exécution & suivi",
-    text: "Suivez les phases, les tâches et le budget de votre chantier, adaptés à votre type de projet.",
+    text: "Organisez vos travaux et suivez l'avancement de votre projet jusqu'à sa réalisation.",
+    Icon: GUIDE_ICONS.hardHat,
     Illustration: IllusPhases,
-  },
-  {
-    key: "reports",
-    title: "Rapports PDF & abonnement Pro",
-    text: "Téléchargez vos rapports PDF et accédez aux fonctionnalités réservées aux clients Pro, selon vos droits.",
-    Illustration: IllusReports,
   },
 ];
 
-/** Fil du parcours, affiché en bas de chaque étape (les 8 étapes). */
-const JOURNEY: { key: string; label: string }[] = [
-  { key: "welcome", label: "Idée" },
-  { key: "project", label: "Projet" },
-  { key: "cost", label: "Coût" },
-  { key: "plans", label: "Plans" },
-  { key: "materials", label: "Matériaux" },
-  { key: "experts", label: "Experts" },
-  { key: "execution", label: "Suivi" },
-  { key: "reports", label: "Rapports" },
-];
+/** Fil du parcours, affiché en bas de chaque étape (les 5 étapes). */
+const JOURNEY = SLIDES.map((s) => ({ key: s.key, label: s.short }));
 
 type Props = {
   onDone: () => void;
@@ -178,6 +159,7 @@ export default function OnboardingScreen({ onDone }: Props) {
   }, [index, onDone]);
 
   const Illustration = slide.Illustration;
+  const StepIcon = slide.Icon;
 
   return (
     <View style={[styles.root, { backgroundColor: theme.surface, paddingTop: insets.top }]}>
@@ -233,9 +215,14 @@ export default function OnboardingScreen({ onDone }: Props) {
             <Illustration width={illusW} theme={theme} />
           </View>
 
-          <Text style={[styles.kicker, { color: theme.primary }]}>
-            ÉTAPE {index + 1} SUR {SLIDES.length}
-          </Text>
+          <View style={styles.kickerRow}>
+            <View style={[styles.iconBadge, { backgroundColor: theme.primaryContainer }]}>
+              <StepIcon size={15} color={theme.onPrimaryContainer} strokeWidth={2.2} />
+            </View>
+            <Text style={[styles.kicker, { color: theme.primary }]}>
+              ÉTAPE {index + 1} SUR {SLIDES.length}
+            </Text>
+          </View>
           <Text style={[styles.title, { color: theme.onSurface }]}>{slide.title}</Text>
           <Text style={[styles.text, { color: theme.onSurfaceVariant }]}>{slide.text}</Text>
         </ScrollView>
@@ -243,8 +230,8 @@ export default function OnboardingScreen({ onDone }: Props) {
 
       {/* ── Pied : fil du parcours + progression + actions ── */}
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-        {/* Fil du parcours : Idée → Coût → Plans → Matériaux → Experts →
-            Exécution (l'étape courante est mise en avant). */}
+        {/* Fil du parcours : Coût → Décision → Plans → Experts → Suivi
+            (l'étape courante est mise en avant). */}
         <View style={styles.journey}>
           {JOURNEY.map((step, i) => {
             const active = step.key === slide.key;
@@ -316,7 +303,7 @@ export default function OnboardingScreen({ onDone }: Props) {
           <Pressable
             onPress={goNext}
             accessibilityRole="button"
-            accessibilityLabel={last ? "Commencer avec batibuild" : "Étape suivante"}
+            accessibilityLabel={last ? "Commencer" : "Étape suivante"}
             style={({ pressed }) => [
               styles.cta,
               { backgroundColor: theme.primary },
@@ -324,7 +311,7 @@ export default function OnboardingScreen({ onDone }: Props) {
             ]}
           >
             <Text style={[styles.ctaText, { color: theme.onPrimary }]}>
-              {last ? "Commencer avec batibuild" : "Suivant"}
+              {last ? "Commencer" : "Suivant"}
             </Text>
           </Pressable>
         </View>
@@ -397,8 +384,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  kicker: {
+  kickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
     marginTop: 14,
+  },
+  iconBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  kicker: {
     fontSize: 10.5,
     fontWeight: "800",
     letterSpacing: 1.1,

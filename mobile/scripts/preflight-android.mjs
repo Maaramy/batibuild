@@ -372,13 +372,13 @@ function checkAppShell() {
   const guide = read(join(root, "src", "screens", "OnboardingScreen.tsx"));
   const slidesBlock = guide.split("const SLIDES: Slide[] = [")[1]?.split("];")[0] ?? "";
   const steps = (slidesBlock.match(/\bkey:\s*"/g) ?? []).length;
-  if (steps !== 8) {
-    fail("guide d'utilisation", `${steps} étape(s) détectée(s) — 8 étapes sont attendues`);
+  if (steps !== 5) {
+    fail("guide d'utilisation", `${steps} étape(s) détectée(s) — 5 étapes sont attendues`);
   } else {
-    ok("guide d'utilisation : 8 étapes");
+    ok("guide d'utilisation : 5 étapes");
   }
 
-  const labels = ["Précédent", "Suivant", "Passer", "Commencer avec batibuild"];
+  const labels = ["Précédent", "Suivant", "Passer", "Commencer"];
   const missingLabels = labels.filter((label) => !guide.includes(label));
   if (missingLabels.length) {
     fail("navigation du guide", `libellé(s) introuvable(s) : ${missingLabels.join(", ")}`);
