@@ -60,6 +60,7 @@ import {
   MousePointerClick,
   FileDown,
   Newspaper,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { expertProfessionLabel } from "@/lib/expertProfessions";
@@ -944,15 +945,18 @@ export default function Dashboard() {
           {/* Quick actions - horizontal scroll on mobile */}
           <div className="overflow-x-auto scrollbar-none -mx-3 sm:mx-0 px-3 sm:px-0">
             <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 min-w-max sm:min-w-0">
+              {/* Accès « Trouvez professionnel » — remplace l'ancienne carte
+                  « Nouveau projet » : ouvre la mise en relation (annuaire des
+                  experts et fournisseurs), sans projet pré-sélectionné. */}
               <Card className="border border-border/40 bg-background/50 backdrop-blur-sm hover:shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.98] shrink-0 w-[160px] sm:w-auto"
-                onClick={() => navigate("/dashboard/new")}>
+                onClick={() => navigate("/dashboard/professionals-directory")}>
                 <CardContent className="p-3 sm:p-4 flex items-center gap-3">
-                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-medium truncate">Nouveau projet</p>
-                    <p className="text-[10px] text-muted-foreground truncate">Estimation</p>
+                    <p className="text-xs sm:text-sm font-medium truncate">Trouvez professionnel</p>
+                    <p className="text-[10px] text-muted-foreground truncate">Experts & fournisseurs</p>
                   </div>
                 </CardContent>
               </Card>
