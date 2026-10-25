@@ -133,6 +133,90 @@ true;
 `;
 
 /**
+ * ZOOM DÉSACTIVÉ DANS L'APPLICATION ANDROID (échelle d'affichage FIXE).
+ *
+ * Objectif : aucune variation d'échelle dans l'application — ni pincement à
+ * deux doigts, ni double pression, ni Ctrl + molette — tout en conservant le
+ * défilement vertical/horizontal, les formulaires, les menus, les modales et le
+ * zoom PROPRE aux visionneuses de plans (géré en JavaScript par la plateforme,
+ * indépendamment du zoom de page du navigateur).
+ *
+ * Ce script n'est injecté QUE par la coque native : le site ouvert dans un
+ * navigateur classique conserve son zoom normal (la balise `viewport` de
+ * `index.html` n'est pas modifiée).
+ *
+ * Deux verrous complémentaires :
+ *   1. une SEULE balise `viewport`, à échelle fixe (aucune balise
+ *      contradictoire ne subsiste) ;
+ *   2. neutralisation des gestes de zoom du moteur (pincement / double
+ *      pression) qui ignoreraient `user-scalable=no`.
+ */
+export const NO_ZOOM_SCRIPT = `
+(function () {
+  try {
+    if (window.__batibuildNoZoom) return;
+    window.__batibuildNoZoom = true;
+
+    var CONTENT = "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover";
+
+    // Une seule balise viewport, à échelle fixe. Les balises concurrentes
+    // (injectées par une extension, un aperçu, une bibliothèque…) sont
+    // supprimées : deux viewports contradictoires rendent le comportement
+    // imprévisible.
+    function lockViewport() {
+      try {
+        var metas = document.querySelectorAll('meta[name="viewport"]');
+        var meta = metas.length ? metas[0] : null;
+        var i;
+        for (i = 1; i < metas.length; i++) {
+          if (metas[i].parentNode) metas[i].parentNode.removeChild(metas[i]);
+        }
+        if (!meta) {
+          var head = document.head || document.documentElement;
+          if (!head) return;
+          meta = document.createElement("meta");
+          meta.setAttribute("name", "viewport");
+          head.appendChild(meta);
+        }
+        if (meta.getAttribute("content") !== CONTENT) {
+          meta.setAttribute("content", CONTENT);
+        }
+      } catch (e) {}
+    }
+
+    function block(event) {
+      try {
+        if (event && event.cancelable) event.preventDefault();
+      } catch (e) {}
+    }
+
+    // Gestes de pincement historiques (moteurs WebKit) : neutralisés.
+    var gestures = ["gesturestart", "gesturechange", "gestureend"];
+    for (var g = 0; g < gestures.length; g++) {
+      document.addEventListener(gestures[g], block, { passive: false });
+    }
+
+    // Ctrl + molette (zoom navigateur) : neutralisé. La molette SEULE continue
+    // de faire défiler la page normalement.
+    window.addEventListener(
+      "wheel",
+      function (event) {
+        if (event && event.ctrlKey) block(event);
+      },
+      { passive: false }
+    );
+
+    lockViewport();
+    document.addEventListener("DOMContentLoaded", lockViewport);
+    window.addEventListener("load", lockViewport);
+    window.setTimeout(lockViewport, 300);
+    window.setTimeout(lockViewport, 1200);
+  } catch (e) {}
+})();
+true;
+`;
+
+/**
  * Relais `navigator.share` → feuille de partage native.
  * Android WebView n'expose pas l'API Web Share ; sans ce patch, les boutons
  * « Partager » de la plateforme ne feraient rien.

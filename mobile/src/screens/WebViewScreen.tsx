@@ -48,6 +48,7 @@ import {
   ENTRY_GUARD_SCRIPT,
   MOBILE_CHROME_SCRIPT,
   navigateScript,
+  NO_ZOOM_SCRIPT,
   SHARE_BRIDGE_SCRIPT,
 } from "../injected";
 import { COLORS, SHAPE, useAppTheme } from "../theme";
@@ -504,12 +505,25 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
             // coût de construction, matériaux IA) réellement téléchargeables.
             // `ANDROID_APP_MARKER_SCRIPT` est posé EN PREMIER : la plateforme
             // sait, dès son amorçage, qu'elle tourne dans l'application Android.
-            injectedJavaScriptBeforeContentLoaded={`${ANDROID_APP_MARKER_SCRIPT}${DOWNLOAD_BRIDGE_SCRIPT}${MOBILE_CHROME_SCRIPT}${SHARE_BRIDGE_SCRIPT}${ENTRY_GUARD_SCRIPT}`}
+            // `NO_ZOOM_SCRIPT` fixe l'échelle d'affichage (viewport à échelle
+            // fixe) : le zoom de page est désactivé dans l'application, jamais
+            // sur le site ouvert dans un navigateur classique.
+            injectedJavaScriptBeforeContentLoaded={`${ANDROID_APP_MARKER_SCRIPT}${NO_ZOOM_SCRIPT}${DOWNLOAD_BRIDGE_SCRIPT}${MOBILE_CHROME_SCRIPT}${SHARE_BRIDGE_SCRIPT}${ENTRY_GUARD_SCRIPT}`}
             style={[styles.webview, { backgroundColor: theme.surface }]}
             setSupportMultipleWindows={false}
             allowsBackForwardNavigationGestures={Platform.OS === "ios"}
             contentInsetAdjustmentBehavior="never"
             pullToRefreshEnabled={false}
+            // ---- Zoom DÉSACTIVÉ (échelle d'affichage fixe) ----
+            // `setBuiltInZoomControls={false}` désactive les mécanismes de zoom
+            // natifs de la WebView (pincement à deux doigts), ce qui couvre
+            // aussi `setSupportZoom(false)` : sans zoom intégré, aucune
+            // commande de zoom ni geste ne peut changer l'échelle.
+            setBuiltInZoomControls={false}
+            // Aucune commande de zoom affichée à l'écran.
+            setDisplayZoomControls={false}
+            // La page n'est jamais mise à l'échelle pour « tenir » dans la
+            // largeur : la mise en page responsive de la plateforme s'applique.
             scalesPageToFit={false}
             overScrollMode="never"
           />
