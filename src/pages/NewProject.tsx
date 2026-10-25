@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
+import { ProjectLimitGate } from "@/components/ProjectLimitGate";
 import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
 import { costEstimateLoadingSteps } from "@/lib/projectJourney";
 import {
@@ -1315,6 +1316,7 @@ export default function NewProject() {
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
         <ClientProPaywall>
+        <ProjectLimitGate>
       
 
       {/* ── Header ── */}
@@ -1423,6 +1425,7 @@ export default function NewProject() {
           </aside>
         </div>
       </div>
+        </ProjectLimitGate>
             </ClientProPaywall>
 </main>
   );

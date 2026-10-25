@@ -1164,6 +1164,7 @@ const schema = defineSchema(
         v.literal("feature_flag_disabled"),
         v.literal("update_invoice_status"),
         v.literal("update_trial_config"),
+        v.literal("update_project_limits"),
         v.literal("migrate_free_plan_users"),
         v.literal("email_template_delete"),
         v.literal("notification_recipient_save"),
@@ -1310,6 +1311,22 @@ const schema = defineSchema(
       // true = essai réservé aux nouveaux inscrits (pas de rattrapage des
       // comptes existants par `startMyTrial`).
       trialNewAccountsOnly: v.optional(v.boolean()),
+      // ── Limite du nombre de projets par offre ────────────────────────────
+      // Réglée par l'administrateur (Admin → Abonnements mensuels). Source de
+      // vérité : `convex/projectLimits.ts`, vérifiée côté serveur dans la même
+      // transaction que la création du projet. `*Enabled` absent = aucune
+      // limite (comportement historique préservé). Les projets déjà créés ne
+      // sont jamais supprimés ni verrouillés par ces champs.
+      projectLimitTrialEnabled: v.optional(v.boolean()),
+      projectLimitTrialMax: v.optional(v.number()),
+      // "offer" = décompte depuis le début de la période ; "total" = cumulé.
+      projectLimitTrialReset: v.optional(v.string()),
+      projectLimitFreeEnabled: v.optional(v.boolean()),
+      projectLimitFreeMax: v.optional(v.number()),
+      projectLimitFreeReset: v.optional(v.string()),
+      projectLimitPaidEnabled: v.optional(v.boolean()),
+      projectLimitPaidMax: v.optional(v.number()),
+      projectLimitPaidReset: v.optional(v.string()),
       // Legacy : ancien interrupteur du forfait « Free » (offre gratuite
       // permanente), SUPPRIMÉ. Le champ reste déclaré pour que les documents
       // `paymentConfig` déjà enregistrés restent lisibles (Convex valide le

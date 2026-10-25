@@ -150,8 +150,17 @@ export function describeEstimateError(error: unknown): string {
         ? error
         : "";
 
-  if (/abonnement|client\s*pro|acc[eè]s|access|unauthor/i.test(raw)) {
-    return raw.trim() ||
+  // Marqueurs techniques ajoutés par le backend (accès Client Pro, limite de
+  // projets de l'offre) : retirés avant affichage. Le message métier — et lui
+  // seul — est présenté à l'utilisateur.
+  const cleaned = raw
+    .replace(/PROJECT_LIMIT_REACHED:/g, "")
+    .replace(/CLIENT_PRO_ACCESS:/g, "")
+    .replace(/PDF_ACCESS_REQUIRED:/g, "")
+    .trim();
+
+  if (/abonnement|client\s*pro|acc[eè]s|access|unauthor|limite de .*projets/i.test(cleaned)) {
+    return cleaned ||
       "Votre accès Client Pro ne permet pas de lancer l'estimation. Vérifiez votre abonnement puis réessayez.";
   }
   if (/network|connexion|offline|websocket|fetch|timeout/i.test(raw)) {

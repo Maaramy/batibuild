@@ -15,6 +15,7 @@ import SeoSettings from "./SeoSettings";
 import BlogAdmin from "./BlogAdmin";
 import BIMSettings from "./BIMSettings";
 import CostEvolutionSettings from "@/components/admin/CostEvolutionSettings";
+import ProjectLimitSettings from "@/components/admin/ProjectLimitSettings";
 import EmailSettings from "./EmailSettings";
 import EmailTemplates from "./EmailTemplates";
 import EmailHistory from "./EmailHistory";
@@ -4019,6 +4020,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <CardContent className="space-y-6">
                 {/* ═══ Période d'essai gratuite (remplace l'ancien forfait Free) ═══ */}
                 <TrialSettings />
+
+                {/* ═══ Limite du nombre de projets par offre ═══ */}
+                <ProjectLimitSettings />
 
                 {/* ═══ Forfait Client Pro (Start remplacé par Client Pro) ═══ */}
                 <div className="p-5 rounded-xl bg-gradient-to-br from-blue-500/5 to-blue-500/0 border border-blue-200/20 space-y-4">

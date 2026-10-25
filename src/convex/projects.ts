@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { requireClientProAccess, getFreePlanStatus } from "./access";
+import { assertProjectCreationLimit } from "./projectLimits";
 import { readFlag } from "./featureFlags";
 import {
   projectCategoryValidator,
@@ -393,6 +394,12 @@ export const createProject = mutation({
 
     // Services Client Pro : abonnement payant actif requis
     await requireClientProAccess(ctx, user, "Projets de construction", "estimation");
+
+    // Limite du nombre de projets de l'offre (période d'essai / offre gratuite /
+    // Client Pro) réglée par l'administrateur. Vérifiée DANS la transaction de
+    // création : deux créations simultanées ne peuvent pas dépasser le plafond.
+    // Les projets déjà créés restent consultables et modifiables.
+    await assertProjectCreationLimit(ctx, user);
 
     const now = Date.now();
 
