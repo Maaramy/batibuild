@@ -3,6 +3,8 @@ import { getCurrentUser } from "./users";
 import { api } from "./_generated/api";
 import { getUserSubscriptionStatus } from "./subscriptionStatus";
 import { resolveProfileRole, type UserRole } from "./profileSubscription";
+import { readTrialConfig, trialIncludes } from "./trialConfig";
+import type { TrialModuleKey } from "../lib/subscriptionPlans";
 
 // ============================================================================
 // Accès aux services Client Pro
@@ -18,7 +20,8 @@ import { resolveProfileRole, type UserRole } from "./profileSubscription";
 
 export type ClientProAccessReason =
   | "ok"
-  | "free_plan"
+  /** Période d'essai active sans le module demandé (ex. rapports PDF). */
+  | "trial_no_module"
   | "not_client_pro"
   | "plan_not_allowed_for_profile"
   | "no_subscription"
@@ -44,29 +47,11 @@ export interface FreePlanStatus {
 }
 
 /**
- * Le forfait Free est-il activé par l'administrateur ?
+ * État « Offre gratuite » (prix null/0) de CHAQUE forfait payant.
  *
- * Vérification centralisée : lit TOUJOURS `paymentConfig.freePlanEnabled`
- * (jamais une constante). Fonctionne depuis une query/mutation (ctx.db) comme
- * depuis une action (ctx.runQuery). Désactivé ou illisible → false, donc retour
- * à la règle payante existante.
+ * Ce n'est pas l'ancien forfait « Free » (supprimé) : c'est l'interrupteur qui
+ * rend un forfait payant gratuit, lu depuis la configuration administrée.
  */
-export async function isFreePlanEnabled(ctx: any): Promise<boolean> {
-  try {
-    if (ctx.db) {
-      const config = await ctx.db
-        .query("paymentConfig")
-        .order("desc")
-        .first();
-      return config?.freePlanEnabled === true;
-    }
-    const pricing = await ctx.runQuery(api.payments.getPublicPricing);
-    return pricing?.freePlanEnabled === true;
-  } catch {
-    return false;
-  }
-}
-
 export async function getFreePlanStatus(ctx: any): Promise<FreePlanStatus> {
   try {
     const pricing = await ctx.runQuery(api.payments.getPublicPricing);
@@ -135,23 +120,20 @@ export function clientProAccessError(service: string): Error {
  * Calcule l'accès Client Pro d'un utilisateur (requêtes, mutations, actions).
  *
  * Toute la décision vient de `getUserSubscriptionStatus` (source de vérité
- * unique) : essai gratuit de 7 jours quand l'« Offre gratuite » est activée,
- * puis abonnement mensuel de 30 jours ; après l'échéance de l'un ou de
- * l'autre, le paiement (ou le renouvellement) devient obligatoire.
+ * unique) : période d'essai gratuite (durée et éligibilité réglées par
+ * l'administrateur) puis abonnement mensuel de 30 jours ; après l'échéance de
+ * l'un ou de l'autre, le paiement (ou le renouvellement) devient obligatoire.
+ * L'ancien forfait « Free » n'existe plus et n'accorde aucun droit.
  */
-export async function getClientProAccess(ctx: any, user: any): Promise<ClientProAccess> {
+export async function getClientProAccess(
+  ctx: any,
+  user: any,
+  module?: TrialModuleKey,
+): Promise<ClientProAccess> {
   if (!user) return { allowed: false, reason: "no_subscription" };
   // Admin / modérateur : accès toujours accordé
   if (user.role === "admin" || user.role === "moderator") {
     return { allowed: true, reason: "ok" };
-  }
-
-  // ── Forfait Free : fonctionnalités principales ouvertes à TOUS les profils
-  // (estimation, plans IA, matériaux, consultations, construction & suivi),
-  // sans paiement. Le téléchargement PDF n'est PAS couvert ici (voir
-  // `canDownloadPdf`). Désactivé par l'admin → on retombe sur la règle payante.
-  if (await isFreePlanEnabled(ctx)) {
-    return { allowed: true, reason: "free_plan" };
   }
 
   // ── Règle obligatoire : les services Client Pro exigent le profil Client Pro ──
@@ -179,6 +161,15 @@ export async function getClientProAccess(ctx: any, user: any): Promise<ClientPro
   // Période active (essai gratuit, abonnement mensuel ou « Offre gratuite »)
   // ET forfait compatible avec le profil — sinon refus.
   if (snapshot?.isActive && snapshot?.planCompatible !== false) {
+    // Pendant la PÉRIODE D'ESSAI, seuls les modules cochés par l'administrateur
+    // sont ouverts : un module non configuré est refusé côté serveur (l'ancien
+    // forfait « Free » n'accordait au contraire aucun droit particulier).
+    if (snapshot?.type === "trial" && module) {
+      const trial = await readTrialConfig(ctx);
+      if (!trialIncludes(trial, module)) {
+        return { allowed: false, reason: "trial_no_module" };
+      }
+    }
     return { allowed: true, reason: "ok" };
   }
   if (snapshot?.isActive && snapshot?.planCompatible === false) {
@@ -198,20 +189,37 @@ export async function getClientProAccess(ctx: any, user: any): Promise<ClientPro
   return { allowed: false, reason: "no_subscription" };
 }
 
-/** Lève une erreur si l'utilisateur n'a pas accès aux services Client Pro. */
-export async function requireClientProAccess(ctx: any, user: any, service: string): Promise<void> {
-  const access = await getClientProAccess(ctx, user);
-  if (!access.allowed) {
-    throw clientProAccessError(service);
+/**
+ * Lève une erreur si l'utilisateur n'a pas accès aux services Client Pro.
+ *
+ * `module` rattache le service à un module de la période d'essai : quand l'essai
+ * est actif sans ce module, le message distingue clairement « non inclus dans
+ * l'essai » de « abonnement requis » — aucune erreur n'est masquée.
+ */
+export async function requireClientProAccess(
+  ctx: any,
+  user: any,
+  service: string,
+  module?: TrialModuleKey,
+): Promise<void> {
+  const access = await getClientProAccess(ctx, user, module);
+  if (access.allowed) return;
+  if (access.reason === "trial_no_module") {
+    throw new Error(
+      `${CLIENT_PRO_ACCESS_MARKER}« ${service} » n'est pas inclus dans votre période d'essai. ` +
+        "Choisissez une offre pour y accéder dès maintenant.",
+    );
   }
+  throw clientProAccessError(service);
 }
 
 // ============================================================================
 // Téléchargement des rapports PDF — contrôle centralisé (forfait payant)
 // ============================================================================
 // Règle produit : le téléchargement des rapports PDF est réservé au forfait
-// payant Client Pro. Le forfait Free et l'essai en sont EXCLUS. Ce contrôle est
-// côté backend (Convex) : l'interface ne fait que l'afficher.
+// payant Client Pro. Pendant la période d'essai, il n'est ouvert que si
+// l'administrateur a coché le module « Rapports PDF ». Ce contrôle est côté
+// backend (Convex) : l'interface ne fait que l'afficher.
 
 export type PdfAccessReason = ClientProAccessReason;
 
@@ -242,22 +250,20 @@ export async function getPdfDownloadAccess(ctx: any, user: any): Promise<PdfDown
     : await ctx.runQuery(api.subscriptionStatus.getMySubscriptionStatus);
 
   const plan = snapshot?.plan ?? user.subscriptionPlan ?? null;
-  // Abonnement mensuel PAYANT actif uniquement (`type === "monthly"`)
-  // — l'essai (`trial`) et le forfait Free n'autorisent pas le PDF.
+  // Abonnement mensuel PAYANT actif (`type === "monthly"`) → PDF autorisé.
   const paidActive =
     snapshot?.type === "monthly" &&
     snapshot?.isActive === true &&
     snapshot?.planCompatible !== false;
   if (paidActive) return { allowed: true, reason: "ok", plan };
 
-  // Forfait Free activé : l'utilisateur a accès aux fonctionnalités principales
-  // mais PAS au téléchargement PDF → motif explicite « free_plan ».
-  if (await isFreePlanEnabled(ctx)) {
-    return { allowed: false, reason: "free_plan", plan };
-  }
-
-  if (snapshot?.type === "trial" || snapshot?.isActive === true) {
-    return { allowed: false, reason: "free_plan", plan };
+  // Période d'essai : le PDF n'est ouvert que si l'administrateur a coché le
+  // module « Rapports PDF » dans la configuration de l'essai (décision
+  // recalculée côté serveur dans `getUserSubscriptionStatus`).
+  if (snapshot?.type === "trial" && snapshot?.isActive === true) {
+    return snapshot.trialPdfAllowed === true
+      ? { allowed: true, reason: "ok", plan }
+      : { allowed: false, reason: "trial_no_module", plan };
   }
   if (snapshot?.status === "pending") return { allowed: false, reason: "pending", plan };
   if (snapshot?.status === "expired") return { allowed: false, reason: "expired", plan };

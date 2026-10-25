@@ -182,7 +182,7 @@ export const saveCopilotAnalysis = mutation({
     }
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Matériaux IA");
+    await requireClientProAccess(ctx, user, "Matériaux IA", "materials");
 
     return await ctx.db.insert("aiMaterialAnalyses", {
       userId: user._id,

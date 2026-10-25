@@ -1,23 +1,29 @@
 // ============================================================================
-// PÉRIODE D'ESSAI (7 JOURS) & ABONNEMENT MENSUEL (30 JOURS) — LOGIQUE PURE
+// PÉRIODE D'ESSAI GRATUITE & ABONNEMENT MENSUEL (30 JOURS) — LOGIQUE PURE
 // ============================================================================
 // Ce module ne dépend d'AUCUN autre module Convex : il ne contient que des
 // constantes, des types et des fonctions pures. Il peut donc être importé par
 // `subscriptionStatus.ts` (queries/mutations/cron), `access.ts` (contrôle
 // d'accès), `subscriptions.ts` et `users.ts` sans créer de cycle d'import.
 //
-// Règle centrale :
-//   SI « Offre gratuite » activée ET essai jamais utilisé → Essai gratuit 7 jours
-//   SI essai actif                                        → Accès autorisé
-//   SI essai expiré                                       → Accès payant requis
-//   SI abonnement mensuel actif (30 jours)                → Accès autorisé
-//   SI abonnement mensuel expiré                          → Accès payant requis
+// Règle centrale (le forfait « Free » n'existe plus) :
+//   SI période d'essai activée ET essai jamais utilisé → Essai gratuit (durée
+//                                                        réglée par l'admin)
+//   SI essai actif                                    → Accès autorisé (modules
+//                                                        configurés)
+//   SI essai expiré                                   → Accès payant requis
+//   SI abonnement mensuel actif (30 jours)            → Accès autorisé
+//   SI abonnement mensuel expiré                      → Accès payant requis
 //
 // Tous les calculs s'appuient sur une horloge fournie (côté serveur :
 // `Date.now()`), jamais sur la date de l'appareil du visiteur.
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
-/** Durée fixe de l'essai gratuit. */
+/**
+ * Durée d'essai utilisée quand l'administrateur n'a rien paramétré.
+ * La durée RÉELLE vient de `paymentConfig.trialDurationDays` ; elle est
+ * transmise à `computeSubscriptionSnapshot` (`trialDaysTotal`).
+ */
 export const TRIAL_DURATION_DAYS = 7;
 /** Durée fixe de l'abonnement mensuel. */
 export const MONTHLY_DURATION_DAYS = 30;
@@ -27,14 +33,13 @@ export type SubscriptionPhase =
   | "admin" // admin / modérateur : accès toujours autorisé
   | "active" // abonnement mensuel actif
   | "pending" // paiement en attente de validation
-  | "trialing" // essai gratuit en cours
+  | "trialing" // période d'essai en cours
   | "trial_expired" // essai terminé → paiement obligatoire
   | "expired" // abonnement mensuel expiré → renouvellement obligatoire
-  | "trial_available" // offre gratuite activée, essai pas encore démarré
-  | "free" // forfait Free (gratuit) choisi : accès de base sans PDF
-  | "none"; // aucun accès (offre gratuite désactivée, jamais d'essai)
+  | "trial_available" // essai activé par l'admin, essai pas encore démarré
+  | "none"; // aucun accès (essai désactivé ou déjà consommé)
 
-export type SubscriptionKind = "monthly" | "trial" | "free" | "admin" | "none";
+export type SubscriptionKind = "monthly" | "trial" | "admin" | "none";
 
 export interface SubscriptionSnapshot {
   status: SubscriptionPhase;
@@ -63,10 +68,12 @@ export interface SubscriptionSnapshot {
   subscriptionDaysRemaining: number;
   subscriptionStartDate: number | null;
   subscriptionEndDate: number | null;
-  /** Vrai quand l'essai doit être démarré (offre gratuite + jamais utilisé). */
+  /** Vrai quand l'essai doit être démarré (essai activé + jamais utilisé). */
   trialShouldStart: boolean;
-  /** L'« Offre gratuite » (switch admin) est-elle activée pour Client Pro ? */
-  freeOfferEnabled: boolean;
+  /** La période d'essai est-elle activée par l'administrateur ? */
+  trialEnabled: boolean;
+  /** Les rapports PDF sont-ils ouverts pendant l'essai (module configuré) ? */
+  trialPdfAllowed: boolean;
   /** ── Compatibilité profil ↔ abonnement (règle obligatoire) ── */
   /** Profil actif résolu (client / supplier / expert ou null). */
   profileRole: "client" | "supplier" | "expert" | null;
@@ -100,7 +107,9 @@ export const PLAN_LABELS: Record<string, string> = {
   pro: "Client Pro",
   expert: "Expert",
   supplier: "Fournisseur",
-  free: "Gratuit",
+  // Legacy : d'anciens documents peuvent encore porter le plan « free »
+  // (forfait supprimé). Affiché sans jamais accorder de droits.
+  free: "Sans forfait",
 };
 
 export function planDisplayName(plan: string | null | undefined): string | null {
@@ -115,7 +124,7 @@ function planLabel2Label(plan: string | null | undefined): string | null {
     pro: "Client Pro",
     expert: "Expert",
     supplier: "Fournisseur",
-    free: "Gratuit",
+    free: "Sans forfait",
   };
   return labels[plan] ?? plan;
 }
@@ -140,14 +149,14 @@ export const PHASE_LABELS: Record<SubscriptionPhase, string> = {
   trial_expired: "Essai expiré",
   expired: "Abonnement expiré",
   trial_available: "Essai disponible",
-  free: "Forfait gratuit",
   none: "Aucun abonnement",
 };
 
 export interface SnapshotInput {
   now: number;
   isAdmin: boolean;
-  freeOfferEnabled: boolean;
+  /** Période d'essai activée par l'administrateur (et fenêtre ouverte). */
+  trialEnabled: boolean;
   planPrice: number | null;
   currency?: string;
   /** Plan enregistré sur le compte (user.subscriptionPlan). */
@@ -156,6 +165,10 @@ export interface SnapshotInput {
   trialClaimedAt?: number | null;
   trialStartDate?: number | null;
   trialEndDate?: number | null;
+  /** Durée d'essai réglée par l'administrateur (jours) — 7 par défaut. */
+  trialDaysTotal?: number;
+  /** Les rapports PDF sont-ils ouverts pendant l'essai (module configuré) ? */
+  trialPdfAllowed?: boolean;
   subscriptionStartDate?: number | null;
   subscriptionEndDate?: number | null;
   /** Plan / prix de l'abonnement mensuel de référence (dernier en date). */
@@ -183,19 +196,20 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
   const {
     now,
     isAdmin,
-    freeOfferEnabled,
+    trialEnabled,
     planPrice,
     currency = "TND",
     plan,
     trialClaimedAt,
     trialStartDate,
     trialEndDate,
+    trialDaysTotal = TRIAL_DURATION_DAYS,
+    trialPdfAllowed = false,
     subscriptionStartDate,
     subscriptionEndDate,
     subscriptionPlan,
     subscriptionPrice,
     pendingPayment = false,
-    freePlanEnabled = false,
     profileCompatibility = null,
   } = input;
 
@@ -211,7 +225,7 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     plan: plan ?? null,
     currency,
     trialUsed,
-    trialDaysTotal: TRIAL_DURATION_DAYS,
+    trialDaysTotal,
     trialDaysRemaining: trialActive ? trialDaysRemaining : 0,
     trialStartDate: trialStartDate ?? null,
     trialEndDate: trialEndDate ?? null,
@@ -220,7 +234,8 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     subscriptionStartDate: subscriptionStartDate ?? null,
     subscriptionEndDate: subscriptionEndDate ?? null,
     trialShouldStart: false,
-    freeOfferEnabled,
+    trialEnabled,
+    trialPdfAllowed: trialActive && trialPdfAllowed,
     // ── Compatibilité profil ↔ abonnement ──
     profileRole: profileCompatibility?.profileRole ?? null,
     expectedPlan: profileCompatibility?.expectedPlan ?? "pro",
@@ -276,7 +291,7 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     };
   }
 
-  // 3. Essai gratuit actif → accès autorisé.
+  // 3. Période d'essai active → accès autorisé (modules réglés par l'admin).
   if (trialActive) {
     return {
       ...base,
@@ -288,24 +303,6 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
       price: null,
       startDate: trialStartDate ?? null,
       endDate: trialEndDate ?? null,
-    };
-  }
-
-  // 3bis. Forfait Free (gratuit) choisi et toujours proposé → accès de base
-  // (fonctionnalités incluses, rapports PDF réservés à Client Pro). Ce cas
-  // prime sur l'essai expiré / l'absence d'abonnement : un utilisateur du
-  // forfait Free ne doit jamais être présenté comme « sans abonnement ».
-  if (plan === "free" && freePlanEnabled) {
-    return {
-      ...base,
-      status: "free",
-      type: "free",
-      isActive: true,
-      requiresPayment: false,
-      planName: planDisplayName("free"),
-      price: 0,
-      startDate: null,
-      endDate: null,
     };
   }
 
@@ -339,8 +336,8 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     };
   }
 
-  // 6. Offre gratuite activée + essai jamais utilisé → 7 jours offerts.
-  if (freeOfferEnabled) {
+  // 6. Essai activé par l'administrateur + jamais utilisé → essai à démarrer.
+  if (trialEnabled) {
     return {
       ...base,
       status: "trial_available",
@@ -355,7 +352,7 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     };
   }
 
-  // 7. Aucun accès : offre gratuite désactivée et essai jamais accordé.
+  // 7. Aucun accès : essai désactivé et jamais accordé, aucun abonnement.
   return {
     ...base,
     status: "none",

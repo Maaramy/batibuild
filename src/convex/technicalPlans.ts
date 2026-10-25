@@ -139,7 +139,7 @@ export const saveTechnicalPlan = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await requireOwnedProject(ctx, args.projectId);
-    await requireClientProAccess(ctx, user, "plans techniques");
+    await requireClientProAccess(ctx, user, "plans techniques", "plans");
     if (!args.variantId.trim()) throw new Error("Variante de plan manquante");
     if (!Number.isInteger(args.level) || args.level < 0 || args.level > 20) {
       throw new Error("Niveau de plan invalide");

@@ -1157,6 +1157,8 @@ const schema = defineSchema(
         v.literal("feature_flag_enabled"),
         v.literal("feature_flag_disabled"),
         v.literal("update_invoice_status"),
+        v.literal("update_trial_config"),
+        v.literal("migrate_free_plan_users"),
       ),
       targetUserId: v.optional(v.id("users")),
       targetUserEmail: v.optional(v.string()),
@@ -1283,16 +1285,27 @@ const schema = defineSchema(
       freeDownloadLimit: v.optional(v.number()),
       proDownloadLimit: v.optional(v.number()),
       expertDownloadLimit: v.optional(v.number()),
+      // ── Période d'essai gratuite (remplace l'ancien forfait « Free ») ──────
+      // Entièrement réglée par l'administrateur (Admin → Abonnements mensuels →
+      // Période d'essai gratuite). `convex/trialConfig.ts` est la source de
+      // vérité : activation, durée (1 à 365 jours), fenêtre globale de
+      // validité, profils éligibles et modules ouverts pendant l'essai.
+      // Aucun droit n'est accordé côté client : chaque décision d'accès est
+      // recalculée depuis ces champs côté serveur.
       trialEnabled: v.optional(v.boolean()),
       trialDurationDays: v.optional(v.number()),
-      // ── Forfait Free (gratuit) ────────────────────────────────────────────
-      // Activation/désactivation administrée depuis
-      // Admin → Abonnements mensuels. Quand il est activé, le forfait Free ouvre
-      // les fonctionnalités principales (estimation, plans IA, matériaux,
-      // consultations, construction & suivi) à TOUS les profils, sans paiement,
-      // mais SANS le téléchargement des rapports PDF (réservé au forfait payant
-      // Client Pro). Quand il est désactivé, les droits reviennent à la règle
-      // payante précédente. Jamais codé en dur : toujours lu depuis la config.
+      trialValidFrom: v.optional(v.number()),
+      trialValidUntil: v.optional(v.number()),
+      trialEligibleProfiles: v.optional(v.array(v.string())),
+      trialModules: v.optional(v.array(v.string())),
+      // true = essai réservé aux nouveaux inscrits (pas de rattrapage des
+      // comptes existants par `startMyTrial`).
+      trialNewAccountsOnly: v.optional(v.boolean()),
+      // Legacy : ancien interrupteur du forfait « Free » (offre gratuite
+      // permanente), SUPPRIMÉ. Le champ reste déclaré pour que les documents
+      // `paymentConfig` déjà enregistrés restent lisibles (Convex valide le
+      // document à la lecture). Aucun code ne l'écrit ; il n'accorde plus aucun
+      // droit : seul `trialEnabled` commande l'essai.
       freePlanEnabled: v.optional(v.boolean()),
       // Disponibilité du forfait Client Pro (peut être retiré comme défaut).
       // true/absent = disponible ; false = désactivé par l'administrateur.
@@ -1300,8 +1313,12 @@ const schema = defineSchema(
       // Forfait attribué AUTOMATIQUEMENT aux nouveaux utilisateurs qui ne
       // sélectionnent aucune offre à l'inscription. Lu côté backend
       // (`subscriptionStatus.applyDefaultPlanForNewUser`) : jamais codé en dur.
-      // "client_pro" est stocké en abonnement "pro".
-      defaultPlan: v.optional(v.union(v.literal("free"), v.literal("client_pro"))),
+      //   "trial"       → aucun forfait payé, la période d'essai s'applique ;
+      //   "client_pro"  → abonnement Client Pro (stocké "pro") attribué ;
+      //   "free"        → valeur LEGACY (forfait supprimé), lue comme "trial".
+      defaultPlan: v.optional(
+        v.union(v.literal("trial"), v.literal("client_pro"), v.literal("free")),
+      ),
       // ── Facturation : TVA et coordonnées de l'émetteur ────────────────────
       // Taux de TVA appliqué aux factures (%). 0 ou absent = « TVA non
       // applicable » : les prix des forfaits sont alors facturés en l'état.

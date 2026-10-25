@@ -7,10 +7,13 @@ import { api, internal } from "./_generated/api.js";
 
 // ============================================================================
 // Forfait par défaut — configuration admin + attribution aux nouveaux comptes
+// ----------------------------------------------------------------------------
+// Le forfait « Free » a été supprimé : le défaut est soit la PÉRIODE D'ESSAI
+// (« trial » : aucun forfait payé attribué), soit Client Pro (« client_pro »).
+// Aucune valeur n'est codée en dur dans le moteur : tout vient de Convex.
 // ============================================================================
 
 const modules = import.meta.glob("./**/*.*s");
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Utilisateur SANS forfait attribué (comme un compte fraîchement créé). */
 async function insertNewUser(
@@ -47,10 +50,33 @@ async function insertAdmin(t: ReturnType<typeof convexTest>, email = "admin@test
       image: undefined,
       company: undefined,
       phone: undefined,
-      subscriptionPlan: "free",
       subscriptionEndDate: undefined,
       createdAt: now,
       updatedAt: now,
+    });
+  });
+}
+
+/** Document `paymentConfig` initial (comme en production : déjà existant). */
+async function seedPaymentConfig(t: ReturnType<typeof convexTest>, adminId: string) {
+  return t.run(async (ctx) => {
+    const now = Date.now();
+    return ctx.db.insert("paymentConfig", {
+      bankName: "",
+      bankTitulaire: "",
+      bankRib: "",
+      bankIban: "",
+      bankSwift: "",
+      d17MerchantName: "",
+      d17Phone: "",
+      d17Email: "",
+      d17Notice: "",
+      currency: "TND",
+      proPrice: 80,
+      supplierPrice: 120,
+      expertPrice: 120,
+      updatedAt: now,
+      updatedBy: adminId as never,
     });
   });
 }
@@ -69,21 +95,18 @@ describe("Forfait par défaut — configuration admin", () => {
     t = convexTest(schema, modules);
   });
 
-  it("valeur par défaut = Free quand aucune config n'existe", async () => {
+  it("valeur par défaut = période d'essai quand aucune config n'existe", async () => {
     const pricing = await t.query(api.payments.getPublicPricing);
-    expect(pricing.defaultPlan).toBe("free");
+    expect(pricing.defaultPlan).toBe("trial");
   });
 
-  it("l'admin peut définir Free comme forfait par défaut (Free activé)", async () => {
+  it("l'admin peut définir la période d'essai comme défaut", async () => {
     const adminId = await insertAdmin(t);
     const adminT = t.withIdentity({ subject: adminId });
 
-    await adminT.mutation(api.payments.updateFreePlanConfig, { enabled: true });
-    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "free" });
+    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "trial" });
 
-    const pricing = await t.query(api.payments.getPublicPricing);
-    expect(pricing.defaultPlan).toBe("free");
-    expect(pricing.freePlanEnabled).toBe(true);
+    expect((await t.query(api.payments.getPublicPricing)).defaultPlan).toBe("trial");
   });
 
   it("l'admin peut définir Client Pro comme forfait par défaut", async () => {
@@ -92,18 +115,7 @@ describe("Forfait par défaut — configuration admin", () => {
 
     await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "client_pro" });
 
-    const pricing = await t.query(api.payments.getPublicPricing);
-    expect(pricing.defaultPlan).toBe("client_pro");
-  });
-
-  it("Free désactivé → impossible de le définir comme défaut", async () => {
-    const adminId = await insertAdmin(t);
-    const adminT = t.withIdentity({ subject: adminId });
-
-    // Free désactivé (défaut)
-    await expect(
-      adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "free" }),
-    ).rejects.toThrow(/Free est désactivé/);
+    expect((await t.query(api.payments.getPublicPricing)).defaultPlan).toBe("client_pro");
   });
 
   it("Client Pro désactivé → impossible de le définir comme défaut", async () => {
@@ -124,17 +136,15 @@ describe("Forfait par défaut — configuration admin", () => {
     // Relecture (équivaut à une actualisation / reconnexion : même source Convex).
     expect((await t.query(api.payments.getPublicPricing)).defaultPlan).toBe("client_pro");
 
-    // Pour revenir à Free, il faut d'abord l'activer (contrôle serveur).
-    await adminT.mutation(api.payments.updateFreePlanConfig, { enabled: true });
-    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "free" });
-    expect((await t.query(api.payments.getPublicPricing)).defaultPlan).toBe("free");
+    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "trial" });
+    expect((await t.query(api.payments.getPublicPricing)).defaultPlan).toBe("trial");
   });
 
   it("un non-admin ne peut pas modifier le forfait par défaut", async () => {
     const userId = await insertNewUser(t);
     await expect(
       t.withIdentity({ subject: userId }).mutation(api.payments.updateDefaultPlanConfig, {
-        plan: "free",
+        plan: "trial",
       }),
     ).rejects.toThrow();
   });
@@ -146,17 +156,24 @@ describe("Forfait par défaut — attribution aux nouvelles inscriptions", () =>
     t = convexTest(schema, modules);
   });
 
-  it("défaut Free → le nouvel utilisateur reçoit Free", async () => {
+  it("défaut « période d'essai » → aucun forfait payé n'est attribué", async () => {
     const adminId = await insertAdmin(t);
     const adminT = t.withIdentity({ subject: adminId });
-    await adminT.mutation(api.payments.updateFreePlanConfig, { enabled: true });
-    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "free" });
+    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "trial" });
 
     const userId = await insertNewUser(t);
-    await applyDefaultPlan(t, userId);
+    const res = await applyDefaultPlan(t, userId);
+
+    expect(res.plan).toBe("trial");
+    expect(res.applied).toBe(false);
 
     const user = await t.run(async (ctx) => ctx.db.get(userId));
-    expect(user?.subscriptionPlan).toBe("free");
+    // Aucun forfait « Free » n'est écrit : le compte relève de l'essai gratuit.
+    expect(user?.subscriptionPlan).toBeUndefined();
+    expect(user?.subscriptionEndDate).toBeUndefined();
+
+    const subs = await t.run(async (ctx) => ctx.db.query("subscriptions").collect());
+    expect(subs.length).toBe(0);
   });
 
   it("défaut Client Pro → le nouvel utilisateur reçoit Client Pro (abonnement actif)", async () => {
@@ -189,50 +206,48 @@ describe("Forfait par défaut — attribution aux nouvelles inscriptions", () =>
 
     // Utilisateur existant avec un forfait déjà attribué.
     const existing = await insertNewUser(t, { email: "existing@test.com" });
-    await t.run(async (ctx) => ctx.db.patch(existing, { subscriptionPlan: "free" }));
+    await t.run(async (ctx) => ctx.db.patch(existing, { subscriptionPlan: "pro" }));
 
-    // L'admin bascule le défaut sur Client Pro.
-    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "client_pro" });
+    // L'admin bascule le défaut sur la période d'essai.
+    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "trial" });
 
     // (Ré)application défensive : l'utilisateur existant reste inchangé.
     await applyDefaultPlan(t, existing);
 
     const user = await t.run(async (ctx) => ctx.db.get(existing));
-    expect(user?.subscriptionPlan).toBe("free");
+    expect(user?.subscriptionPlan).toBe("pro");
     expect(user?.subscriptionEndDate).toBeUndefined();
   });
 
   it("le backend utilise la configuration enregistrée (et non une valeur codée en dur)", async () => {
     const adminId = await insertAdmin(t);
     const adminT = t.withIdentity({ subject: adminId });
-    await adminT.mutation(api.payments.updateFreePlanConfig, { enabled: true });
 
-    // Défaut = Free → 1er utilisateur.
-    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "free" });
+    // Défaut = Client Pro → 1er utilisateur.
+    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "client_pro" });
     const u1 = await insertNewUser(t, { email: "u1@test.com" });
     await applyDefaultPlan(t, u1);
-    expect((await t.run(async (ctx) => ctx.db.get(u1)))?.subscriptionPlan).toBe("free");
+    expect((await t.run(async (ctx) => ctx.db.get(u1)))?.subscriptionPlan).toBe("pro");
 
-    // Défaut = Client Pro → 2e utilisateur.
-    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "client_pro" });
+    // Défaut = période d'essai → 2e utilisateur : aucun forfait payé.
+    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "trial" });
     const u2 = await insertNewUser(t, { email: "u2@test.com" });
     await applyDefaultPlan(t, u2);
-    expect((await t.run(async (ctx) => ctx.db.get(u2)))?.subscriptionPlan).toBe("pro");
+    expect((await t.run(async (ctx) => ctx.db.get(u2)))?.subscriptionPlan).toBeUndefined();
   });
 
-  it("repli automatique si le forfait par défaut est désactivé entre-temps", async () => {
+  it("repli automatique si Client Pro est désactivé entre-temps", async () => {
     const adminId = await insertAdmin(t);
     const adminT = t.withIdentity({ subject: adminId });
-    await adminT.mutation(api.payments.updateFreePlanConfig, { enabled: true });
-    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "free" });
+    await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "client_pro" });
 
-    // L'admin désactive Free : le défaut enregistré reste "free" mais devient
-    // inattribuable → repli sur Client Pro (actif).
-    await adminT.mutation(api.payments.updateFreePlanConfig, { enabled: false });
+    // L'admin désactive Client Pro : le défaut enregistré reste "client_pro"
+    // mais devient inattribuable → repli sur « aucun forfait payé » (essai).
+    await adminT.mutation(api.payments.updateClientProEnabled, { enabled: false });
 
     const userId = await insertNewUser(t);
     await applyDefaultPlan(t, userId);
-    expect((await t.run(async (ctx) => ctx.db.get(userId)))?.subscriptionPlan).toBe("pro");
+    expect((await t.run(async (ctx) => ctx.db.get(userId)))?.subscriptionPlan).toBeUndefined();
   });
 
   it("désactiver un forfait ne supprime aucune donnée", async () => {

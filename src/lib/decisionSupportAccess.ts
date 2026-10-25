@@ -18,13 +18,15 @@
 //
 // Cas refusés (avec le message associé) :
 //   • projet des groupes B ou C       → masqué / désactivé ;
-//   • compte gratuit (forfait Free)   → invitation à passer à Client Pro ;
+//   • essai sans le module « Aide à la décision » → invitation à passer à Client Pro ;
 //   • abonnement expiré / suspendu    → blocage jusqu'à réactivation ;
 //   • utilisateur non connecté        → authentification demandée ;
 //   • essai gratuit / paiement en attente / profil incompatible → refus.
 //
-// Note : l'essai gratuit n'est PAS un abonnement Client Pro — il ne débloque
-// donc pas cette fonctionnalité (contrairement aux fonctionnalités de base).
+// Note : la période d'essai gratuite n'est PAS un abonnement Client Pro. Elle
+// ouvre « Aide à la décision » UNIQUEMENT si l'administrateur a coché ce module
+// dans la configuration de l'essai (`trialModules`), décision recalculée côté
+// serveur. L'ancien forfait « Free » n'existe plus.
 // ============================================================================
 
 import {
@@ -38,7 +40,7 @@ export type DecisionSupportDenyReason =
   | "not_authenticated"
   | "not_owner"
   | "group_not_eligible"
-  | "free_plan"
+  | "trial_no_module"
   | "expired"
   | "pending"
   | "trial_expired"
@@ -63,6 +65,8 @@ export interface DecisionSupportSubscription {
   type: string;
   isActive: boolean;
   planCompatible: boolean;
+  /** L'essai en cours inclut-il le module « Aide à la décision » ? */
+  trialModuleAllowed?: boolean;
 }
 
 export interface DecisionSupportAccessInput {
@@ -129,9 +133,12 @@ export function evaluateDecisionSupportAccess(
   const sub = input.subscription;
   if (!sub) return deny("not_client_pro", group, { upgradeRequired: true });
 
-  // Compte gratuit → invitation à passer à Client Pro.
-  if (sub.status === "free" || sub.type === "free") {
-    return deny("free_plan", group, { upgradeRequired: true });
+  // Période d'essai : accès autorisé seulement si le module est coché par
+  // l'administrateur dans la configuration de l'essai.
+  if (sub.type === "trial" && sub.isActive && sub.planCompatible) {
+    return sub.trialModuleAllowed === true
+      ? { allowed: true, reason: "ok", group, upgradeRequired: false, renewalRequired: false }
+      : deny("trial_no_module", group, { upgradeRequired: true });
   }
 
   // Abonnement expiré / suspendu / inactif → blocage jusqu'à réactivation.
@@ -170,10 +177,10 @@ export const DECISION_SUPPORT_DENY_COPY: Record<
       "Cette étape n'est pas incluse dans le parcours de ce type de projet : votre parcours se compose du coût estimatif puis de la mise en relation. Toutes les autres étapes restent accessibles.",
     cta: null,
   },
-  free_plan: {
+  trial_no_module: {
     title: "Passez à Client Pro pour utiliser l'aide à la décision",
     description:
-      "Votre compte gratuit n'inclut pas « Aide à la décision ». Souscrivez à l'abonnement Client Pro pour anticiper vos achats et maîtriser votre budget.",
+      "Votre période d'essai n'inclut pas « Aide à la décision ». Souscrivez à l'abonnement Client Pro pour anticiper vos achats et maîtriser votre budget.",
     cta: "Passer à Client Pro",
   },
   expired: {

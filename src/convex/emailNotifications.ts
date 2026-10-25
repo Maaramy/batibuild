@@ -525,12 +525,13 @@ export const checkExpiredSubscriptions = internalMutation({
           updatedAt: now,
         });
 
-        // Reset user plan to free (subscription expired) + miroir du statut
-        // utilisé par « Mon abonnement » et le contrôle d'accès central.
+        // Abonnement échu : le compte n'a plus de forfait (le forfait gratuit
+        // permanent a été supprimé — période d'essai ou souscription requise).
+        // Miroir du statut utilisé par « Mon abonnement » et l'accès central.
         const user = await ctx.db.get(sub.userId);
-        if (user && user.subscriptionPlan !== "free") {
+        if (user) {
           await ctx.db.patch(user._id, {
-            subscriptionPlan: "free",
+            subscriptionPlan: undefined,
             subscriptionEndDate: undefined,
             subscriptionDaysRemaining: 0,
             subscriptionStatus: "expired",

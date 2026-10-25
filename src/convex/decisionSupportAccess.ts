@@ -4,6 +4,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
 import { getUserSubscriptionStatus } from "./subscriptionStatus";
+import { readTrialConfig, trialIncludes } from "./trialConfig";
 import { isFullJourneyGroup, projectJourneyGroup } from "../lib/projectJourney";
 import {
   evaluateDecisionSupportAccess,
@@ -78,6 +79,11 @@ export async function resolveDecisionSupport(
       ? await getUserSubscriptionStatus(ctx, user._id)
       : null;
 
+  // Pendant la période d'essai, « Aide à la décision » n'est ouverte que si
+  // l'administrateur a coché ce module dans la configuration de l'essai.
+  const trialConfig =
+    snapshot?.type === "trial" && snapshot?.isActive ? await readTrialConfig(ctx) : null;
+
   const access = evaluateDecisionSupportAccess({
     authenticated: !!user,
     isAdmin,
@@ -89,6 +95,7 @@ export async function resolveDecisionSupport(
           type: snapshot.type,
           isActive: snapshot.isActive,
           planCompatible: snapshot.planCompatible,
+          trialModuleAllowed: trialConfig ? trialIncludes(trialConfig, "decision") : false,
         }
       : null,
   });

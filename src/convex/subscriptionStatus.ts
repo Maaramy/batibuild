@@ -8,7 +8,7 @@ import {
 import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { getCurrentUser } from "./users";
-import { compatibilityFieldsForUser } from "./profileSubscription";
+import { compatibilityFieldsForUser, resolveProfileRole } from "./profileSubscription";
 import { scheduleEmailEvent, formatDateFr, splitName } from "./emailNotifications";
 import {
   DAY_MS,
@@ -17,9 +17,15 @@ import {
   TRIAL_DURATION_DAYS,
   computeSubscriptionSnapshot,
   daysRemainingUntil,
-  isFreeOffer,
   type SubscriptionSnapshot,
 } from "./subscriptionPeriods";
+import {
+  isProfileEligibleForTrial,
+  isTrialCampaignOpen,
+  readTrialConfig,
+  trialEndDateFor,
+  trialIncludes,
+} from "./trialConfig";
 
 // ============================================================================
 // GESTION CENTRALE DE LA PÉRIODE D'ESSAI ET DE L'ABONNEMENT MENSUEL
@@ -51,8 +57,10 @@ export {
 // ============================================================================
 
 interface PricingInfo {
-  freeOfferEnabled: boolean;
-  freePlanEnabled: boolean;
+  /** La période d'essai est-elle activée ET dans sa fenêtre de validité ? */
+  trialEnabled: boolean;
+  trialDays: number;
+  trialPdfAllowed: boolean;
   planPrice: number | null;
   currency: string;
 }
@@ -60,11 +68,13 @@ interface PricingInfo {
 /** Contextes autorisés : requêtes, mutations et crons (tous ont `ctx.db`). */
 type DbCtx = QueryCtx | MutationCtx;
 
-async function readPricing(ctx: DbCtx): Promise<PricingInfo> {
+async function readPricing(ctx: DbCtx, now = Date.now()): Promise<PricingInfo> {
   const config = await ctx.db.query("paymentConfig").order("desc").first();
+  const trial = await readTrialConfig(ctx);
   return {
-    freeOfferEnabled: isFreeOffer(config?.proPrice),
-    freePlanEnabled: config?.freePlanEnabled === true,
+    trialEnabled: isTrialCampaignOpen(trial, now),
+    trialDays: trial.durationDays,
+    trialPdfAllowed: trialIncludes(trial, "pdf"),
     planPrice: config?.proPrice ?? null,
     currency: config?.currency ?? "TND",
   };
@@ -86,7 +96,7 @@ export async function getUserSubscriptionStatus(
   const user = await ctx.db.get(userId);
   if (!user) return null;
 
-  const pricing = await readPricing(ctx);
+  const pricing = await readPricing(ctx, now);
 
   const subs = await ctx.db
     .query("subscriptions")
@@ -124,8 +134,7 @@ export async function getUserSubscriptionStatus(
   const snapshot = computeSubscriptionSnapshot({
     now,
     isAdmin: user.role === "admin" || user.role === "moderator",
-    freeOfferEnabled: pricing.freeOfferEnabled,
-    freePlanEnabled: pricing.freePlanEnabled,
+    trialEnabled: pricing.trialEnabled,
     planPrice: pricing.planPrice,
     currency: pricing.currency,
     profileCompatibility,
@@ -133,6 +142,8 @@ export async function getUserSubscriptionStatus(
     trialClaimedAt: user.trialClaimedAt ?? null,
     trialStartDate: user.trialStartDate ?? null,
     trialEndDate: user.trialEndDate ?? null,
+    trialDaysTotal: user.trialDaysTotal ?? pricing.trialDays,
+    trialPdfAllowed: pricing.trialPdfAllowed,
     subscriptionStartDate,
     subscriptionEndDate,
     subscriptionPlan: reference?.plan ?? user.subscriptionPlan ?? null,
@@ -201,36 +212,56 @@ export type TrialStartResult = {
   reason:
     | "started"
     | "already_used"
-    | "free_offer_disabled"
+    | "trial_disabled"
+    | "campaign_closed"
+    | "profile_not_eligible"
+    | "existing_account_only"
     | "subscription_active"
     | "unknown_user";
   trialEndDate?: number;
 };
 
 /**
- * Démarre l'essai gratuit de 7 jours si — et seulement si — l'« Offre
- * gratuite » est activée et que l'utilisateur n'en a jamais bénéficié.
+ * Démarre la période d'essai si — et seulement si — elle est activée par
+ * l'administrateur, ouverte (fenêtre de validité), que le profil du compte est
+ * éligible et que l'utilisateur n'en a jamais bénéficié.
+ *
+ * La DURÉE vient de `paymentConfig.trialDurationDays` (1 à 365 jours, réglée
+ * dans l'administration) — plus aucune constante codée en dur.
+ *
  * Idempotent : les appels répétés (rafraîchissements, plusieurs appareils,
  * clics rapides, appels simultanés) ne prolongent jamais la période, car
- * `trialClaimedAt` est écrit une seule fois et jamais effacé.
+ * `trialClaimedAt` est écrit une seule fois et jamais effacé. Un compte ne
+ * peut donc pas reconstituer un essai en modifiant son profil.
  *
- * Utilisé à l'inscription (`auth.callbacks.afterUserCreatedOrUpdated`) et en
- * rattrapage côté client (`startMyTrial`) pour les comptes créés avant la mise
- * en place de l'essai.
+ * `source` distingue l'inscription du rattrapage : quand l'administrateur
+ * réserve l'essai aux nouveaux inscrits (`trialNewAccountsOnly`), le
+ * rattrapage des comptes existants est refusé.
  */
 export async function startTrialFor(
   ctx: MutationCtx,
   userId: Id<"users">,
+  options: { source?: "signup" | "catch_up" } = {},
 ): Promise<TrialStartResult> {
   const user = await ctx.db.get(userId);
   if (!user) return { started: false, reason: "unknown_user" };
 
   if (user.trialClaimedAt != null) return { started: false, reason: "already_used" };
 
-  const pricing = await readPricing(ctx);
-  if (!pricing.freeOfferEnabled) return { started: false, reason: "free_offer_disabled" };
+  const config = await readTrialConfig(ctx);
+  if (!config.enabled) return { started: false, reason: "trial_disabled" };
 
   const now = Date.now();
+  if (!isTrialCampaignOpen(config, now)) return { started: false, reason: "campaign_closed" };
+
+  if (config.newAccountsOnly && options.source !== "signup") {
+    return { started: false, reason: "existing_account_only" };
+  }
+
+  const profileRole = await resolveProfileRole(ctx, user);
+  if (!isProfileEligibleForTrial(config, profileRole)) {
+    return { started: false, reason: "profile_not_eligible" };
+  }
 
   // Un abonnement mensuel actif désactive l'essai (l'abonné n'en a pas besoin).
   const subs = await ctx.db
@@ -241,14 +272,15 @@ export async function startTrialFor(
     return { started: false, reason: "subscription_active" };
   }
 
-  const trialEndDate = now + TRIAL_DURATION_DAYS * DAY_MS;
+  const trialEndDate = trialEndDateFor(config, now);
+  const daysTotal = Math.max(1, daysRemainingUntil(trialEndDate, now));
 
   await ctx.db.patch(userId, {
     trialClaimedAt: now,
     trialStartDate: now,
     trialEndDate,
-    trialDaysTotal: TRIAL_DURATION_DAYS,
-    trialDaysRemaining: TRIAL_DURATION_DAYS,
+    trialDaysTotal: daysTotal,
+    trialDaysRemaining: daysTotal,
     subscriptionStatus: "trialing",
     updatedAt: now,
   });
@@ -257,8 +289,8 @@ export async function startTrialFor(
     await ctx.db.insert("notifications", {
       userId,
       type: "subscription",
-      title: "Votre essai gratuit a démarré",
-      message: `Profitez de ${TRIAL_DURATION_DAYS} jours d'essai gratuit. Votre essai se termine le ${formatDateFr(trialEndDate)}.`,
+      title: "Votre période d'essai a démarré",
+      message: `Profitez de ${daysTotal} jour${daysTotal > 1 ? "s" : ""} d'essai gratuit. Votre essai se termine le ${formatDateFr(trialEndDate)}.`,
       read: false,
       link: "/dashboard/pricing",
       createdAt: now,
@@ -285,7 +317,7 @@ export const startMyTrial = mutation({
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Non connecté");
-    return await startTrialFor(ctx, user._id);
+    return await startTrialFor(ctx, user._id, { source: "catch_up" });
   },
 });
 
@@ -293,7 +325,15 @@ export const startMyTrial = mutation({
 // Forfait par défaut (configuration administrée)
 // ============================================================================
 
-export type DefaultPlanValue = "free" | "client_pro";
+/**
+ * Forfait par défaut des nouveaux comptes :
+ *   - `"trial"`     : aucun forfait payé n'est attribué — la période d'essai
+ *                     gratuite (configurée par l'administrateur) s'applique ;
+ *   - `"client_pro"` : abonnement Client Pro (30 jours) attribué d'office.
+ * La valeur historique `"free"` (forfait supprimé) est interprétée comme
+ * `"trial"` pour les documents `paymentConfig` encore enregistrés.
+ */
+export type DefaultPlanValue = "trial" | "client_pro";
 
 /**
  * Attribue le FORFAIT PAR DÉFAUT configuré par l'administrateur à un NOUVEL
@@ -304,8 +344,8 @@ export type DefaultPlanValue = "free" | "client_pro";
  *     restent strictement inchangés ;
  *   - lit toujours la configuration Convex (`paymentConfig.defaultPlan`),
  *     jamais une valeur codée en dur ;
- *   - n'attribue jamais un forfait désactivé (repli sur l'autre forfait actif
- *     si l'administrateur a désactivé le défaut entre-temps) ;
+ *   - n'attribue jamais un forfait désactivé (repli sur « aucun forfait »,
+ *     donc sur la période d'essai si elle est activée) ;
  *   - ne supprime aucune donnée.
  */
 export async function applyDefaultPlanForNewUser(
@@ -319,14 +359,12 @@ export async function applyDefaultPlanForNewUser(
 
   const config = await ctx.db.query("paymentConfig").order("desc").first();
   const now = Date.now();
-  const requested: DefaultPlanValue = config?.defaultPlan ?? "free";
-  const freePlanEnabled = config?.freePlanEnabled === true;
+  const requested: DefaultPlanValue = config?.defaultPlan === "client_pro" ? "client_pro" : "trial";
   const clientProEnabled = config?.clientProEnabled !== false;
 
-  // Un forfait désactivé n'est jamais attribué : repli sur l'autre forfait actif.
-  let plan: DefaultPlanValue | null = requested;
-  if (plan === "client_pro" && !clientProEnabled) plan = freePlanEnabled ? "free" : null;
-  else if (plan === "free" && !freePlanEnabled) plan = clientProEnabled ? "client_pro" : null;
+  // Un forfait désactivé n'est jamais attribué : repli sur « aucun forfait ».
+  const plan: DefaultPlanValue =
+    requested === "client_pro" && clientProEnabled ? "client_pro" : "trial";
 
   if (plan === "client_pro") {
     // Client Pro : abonnement mensuel (30 jours) actif attribué par défaut.
@@ -363,16 +401,9 @@ export async function applyDefaultPlanForNewUser(
     return { applied: true, plan: "client_pro" };
   }
 
-  if (plan === "free") {
-    await ctx.db.patch(userId, {
-      subscriptionPlan: "free",
-      subscriptionStatus: "free",
-      updatedAt: now,
-    });
-    return { applied: true, plan: "free" };
-  }
-
-  return { applied: false, plan: null };
+  // « Aucun forfait » : rien n'est écrit sur le compte. La période d'essai est
+  // démarrée séparément par `startTrialFor` (même configuration serveur).
+  return { applied: false, plan: "trial" };
 }
 
 /**
@@ -382,6 +413,16 @@ export async function applyDefaultPlanForNewUser(
 export const applyDefaultPlanOnSignup = internalMutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => applyDefaultPlanForNewUser(ctx, args.userId),
+});
+
+/**
+ * Point d'entrée interne de l'INSCRIPTION : démarre la période d'essai avec la
+ * source « signup » (seule source autorisée quand l'administrateur réserve
+ * l'essai aux nouveaux inscrits). Même fonction que le callback d'authentification.
+ */
+export const startTrialOnSignup = internalMutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => startTrialFor(ctx, args.userId, { source: "signup" }),
 });
 
 // ============================================================================
@@ -484,5 +525,120 @@ export const checkSubscriptionPeriods = internalMutation({
     }
 
     return { trialsExpired, subscriptionsExpired, countersRefreshed };
+  },
+});
+
+// ============================================================================
+// MIGRATION — ancien forfait « Free » (supprimé) → période d'essai gratuite
+// ============================================================================
+// Le forfait Free n'est plus proposé. Les comptes qui le portent encore sont
+// convertis SANS AUCUNE PERTE : projets, devis, DQE, matériaux, abonnements
+// payants, factures et historiques restent intacts. Seul le libellé de forfait
+// « free » est retiré ; l'essai gratuit est appliqué aux comptes qui n'en ont
+// jamais bénéficié (une seule fois — `trialClaimedAt` reste immuable).
+//
+// La migration est :
+//   - réservée aux administrateurs ;
+//   - idempotente (les comptes déjà convertis ne sont plus sélectionnés) ;
+//   - disponible en simulation (`dryRun`) avant toute écriture.
+
+export const getFreePlanMigrationPreview = query({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) return null;
+
+    const users = await ctx.db.query("users").collect();
+    const legacy = users.filter((u) => u.subscriptionPlan === "free");
+    return {
+      total: legacy.length,
+      sample: legacy.slice(0, 8).map((u) => ({ name: u.name ?? null, email: u.email ?? null })),
+    };
+  },
+});
+
+export const migrateLegacyFreePlanUsers = mutation({
+  args: { dryRun: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    const dryRun = args.dryRun === true;
+    const now = Date.now();
+    const users = await ctx.db.query("users").collect();
+    const legacy = users.filter((u) => u.subscriptionPlan === "free");
+
+    let migrated = 0;
+    let trialsStarted = 0;
+    let paidPreserved = 0;
+
+    for (const user of legacy) {
+      const subs = await ctx.db
+        .query("subscriptions")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .collect();
+      const activePaid = subs.find(
+        (s) => s.status === "active" && s.endDate != null && s.endDate > now,
+      );
+
+      if (!dryRun) {
+        if (activePaid && activePaid.plan !== "free") {
+          // Un abonnement payant est actif : il devient le forfait de référence.
+          paidPreserved++;
+          await ctx.db.patch(user._id, {
+            subscriptionPlan: activePaid.plan,
+            updatedAt: now,
+          });
+        } else {
+          // Aucun forfait payé : le compte passe au mécanisme d'essai.
+          const trial = await startTrialFor(ctx, user._id, { source: "catch_up" });
+          if (trial.started) trialsStarted++;
+
+          const patch: Record<string, unknown> = {
+            subscriptionPlan: undefined,
+            updatedAt: now,
+          };
+          if (!trial.started) {
+            // Statut miroir : plus aucun accès "Free" permanent.
+            const trialStillActive =
+              user.trialEndDate != null && user.trialEndDate > now && user.trialClaimedAt != null;
+            patch.subscriptionStatus = trialStillActive
+              ? "trialing"
+              : user.trialClaimedAt != null
+                ? "trial_expired"
+                : "none";
+            if (!trialStillActive) patch.subscriptionDaysRemaining = 0;
+          }
+          await ctx.db.patch(user._id, patch);
+        }
+        migrated++;
+      }
+    }
+
+    if (!dryRun && legacy.length > 0) {
+      try {
+        await ctx.db.insert("adminLogs", {
+          adminId: admin._id,
+          adminName: admin.name,
+          action: "migrate_free_plan_users",
+          details:
+            `Forfait Free supprimé : ${migrated} compte(s) converti(s), ` +
+            `${trialsStarted} essai(s) démarré(s), ${paidPreserved} abonnement(s) payant(s) conservé(s).`,
+          createdAt: now,
+        });
+      } catch {
+        // Journal optionnel
+      }
+    }
+
+    return {
+      dryRun,
+      candidates: legacy.length,
+      migrated,
+      trialsStarted,
+      paidPreserved,
+    };
   },
 });

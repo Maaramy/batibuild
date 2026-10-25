@@ -126,7 +126,7 @@ export const recommendMaterials = action({
     }
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Matériaux IA");
+    await requireClientProAccess(ctx, user, "Matériaux IA", "materials");
 
     let project: any = null;
     if (args.projectId) {
@@ -231,7 +231,7 @@ export const compareCopilotMaterials = action({
     if (!user) throw new Error("Non connecté");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Matériaux IA");
+    await requireClientProAccess(ctx, user, "Matériaux IA", "materials");
 
     if (args.ids.length < 2 || args.ids.length > 5) {
       throw new Error("Sélectionnez entre 2 et 5 matériaux à comparer.");
@@ -283,7 +283,7 @@ export const optimizeCopilotBudget = action({
     if (!user) throw new Error("Non connecté");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Matériaux IA");
+    await requireClientProAccess(ctx, user, "Matériaux IA", "materials");
 
     const optimization = optimizeBudget({ result: args.result as RecommendResult, budgetAmount: args.budgetAmount });
     try {
@@ -327,7 +327,7 @@ export const improveCopilotPerformance = action({
     if (!user) throw new Error("Non connecté");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Matériaux IA");
+    await requireClientProAccess(ctx, user, "Matériaux IA", "materials");
 
     return improvePerformance({ result: args.result as RecommendResult });
   },
@@ -347,7 +347,7 @@ export const askMaterialsAssistant = action({
     if (!user) throw new Error("Non connecté");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Matériaux IA");
+    await requireClientProAccess(ctx, user, "Matériaux IA", "materials");
 
     if (!args.question.trim()) throw new Error("Question vide");
 

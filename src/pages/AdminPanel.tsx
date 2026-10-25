@@ -24,7 +24,17 @@ import { AnnouncementList } from "@/components/admin/announcements/AnnouncementL
 import { FeatureFlagsAdmin } from "@/components/admin/FeatureFlagsAdmin";
 import { PaymentMethodsAdmin } from "@/components/admin/PaymentMethodsAdmin";
 import { InvoicesAdmin } from "@/components/admin/InvoicesAdmin";
-import { CLIENT_PRO_PLAN_LABEL, FREE_PLAN_FEATURES, FREE_PLAN_LABEL } from "@/lib/freePlan";
+import type { TrialConfig } from "@/convex/trialConfig";
+import {
+  TRIAL_MAX_DAYS,
+  TRIAL_MIN_DAYS,
+  TRIAL_MODULES,
+  TRIAL_PRESET_DAYS,
+  TRIAL_PROFILES,
+  trialDurationLabel,
+  type TrialModuleKey,
+  type TrialProfileKey,
+} from "@/lib/subscriptionPlans";
 import StorageReportAdmin from "@/components/admin/StorageReportAdmin";
 import { useState, useEffect } from "react";
 import {
@@ -77,6 +87,10 @@ import {
   MapPin,
   Phone,
   Crown,
+  RotateCcw,
+  Sparkles,
+  ShieldCheck,
+  CalendarClock,
   CreditCard,
   Activity,
   UserPlus,
@@ -217,7 +231,6 @@ export default function AdminPanel() {
   const paymentConfigData = useQuery(api.payments.getPaymentConfigAdmin) || null;
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
   // Forfait Free (0 TND) — activé/désactivé par l'administrateur (jamais codé en dur).
-  const updateFreePlanConfig = useMutation(api.payments.updateFreePlanConfig);
   // Disponibilité de Client Pro + forfait par défaut des nouveaux utilisateurs.
   const updateClientProEnabled = useMutation(api.payments.updateClientProEnabled);
   const updateDefaultPlanConfig = useMutation(api.payments.updateDefaultPlanConfig);
@@ -233,11 +246,11 @@ export default function AdminPanel() {
     expertFree: false,
   });
   const [savingLimits, setSavingLimits] = useState(false);
-  // État du forfait Free (switch admin) — synchronisé depuis la config serveur.
-  const [freePlanEnabled, setFreePlanEnabled] = useState(false);
-  // Disponibilité de Client Pro + forfait par défaut ("free" | "client_pro").
+  // Disponibilité de Client Pro + forfait par défaut ("trial" | "client_pro").
+  // Le forfait « Free » a été supprimé : "trial" = aucun forfait payé, la
+  // période d'essai gratuite s'applique (configurée dans son propre panneau).
   const [clientProEnabled, setClientProEnabled] = useState(true);
-  const [defaultPlan, setDefaultPlan] = useState<"free" | "client_pro">("free");
+  const [defaultPlan, setDefaultPlan] = useState<"trial" | "client_pro">("trial");
   const [savingPayment, setSavingPayment] = useState(false);
   const [paymentForm, setPaymentForm] = useState<Record<string, any>>({
     bankName: "", bankTitulaire: "", bankRib: "", bankIban: "", bankSwift: "",
@@ -256,11 +269,10 @@ export default function AdminPanel() {
         supplierFree: isFree(planForm.supplierPrice),
         expertFree: isFree(planForm.expertPrice),
       });
-      setFreePlanEnabled(planForm.freePlanEnabled === true);
       setClientProEnabled(planForm.clientProEnabled !== false);
-      setDefaultPlan(planForm.defaultPlan ?? "free");
+      setDefaultPlan(planForm.defaultPlan === "client_pro" ? "client_pro" : "trial");
     }
-  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.supplierPrice, planForm?.freePlanEnabled, planForm?.clientProEnabled, planForm?.defaultPlan]);
+  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.supplierPrice, planForm?.clientProEnabled, planForm?.defaultPlan]);
 
   // Sync payment form when config loads
   useEffect(() => {
@@ -4001,59 +4013,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <CardHeader>
                 <CardTitle className="text-base">Abonnements mensuels — prix et configuration</CardTitle>
                 <CardDescription className="text-xs">
-                  Forfaits mensuels (30 jours). Renouvellement requis à l'échéance. Le client doit passer au paiement dès la création de compte, sauf si l'« Offre gratuite » est activée : dans ce cas, les services (projets de construction, matériaux IA, plans architecturaux, suivi de A à Z) sont activés automatiquement, sans choix de forfait.
+                  Forfaits mensuels (30 jours). Renouvellement requis à l'échéance. Le forfait « Free » n'est plus proposé : il est remplacé par la période d'essai gratuite ci-dessous, puis par une offre payante. Un forfait dont l'« Offre gratuite » est activée est accessible sans paiement.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* ═══ Forfait Free (gratuit) ═══ */}
-                <div className="p-5 rounded-xl bg-gradient-to-br from-slate-500/5 to-slate-500/0 border border-slate-200/30 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-bold flex items-center gap-2">
-                        <Badge variant="outline" className="text-[10px] bg-slate-500/5">FREE</Badge>
-                        {FREE_PLAN_LABEL}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Gratuit — 0 TND/mois · fonctionnalités principales pour tous les profils
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      {defaultPlan === "free" && (
-                        <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20">✓ Forfait par défaut</Badge>
-                      )}
-                      {freePlanEnabled ? (
-                        <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Activé</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[10px]">Désactivé</Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
-                    <p><strong className="text-foreground">Description :</strong> forfait gratuit ouvrant l'estimation, les plans IA, le choix matériaux, les consultations et le suivi à tous les profils (Client, Fournisseur, Expert).</p>
-                    <div className="grid grid-cols-1 gap-x-4 gap-y-1 pt-1 sm:grid-cols-2">
-                      {FREE_PLAN_FEATURES.map((f) => (
-                        <span key={f.label} className="flex items-center gap-1.5">
-                          {f.included ? (
-                            <Check className="h-3 w-3 shrink-0 text-emerald-500" />
-                          ) : (
-                            <span className="shrink-0 text-[10px]">🔒</span>
-                          )}
-                          <span className="truncate">
-                            {f.label}
-                            {!f.included && f.lockedHint ? ` — ${f.lockedHint}` : ""}
-                          </span>
-                        </span>
-                      ))}
-                    </div>
-                    <p className="pt-1"><strong className="text-foreground">Restriction PDF :</strong> le téléchargement des rapports PDF reste réservé à {CLIENT_PRO_PLAN_LABEL}.</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Switch checked={freePlanEnabled} onCheckedChange={setFreePlanEnabled} />
-                    <span className="text-[11px] text-muted-foreground">
-                      {freePlanEnabled ? "Forfait Free activé" : "Forfait Free désactivé"}
-                    </span>
-                  </div>
-                </div>
+                {/* ═══ Période d'essai gratuite (remplace l'ancien forfait Free) ═══ */}
+                <TrialSettings />
 
                 {/* ═══ Forfait Client Pro (Start remplacé par Client Pro) ═══ */}
                 <div className="p-5 rounded-xl bg-gradient-to-br from-blue-500/5 to-blue-500/0 border border-blue-200/20 space-y-4">
@@ -4241,7 +4206,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {([
-                      { id: "free" as const, label: `${FREE_PLAN_LABEL} — Gratuit`, available: freePlanEnabled, hint: "Free désactivé" },
+                      { id: "trial" as const, label: "Période d'essai gratuite — aucun forfait payé", available: true, hint: "" },
                       { id: "client_pro" as const, label: "Client Pro — Abonnement mensuel", available: clientProEnabled, hint: "Client Pro désactivé" },
                     ]).map((opt) => {
                       const selected = defaultPlan === opt.id;
@@ -4275,9 +4240,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                       );
                     })}
                   </div>
-                  {!freePlanEnabled && !clientProEnabled && (
-                    <p className="text-[11px] text-red-600 dark:text-red-400">
-                      Les deux forfaits sont désactivés : activez-en un pour définir un forfait par défaut.
+                  {!clientProEnabled && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Client Pro est désactivé : les nouveaux comptes relèvent de la période d'essai.
                     </p>
                   )}
                   <p className="text-[11px] text-muted-foreground">
@@ -4286,7 +4251,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 </div>
 
                 <div className="rounded-lg bg-amber-500/5 border border-amber-200/20 p-3 text-[11px] text-amber-600 dark:text-amber-400">
-                  <p>L'essai gratuit a été <strong>supprimé</strong>. Chaque forfait est soit payant (prix défini ci-dessus), soit gratuit via son bouton « Offre gratuite » — l'activation des services est alors <strong>automatique</strong>, sans que le client ait à choisir un forfait.</p>
+                  <p>Le forfait <strong>Free</strong> n'existe plus : la <strong>période d'essai gratuite</strong> (durée, profils et modules configurables ci-dessus) la remplace, puis la souscription à une offre payante devient obligatoire. Les comptes encore associés à l'ancien forfait sont convertis sans perte depuis le panneau « Période d'essai ».</p>
                 </div>
 
                 {savingLimits ? (
@@ -4298,18 +4263,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                   <Button
                     onClick={async () => {
                       // Refus d'enregistrer un forfait par défaut désactivé.
-                      if (defaultPlan === "free" && !freePlanEnabled) {
-                        toast.error("Le forfait Free est désactivé : sélectionnez un autre forfait par défaut.");
-                        return;
-                      }
                       if (defaultPlan === "client_pro" && !clientProEnabled) {
                         toast.error("Client Pro est désactivé : sélectionnez un autre forfait par défaut.");
                         return;
                       }
                       setSavingLimits(true);
                       try {
-                        // Forfait Free — activation/désactivation sans code.
-                        await updateFreePlanConfig({ enabled: freePlanEnabled });
                         // Disponibilité du forfait Client Pro (défaut / affichage).
                         await updateClientProEnabled({ enabled: clientProEnabled });
                         // Forfait par défaut des nouveaux utilisateurs.
@@ -4851,5 +4810,484 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
       </AlertDialogContent>
     </AlertDialog>
     </>
+  );
+}
+
+// ============================================================================
+// Période d'essai gratuite — paramétrage administrateur (remplace le forfait Free)
+// ============================================================================
+// Activation, durée (1 à 365 jours), fenêtre de validité, profils éligibles et
+// modules ouverts : tout est enregistré dans Convex (`convex/trialConfig.ts`)
+// et vérifié côté serveur. L'interface ne fait que présenter les paramètres.
+// Aucune donnée n'est supprimée : désactiver l'essai conserve les comptes, les
+// projets et les abonnements payants.
+
+const trialDayPad = (n: number) => String(n).padStart(2, "0");
+
+/** Horodatage → `YYYY-MM-DD` (jour local, pour `<input type="date">`). */
+function trialToDayInput(ts: number | null): string {
+  if (!ts) return "";
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${trialDayPad(d.getMonth() + 1)}-${trialDayPad(d.getDate())}`;
+}
+
+/** `YYYY-MM-DD` → bornes UTC de la journée (début ou fin). */
+function trialFromDayInput(value: string, endOfDay: boolean): number | null {
+  if (!value) return null;
+  const [y, m, d] = value.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return endOfDay
+    ? Date.UTC(y, m - 1, d, 23, 59, 59, 999)
+    : Date.UTC(y, m - 1, d, 0, 0, 0, 0);
+}
+
+const trialDayFmt = new Intl.DateTimeFormat("fr-FR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
+function TrialSettings() {
+  const data = useQuery(api.trialConfig.getTrialConfig);
+  const legacy = useQuery(api.subscriptionStatus.getFreePlanMigrationPreview);
+  const saveTrialConfig = useMutation(api.trialConfig.updateTrialConfig);
+  const resetTrialConfig = useMutation(api.trialConfig.resetTrialConfig);
+  const migrateLegacyFree = useMutation(api.subscriptionStatus.migrateLegacyFreePlanUsers);
+
+  const [form, setForm] = useState<TrialConfig | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+
+  // Synchronisation depuis le serveur uniquement quand la configuration
+  // enregistrée change réellement (une saisie en cours n'est pas écrasée par
+  // un simple rafraîchissement réactif).
+  const signature = JSON.stringify(data?.config ?? null);
+  useEffect(() => {
+    if (data?.config) setForm(data.config);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature]);
+
+  const stats = data?.stats;
+
+  const durationError = (() => {
+    if (!form) return null;
+    if (!Number.isFinite(form.durationDays)) return "Durée invalide.";
+    if (form.durationDays < TRIAL_MIN_DAYS || form.durationDays > TRIAL_MAX_DAYS) {
+      return `La durée doit être comprise entre ${TRIAL_MIN_DAYS} et ${TRIAL_MAX_DAYS} jours.`;
+    }
+    if (form.validFrom != null && form.validUntil != null && form.validUntil <= form.validFrom) {
+      return "La date de fin doit être postérieure à la date de début.";
+    }
+    return null;
+  })();
+
+  const toggleModule = (key: TrialModuleKey) => {
+    setForm((prev) => {
+      if (!prev) return prev;
+      const has = prev.modules.includes(key);
+      return {
+        ...prev,
+        modules: has ? prev.modules.filter((m) => m !== key) : [...prev.modules, key],
+      };
+    });
+  };
+
+  const toggleProfile = (key: TrialProfileKey) => {
+    setForm((prev) => {
+      if (!prev) return prev;
+      const has = prev.eligibleProfiles.includes(key);
+      return {
+        ...prev,
+        eligibleProfiles: has
+          ? prev.eligibleProfiles.filter((p) => p !== key)
+          : [...prev.eligibleProfiles, key],
+      };
+    });
+  };
+
+  const handleSaveTrial = async () => {
+    if (!form) return;
+    if (durationError) {
+      toast.error(durationError);
+      return;
+    }
+    if (form.modules.length === 0) {
+      toast.error("Sélectionnez au moins un module accessible pendant l'essai.");
+      return;
+    }
+    if (form.eligibleProfiles.length === 0) {
+      toast.error("Sélectionnez au moins un profil éligible à l'essai.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await saveTrialConfig({
+        enabled: form.enabled,
+        durationDays: Math.round(form.durationDays),
+        validFrom: form.validFrom,
+        validUntil: form.validUntil,
+        eligibleProfiles: form.eligibleProfiles,
+        modules: form.modules,
+        newAccountsOnly: form.newAccountsOnly,
+      });
+      toast.success(
+        form.enabled
+          ? `Période d'essai enregistrée : ${trialDurationLabel(form.durationDays)} pour les nouveaux comptes éligibles.`
+          : "Période d'essai désactivée : les paramètres sont conservés.",
+      );
+    } catch (err: any) {
+      toast.error(err?.message || "Impossible d'enregistrer les paramètres de l'essai.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetTrial = async () => {
+    if (!window.confirm("Réinitialiser la période d'essai aux valeurs par défaut ?")) return;
+    setSaving(true);
+    try {
+      const res = await resetTrialConfig({});
+      setForm(res.config as TrialConfig);
+      toast.success("Paramètres de la période d'essai réinitialisés.");
+    } catch (err: any) {
+      toast.error(err?.message || "Réinitialisation impossible.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleMigrateFree = async () => {
+    const count = legacy?.total ?? 0;
+    if (count === 0) {
+      toast.info("Aucun compte n'est encore associé à l'ancien forfait Free.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Convertir ${count} compte(s) de l'ancien forfait Free vers la période d'essai ?\n\n` +
+        "Aucune donnée (projets, devis, factures, abonnements payants) n'est supprimée. " +
+        "Les comptes n'ayant jamais utilisé d'essai en reçoivent un selon la configuration actuelle.",
+    );
+    if (!confirmed) return;
+    setMigrating(true);
+    try {
+      const res = await migrateLegacyFree({});
+      toast.success(
+        `Migration terminée : ${res.migrated} compte(s) converti(s), ${res.trialsStarted} essai(s) démarré(s), ${res.paidPreserved} abonnement(s) payant(s) conservé(s).`,
+      );
+    } catch (err: any) {
+      toast.error(err?.message || "Migration impossible.");
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  if (data === undefined || !form) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-border/30 p-4 text-xs text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Chargement de la période d'essai…
+      </div>
+    );
+  }
+
+  if (data === null) {
+    return (
+      <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-xs text-red-600 dark:text-red-400">
+        Accès administrateur requis pour configurer la période d'essai.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5 rounded-xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/[0.06] to-transparent p-5">
+      {/* En-tête */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="flex items-center gap-2 text-sm font-bold">
+            <Sparkles className="h-4 w-4 text-emerald-600" />
+            Période d'essai gratuite
+          </h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Remplace le forfait « Free ». Durée, profils et modules sont entièrement configurables.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge
+            className={cn(
+              "text-[10px]",
+              form.enabled
+                ? "border-emerald-200/30 bg-emerald-500/10 text-emerald-600"
+                : "border-border/40 text-muted-foreground",
+            )}
+          >
+            {form.enabled ? "Activée" : "Désactivée"}
+          </Badge>
+          <Badge variant="outline" className="text-[10px]">
+            {trialDurationLabel(form.durationDays)}
+          </Badge>
+          {stats?.campaignOpen && (
+            <Badge variant="outline" className="border-emerald-500/30 text-[10px] text-emerald-600">
+              Campagne ouverte
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Interrupteur principal */}
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/30 bg-background/60 p-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium">Proposer une période d'essai aux nouveaux comptes</p>
+          <p className="text-[11px] text-muted-foreground">
+            Désactivée, aucune offre gratuite n'est accordée : la souscription est immédiatement
+            requise. Les paramètres saisis restent enregistrés.
+          </p>
+        </div>
+        <Switch
+          checked={form.enabled}
+          onCheckedChange={(checked) => setForm({ ...form, enabled: checked })}
+        />
+      </div>
+
+      {/* Durée */}
+      <div className="space-y-3 rounded-lg border border-border/30 bg-background/60 p-3">
+        <div className="flex items-center gap-2">
+          <Clock className="h-3.5 w-3.5 text-emerald-600" />
+          <p className="text-xs font-medium">Durée de l'essai</p>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-32">
+            <label className="text-[11px] text-muted-foreground">Nombre de jours</label>
+            <Input
+              type="number"
+              min={TRIAL_MIN_DAYS}
+              max={TRIAL_MAX_DAYS}
+              value={Number.isFinite(form.durationDays) ? form.durationDays : ""}
+              onChange={(e) =>
+                setForm({ ...form, durationDays: parseInt(e.target.value, 10) || 0 })
+              }
+              className="mt-1 h-8 w-full text-sm"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 pb-0.5">
+            {TRIAL_PRESET_DAYS.map((days) => (
+              <button
+                key={days}
+                type="button"
+                onClick={() => setForm({ ...form, durationDays: days })}
+                className={cn(
+                  "rounded-md border px-2 py-1 text-[11px] transition-colors",
+                  form.durationDays === days
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                    : "border-border/40 text-muted-foreground hover:border-emerald-500/40",
+                )}
+              >
+                {days} j
+              </button>
+            ))}
+          </div>
+        </div>
+        {durationError && (
+          <p className="text-[11px] text-red-600 dark:text-red-400">{durationError}</p>
+        )}
+      </div>
+
+      {/* Fenêtre globale */}
+      <div className="space-y-3 rounded-lg border border-border/30 bg-background/60 p-3">
+        <div className="flex items-center gap-2">
+          <CalendarClock className="h-3.5 w-3.5 text-emerald-600" />
+          <p className="text-xs font-medium">Période de validité de l'offre (facultative)</p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="text-[11px] text-muted-foreground">Date de début</label>
+            <Input
+              type="date"
+              value={trialToDayInput(form.validFrom)}
+              onChange={(e) =>
+                setForm({ ...form, validFrom: trialFromDayInput(e.target.value, false) })
+              }
+              className="mt-1 h-8 w-full text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-muted-foreground">Date de fin</label>
+            <Input
+              type="date"
+              value={trialToDayInput(form.validUntil)}
+              onChange={(e) =>
+                setForm({ ...form, validUntil: trialFromDayInput(e.target.value, true) })
+              }
+              className="mt-1 h-8 w-full text-sm"
+            />
+          </div>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Laisser vide = sans limite. Un essai démarré ne dépasse jamais la date de fin
+          {form.validUntil ? ` (${trialDayFmt.format(new Date(form.validUntil))})` : ""}.
+        </p>
+      </div>
+
+      {/* Profils éligibles */}
+      <div className="space-y-3 rounded-lg border border-border/30 bg-background/60 p-3">
+        <div className="flex items-center gap-2">
+          <Users className="h-3.5 w-3.5 text-emerald-600" />
+          <p className="text-xs font-medium">Profils éligibles</p>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {TRIAL_PROFILES.map((profile) => {
+            const selected = form.eligibleProfiles.includes(profile.key);
+            return (
+              <button
+                key={profile.key}
+                type="button"
+                onClick={() => toggleProfile(profile.key)}
+                className={cn(
+                  "flex items-start gap-2 rounded-lg border p-2.5 text-left transition-colors",
+                  selected
+                    ? "border-emerald-500/40 bg-emerald-500/[0.06]"
+                    : "border-border/40 hover:border-emerald-500/30",
+                )}
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border",
+                    selected ? "border-emerald-500 bg-emerald-500 text-white" : "border-border",
+                  )}
+                >
+                  {selected && <Check className="h-2.5 w-2.5" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[11px] font-medium">{profile.label}</span>
+                  <span className="block text-[10px] text-muted-foreground">
+                    {profile.description}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-border/20 pt-2">
+          <p className="text-[11px] text-muted-foreground">
+            Essai réservé aux nouveaux inscrits (aucun rattrapage pour les comptes existants).
+          </p>
+          <Switch
+            checked={form.newAccountsOnly}
+            onCheckedChange={(checked) => setForm({ ...form, newAccountsOnly: checked })}
+          />
+        </div>
+      </div>
+
+      {/* Modules accessibles */}
+      <div className="space-y-3 rounded-lg border border-border/30 bg-background/60 p-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+          <p className="text-xs font-medium">Modules accessibles pendant l'essai</p>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {TRIAL_MODULES.map((module) => {
+            const selected = form.modules.includes(module.key);
+            return (
+              <button
+                key={module.key}
+                type="button"
+                onClick={() => toggleModule(module.key)}
+                className={cn(
+                  "flex items-start gap-2 rounded-lg border p-2.5 text-left transition-colors",
+                  selected
+                    ? "border-emerald-500/40 bg-emerald-500/[0.06]"
+                    : "border-border/40 hover:border-emerald-500/30",
+                )}
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border",
+                    selected ? "border-emerald-500 bg-emerald-500 text-white" : "border-border",
+                  )}
+                >
+                  {selected && <Check className="h-2.5 w-2.5" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[11px] font-medium">{module.label}</span>
+                  <span className="block text-[10px] text-muted-foreground">
+                    {module.description}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Aucun module n'est accordé au-delà de cette sélection. Le téléchargement des rapports PDF
+          reste réservé à Client Pro sauf si ce module est explicitement coché.
+        </p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-wrap items-center gap-2">
+        {saving ? (
+          <Button disabled className="gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Enregistrement…
+          </Button>
+        ) : (
+          <Button onClick={() => void handleSaveTrial()} className="gap-2">
+            <Save className="h-4 w-4" />
+            Enregistrer les paramètres
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          onClick={() => void handleResetTrial()}
+          disabled={saving}
+          className="gap-2"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Réinitialiser les valeurs par défaut
+        </Button>
+      </div>
+
+      {/* Statistiques + migration de l'ancien forfait Free */}
+      <div className="space-y-2 rounded-lg border border-border/30 bg-background/60 p-3">
+        <p className="text-xs font-medium">Suivi et migration de l'ancien forfait Free</p>
+        <div className="grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
+          <div>
+            <p className="text-muted-foreground">Essais actifs</p>
+            <p className="font-semibold">{stats?.activeTrials ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Essais terminés</p>
+            <p className="font-semibold">{stats?.expiredTrials ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Ancien forfait Free</p>
+            <p className="font-semibold">{stats?.legacyFreePlanAccounts ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Prochaine clôture</p>
+            <p className="font-semibold">
+              {form.validUntil ? trialDayFmt.format(new Date(form.validUntil)) : "—"}
+            </p>
+          </div>
+        </div>
+        <p className="text-[10px] leading-relaxed text-muted-foreground">
+          La conversion retire uniquement le libellé « Free » et applique l'essai aux comptes qui
+          n'en ont jamais bénéficié. Projets, devis, factures et abonnements payants sont conservés.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void handleMigrateFree()}
+          disabled={migrating || (legacy?.total ?? 0) === 0}
+          className="gap-2"
+        >
+          {migrating ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RotateCcw className="h-3.5 w-3.5" />
+          )}
+          Convertir les comptes « Free » ({legacy?.total ?? 0})
+        </Button>
+      </div>
+    </div>
   );
 }

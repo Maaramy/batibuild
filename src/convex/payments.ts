@@ -8,6 +8,7 @@ import {
   paymentMethodDefinition,
 } from "../lib/paymentMethods";
 import { getEnabledPaymentMethodSlugs, getPaymentMethodStates } from "./paymentMethodStates";
+import { isTrialCampaignOpen, readTrialConfig } from "./trialConfig";
 // ============================================================================
 // Payment Configuration
 // ============================================================================
@@ -16,17 +17,14 @@ import { getEnabledPaymentMethodSlugs, getPaymentMethodStates } from "./paymentM
 //   Client Pro  80 TND/mois (par défaut payant — null = gratuit)
 //   Fournisseur 120 TND/mois (null = gratuit)
 //   Expert      120 TND/mois (null = gratuit)
-// Plus aucun essai gratuit : le paiement est requis dès l'inscription.
+// Le forfait « Free » a été supprimé : il est remplacé par la période d'essai
+// gratuite administrable (`convex/trialConfig.ts`), puis par les offres payantes.
 const UNLIMITED = 1000000;
 const DEFAULT_PLAN_PRICING = {
   startPrice: 80,
-  // Forfait Free (0 TND) — désactivé par défaut : l'administrateur l'active
-  // depuis Admin → Abonnements mensuels. Aucune règle n'est codée en dur :
-  // toutes les permissions Free/PDF lisent cette configuration.
-  freePlanEnabled: false,
-  // Forfait par défaut des nouveaux utilisateurs ("free" | "client_pro").
-  // "free" par défaut : équivaut au comportement historique (aucun forfait payé).
-  defaultPlan: "free" as const,
+  // Forfait par défaut des nouveaux utilisateurs ("trial" | "client_pro").
+  // "trial" = aucun forfait payé attribué : la période d'essai s'applique.
+  defaultPlan: "trial" as const,
   // Disponibilité du forfait Client Pro (peut être retiré comme défaut).
   clientProEnabled: true,
   proPrice: 80, // Client Pro — payant par défaut
@@ -65,9 +63,14 @@ export const getPlanPricing = query({
 
     return {
       startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
-      freePlanEnabled: config.freePlanEnabled === true,
       clientProEnabled: config.clientProEnabled !== false,
-      defaultPlan: config.defaultPlan ?? DEFAULT_PLAN_PRICING.defaultPlan,
+      // Legacy "free" (forfait supprimé) interprété comme « période d'essai ».
+      defaultPlan: config.defaultPlan === "client_pro" ? "client_pro" : "trial",
+      // Période d'essai administrable (source de vérité : convex/trialConfig.ts).
+      trialEnabled: config.trialEnabled === true,
+      trialDurationDays: config.trialDurationDays ?? null,
+      trialEligibleProfiles: config.trialEligibleProfiles ?? null,
+      trialModules: config.trialModules ?? null,
       // null = forfait gratuit ; la valeur par défaut (sans config) n'est PAS gratuite.
       proPrice: config.proPrice ?? null,
       expertPrice: config.expertPrice ?? null,
@@ -105,7 +108,7 @@ export const updatePlanPricing = mutation({
     const patch: Record<string, any> = {};
     const plan = args.plan;
 
-    if (plan === "free" || plan === "pro") {
+    if (plan === "pro") {
       // « pro » = Client Pro (Start remplacé par Client Pro).
       if (args.price !== undefined) patch.proPrice = args.price;
       if (args.projectLimit !== undefined) patch.proProjectLimit = args.projectLimit;
@@ -130,41 +133,6 @@ export const updatePlanPricing = mutation({
     }
 
     return { success: true };
-  },
-});
-
-/**
- * Active/désactive le forfait Free (admin uniquement).
- *
- * Source de vérité unique : `paymentConfig.freePlanEnabled`. Aucune règle
- * Free/PDF n'est codée en dur ailleurs — le contrôle d'accès et la restriction
- * PDF lisent toujours cette valeur. Désactiver le forfait ne supprime JAMAIS
- * aucun projet, résultat ou donnée utilisateur : seul l'accès est re-cadré.
- */
-export const updateFreePlanConfig = mutation({
-  args: { enabled: v.boolean() },
-  handler: async (ctx, args) => {
-    const admin = await getCurrentUser(ctx);
-    if (!admin || admin.role !== "admin") {
-      throw new Error("Unauthorized: Admin access required");
-    }
-
-    const existingConfig = await ctx.db.query("paymentConfig").order("desc").first();
-    if (existingConfig) {
-      await ctx.db.patch(existingConfig._id, {
-        freePlanEnabled: args.enabled,
-        updatedAt: Date.now(),
-      });
-    } else {
-      await ctx.db.insert("paymentConfig", {
-        ...DEFAULT_PLAN_PRICING,
-        freePlanEnabled: args.enabled,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      } as any);
-    }
-
-    return { success: true, freePlanEnabled: args.enabled };
   },
 });
 
@@ -204,13 +172,17 @@ export const updateClientProEnabled = mutation({
 
 /**
  * Définit le FORFAIT PAR DÉFAUT attribué aux nouveaux utilisateurs
- * (admin uniquement). Contrôle serveur : un forfait désactivé ne peut jamais
- * être enregistré comme défaut — l'administrateur doit sélectionner l'autre
- * forfait actif. La configuration est stockée dans Convex (`paymentConfig`) et
- * ne s'applique qu'aux nouvelles inscriptions.
+ * (admin uniquement).
+ *
+ *   - `"trial"` : aucun forfait payé — la période d'essai gratuite s'applique ;
+ *   - `"client_pro"` : abonnement Client Pro attribué d'office.
+ *
+ * Contrôle serveur : un forfait désactivé ne peut jamais être enregistré comme
+ * défaut. La configuration est stockée dans Convex (`paymentConfig`) et ne
+ * s'applique qu'aux nouvelles inscriptions.
  */
 export const updateDefaultPlanConfig = mutation({
-  args: { plan: v.union(v.literal("free"), v.literal("client_pro")) },
+  args: { plan: v.union(v.literal("trial"), v.literal("client_pro")) },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
     if (!admin || admin.role !== "admin") {
@@ -218,17 +190,11 @@ export const updateDefaultPlanConfig = mutation({
     }
 
     const existingConfig = await ctx.db.query("paymentConfig").order("desc").first();
-    const freePlanEnabled = existingConfig?.freePlanEnabled === true;
     const clientProEnabled = existingConfig?.clientProEnabled !== false;
 
-    if (args.plan === "free" && !freePlanEnabled) {
-      throw new Error(
-        "Le forfait Free est désactivé : il ne peut pas être défini comme forfait par défaut. Activez Free ou sélectionnez Client Pro.",
-      );
-    }
     if (args.plan === "client_pro" && !clientProEnabled) {
       throw new Error(
-        "Client Pro est désactivé : il ne peut pas être défini comme forfait par défaut. Activez Client Pro ou sélectionnez Free.",
+        "Client Pro est désactivé : il ne peut pas être défini comme forfait par défaut. Activez Client Pro ou sélectionnez la période d'essai.",
       );
     }
 
@@ -264,11 +230,18 @@ export const getPublicPricing = query({
 
     if (!config) return { ...DEFAULT_PLAN_PRICING, paymentMethods: enabledMethods };
 
+    const trial = await readTrialConfig(ctx);
+
     return {
       startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
-      freePlanEnabled: config.freePlanEnabled === true,
       clientProEnabled: config.clientProEnabled !== false,
-      defaultPlan: config.defaultPlan ?? DEFAULT_PLAN_PRICING.defaultPlan,
+      // Legacy "free" (forfait supprimé) interprété comme « période d'essai ».
+      defaultPlan: config.defaultPlan === "client_pro" ? "client_pro" : "trial",
+      // Période d'essai gratuite (activée + fenêtre de validité, calcul serveur).
+      trialEnabled: isTrialCampaignOpen(trial),
+      trialDurationDays: trial.durationDays,
+      trialModules: trial.modules,
+      trialEligibleProfiles: trial.eligibleProfiles,
       // null = forfait gratuit ; la valeur par défaut (sans config) n'est PAS gratuite.
       proPrice: config.proPrice ?? null,
       expertPrice: config.expertPrice ?? null,

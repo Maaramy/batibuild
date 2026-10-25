@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { MySubscriptionCard } from "@/components/MySubscriptionCard";
 import { availablePaymentMethods } from "@/lib/paymentMethods";
-import { CLIENT_PRO_PLAN_LABEL, FREE_PLAN_LABEL, PLAN_COMPARISON } from "@/lib/freePlan";
+import { TRIAL_PLAN_LABEL, trialDurationLabel } from "@/lib/subscriptionPlans";
 
 // Default payment config (fallback if not set in DB)
 const DEFAULT_PAYMENT = {
@@ -31,8 +31,10 @@ const DEFAULT_PAYMENT = {
 };
 
 // Abonnements mensuels (30 jours) — trois offres : Client Pro, Fournisseur, Expert.
-// Un prix null/0 en base signifie que le forfait est gratuit (bascule admin « Offre gratuite »).
-// Client Pro est payant par défaut — plus aucun essai gratuit.
+// Un prix null/0 en base signifie que le forfait est gratuit (bascule admin
+// « Offre gratuite » d'un forfait payant). Le forfait « Free » permanent
+// n'existe plus : il est remplacé par la période d'essai configurée par
+// l'administrateur, puis par une offre payante.
 type PlanId = "pro" | "supplier" | "expert";
 
 const PLAN_LABELS: Record<string, string> = { pro: "Client Pro", supplier: "Fournisseur", expert: "Expert" };
@@ -133,11 +135,10 @@ export default function PricingPage() {
   const [paymentMethod, setPaymentMethod] = useState<string>("bank_transfer");
   const paymentSectionRef = useRef<HTMLDivElement>(null);
   const paymentConfig = useQuery(api.payments.getPublicPricing);
-  // ── Forfait Free : disponible uniquement quand l'admin l'a activé
-  // (`paymentConfig.freePlanEnabled`). Aucune valeur codée en dur.
-  const freePlanEnabled = (paymentConfig as any)?.freePlanEnabled === true;
-  const chooseFreePlan = useMutation(api.subscriptions.chooseFreePlan);
-  const [freeBusy, setFreeBusy] = useState(false);
+  // ── Période d'essai gratuite : activation et durée viennent de la
+  // configuration administrée (`convex/trialConfig.ts`), jamais d'une constante.
+  const trialEnabled = (paymentConfig as any)?.trialEnabled === true;
+  const trialDays: number = (paymentConfig as any)?.trialDurationDays ?? 7;
 
   // ── Méthodes de paiement disponibles (activées par l'administrateur) ──
   const paymentMethods = availablePaymentMethods(
@@ -273,23 +274,6 @@ export default function PricingPage() {
         ? "Demande d'abonnement envoyée ! En attente de validation du paiement D17."
         : "Demande d'abonnement envoyée ! En attente de validation du virement."
     );
-  };
-
-  // ── Souscription au forfait Free (0 TND) — refusée côté serveur si désactivé ──
-  const handleChooseFree = async () => {
-    if (!isAuthenticated) {
-      navigate("/auth");
-      return;
-    }
-    setFreeBusy(true);
-    try {
-      await chooseFreePlan({});
-      toast.success("Forfait Free activé ! Vous pouvez utiliser le parcours sans paiement.");
-    } catch (err: any) {
-      toast.error(err?.message || "Impossible d'activer le forfait Free.");
-    } finally {
-      setFreeBusy(false);
-    }
   };
 
   const handleUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -477,8 +461,10 @@ export default function PricingPage() {
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre abonnement</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
             Abonnement mensuel (30 jours) — renouvellement requis à l'échéance. Chaque forfait inclut un accès complet
-            aux outils d'estimation, matériaux IA et téléchargements. Pendant la période d'essai gratuit (7 jours),
-            l'accès est offert ; à son terme, la souscription à une offre devient obligatoire.
+            aux outils d'estimation, matériaux IA et téléchargements.{" "}
+            {trialEnabled
+              ? `Pendant la période d'essai gratuite (${trialDurationLabel(trialDays)}), l'accès est offert ; à son terme, la souscription à une offre devient obligatoire.`
+              : "Aucune offre gratuite permanente : la souscription à une offre est requise pour accéder aux services."}
           </p>
         </div>
 
@@ -500,72 +486,36 @@ export default function PricingPage() {
           </div>
         )}
 
-        {/* ═══ Forfait Free (gratuit) — affiché uniquement s'il est activé par l'admin ═══ */}
-        {freePlanEnabled && (
+        {/* ═══ Période d'essai gratuite — durée réglée par l'administration ═══ */}
+        {trialEnabled && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="mb-8 rounded-2xl border border-slate-300/50 bg-gradient-to-br from-slate-500/[0.06] to-background p-5 sm:p-6"
+            className="mb-10 rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/[0.07] to-background p-5 sm:p-6"
           >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
+                <Sparkles className="h-4 w-4 text-emerald-600" />
+              </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px] font-semibold">
-                    {FREE_PLAN_LABEL}
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold">{TRIAL_PLAN_LABEL} gratuite</p>
+                  <Badge variant="outline" className="border-emerald-500/30 text-[10px] text-emerald-700 dark:text-emerald-400">
+                    {trialDurationLabel(trialDays)} offerts
                   </Badge>
-                  <span className="text-2xl font-bold text-emerald-600">Gratuit</span>
-                  <span className="text-xs text-muted-foreground">0 TND · /mois</span>
                 </div>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                  Utilisez le parcours complet (estimation, plans IA, matériaux, consultations,
-                  suivi) sans paiement. Le téléchargement des rapports PDF reste réservé à{" "}
-                  <strong>{CLIENT_PRO_PLAN_LABEL}</strong>.
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Chaque nouveau compte éligible bénéficie d'une période d'essai de{" "}
+                  <strong>{trialDurationLabel(trialDays)}</strong> sur les modules sélectionnés par
+                  l'administration. Aucun paiement n'est déclenché automatiquement : à l'expiration,
+                  vous choisissez librement une offre payante. Un compte ne peut bénéficier que d'une
+                  seule période d'essai.
                 </p>
               </div>
-              <Button
-                variant="outline"
-                className="h-11 shrink-0 gap-1.5 sm:w-48"
-                onClick={handleChooseFree}
-                disabled={freeBusy}
-              >
-                {freeBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Choisir {FREE_PLAN_LABEL}
-              </Button>
             </div>
           </motion.div>
         )}
-
-        {/* ═══ Comparatif Free ↔ Client Pro ═══ */}
-        <div className="mb-10 overflow-hidden rounded-2xl border border-border/40">
-          <div className="grid grid-cols-[1fr_5rem_6rem] items-center gap-x-3 border-b border-border/30 bg-muted/20 px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid-cols-[1fr_7rem_8rem]">
-            <span>Fonctionnalité</span>
-            <span className="text-center">{FREE_PLAN_LABEL}</span>
-            <span className="text-center text-primary">{CLIENT_PRO_PLAN_LABEL}</span>
-          </div>
-          {PLAN_COMPARISON.map((row) => (
-            <div
-              key={row.feature}
-              className="grid grid-cols-[1fr_5rem_6rem] items-center gap-x-3 border-b border-border/20 px-4 py-2.5 text-sm last:border-b-0 sm:grid-cols-[1fr_7rem_8rem]"
-            >
-              <span className="min-w-0 truncate">{row.feature}</span>
-              <span className="flex justify-center">
-                {row.free ? (
-                  <Check className="h-4 w-4 text-emerald-500" />
-                ) : (
-                  <span className="text-[11px] text-muted-foreground">🔒</span>
-                )}
-              </span>
-              <span className="flex justify-center">
-                {row.pro ? (
-                  <Check className="h-4 w-4 text-emerald-500" />
-                ) : (
-                  <X className="h-4 w-4 text-muted-foreground/50" />
-                )}
-              </span>
-            </div>
-          ))}
-        </div>
 
         {/* ═══ Les 3 forfaits ═══ */}
         <div

@@ -90,7 +90,7 @@ export const generateRoadmapForProject = mutation({
     if (!user) throw new Error("Connectez-vous pour générer une feuille de route.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
 
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Projet introuvable.");
@@ -158,7 +158,7 @@ export const deleteRoadmap = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await ctx.db.get(args.roadmapId);
     if (!doc) throw new Error("Feuille de route introuvable.");
     if (doc.userId !== user._id && user.role !== "admin") throw new Error("Accès refusé.");
@@ -284,7 +284,7 @@ export const togglePhaseItem = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const input = doc.input as RoadmapProjectInput;
     // Trame du type de projet : une feuille de route encore vierge est adaptée
@@ -361,7 +361,7 @@ export const updatePlanningTask = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const input = doc.input as RoadmapProjectInput;
     // Trame du type de projet : une feuille de route encore vierge est adaptée
@@ -413,7 +413,7 @@ export const setBudgetScenario = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const input = doc.input as RoadmapProjectInput;
     // Trame du type de projet : une feuille de route encore vierge est adaptée
@@ -441,7 +441,7 @@ export const updateBudgetAllocation = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const input = doc.input as RoadmapProjectInput;
     // Trame du type de projet : une feuille de route encore vierge est adaptée
@@ -478,7 +478,7 @@ export const addControlExpense = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const input = doc.input as RoadmapProjectInput;
     // Trame du type de projet : une feuille de route encore vierge est adaptée
@@ -505,7 +505,7 @@ export const deleteControlExpense = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const input = doc.input as RoadmapProjectInput;
     // Trame du type de projet : une feuille de route encore vierge est adaptée
@@ -532,7 +532,7 @@ export const addControlIssue = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const input = doc.input as RoadmapProjectInput;
     // Trame du type de projet : une feuille de route encore vierge est adaptée
@@ -559,7 +559,7 @@ export const resolveControlIssue = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const input = doc.input as RoadmapProjectInput;
     // Trame du type de projet : une feuille de route encore vierge est adaptée
@@ -587,7 +587,7 @@ export const addControlObservation = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const input = doc.input as RoadmapProjectInput;
     // Trame du type de projet : une feuille de route encore vierge est adaptée
@@ -620,7 +620,7 @@ export const addControlPhoto = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const input = doc.input as RoadmapProjectInput;
     // Trame du type de projet : une feuille de route encore vierge est adaptée
@@ -656,7 +656,7 @@ export const deleteControlPhoto = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const input = doc.input as RoadmapProjectInput;
     // Trame du type de projet : une feuille de route encore vierge est adaptée
@@ -684,7 +684,7 @@ export const generateDocument = mutation({
     if (!user) throw new Error("Connectez-vous.");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Suivi de A à Z");
+    await requireClientProAccess(ctx, user, "Suivi de A à Z", "execution");
     const doc = await loadOwned(ctx, args.roadmapId, user);
     const r = doc.results as Roadmap;
     const documents = r.documents.map((d) => (d.id === args.documentId ? { ...d, generatedAt: Date.now() } : d));

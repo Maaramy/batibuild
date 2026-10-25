@@ -389,7 +389,7 @@ export const createProject = mutation({
     }
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Projets de construction");
+    await requireClientProAccess(ctx, user, "Projets de construction", "estimation");
 
     const now = Date.now();
 
@@ -845,7 +845,7 @@ export const startAnalysis = mutation({
     if (!user) throw new Error("Unauthorized");
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Projets de construction");
+    await requireClientProAccess(ctx, user, "Projets de construction", "estimation");
 
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
@@ -891,7 +891,7 @@ export const simulateAnalysis = mutation({
     if (!user) return;
 
     // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Estimation des coûts");
+    await requireClientProAccess(ctx, user, "Estimation des coûts", "estimation");
 
     const project = await ctx.db.get(args.projectId);
     if (!project) return;

@@ -13,21 +13,23 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   CLIENT_PRO_PLAN_LABEL,
-  FREE_PLAN_LABEL,
+  TRIAL_PLAN_LABEL,
   PLAN_COMPARISON,
   PRICING_PAGE_PATH,
   PDF_UPGRADE_CANCEL,
   PDF_UPGRADE_CTA,
   PDF_UPGRADE_MESSAGE,
   PDF_UPGRADE_TITLE,
-} from "@/lib/freePlan";
+} from "@/lib/subscriptionPlans";
 
 // ============================================================================
 // PdfUpgradeDialog — « Rapport PDF disponible avec Client Pro »
 // ============================================================================
-// Affiché lorsqu'un utilisateur du forfait Free tente de télécharger un rapport
-// PDF. Le contrôle réel est fait côté serveur (`api.access.canDownloadPdf`) ;
-// ce dialogue n'est que la présentation de la mise à niveau.
+// Affiché lorsque l'essai gratuit ou l'abonnement de l'utilisateur n'ouvre pas le
+// téléchargement PDF. Le contrôle réel est fait côté serveur
+// (`api.access.canDownloadPdf`) : seuls Client Pro — ou une période d'essai dont
+// l'administrateur a coché le module PDF — y donnent accès. Ce dialogue n'est
+// que la présentation de la mise à niveau.
 
 export function PdfUpgradeDialog({
   open,
@@ -54,7 +56,7 @@ export function PdfUpgradeDialog({
         <div className="overflow-hidden rounded-xl border border-border/40">
           <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 border-b border-border/30 bg-muted/20 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             <span>Fonctionnalité</span>
-            <span className="w-12 text-center">{FREE_PLAN_LABEL}</span>
+            <span className="w-12 text-center">{TRIAL_PLAN_LABEL}</span>
             <span className="w-16 text-center text-indigo-600 dark:text-indigo-400">
               {CLIENT_PRO_PLAN_LABEL}
             </span>
@@ -66,7 +68,7 @@ export function PdfUpgradeDialog({
             >
               <span className="min-w-0 truncate">{row.feature}</span>
               <span className="flex w-12 justify-center">
-                {row.free ? (
+                {row.trial ? (
                   <Check className="h-3.5 w-3.5 text-emerald-500" />
                 ) : (
                   <Lock className="h-3.5 w-3.5 text-muted-foreground/50" />
@@ -89,8 +91,8 @@ export function PdfUpgradeDialog({
             <Badge variant="outline" className="mr-1 border-indigo-500/30 text-[9px]">
               {CLIENT_PRO_PLAN_LABEL}
             </Badge>
-            Toutes les fonctionnalités Free, plus le téléchargement des rapports PDF et l'accès aux
-            rapports professionnels.
+            Toutes les fonctionnalités de l'essai, plus le téléchargement des rapports PDF et
+            l'accès aux rapports professionnels.
           </span>
         </div>
 

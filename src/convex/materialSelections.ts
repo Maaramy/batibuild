@@ -238,7 +238,7 @@ async function assertEnabled(ctx: MutationCtx, user: any) {
   if (!(await readFlag(ctx, "ai_materials"))) {
     throw new Error("Cette fonctionnalité n'est actuellement pas disponible.");
   }
-  await requireClientProAccess(ctx, user, "Choix matériaux AI");
+  await requireClientProAccess(ctx, user, "Choix matériaux AI", "materials");
 }
 
 async function upsertDraft(

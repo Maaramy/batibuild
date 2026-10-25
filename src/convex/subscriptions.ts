@@ -133,9 +133,10 @@ async function checkDownloadAllowedForKind(ctx: any, _kind: string) {
 }
 
 /**
- * Contrôle serveur du téléchargement PDF : réservé au forfait payant Client Pro.
- * Le forfait Free et l'essai sont refusés — l'interface ne peut pas contourner
- * cette vérification (les générateurs PDF appellent cette mutation).
+ * Contrôle serveur du téléchargement PDF : réservé au forfait payant Client Pro
+ * (ou à une période d'essai dont le module PDF a été ouvert par
+ * l'administrateur). L'interface ne peut pas contourner cette vérification
+ * (les générateurs PDF appellent cette mutation).
  */
 async function consumeDownloadForKind(ctx: any, _kind: string): Promise<void> {
   const user = await getCurrentUser(ctx);
@@ -149,63 +150,14 @@ async function consumeDownloadForKind(ctx: any, _kind: string): Promise<void> {
 
 // consumeDownloadForKind — quotas removed
 
-
-// ============================================================================
-// Forfait Free (gratuit)
-// ============================================================================
-
-/**
- * Souscrit au forfait Free (0 TND). Disponible UNIQUEMENT quand
- * l'administrateur l'a activé (`paymentConfig.freePlanEnabled`).
- *
- * Le forfait Free ouvre les fonctionnalités principales à tous les profils,
- * mais ne donne PAS accès au téléchargement des rapports PDF (voir
- * `access.getPdfDownloadAccess`). Aucune donnée (projets, résultats) n'est
- * supprimée : les abonnements payants actifs/en attente sont simplement
- * annulés pour éviter deux forfaits simultanés.
- */
-export const chooseFreePlan = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user) throw new Error("Non connecté");
-
-    const config = await ctx.db.query("paymentConfig").order("desc").first();
-    if (config?.freePlanEnabled !== true) {
-      throw new Error("Le forfait Free n'est pas disponible actuellement.");
-    }
-
-    const now = Date.now();
-    const subs = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect();
-    for (const sub of subs) {
-      if (sub.status === "active" || sub.status === "pending") {
-        await ctx.db.patch(sub._id, { status: "canceled", updatedAt: now });
-      }
-    }
-
-    await ctx.db.patch(user._id, {
-      subscriptionPlan: "free",
-      subscriptionStatus: "free",
-      subscriptionEndDate: undefined,
-      subscriptionStartDate: undefined,
-      subscriptionDaysRemaining: 0,
-      updatedAt: now,
-    });
-
-    return { success: true };
-  },
-});
-
 // ============================================================================
 // Mutations
 // ============================================================================
 
 // Forfaits mensuels : durée de 30 jours — renouvellement mensuel.
-// L'essai gratuit (7 jours) est géré par `subscriptionStatus.ts` : souscrire à
-// une offre mensuelle le désactive immédiatement.
+// La période d'essai gratuite (durée réglée par l'administrateur) est gérée par
+// `subscriptionStatus.ts` : souscrire à une offre mensuelle la désactive
+// immédiatement. L'ancien forfait « Free » a été supprimé.
 const MONTHLY_DURATION = MONTHLY_DURATION_DAYS * DAY_MS; // 30 jours
 
 /** Create or update subscription (abonnement mensuel, 30 jours) */

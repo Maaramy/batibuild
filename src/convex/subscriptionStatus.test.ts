@@ -83,12 +83,12 @@ describe("computeSubscriptionSnapshot", () => {
   const base = {
     now: NOW,
     isAdmin: false,
-    freeOfferEnabled: true,
+    trialEnabled: true,
     planPrice: null as number | null,
-    plan: "free" as string | null,
+    plan: null as string | null,
   };
 
-  it("offre gratuite activée + essai jamais utilisé → essai disponible (7 jours à démarrer)", () => {
+  it("essai activé + essai jamais utilisé → essai disponible (à démarrer)", () => {
     const snap = computeSubscriptionSnapshot(base);
     expect(snap.status).toBe("trial_available");
     expect(snap.type).toBe("trial");
@@ -192,8 +192,8 @@ describe("computeSubscriptionSnapshot", () => {
     expect(snap.requiresPayment).toBe(false);
   });
 
-  it("offre gratuite désactivée et essai jamais accordé → aucun accès", () => {
-    const snap = computeSubscriptionSnapshot({ ...base, freeOfferEnabled: false, planPrice: 80 });
+  it("essai désactivé et jamais accordé → aucun accès", () => {
+    const snap = computeSubscriptionSnapshot({ ...base, trialEnabled: false, planPrice: 80 });
     expect(snap.status).toBe("none");
     expect(snap.type).toBe("none");
     expect(snap.isActive).toBe(false);
@@ -202,42 +202,43 @@ describe("computeSubscriptionSnapshot", () => {
   });
 
   it("administrateur → accès toujours autorisé", () => {
-    const snap = computeSubscriptionSnapshot({ ...base, isAdmin: true, freeOfferEnabled: false });
+    const snap = computeSubscriptionSnapshot({ ...base, isAdmin: true, trialEnabled: false });
     expect(snap.status).toBe("admin");
     expect(snap.isActive).toBe(true);
     expect(snap.requiresPayment).toBe(false);
   });
 
-  it("forfait Free choisi et proposé → état « Forfait gratuit », jamais « Aucun abonnement »", () => {
+  it("ancien plan « free » enregistré (forfait supprimé) → aucun droit accordé", () => {
     const snap = computeSubscriptionSnapshot({
       ...base,
-      freeOfferEnabled: false,
-      freePlanEnabled: true,
-      planPrice: 80,
-    });
-    expect(snap.status).toBe("free");
-    expect(snap.type).toBe("free");
-    expect(snap.isActive).toBe(true);
-    expect(snap.requiresPayment).toBe(false);
-    expect(snap.planName).toBe("Gratuit");
-    expect(snap.price).toBe(0);
-  });
-
-  it("forfait Free désactivé → repli sur « Aucun abonnement » (le forfait n'accorde plus l'accès)", () => {
-    const snap = computeSubscriptionSnapshot({
-      ...base,
-      freeOfferEnabled: false,
-      freePlanEnabled: false,
+      trialEnabled: false,
+      plan: "free",
       planPrice: 80,
     });
     expect(snap.status).toBe("none");
     expect(snap.type).toBe("none");
+    expect(snap.isActive).toBe(false);
+    expect(snap.requiresPayment).toBe(true);
   });
 
-  it("abonnement mensuel payant actif prime sur le forfait Free enregistré", () => {
+  it("la durée de l'essai est celle configurée par l'administrateur", () => {
     const snap = computeSubscriptionSnapshot({
       ...base,
-      freePlanEnabled: true,
+      trialDaysTotal: 21,
+      trialClaimedAt: NOW - 2 * DAY_MS,
+      trialStartDate: NOW - 2 * DAY_MS,
+      trialEndDate: NOW + 19 * DAY_MS,
+    });
+    expect(snap.status).toBe("trialing");
+    expect(snap.trialDaysTotal).toBe(21);
+    expect(snap.trialDaysRemaining).toBe(19);
+  });
+
+  it("abonnement mensuel payant actif prime sur l'essai enregistré", () => {
+    const snap = computeSubscriptionSnapshot({
+      ...base,
+      trialClaimedAt: NOW - DAY_MS,
+      trialEndDate: NOW + 6 * DAY_MS,
       subscriptionPlan: "pro",
       subscriptionPrice: 80,
       subscriptionStartDate: NOW,
@@ -294,13 +295,13 @@ describe("subscriptionStatus.startMyTrial", () => {
     expect(after?.trialEndDate).toBe(stored?.trialEndDate);
   });
 
-  it("ne démarre rien quand l'« Offre gratuite » est désactivée", async () => {
+  it("ne démarre rien quand la période d'essai est désactivée", async () => {
     await setFreeOffer(t, false);
     const userId = await createUser(t);
 
     const res = await asUser(t, userId).mutation(api.subscriptionStatus.startMyTrial, {});
     expect(res.started).toBe(false);
-    expect(res.reason).toBe("free_offer_disabled");
+    expect(res.reason).toBe("trial_disabled");
 
     const stored = await t.run(async (ctx) => ctx.db.get(userId as any));
     expect(stored?.trialClaimedAt).toBeUndefined();

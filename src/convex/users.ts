@@ -225,8 +225,42 @@ export const adminUpdateUserPlan = mutation({
 
     const now = Date.now();
     // Abonnements mensuels (30 jours) pour toutes les offres. L'attribution
-    // manuelle remplace l'essai gratuit, qui n'est jamais rejoué.
+    // manuelle remplace la période d'essai, qui n'est jamais rejouée.
     const planDuration = MONTHLY_DURATION_DAYS * DAY_MS;
+
+    // ── « Aucun forfait » (valeur legacy "free") ──────────────────────────
+    // Le forfait gratuit permanent a été supprimé : cette valeur RETIRE
+    // l'abonnement au lieu d'en accorder un. Le compte retombe sur la période
+    // d'essai si elle est activée, sinon sur la souscription obligatoire.
+    // Aucune donnée (projets, devis, factures) n'est supprimée.
+    if (args.plan === "free") {
+      const subs = await ctx.db
+        .query("subscriptions")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .collect();
+      for (const sub of subs) {
+        if (sub.status === "active" || sub.status === "pending") {
+          await ctx.db.patch(sub._id, { status: "canceled", updatedAt: now });
+        }
+      }
+
+      await ctx.db.patch(args.userId, {
+        subscriptionPlan: undefined,
+        subscriptionStartDate: undefined,
+        subscriptionEndDate: undefined,
+        subscriptionDaysRemaining: 0,
+        subscriptionStatus: "none",
+        updatedAt: now,
+      });
+
+      return {
+        success: true,
+        planCompatible: true,
+        expectedPlan: null,
+        profileAligned: false,
+        message: "Forfait retiré : le compte n'a plus d'abonnement payant (période d'essai ou souscription).",
+      };
+    }
 
     // ── Compatibilité profil ↔ abonnement (règle obligatoire) ──
     // Le profil est résolu comme partout ailleurs (userRole, sinon profil
@@ -235,7 +269,7 @@ export const adminUpdateUserPlan = mutation({
     const targetBefore = await ctx.db.get(args.userId);
     const resolvedRole = targetBefore ? await resolveProfileRole(ctx, targetBefore) : null;
     const expectedPlan = expectedPlanForProfile(resolvedRole ?? targetBefore?.userRole ?? null);
-    const planCompatible = args.plan === "free" || args.plan === expectedPlan;
+    const planCompatible = args.plan === expectedPlan;
 
     // ── Synchronisation EXPLICITE profil ↔ abonnement ──
     // Le profil n'est JAMAIS changé en silence : on ne fait que persister le
