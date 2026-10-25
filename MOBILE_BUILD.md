@@ -151,7 +151,7 @@ tel quel.
 | Déclencheur | Résultat |
 |---|---|
 | `git push origin v1.3.3` (tag **`v*`**) | Build complet puis Release **`v1.3.3`** contenant `Batibuild-release.apk` et `Batibuild-release.aab` |
-| *Actions → Run workflow* (**`publish_release`** = true par défaut) | Release **`v<version>-build<numéro de run>`** marquée *pré-version*, créée sur le commit lancé |
+| *Actions → Run workflow* (**`publish_release`** = true par défaut) | Release **`v<version>-build<numéro de run>`** marquée *pré-version*, créée sur le commit lancé — ou le tag explicite saisi dans **`release_tag`** (facultatif) |
 | `push` sur `main` | Release **`v<version>-build<numéro de run>`** (pré-version) — chaque build réussi est conservé, sans secret Nexus |
 | *Run workflow* + **`publish_release`** = false | Aucune Release : seule une copie Nexus (si configurée) est produite, sinon le garde-fou final échoue explicitement |
 
@@ -169,8 +169,19 @@ Points importants :
   jamais proposée comme « dernière version ».
 - La Release est publiée **même si l'upload Nexus a échoué** : un APK reste
   récupérable même si le Nexus est indisponible.
-- **Idempotent** : relancer le workflow sur le même tag met à jour les fichiers
+- **Publication déterministe par l'API REST** (`mobile/scripts/publish-release.sh`) :
+  le tag Git absent est créé explicitement sur le commit du run (cause n°1 des
+  `422 Validation Failed` de `gh release create`), la Release est créée **ou
+  mise à jour**, et chaque fichier joint est remplacé (suppression de l'actif
+  homonyme puis téléversement, 3 tentatives) sans jamais créer de doublon.
+- **Idempotent** : relancer le workflow sur le même tag remplace les fichiers
   joints au lieu d'échouer (`release already exists`).
+- **Vérification réelle** : après publication, la Release doit lister l'APK **et**
+  l'AAB à l'état `uploaded`, avec une taille **identique** au fichier compilé ;
+  les deux fichiers sont ensuite **retéléchargés** et comparés en SHA-256, l'APK
+  étant revérifié (`apksigner` v1+v2, manifeste, ABI) et l'AAB validé comme
+  bundle. Une erreur d'API (403 jeton, règle de protection de tags, etc.) est
+  affichée telle quelle, jamais masquée.
 - Les notes de version contiennent la version, le `versionCode`, les ABI
   compilées, la commande `adb install` et les **empreintes SHA-256** des deux
   fichiers ; le **résumé du run** affiche le lien de la Release.

@@ -418,7 +418,7 @@ git tag v1.3.3 && git push origin v1.3.3
 | Déclencheur | Résultat |
 |---|---|
 | Tag **`v*`** poussé | Release **`v1.3.3`** (APK release + AAB release) |
-| *Run workflow* (**publish_release** = true par défaut) | Release **`v<version>-build<run>`**, marquée pré-version, créée sur le commit lancé |
+| *Run workflow* (**publish_release** = true par défaut) | Release **`v<version>-build<run>`**, marquée pré-version, créée sur le commit lancé ; un **`release_tag`** explicite peut être saisi à la place |
 | `push` sur `main` | Release **`v<version>-build<run>`** (pré-version) — aucun secret Nexus requis |
 
 - Le tag **doit** correspondre à `expo.version` de `app.json` : sinon la
@@ -426,7 +426,12 @@ git tag v1.3.3 && git push origin v1.3.3
 - Un tag `v1.3.3-rc1` produit une **pré-version**.
 - La Release est publiée **même si l'upload Nexus a échoué** — un APK reste
   récupérable dans tous les cas.
-- Relancer le workflow sur le même tag met à jour les fichiers (`--clobber`).
+- La publication passe par l'**API REST** (`scripts/publish-release.sh`) : le tag
+  Git manquant est **créé de façon contrôlée** sur le commit du run, la Release
+  est créée ou mise à jour, et les fichiers joints sont **remplacés sans
+  doublon** (aucun `422 already_exists`). Toute erreur d'API est affichée telle
+  quelle, et les 2 fichiers sont vérifiés après coup (état `uploaded`, taille
+  identique au fichier compilé, SHA-256 après retéléchargement).
 - Le **résumé du run** affiche le lien de la Release ; les notes de version
   contiennent les **empreintes SHA-256** des deux fichiers.
 - Vérification hors ligne : `cd mobile && bash scripts/publish-release.sh --dry-run`.

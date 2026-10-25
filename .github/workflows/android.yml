@@ -6,7 +6,8 @@
 #        → Batibuild-release.apk + Batibuild-release.aab (APK release, AAB release)
 #        → GitHub Release (APK + AAB attachés) = COPIE DURABLE, hors quota
 #          · tag `v*`            → Release portant ce tag ;
-#          · lancement manuel    → `publish_release` (défaut **true**) ;
+#          · lancement manuel    → `publish_release` (défaut **true**), avec
+#                                  `release_tag` explicite facultatif ;
 #          · push sur une branche → pré-version unique `v<version>-build<run>`.
 #        → Nexus 3 si les secrets NEXUS_* existent (copie durable supplémentaire).
 #        → artefact Actions de secours (7 jours, non bloquant).
@@ -62,9 +63,14 @@
 #      l'APK debug (inutile en production, premier consommateur d'espace).
 #  2. GITHUB RELEASE = COPIE DURABLE PAR DÉFAUT, sans secret à configurer :
 #      · tag `v*`                  → Release portant ce tag ;
-#      · lancement manuel          → `publish_release` (défaut `true`) ;
+#      · lancement manuel          → `publish_release` (défaut `true`),
+#                                    `release_tag` explicite facultatif ;
 #      · push sur une branche      → pré-version `v<version>-build<run>` ;
-#      les 2 fichiers y sont attachés puis VÉRIFIÉS via l'API GitHub.
+#      Publication via l'API REST (`mobile/scripts/publish-release.sh`) :
+#      tag Git créé de façon contrôlée, Release créée ou mise à jour, fichiers
+#      joints remplacés sans doublon, puis VÉRIFIÉS (présents, état
+#      « uploaded », taille identique au fichier compilé, SHA-256 après
+#      retéléchargement). Toute erreur d'API est affichée telle quelle.
 #  3. NEXUS 3 (facultatif) : si NEXUS_HOST_URL / NEXUS_USER / NEXUS_TOKEN
 #      existent, les mêmes fichiers partent en UN SEUL upload RAW via
 #      `astertom/nexus-upload-artifact@v1`. Copie durable supplémentaire.
@@ -136,6 +142,10 @@ on:
         # durable (GitHub Release). Laisser ce champ à false sans secrets Nexus
         # faisait échouer le run sur « Aucune copie durable du build ».
         default: true
+      release_tag:
+        description: "Tag à publier (vide = v<version>-build<run>). Vide recommandé ; si un tag v<version> stable est saisi, il doit correspondre à la version compilée."
+        required: false
+        default: ""
       cleanup_scope:
         description: "Nettoyage : « all » (tout le dépôt) ou « workflow » (batibuild uniquement)"
         required: false
@@ -183,6 +193,9 @@ env:
   #     unique) et que le garde-fou final ne rende jamais le workflow rouge
   #     faute de secrets Nexus.
   PUBLISH_RELEASE: ${{ inputs.publish_release }}
+  # RELEASE_TAG_INPUT : tag explicite facultatif d'un lancement manuel
+  # (vide = tag contrôlé `v<version>-build<run>`, créé par le workflow).
+  RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
   ARTIFACT_CLEANUP_SCOPE: ${{ inputs.cleanup_scope || 'all' }}
   ARTIFACT_KEEP_LATEST: "1"
 
@@ -760,6 +773,7 @@ jobs:
           # manuel transmet explicitement `publish_release` (défaut true) ;
           # seul un choix explicite « false » désactive la publication.
           PUBLISH_INPUT="${PUBLISH_RELEASE:-true}"
+          TAG_REQUEST="${RELEASE_TAG_INPUT:-}"
           PUBLISH="false"
           TAG=""
           PRERELEASE="false"
@@ -774,6 +788,19 @@ jobs:
           fi
           if [ "$PUBLISH_INPUT" = "true" ]; then
             PUBLISH="true"
+            if [ -z "$TAG" ] && [ -n "$TAG_REQUEST" ]; then
+              # Tag EXPLICITE demandé au lancement manuel : normalisé en `v…`.
+              # Il est validé par publish-release.sh (il doit correspondre à
+              # expo.version, sinon la publication est refusée) et le tag Git
+              # est créé de façon contrôlée sur ce commit.
+              case "$TAG_REQUEST" in
+                v*) TAG="$TAG_REQUEST" ;;
+                *) TAG="v${TAG_REQUEST}" ;;
+              esac
+              case "$TAG" in
+                *-*) PRERELEASE="true" ;;
+              esac
+            fi
             if [ -z "$TAG" ]; then
               # Aucun tag fourni (push de branche / lancement manuel) : tag
               # unique par run, marqué pré-version. Un tag `v*` réel n'est
@@ -1500,10 +1527,20 @@ jobs:
       # aucun artefact Actions n'est créé dans ce cas, il n'y a jamais de doublon.
       #
       # Déclenchement : tag `v*`, lancement manuel (`publish_release`, défaut
-      # true) ou push de branche (pré-version unique par run).
-      # Toute la logique (validation du tag, notes de version avec empreintes
-      # SHA-256, attachement des 2 fichiers, idempotence, lien dans le résumé du
-      # run) vit dans `mobile/scripts/publish-release.sh`.
+      # true, et `release_tag` explicite facultatif) ou push de branche
+      # (pré-version unique par run).
+      #
+      # Toute la logique vit dans `mobile/scripts/publish-release.sh`, qui
+      # publie désormais via l'API REST de façon DÉTERMINISTE :
+      #   · lecture de la Release du tag — une erreur 403/5xx arrête le script
+      #     avec le corps exact de la réponse (plus d'échec muet) ;
+      #   · création CONTRÔLÉE du tag Git sur le commit du run s'il manque
+      #     (cause n°1 des 422 « Validation Failed » de `gh release create`) ;
+      #   · création de la Release, ou mise à jour si elle existe déjà ;
+      #   · remplacement des fichiers joints (suppression de l'actif homonyme
+      #     puis téléversement, 3 tentatives) — aucun doublon, aucun 422 ;
+      #   · vérification par l'API : les 2 fichiers sont présents, à l'état
+      #     « uploaded », et leur taille est EXACTEMENT celle du fichier local.
       # ══════════════════════════════════════════════════════════════════════
       - name: Publier la Release GitHub (APK + AAB attachés au tag)
         id: release
@@ -1517,16 +1554,17 @@ jobs:
         run: bash scripts/publish-release.sh
 
       # ══════════════════════════════════════════════════════════════════════
-      # VÉRIFICATION DU FICHIER RÉELLEMENT TÉLÉCHARGEABLE
+      # VÉRIFICATION DES FICHIERS RÉELLEMENT TÉLÉCHARGEABLES
       #
       # Un APK validé sur le runner ne sert à rien si l'asset publié diffère.
-      # On RETÉLÉCHARGE l'APK depuis la Release et on exige :
-      #   · un SHA-256 identique à l'artefact vérifié ;
-      #   · la même vérification complète (manifeste, signature, ABI).
+      # On RETÉLÉCHARGE l'APK **et** l'AAB depuis la Release et on exige :
+      #   · une taille et un SHA-256 identiques aux artefacts vérifiés ;
+      #   · la même vérification complète de l'APK (manifeste, signature v1+v2, ABI) ;
+      #   · un bundle Google Play toujours valide pour l'AAB.
       # C'est ce fichier-là que l'utilisateur installe.
       # ══════════════════════════════════════════════════════════════════════
-      - name: Vérifier l'APK publié (retéléchargement + SHA-256 + signature)
-        if: ${{ always() && steps.release.outcome == 'success' && steps.release.outputs.apk_url != '' }}
+      - name: Vérifier les fichiers publiés (retéléchargement + SHA-256 + signature)
+        if: ${{ always() && steps.release.outcome == 'success' && steps.release.outputs.apk_url != '' && steps.release.outputs.aab_url != '' }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1534,24 +1572,37 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf /tmp/published && mkdir -p /tmp/published
+          # Les DEUX fichiers, exactement ceux attachés à la Release.
           gh release download "$RELEASE_TAG" \
-            --pattern Batibuild-release.apk --dir /tmp/published --clobber
-          LOCAL=$(sha256sum /tmp/dist/Batibuild-release.apk | cut -d' ' -f1)
-          REMOTE=$(sha256sum /tmp/published/Batibuild-release.apk | cut -d' ' -f1)
-          echo "Local  : $(stat -c%s /tmp/dist/Batibuild-release.apk) octets — $LOCAL"
-          echo "Publié : $(stat -c%s /tmp/published/Batibuild-release.apk) octets — $REMOTE"
-          if [ "$LOCAL" != "$REMOTE" ]; then
-            echo "❌ Le fichier publié DIFFÈRE de l'artefact vérifié (corruption au téléversement)."
-            exit 1
-          fi
+            --pattern Batibuild-release.apk \
+            --pattern Batibuild-release.aab \
+            --dir /tmp/published --clobber
+
+          for FILE in Batibuild-release.apk Batibuild-release.aab; do
+            LOCAL=$(sha256sum "/tmp/dist/$FILE" | cut -d' ' -f1)
+            REMOTE=$(sha256sum "/tmp/published/$FILE" | cut -d' ' -f1)
+            LOCAL_SIZE=$(wc -c < "/tmp/dist/$FILE" | tr -d ' ')
+            REMOTE_SIZE=$(wc -c < "/tmp/published/$FILE" | tr -d ' ')
+            echo "$FILE — local  : ${LOCAL_SIZE} octets — $LOCAL"
+            echo "$FILE — publié : ${REMOTE_SIZE} octets — $REMOTE"
+            if [ "$LOCAL" != "$REMOTE" ] || [ "$LOCAL_SIZE" != "$REMOTE_SIZE" ]; then
+              echo "❌ $FILE publié DIFFÈRE de l'artefact vérifié (corruption au téléversement)."
+              exit 1
+            fi
+          done
+
           PACKAGE=$(node -p "require('./app.json').expo.android.package")
           CODE=$(node -p "require('./app.json').expo.android.versionCode")
+          VERSION_NAME=$(node -p "require('./app.json').expo.version")
           # Mêmes exigences que sur le runner, y compris les schémas v1 + v2 :
           # un fichier altéré ou re-signé au téléversement serait rejeté ici.
           node scripts/verify-artifact.mjs /tmp/published/Batibuild-release.apk \
             --expect-package "$PACKAGE" --expect-version-code "$CODE" \
+            --expect-version-name "$VERSION_NAME" \
             --require-schemes v1,v2
-          echo "✅ L'APK téléchargé depuis la Release est identique à l'artefact validé."
+          # L'AAB téléchargé doit rester un bundle Google Play valide.
+          node scripts/verify-artifact.mjs /tmp/published/Batibuild-release.aab --kind aab
+          echo "✅ APK et AAB téléchargés depuis la Release sont identiques aux artefacts validés."
 
       # ══════════════════════════════════════════════════════════════════════
       # GARDE-FOU FINAL — UNE COPIE DURABLE DOIT EXISTER RÉELLEMENT
@@ -1559,7 +1610,8 @@ jobs:
       # Exécuté APRÈS la publication (`!cancelled()`) : il ne juge plus une
       # intention mais des faits.
       #   1. GitHub Release : l'API atteste que la Release du tag contient bien
-      #      `Batibuild-release.apk` ET `Batibuild-release.aab`, non vides.
+      #      `Batibuild-release.apk` ET `Batibuild-release.aab`, à l'état
+      #      « uploaded » et à la taille EXACTE des fichiers compilés.
       #   2. Nexus 3 : l'upload s'est terminé sans erreur.
       # Aucun secret Nexus n'est requis dès que la Release a réussi — c'est la
       # correction de l'erreur « Aucune copie durable du build ».
@@ -1582,18 +1634,38 @@ jobs:
           RELEASE_OK=0
           APK_SIZE=0
           AAB_SIZE=0
+          APK_STATE="absent"
+          AAB_STATE="absent"
+
+          # Tailles locales : la copie durable n'est valide que si les fichiers
+          # publiés sont IDENTIQUES (même taille) à ceux compilés par ce run.
+          LOCAL_APK=0
+          LOCAL_AAB=0
+          if [ -s /tmp/dist/Batibuild-release.apk ]; then
+            LOCAL_APK=$(wc -c < /tmp/dist/Batibuild-release.apk | tr -d ' ')
+          fi
+          if [ -s /tmp/dist/Batibuild-release.aab ]; then
+            LOCAL_AAB=$(wc -c < /tmp/dist/Batibuild-release.aab | tr -d ' ')
+          fi
 
           if [ "${RELEASE_OUTCOME:-}" = "success" ] && [ -n "${RELEASE_TAG:-}" ]; then
             # Vérification par l'API GitHub : la Release existe ET porte les
-            # deux fichiers attendus. Sonde indépendante de la sortie du script.
+            # deux fichiers attendus, à l'état « uploaded » et à la taille
+            # exacte des fichiers compilés. Sonde indépendante du script.
             ASSETS=$(gh release view "$RELEASE_TAG" --json assets \
-              --jq '.assets[] | "\(.name) \(.size)"' 2>/dev/null || true)
+              --jq '.assets[] | "\(.name) \(.size) \(.state)"' 2>/dev/null || true)
             if [ -n "$ASSETS" ]; then
               APK_SIZE=$(printf '%s\n' "$ASSETS" | awk '$1 == "Batibuild-release.apk" { print $2 }' | head -1)
               AAB_SIZE=$(printf '%s\n' "$ASSETS" | awk '$1 == "Batibuild-release.aab" { print $2 }' | head -1)
+              APK_STATE=$(printf '%s\n' "$ASSETS" | awk '$1 == "Batibuild-release.apk" { print $3 }' | head -1)
+              AAB_STATE=$(printf '%s\n' "$ASSETS" | awk '$1 == "Batibuild-release.aab" { print $3 }' | head -1)
               APK_SIZE=${APK_SIZE:-0}
               AAB_SIZE=${AAB_SIZE:-0}
-              if [ "$APK_SIZE" -gt 0 ] && [ "$AAB_SIZE" -gt 0 ]; then
+              APK_STATE=${APK_STATE:-absent}
+              AAB_STATE=${AAB_STATE:-absent}
+              if [ "$APK_SIZE" -gt 0 ] && [ "$AAB_SIZE" -gt 0 ] \
+                && [ "$APK_STATE" = "uploaded" ] && [ "$AAB_STATE" = "uploaded" ] \
+                && [ "$APK_SIZE" = "$LOCAL_APK" ] && [ "$AAB_SIZE" = "$LOCAL_AAB" ]; then
                 RELEASE_OK=1
               fi
             fi
@@ -1601,8 +1673,9 @@ jobs:
 
           if [ "$RELEASE_OK" = "1" ]; then
             echo "✅ Copie durable — GitHub Release ${RELEASE_TAG} :"
-            echo "   · Batibuild-release.apk  (${APK_SIZE} octets)"
-            echo "   · Batibuild-release.aab  (${AAB_SIZE} octets)"
+            echo "   · Batibuild-release.apk  (${APK_SIZE} octets, ${APK_STATE})"
+            echo "   · Batibuild-release.aab  (${AAB_SIZE} octets, ${AAB_STATE})"
+            echo "   Tailles identiques aux fichiers compilés par ce run."
             echo "   Aucun secret Nexus requis."
           fi
 
@@ -1634,13 +1707,18 @@ jobs:
             echo "   · GitHub Release : aucune publication demandée pour ce run"
             echo "     (`publish_release` explicitement à false)."
           else
-            echo "   · GitHub Release « ${RELEASE_TAG} » : APK et/ou AAB manquants (taille nulle)."
+            echo "   · GitHub Release « ${RELEASE_TAG} » : fichiers manquants, incomplets"
+            echo "     ou différents des fichiers compilés —"
+            echo "       APK : ${APK_SIZE} / ${LOCAL_APK} octets (état : ${APK_STATE})"
+            echo "       AAB : ${AAB_SIZE} / ${LOCAL_AAB} octets (état : ${AAB_STATE})"
           fi
           echo "   · Nexus 3 : non configuré ou en échec (rôle : ${NEXUS_OUTCOME:-skipped})."
           echo ""
           echo "   Correctifs :"
           echo "   1. relancer le workflow avec « publish_release » = true (défaut) ;"
-          echo "   2. ou définir les secrets NEXUS_HOST_URL / NEXUS_USER / NEXUS_TOKEN"
+          echo "   2. ou corriger la cause exacte de l'échec de publication affichée"
+          echo "      ci-dessus (jeton, règle de protection du tag, taille des fichiers) ;"
+          echo "   3. ou définir les secrets NEXUS_HOST_URL / NEXUS_USER / NEXUS_TOKEN"
           echo "      (Settings → Secrets and variables → Actions)."
           exit 1
 

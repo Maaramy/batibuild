@@ -15,11 +15,10 @@
 #   bash scripts/publish-release.sh --dry-run     # valide et affiche le plan, ne publie rien
 #
 # Variables d'environnement :
-#   RELEASE_TAG          tag à publier (obligatoire) — ex. v1.3.2 ou v1.3.2-rc1
+#   RELEASE_TAG          tag à publier (défaut : v<version>) — ex. v1.3.2 ou v1.3.2-rc1
 #   RELEASE_VERSION      expo.version de mobile/app.json (obligatoire)
 #   RELEASE_CODE         expo.android.versionCode (obligatoire)
 #   RELEASE_PRERELEASE   "true" → Release marquée comme pré-version
-#   RELEASE_TARGET_IS_TAG "true" → le tag existe déjà côté Git (ne pas passer --target)
 #   RELEASE_DRY_RUN      "1" → simulation (identique à --dry-run)
 #   DIST_DIR             répertoire des APK/AAB (défaut : /tmp/dist)
 #   RELEASE_ASSETS       fichiers à joindre (défaut : APK release + AAB release)
@@ -27,10 +26,24 @@
 #   ARCHITECTURES        ABI compilées, recopiées dans les notes
 #   GITHUB_*             fournis automatiquement par GitHub Actions
 #
-# Le script est IDEMPOTENT : relancer le workflow sur le même tag met à jour les
-# fichiers joints (--clobber) au lieu d'échouer sur « release already exists ».
-# Il refuse de publier un tag qui ne correspond pas à la version compilée, pour
-# qu'aucune Release trompeuse (tag v1.4.0 contenant l'APK 1.3.2) n'existe.
+# ── POURQUOI L'API REST ET PLUS `gh release create` ────────────────────────
+# L'échec « Publier la Release GitHub » venait du chemin de création : un tag
+# `v<version>-build<run>` inexistant, passé à `gh release create --target <sha>`,
+# se heurte à trois causes réelles impossibles à distinguer dans les logs :
+#   · tag déjà créé côté Git (run relancé / tag poussé à la main) → 422 ;
+#   · tag interdit par une règle de protection (Settings → Rules) → 403/422 ;
+#   · Release existante sans tag → `--target` ignoré puis « already_exists ».
+# La publication passe donc désormais par des appels REST explicites :
+#   1. lecture de la Release du tag (404 = à créer, toute autre erreur = arrêt
+#      immédiat avec le corps de la réponse, jamais un échec muet) ;
+#   2. création CONTRÔLÉE du tag Git sur le commit du run s'il manque ;
+#   3. création de la Release, ou mise à jour si elle existe déjà ;
+#   4. remplacement des fichiers joints (suppression de l'actif homonyme puis
+#      téléversement, 3 tentatives) → aucun doublon, jamais de 422 « already_exists » ;
+#   5. vérification par l'API : les DEUX fichiers sont présents, leur taille
+#      correspond EXACTEMENT au fichier local, et leur état est « uploaded ».
+# Le script est IDEMPOTENT et refuse de publier un tag qui ne correspond pas à
+# la version compilée (aucune Release trompeuse du type tag v1.4.0 / APK 1.3.2).
 #
 set -euo pipefail
 
@@ -43,8 +56,8 @@ DRY_RUN="${RELEASE_DRY_RUN:-}"
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN="1" ;;
-    -h|--help)
-      sed -n '2,32p' "$0"
+    -h | --help)
+      sed -n '2,48p' "$0"
       exit 0
       ;;
     *)
@@ -74,17 +87,18 @@ if [ -z "$TAG" ]; then
   TAG="v${VERSION}"
   echo "RELEASE_TAG non fourni → tag déduit : ${TAG}"
 fi
-PRERELEASE="${RELEASE_PRERELEASE:-false}"
-TARGET_IS_TAG="${RELEASE_TARGET_IS_TAG:-}"
-if [ -z "$TARGET_IS_TAG" ]; then
-  # Déduit de l'événement : un tag poussé existe déjà, un lancement manuel non.
-  if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then TARGET_IS_TAG="true"; else TARGET_IS_TAG="false"; fi
-fi
+case "${RELEASE_PRERELEASE:-}" in
+  true | false) PRERELEASE="${RELEASE_PRERELEASE}" ;;
+  "") case "$TAG" in *-*) PRERELEASE="true" ;; *) PRERELEASE="false" ;; esac ;;
+  *) fail "RELEASE_PRERELEASE doit valoir true ou false (reçu : ${RELEASE_PRERELEASE})." ;;
+esac
 DIST_DIR="${DIST_DIR:-/tmp/dist}"
 
 TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 SERVER="${GITHUB_SERVER_URL:-https://github.com}"
 REPO="${GITHUB_REPOSITORY:-}"
+HOST_IS_GITHUB="0"
+if [ "$SERVER" = "https://github.com" ]; then HOST_IS_GITHUB="1"; fi
 
 # APK release + AAB release uniquement : l'APK debug n'est ni produit ni publié
 # (il ne ferait que gonfler le stockage, et la clé debug suffit déjà à signer la
@@ -134,6 +148,11 @@ human_size() {
   fi
 }
 
+# Taille exacte en octets (portable Linux / macOS).
+file_size() {
+  wc -c < "$1" | tr -d ' \r\n'
+}
+
 checksums() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "$@"
@@ -147,8 +166,10 @@ checksums() {
 echo "Release à publier : ${TAG}"
 echo "  version         : ${VERSION} (versionCode ${CODE})"
 echo "  pré-version     : ${PRERELEASE}"
-echo "  tag déjà créé   : ${TARGET_IS_TAG}"
 echo "  fichiers        : ${ASSETS[*]}"
+for f in "${ASSETS[@]}"; do
+  echo "    · $(basename "$f") — $(file_size "$f") octets"
+done
 
 if [ "$DRY_RUN" = "1" ]; then
   echo ""
@@ -158,11 +179,32 @@ fi
 
 [ -n "$TOKEN" ] || fail "GH_TOKEN (ou GITHUB_TOKEN) absente : permission « contents: write » requise."
 command -v gh >/dev/null 2>&1 || fail "« gh » (GitHub CLI) introuvable : il est préinstallé sur les runners GitHub."
+[ -n "$REPO" ] || fail "GITHUB_REPOSITORY absente : impossible de cibler le dépôt."
+
+API_ERR=$(mktemp)
+NOTES=$(mktemp)
+API_JSON=$(mktemp)
+cleanup() { rm -f "$API_ERR" "$NOTES" "$API_JSON"; }
+trap cleanup EXIT
+
+# Extrait une valeur d'un JSON (chemin pointé) sans dépendre de jq.
+json_get() {
+  node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d));
+    process.stdin.on("end", () => {
+      let v;
+      try { v = JSON.parse(s); } catch { process.exit(1); }
+      for (const k of process.argv[1].split(".")) v = v == null ? undefined : v[k];
+      if (v == null) process.exit(1);
+      process.stdout.write(String(v));
+    });
+  ' "$1"
+}
 
 # ── 3. Notes de version (publiées avec les fichiers) ─────────────────────────
-NOTES=$(mktemp)
-trap 'rm -f "$NOTES"' EXIT
 RUN_URL="${SERVER}/${REPO}/actions/runs/${GITHUB_RUN_ID:-0}"
+RELEASE_TITLE="batibuild ${VERSION} (versionCode ${CODE})"
 {
   echo "## batibuild ${VERSION} (versionCode ${CODE})"
   echo ""
@@ -192,72 +234,198 @@ RUN_URL="${SERVER}/${REPO}/actions/runs/${GITHUB_RUN_ID:-0}"
   echo '```'
 } > "$NOTES"
 
-# ── 4. Création / mise à jour de la Release ──────────────────────────────────
-FLAGS=()
-if [ "$PRERELEASE" = "true" ]; then
-  FLAGS+=(--prerelease)
-fi
-if [ "$TARGET_IS_TAG" != "true" ]; then
-  # Le tag n'existe pas encore (lancement manuel) : il est créé sur ce commit.
-  FLAGS+=(--target "${GITHUB_SHA:?GITHUB_SHA requis pour créer le tag}")
-fi
-
-if gh release view "$TAG" >/dev/null 2>&1; then
-  # Release (ou tag déjà publié) : on remplace les fichiers joints, jamais de
-  # doublon d'actif (--clobber supprime l'ancien avant d'ajouter le nouveau).
-  echo "Release « ${TAG} » déjà présente → mise à jour des fichiers joints (--clobber)."
-  if ! gh release upload "$TAG" "${ASSETS[@]}" --clobber; then
-    fail "la mise à jour des fichiers de la Release « ${TAG} » a échoué.
-   Causes habituelles : jeton sans « contents: write », tag protégé par une
-   règle du dépôt, ou coupure réseau. Le message de l'API ci-dessus est la cause exacte."
-  fi
+# ── 4. La Release du tag existe-t-elle déjà ? ────────────────────────────────
+# 404 = à créer. Toute AUTRE erreur (403 jeton, 5xx, dépôt inconnu) arrête
+# immédiatement le script avec le corps exact de la réponse : plus jamais de
+# « aucun stockage permanent » sans cause affichée.
+RELEASE_ID=""
+RELEASE_EXISTS="0"
+if gh api "repos/${REPO}/releases/tags/${TAG}" >"$API_JSON" 2>"$API_ERR"; then
+  RELEASE_ID=$(json_get id <"$API_JSON" || true)
+  [ -n "$RELEASE_ID" ] || fail "la Release « ${TAG} » existe mais l'API n'a pas renvoyé d'identifiant exploitable."
+  RELEASE_EXISTS="1"
+  echo "Release « ${TAG} » déjà présente (id ${RELEASE_ID}) → mise à jour des fichiers joints."
 else
-  if ! gh release create "$TAG" "${ASSETS[@]}" \
-    --title "batibuild ${VERSION} (versionCode ${CODE})" \
-    --notes-file "$NOTES" \
-    "${FLAGS[@]}"; then
-    fail "la GitHub Release « ${TAG} » n'a pas pu être créée.
-   Causes habituelles : jeton sans « contents: write », tag déjà existant sans
-   Release correspondante, tag protégé, ou limite de taille des fichiers.
-   Le message de l'API ci-dessus est la cause exacte."
-  fi
+  ERR=$(cat "$API_ERR")
+  case "$ERR" in
+    *"HTTP 404"* | *"Not Found"*) echo "Release « ${TAG} » absente → création." ;;
+    *)
+      fail "lecture de la Release « ${TAG} » impossible :
+${ERR}
+   → jeton sans « contents: write » (403), dépôt ou URL d'API incorrects,
+     ou API GitHub momentanément indisponible. Aucun fichier n'a été publié."
+      ;;
+  esac
 fi
 
-URL=$(gh release view "$TAG" --json url --jq .url)
+# ── 5. Tag Git : création contrôlée s'il n'existe pas ────────────────────────
+# Un tag manquant est la première cause de 422 à la création d'une Release.
+# On le crée donc explicitement sur le commit du run, AVANT la Release.
+if ! gh api "repos/${REPO}/git/ref/tags/${TAG}" >/dev/null 2>"$API_ERR"; then
+  ERR=$(cat "$API_ERR")
+  case "$ERR" in
+    *"HTTP 404"* | *"Not Found"*)
+      [ -n "${GITHUB_SHA:-}" ] || fail "GITHUB_SHA absente : impossible de créer le tag « ${TAG} »."
+      if ! gh api --method POST "repos/${REPO}/git/refs" \
+        -f "ref=refs/tags/${TAG}" \
+        -f "sha=${GITHUB_SHA}" >/dev/null 2>"$API_ERR"; then
+        fail "création du tag Git « ${TAG} » impossible :
+$(cat "$API_ERR")
+   → une règle de protection de tags (Settings → Rules) peut interdire la
+     création de tags, ou le commit ${GITHUB_SHA:0:7} n'est plus accessible."
+      fi
+      echo "Tag Git « ${TAG} » créé sur ${GITHUB_SHA:0:7}."
+      ;;
+    *)
+      fail "lecture du tag « ${TAG} » impossible :
+${ERR}"
+      ;;
+  esac
+else
+  echo "Tag Git « ${TAG} » déjà présent."
+fi
 
-# ── 5. VÉRIFICATION RÉELLE : les DEUX fichiers sont-ils attachés ? ───────────
-# On ne déclare jamais un build publié sans preuve : l'API GitHub doit lister
-# `Batibuild-release.apk` ET `Batibuild-release.aab` avec une taille > 0.
-# La sonde est indépendante de la commande d'upload : un upload « réussi » mais
-# incomplet (actif ignoré, tronqué) est donc détecté ici.
-ASSETS_JSON=$(gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) \(.size)"' 2>/dev/null || true)
-if [ -z "$ASSETS_JSON" ]; then
+# ── 6. Création / mise à jour de la Release ──────────────────────────────────
+if [ "$RELEASE_EXISTS" = "0" ]; then
+  if ! gh api --method POST "repos/${REPO}/releases" \
+    -f "tag_name=${TAG}" \
+    -f "target_commitish=${GITHUB_SHA:-main}" \
+    -f "name=${RELEASE_TITLE}" \
+    -F "body=@${NOTES}" \
+    -F "draft=false" \
+    -F "prerelease=${PRERELEASE}" >"$API_JSON" 2>"$API_ERR"; then
+    fail "la GitHub Release « ${TAG} » n'a pas pu être créée :
+$(cat "$API_ERR")
+   → causes réelles possibles : jeton sans « contents: write » (403), règle de
+     protection du tag (403/422), limite de taille des fichiers, ou API
+     indisponible. Aucun fichier n'a été publié."
+  fi
+  RELEASE_ID=$(json_get id <"$API_JSON" || true)
+  [ -n "$RELEASE_ID" ] || fail "la Release « ${TAG} » a été créée mais son identifiant est introuvable."
+  echo "Release « ${TAG} » créée (id ${RELEASE_ID})."
+else
+  if ! gh api --method PATCH "repos/${REPO}/releases/${RELEASE_ID}" \
+    -f "name=${RELEASE_TITLE}" \
+    -F "body=@${NOTES}" \
+    -F "prerelease=${PRERELEASE}" >"$API_JSON" 2>"$API_ERR"; then
+    fail "mise à jour de la Release « ${TAG} » impossible :
+$(cat "$API_ERR")
+   → jeton sans « contents: write » (403) ou Release verrouillée par une règle."
+  fi
+  echo "Release « ${TAG} » mise à jour (titre, notes, pré-version)."
+fi
+
+# ── 7. Fichiers joints : remplacement sans doublon, avec reprise ──────────────
+list_assets() {
+  gh api "repos/${REPO}/releases/${RELEASE_ID}/assets?per_page=100" \
+    --jq '.[] | "\(.id)\t\(.name)\t\(.size)\t\(.state)"' 2>"$API_ERR"
+}
+
+upload_asset() {
+  local file="$1" name="$2"
+  if [ "$HOST_IS_GITHUB" = "1" ]; then
+    gh api --hostname uploads.github.com --method POST \
+      "repos/${REPO}/releases/${RELEASE_ID}/assets?name=${name}" \
+      -H "Content-Type: application/octet-stream" \
+      --input "$file" >/dev/null 2>"$API_ERR"
+  else
+    gh api --method POST \
+      "repos/${REPO}/releases/${RELEASE_ID}/assets?name=${name}" \
+      -H "Content-Type: application/octet-stream" \
+      --input "$file" >/dev/null 2>"$API_ERR"
+  fi
+}
+
+EXISTING=$(list_assets || true)
+
+for f in "${ASSETS[@]}"; do
+  NAME=$(basename "$f")
+  LOCAL_SIZE=$(file_size "$f")
+  [ "$LOCAL_SIZE" -gt 0 ] || fail "le fichier ${NAME} est vide : publication refusée."
+
+  # Actif homonyme (run relancé) : suppression AVANT téléversement, sinon
+  # l'API refuse un second fichier portant le même nom (422 already_exists).
+  if [ -n "$EXISTING" ]; then
+    while IFS=$'\t' read -r ASSET_ID ASSET_NAME ASSET_SIZE _ASSET_STATE; do
+      [ -n "${ASSET_ID:-}" ] || continue
+      if [ "$ASSET_NAME" = "$NAME" ]; then
+        echo "Actif existant « ${ASSET_NAME} » (${ASSET_SIZE} octets) → remplacement."
+        if ! gh api --method DELETE "repos/${REPO}/releases/assets/${ASSET_ID}" \
+          >/dev/null 2>"$API_ERR"; then
+          fail "suppression de l'ancien fichier « ${ASSET_NAME} » impossible :
+$(cat "$API_ERR")
+   → jeton sans « contents: write » (403)."
+        fi
+      fi
+    done <<<"$EXISTING"
+  fi
+
+  UPLOADED="0"
+  for attempt in 1 2 3; do
+    if upload_asset "$f" "$NAME"; then
+      UPLOADED="1"
+      break
+    fi
+    echo "⚠️  Tentative ${attempt}/3 échouée pour ${NAME} :"
+    sed 's/^/     /' "$API_ERR" || true
+    if [ "$attempt" -lt 3 ]; then sleep $((attempt * 5)); fi
+  done
+  [ "$UPLOADED" = "1" ] || fail "le téléversement de ${NAME} a échoué après 3 tentatives (cause ci-dessus).
+   Aucune copie durable n'existe : la Release ne contient pas les 2 fichiers."
+  echo "✅ ${NAME} téléversé (${LOCAL_SIZE} octets)."
+done
+
+# ── 8. VÉRIFICATION RÉELLE : les DEUX fichiers, à la bonne taille ────────────
+# On ne déclare jamais un build publié sans preuve : l'API doit lister
+# `Batibuild-release.apk` ET `Batibuild-release.aab`, à l'état « uploaded » et
+# avec une taille identique à celle du fichier local (un actif tronqué, remplacé
+# par un autre fichier ou jamais finalisé est donc détecté ici).
+RELEASE_JSON_URL=$(gh api "repos/${REPO}/releases/${RELEASE_ID}" --jq '.html_url' 2>"$API_ERR" || true)
+LISTING=$(list_assets)
+if [ -z "$LISTING" ]; then
   fail "la Release « ${TAG} » existe mais l'API GitHub ne liste aucun fichier joint."
 fi
-APK_SIZE=$(printf '%s\n' "$ASSETS_JSON" | awk '$1 == "Batibuild-release.apk" { print $2 }' | head -1)
-AAB_SIZE=$(printf '%s\n' "$ASSETS_JSON" | awk '$1 == "Batibuild-release.aab" { print $2 }' | head -1)
-APK_SIZE=${APK_SIZE:-0}
-AAB_SIZE=${AAB_SIZE:-0}
-if [ "$APK_SIZE" -le 0 ] || [ "$AAB_SIZE" -le 0 ]; then
+
+VERIFY_FAILED=0
+for f in "${ASSETS[@]}"; do
+  NAME=$(basename "$f")
+  LOCAL_SIZE=$(file_size "$f")
+  ROW=$(printf '%s\n' "$LISTING" | awk -F'\t' -v n="$NAME" '$2 == n { print; exit }')
+  if [ -z "$ROW" ]; then
+    echo "❌ ${NAME} absent de la Release « ${TAG} »"
+    VERIFY_FAILED=1
+    continue
+  fi
+  R_SIZE=$(printf '%s' "$ROW" | cut -f3)
+  R_STATE=$(printf '%s' "$ROW" | cut -f4)
+  if [ "$R_STATE" != "uploaded" ]; then
+    echo "❌ ${NAME} : état « ${R_STATE} » (attendu « uploaded »)"
+    VERIFY_FAILED=1
+  elif [ "${R_SIZE:-0}" != "$LOCAL_SIZE" ]; then
+    echo "❌ ${NAME} : taille publiée ${R_SIZE} octets ≠ locale ${LOCAL_SIZE} octets"
+    VERIFY_FAILED=1
+  else
+    echo "✅ ${NAME} — ${R_SIZE} octets, état « uploaded » (identique au fichier local)."
+  fi
+done
+if [ "$VERIFY_FAILED" = "1" ]; then
   echo "Fichiers listés par la Release « ${TAG} » :"
-  printf '%s\n' "$ASSETS_JSON"
-  fail "les deux fichiers attendus ne sont pas attachés à la Release « ${TAG} »
-   (Batibuild-release.apk = ${APK_SIZE} octets, Batibuild-release.aab = ${AAB_SIZE} octets).
+  printf '%s\n' "$LISTING"
+  fail "les deux fichiers attendus ne sont pas correctement attachés à la Release « ${TAG} ».
    La publication n'est PAS considérée comme réussie."
 fi
-echo "✅ Fichiers vérifiés dans la Release :"
-echo "   · Batibuild-release.apk  (${APK_SIZE} octets)"
-echo "   · Batibuild-release.aab  (${AAB_SIZE} octets)"
 
 # Liens directs (téléchargement navigateur, stables pour un tag donné).
 DOWNLOAD_BASE="${SERVER}/${REPO}/releases/download/${TAG}"
 APK_URL="${DOWNLOAD_BASE}/Batibuild-release.apk"
 AAB_URL="${DOWNLOAD_BASE}/Batibuild-release.aab"
+URL="${RELEASE_JSON_URL:-${SERVER}/${REPO}/releases/tag/${TAG}}"
 
-# ── 6. Restitution (sortie du workflow + résumé du run) ──────────────────────
+# ── 9. Restitution (sortie du workflow + résumé du run) ──────────────────────
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
   {
     echo "url=${URL}"
+    echo "release_id=${RELEASE_ID}"
     echo "apk_name=Batibuild-release.apk"
     echo "apk_url=${APK_URL}"
     echo "aab_name=Batibuild-release.aab"
@@ -277,6 +445,7 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     echo "| APK release (téléphone) | [Batibuild-release.apk](${APK_URL}) |"
     echo "| AAB release (Google Play) | [Batibuild-release.aab](${AAB_URL}) |"
     echo ""
+    echo "Tailles vérifiées via l'API GitHub (identiques aux fichiers compilés)."
     echo "Cette copie est conservée **hors du quota d'artefacts** : elle reste"
     echo "disponible après l'expiration de l'artefact du run."
   } >> "$GITHUB_STEP_SUMMARY"
