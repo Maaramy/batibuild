@@ -12,8 +12,12 @@ import { usePageSEO } from "@/hooks/use-page-seo";
 import { MySubscriptionCard } from "@/components/MySubscriptionCard";
 import { availablePaymentMethods } from "@/lib/paymentMethods";
 import { TRIAL_PLAN_LABEL, trialDurationLabel } from "@/lib/subscriptionPlans";
+import { planPriceLabel } from "@/lib/planPricing";
 
-// Default payment config (fallback if not set in DB)
+// Coordonnées de règlement de repli (si aucune configuration n'est enregistrée).
+// AUCUN PRIX ici : les tarifs viennent exclusivement de la configuration
+// enregistrée par l'administrateur (`payments.getPublicPricing`), sinon ils sont
+// affichés comme non chargés — jamais remplacés par une valeur par défaut.
 const DEFAULT_PAYMENT = {
   bankName: "Banque de Tunisie (BT)",
   bankTitulaire: "GALISKON PROJECT",
@@ -24,9 +28,6 @@ const DEFAULT_PAYMENT = {
   d17Phone: "+216 XX XXX XXX",
   d17Email: "paiement@batibuild.app",
   d17Notice: "Envoyez le paiement via l'application D17 de La Poste Tunisienne",
-  proPrice: 80,
-  supplierPrice: 120,
-  expertPrice: 120,
   currency: "TND",
 };
 
@@ -183,21 +184,27 @@ export default function PricingPage() {
     ? selectedPlan
     : allowedPlans[0];
 
-  // Prix par forfait — null/0 signifie forfait gratuit
-  const priceFor = (plan: PlanId): number => {
+  // ── Prix RÉELLEMENT enregistrés par l'administrateur ──────────────────────
+  //   `undefined` → configuration en cours de chargement : aucun prix n'est
+  //                 affiché ni utilisé pour un paiement (jamais 80 TND par défaut) ;
+  //   `null`      → « Offre gratuite » activée par l'administrateur ;
+  //   nombre      → prix mensuel enregistré, utilisé tel quel.
+  const planPrice = (plan: PlanId): number | null | undefined => {
     const c = paymentConfig as any;
-    if (plan === "pro") return c?.proPrice == null ? DEFAULT_PAYMENT.proPrice : c?.proPrice;
-    if (plan === "supplier") return c?.supplierPrice == null ? DEFAULT_PAYMENT.supplierPrice : c?.supplierPrice;
-    return c?.expertPrice == null ? DEFAULT_PAYMENT.expertPrice : c?.expertPrice;
+    if (c == null) return undefined;
+    const stored =
+      plan === "pro" ? c.proPrice : plan === "supplier" ? c.supplierPrice : c.expertPrice;
+    if (stored === undefined) return undefined;
+    return stored;
   };
   const isFreePlan = (plan: PlanId): boolean => {
-    const c = paymentConfig as any;
-    const p = plan === "pro" ? c?.proPrice : plan === "supplier" ? c?.supplierPrice : c?.expertPrice;
-    return p == null || p === 0;
+    const p = planPrice(plan);
+    return p === null || p === 0;
   };
 
-  const currentPrice = priceFor(effectiveSelectedPlan);
+  const currentPlanPrice = planPrice(effectiveSelectedPlan);
   const currency = paymentConfig?.currency || DEFAULT_PAYMENT.currency;
+  const currentPriceLabel = planPriceLabel(currentPlanPrice);
 
   const BANK_INFO: Record<string, string> = paymentConfig ? {
     bank: paymentConfig.bankName,
@@ -205,27 +212,27 @@ export default function PricingPage() {
     rib: paymentConfig.bankRib,
     iban: paymentConfig.bankIban,
     swift: paymentConfig.bankSwift,
-    montant: `${currentPrice} ${paymentConfig.currency}`,
+    montant: currentPriceLabel,
   } : {
     bank: DEFAULT_PAYMENT.bankName,
     titulaire: DEFAULT_PAYMENT.bankTitulaire,
     rib: DEFAULT_PAYMENT.bankRib,
     iban: DEFAULT_PAYMENT.bankIban,
     swift: DEFAULT_PAYMENT.bankSwift,
-    montant: `${currentPrice} ${DEFAULT_PAYMENT.currency}`,
+    montant: currentPriceLabel,
   };
 
   const D17_INFO: Record<string, string> = paymentConfig ? {
     merchantName: paymentConfig.d17MerchantName,
     phone: paymentConfig.d17Phone,
     email: paymentConfig.d17Email,
-    montant: `${currentPrice} ${paymentConfig.currency}`,
+    montant: currentPriceLabel,
     notice: paymentConfig.d17Notice,
   } : {
     merchantName: DEFAULT_PAYMENT.d17MerchantName,
     phone: DEFAULT_PAYMENT.d17Phone,
     email: DEFAULT_PAYMENT.d17Email,
-    montant: `${currentPrice} ${DEFAULT_PAYMENT.currency}`,
+    montant: currentPriceLabel,
     notice: DEFAULT_PAYMENT.d17Notice,
   };
 
@@ -254,8 +261,16 @@ export default function PricingPage() {
       paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
 
-    const planAmount = priceFor(planId);
-    const free = isFreePlan(planId);
+    const planAmount = planPrice(planId);
+    // Tarif non encore chargé : on refuse la souscription plutôt que d'envoyer un
+    // montant inventé (une ancienne version transmettait 80 TND par défaut).
+    if (planAmount === undefined) {
+      toast.error(
+        "La configuration des tarifs est en cours de chargement. Réessayez dans un instant.",
+      );
+      return;
+    }
+    const free = planAmount === null || planAmount === 0;
 
     // Aucune méthode active côté serveur → impossible de régler un forfait payant.
     if (!free && paymentMethods.length === 0) {
@@ -354,7 +369,8 @@ export default function PricingPage() {
 
   const renderPlanCard = (
     plan: PlanId,
-    price: number,
+    // `undefined` = tarif en cours de chargement (aucun montant affiché)
+    price: number | null | undefined,
     _quota: number,
     subtitle: string,
     features: string[],
@@ -363,8 +379,12 @@ export default function PricingPage() {
   ) => {
     const isCurrent = isCurrentPlan(plan);
     const reached = false;
-    // Bouton désactivé (offre déjà active / en attente) : on garde le style neutre.
-    const isDisabled = (!reached && isCurrent) || (isPending && plan === currentSubscription?.plan);
+    // Bouton désactivé (tarif non chargé / offre déjà active / en attente) : on
+    // garde le style neutre.
+    const isDisabled =
+      price === undefined ||
+      (!reached && isCurrent) ||
+      (isPending && plan === currentSubscription?.plan);
 
     return (
       <motion.div
@@ -401,7 +421,12 @@ export default function PricingPage() {
         </div>
 
         <div className="mb-5">
-          {price > 0 ? (
+          {price === undefined ? (
+            <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Chargement du tarif…
+            </span>
+          ) : (price ?? 0) > 0 ? (
             <>
               <span className="text-4xl font-bold">{price}</span>
               <span className="ml-1 text-sm text-muted-foreground">TND · /mois</span>
@@ -530,7 +555,7 @@ export default function PricingPage() {
           className={`grid grid-cols-1 ${visiblePlans.length > 1 ? "md:grid-cols-3" : "md:grid-cols-1 max-w-md mx-auto"} gap-6 mb-10 pt-2`}
         >
           {visiblePlans.map((p, i) =>
-            renderPlanCard(p.id, priceFor(p.id), p.quota, p.subtitle, p.features, p.popular && visiblePlans.length > 1, i),
+            renderPlanCard(p.id, planPrice(p.id), p.quota, p.subtitle, p.features, p.popular && visiblePlans.length > 1, i),
           )}
         </div>
 
@@ -571,7 +596,7 @@ export default function PricingPage() {
             <div>
               <h2 className="text-base font-semibold leading-tight">Moyen de paiement</h2>
               <p className="text-[11px] text-muted-foreground">
-                <strong>{PLAN_LABELS[effectiveSelectedPlan]} · {currentPrice} {currency}</strong> (paiement unique)
+                <strong>{PLAN_LABELS[effectiveSelectedPlan]} · {currentPriceLabel}</strong> (paiement unique)
               </p>
             </div>
           </div>
@@ -591,12 +616,17 @@ export default function PricingPage() {
                 }`}
               >
                 {PLAN_LABELS[p]}
-                <span className="text-[9px] opacity-70">{priceFor(p)}</span>
+                <span className="text-[9px] opacity-70">{planPriceLabel(planPrice(p))}</span>
               </button>
             ))}
           </div>
 
-          {currentPrice > 0 ? (
+          {currentPlanPrice === undefined ? (
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-border/40 bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Chargement du tarif enregistré…
+            </div>
+          ) : (currentPlanPrice ?? 0) > 0 ? (
           <>
           {/* Payment method selector — méthodes activées par l'administrateur */}
           {paymentMethods.length === 0 ? (
@@ -746,7 +776,7 @@ export default function PricingPage() {
                 <ol className="mt-1 grid grid-cols-1 gap-x-4 gap-y-0.5 text-[10px] leading-relaxed text-amber-700/90 sm:grid-cols-2">
                   <li>1. Ouvrez l'application D17</li>
                   <li>2. Sélectionnez « Paiement marchand »</li>
-                  <li>3. Entrez le téléphone et le montant de {currentPrice} {currency}</li>
+                  <li>3. Entrez le téléphone et le montant de {currentPriceLabel}</li>
                   <li>4. Joignez la capture du paiement ci-dessous</li>
                 </ol>
               </div>

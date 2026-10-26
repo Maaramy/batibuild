@@ -9,6 +9,7 @@ import {
 } from "../lib/paymentMethods";
 import { getEnabledPaymentMethodSlugs, getPaymentMethodStates } from "./paymentMethodStates";
 import { isTrialCampaignOpen, readTrialConfig } from "./trialConfig";
+import { DEFAULT_PLAN_PRICES, resolvePlanPrice } from "../lib/planPricing";
 // ============================================================================
 // Payment Configuration
 // ============================================================================
@@ -19,6 +20,9 @@ import { isTrialCampaignOpen, readTrialConfig } from "./trialConfig";
 //   Expert      120 TND/mois (null = gratuit)
 // Le forfait « Free » a été supprimé : il est remplacé par la période d'essai
 // gratuite administrable (`convex/trialConfig.ts`), puis par les offres payantes.
+//
+// Les prix initiaux viennent de `lib/planPricing.ts` : ils ne servent qu'à la
+// PREMIÈRE initialisation. Une lecture ne remplace jamais un prix enregistré.
 const UNLIMITED = 1000000;
 const DEFAULT_PLAN_PRICING = {
   startPrice: 80,
@@ -27,9 +31,9 @@ const DEFAULT_PLAN_PRICING = {
   defaultPlan: "trial" as const,
   // Disponibilité du forfait Client Pro (peut être retiré comme défaut).
   clientProEnabled: true,
-  proPrice: 80, // Client Pro — payant par défaut
-  expertPrice: 120,
-  supplierPrice: 120,
+  proPrice: DEFAULT_PLAN_PRICES.pro, // Client Pro — payant par défaut
+  expertPrice: DEFAULT_PLAN_PRICES.expert,
+  supplierPrice: DEFAULT_PLAN_PRICES.supplier,
   currency: "TND",
   freeProjectLimit: 0,
   proProjectLimit: UNLIMITED,
@@ -71,10 +75,14 @@ export const getPlanPricing = query({
       trialDurationDays: config.trialDurationDays ?? null,
       trialEligibleProfiles: config.trialEligibleProfiles ?? null,
       trialModules: config.trialModules ?? null,
-      // null = forfait gratuit ; la valeur par défaut (sans config) n'est PAS gratuite.
-      proPrice: config.proPrice ?? null,
-      expertPrice: config.expertPrice ?? null,
-      supplierPrice: config.supplierPrice ?? null,
+      // Prix enregistré par l'administrateur. Un champ ABSENT (document créé par
+      // un autre réglage, ex. période d'essai) applique la valeur initiale — il
+      // n'est jamais interprété comme « gratuit », sinon la prochaine
+      // sauvegarde de l'administration écrasait le prix par null.
+      // `null` = « Offre gratuite » explicitement activée par l'administrateur.
+      proPrice: resolvePlanPrice(config.proPrice, DEFAULT_PLAN_PRICES.pro),
+      expertPrice: resolvePlanPrice(config.expertPrice, DEFAULT_PLAN_PRICES.expert),
+      supplierPrice: resolvePlanPrice(config.supplierPrice, DEFAULT_PLAN_PRICES.supplier),
       freeProjectLimit: 0,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,
@@ -98,6 +106,18 @@ export const updatePlanPricing = mutation({
     const admin = await getCurrentUser(ctx);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized: Admin access required");
+    }
+
+    // Validation serveur : un prix enregistré est un montant positif, ou
+    // explicitement `null` pour l'« Offre gratuite ». Un montant invalide
+    // (champ vidé, NaN, négatif) est REFUSÉ — il n'écrase jamais le prix
+    // enregistré et ne retombe pas silencieusement sur une valeur par défaut.
+    if (args.price !== undefined && args.price !== null) {
+      if (!Number.isFinite(args.price) || args.price < 0) {
+        throw new Error(
+          "Le prix mensuel doit être un montant en TND (nombre positif) ou « Offre gratuite » (aucun montant).",
+        );
+      }
     }
 
     const existingConfig = await ctx.db
@@ -244,10 +264,11 @@ export const getPublicPricing = query({
       trialDurationDays: trial.durationDays,
       trialModules: trial.modules,
       trialEligibleProfiles: trial.eligibleProfiles,
-      // null = forfait gratuit ; la valeur par défaut (sans config) n'est PAS gratuite.
-      proPrice: config.proPrice ?? null,
-      expertPrice: config.expertPrice ?? null,
-      supplierPrice: config.supplierPrice ?? null,
+      // Prix réellement enregistré (voir `updatePlanPricing` et `lib/planPricing.ts`).
+      // Champ absent → valeur initiale ; `null` → « Offre gratuite » explicite.
+      proPrice: resolvePlanPrice(config.proPrice, DEFAULT_PLAN_PRICES.pro),
+      expertPrice: resolvePlanPrice(config.expertPrice, DEFAULT_PLAN_PRICES.expert),
+      supplierPrice: resolvePlanPrice(config.supplierPrice, DEFAULT_PLAN_PRICES.supplier),
       freeProjectLimit: 0,
       proProjectLimit: config.proProjectLimit ?? DEFAULT_PLAN_PRICING.proProjectLimit,
       expertProjectLimit: config.expertProjectLimit ?? DEFAULT_PLAN_PRICING.expertProjectLimit,

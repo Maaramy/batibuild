@@ -821,7 +821,9 @@ describe("facturation — abonnements Fournisseur et Expert", () => {
         plan: "none",
         subscriptionStatus: "pending",
         paymentMethod: "d17",
-        paymentAmount: 150,
+        // Valeur initiale du forfait Expert (`DEFAULT_PLAN_PRICES.expert`) :
+        // le montant facturé est celui affiché par l'administration (120 TND).
+        paymentAmount: 120,
         isVisible: false,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -846,7 +848,9 @@ describe("facturation — abonnements Fournisseur et Expert", () => {
     expect(invoices[0].invoiceNumber).toBe(pending.invoiceNumber);
     expect(invoices[0].profileType).toBe("expert");
     expect(invoices[0].plan).toBe("expert");
-    expect(invoices[0].amountTTC).toBe(150);
+    // 120 TND = valeur initiale du forfait Expert, identique à celle affichée
+    // dans l'administration (l'ancien repli 150 TND n'était affiché nulle part).
+    expect(invoices[0].amountTTC).toBe(120);
     expect(invoices[0].paymentMethod).toBe("bank_transfer");
     expect(invoices[0].status).toBe("paid");
     expect(invoices[0].customerName).toBe("Ing. Sonia Trabelsi");

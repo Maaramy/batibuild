@@ -23,6 +23,7 @@ import {
   type ProjectLimitStatus,
   type ProjectLimitTier,
 } from "../lib/projectLimits";
+import { defaultPlanPriceFields } from "../lib/planPricing";
 
 // ============================================================================
 // LIMITE DU NOMBRE DE PROJETS PAR OFFRE — CONTRÔLE SERVEUR (source de vérité)
@@ -237,6 +238,10 @@ export const updateProjectLimitConfig = mutation({
         d17Email: "",
         d17Notice: "",
         currency: "TND",
+        // Un nouveau document de configuration porte TOUJOURS les prix des
+        // forfaits (voir `lib/planPricing.ts`) : sans eux, le prix enregistré
+        // par l'administrateur était perdu à la prochaine sauvegarde.
+        ...defaultPlanPriceFields(),
         ...patch,
       } as any);
     }
@@ -293,6 +298,10 @@ export const resetProjectLimitConfig = mutation({
         d17Email: "",
         d17Notice: "",
         currency: "TND",
+        // Un nouveau document de configuration porte TOUJOURS les prix des
+        // forfaits (voir `lib/planPricing.ts`) : sans eux, le prix enregistré
+        // par l'administrateur était perdu à la prochaine sauvegarde.
+        ...defaultPlanPriceFields(),
         ...patch,
       } as any);
     }

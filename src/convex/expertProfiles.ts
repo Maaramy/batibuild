@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
+import { DEFAULT_PLAN_PRICES, resolvePlanPrice } from "../lib/planPricing";
 import { requireProfileRoleForCreation, requireProfileRole } from "./profileSubscription";
 import {
   scheduleAdminNotification,
@@ -27,12 +28,17 @@ import {
 // Constants
 // ============================================================================
 
+/**
+ * Prix du forfait Expert, lu depuis la configuration enregistrée par
+ * l'administrateur. Règle partagée (`lib/planPricing.ts`) : champ absent →
+ * valeur initiale (120 TND, identique à l'administration), `null`/0 →
+ * « Offre gratuite » (prix affiché 0). Le montant facturé est exactement celui
+ * affiché dans le panneau d'administration.
+ */
 async function getExpertPrice(ctx: any): Promise<number> {
   const config = await ctx.db.query("paymentConfig").order("desc").first();
-  const p = config?.expertPrice;
-  // null/0 = « Offre gratuite » (switch admin) → prix affiché 0
-  if (p === undefined) return 150;
-  return p === null || p === 0 ? 0 : p;
+  const price = resolvePlanPrice(config?.expertPrice, DEFAULT_PLAN_PRICES.expert);
+  return price === null ? 0 : price;
 }
 
 /**

@@ -16,6 +16,7 @@ import {
   type TrialModuleKey,
   type TrialProfileKey,
 } from "../lib/subscriptionPlans";
+import { defaultPlanPriceFields } from "../lib/planPricing";
 
 // ============================================================================
 // PÉRIODE D'ESSAI GRATUITE — CONFIGURATION ADMINISTRABLE (source de vérité)
@@ -342,6 +343,10 @@ export const updateTrialConfig = mutation({
         d17Email: "",
         d17Notice: "",
         currency: "TND",
+        // Un nouveau document de configuration porte TOUJOURS les prix des
+        // forfaits : un document partiel faisait perdre le prix Client Pro
+        // (champ absent lu comme « gratuit » par l'administration).
+        ...defaultPlanPriceFields(),
         ...stored,
         updatedAt: now,
         updatedBy: admin._id,
@@ -398,6 +403,10 @@ export const resetTrialConfig = mutation({
         d17Email: "",
         d17Notice: "",
         currency: "TND",
+        // Un nouveau document de configuration porte TOUJOURS les prix des
+        // forfaits : un document partiel faisait perdre le prix Client Pro
+        // (champ absent lu comme « gratuit » par l'administration).
+        ...defaultPlanPriceFields(),
         ...stored,
         updatedAt: now,
         updatedBy: admin._id,

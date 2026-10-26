@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { getFreePlanStatus, isProfilePaymentActive } from "./access";
+import { DEFAULT_PLAN_PRICES, resolvePlanPrice } from "../lib/planPricing";
 import { requireProfileRoleForCreation, requireProfileRole } from "./profileSubscription";
 import { SUPPLIER_SPECIALTIES_LABELS } from "./schema";
 import { keepSupplierSpecialties } from "../lib/supplierSpecialties";
@@ -28,16 +29,19 @@ import {
 
 const MONTHLY_DAYS = 30;
 
-/** Read the supplier plan price from paymentConfig (fallback 120 TND) */
+/**
+ * Prix du forfait Fournisseur, lu depuis la configuration enregistrée par
+ * l'administrateur. Règle partagée (`lib/planPricing.ts`) : champ absent →
+ * valeur initiale, `null`/0 → « Offre gratuite » (prix affiché 0). Aucun prix
+ * n'est codé en dur : la valeur facturée est celle affichée par l'administration.
+ */
 async function getSupplierPrice(ctx: any): Promise<number> {
   const config = await ctx.db
     .query("paymentConfig")
     .order("desc")
     .first();
-  const p = config?.supplierPrice;
-  // null/0 = « Offre gratuite » (switch admin) → prix affiché 0
-  if (p === undefined) return 120;
-  return p === null || p === 0 ? 0 : p;
+  const price = resolvePlanPrice(config?.supplierPrice, DEFAULT_PLAN_PRICES.supplier);
+  return price === null ? 0 : price;
 }
 
 /**

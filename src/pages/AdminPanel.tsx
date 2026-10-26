@@ -36,6 +36,12 @@ import {
   type TrialModuleKey,
   type TrialProfileKey,
 } from "@/lib/subscriptionPlans";
+import {
+  DEFAULT_PLAN_PRICES,
+  planPriceLabel,
+  planPricingFormValues,
+  type PlanPriceFormValues,
+} from "@/lib/planPricing";
 import StorageReportAdmin from "@/components/admin/StorageReportAdmin";
 import { useState, useEffect } from "react";
 import {
@@ -238,14 +244,13 @@ export default function AdminPanel() {
   // Abonnements mensuels (30 jours) — trois offres : Client Pro, Fournisseur, Expert.
   // Prix null/0 = forfait gratuit (bascule « Offre gratuite » par forfait).
   // Client Pro est payant par défaut (80 TND/mois) — plus aucun essai gratuit.
-  const [limitForm, setLimitForm] = useState({
-    clientProPrice: 80,
-    supplierPrice: 120,
-    expertPrice: 120,
-    clientProFree: false,
-    supplierFree: false,
-    expertFree: false,
-  });
+  //
+  // Les valeurs affichées viennent TOUJOURS de la configuration enregistrée
+  // (`planPricingFormValues`). Tant qu'elle n'est pas chargée, `limitForm` reste
+  // `null` et le panneau affiche un indicateur de chargement : aucun prix n'est
+  // inventé, et la sauvegarde est impossible (aucun écrasement du prix
+  // enregistré, quel que soit le moment du clic).
+  const [limitForm, setLimitForm] = useState<PlanPriceFormValues | null>(null);
   const [savingLimits, setSavingLimits] = useState(false);
   // Disponibilité de Client Pro + forfait par défaut ("trial" | "client_pro").
   // Le forfait « Free » a été supprimé : "trial" = aucun forfait payé, la
@@ -258,22 +263,29 @@ export default function AdminPanel() {
     d17MerchantName: "", d17Phone: "", d17Email: "", d17Notice: "",
   });
 
-  // Sync local form when config loads (prix uniques par forfait, appliqués aux deux types)
+  // Formulation unique des prix : la fonction partagée applique la règle
+  // « champ absent = valeur initiale, null = offre gratuite » (voir
+  // `lib/planPricing.ts`). Elle renvoie `null` pendant le chargement.
+  useEffect(() => {
+    const values = planPricingFormValues(planForm);
+    if (values) setLimitForm(values);
+  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.supplierPrice]);
+
+  // Disponibilité de Client Pro + forfait par défaut des nouveaux utilisateurs.
   useEffect(() => {
     if (planForm) {
-      const isFree = (p: number | null | undefined) => p == null || p === 0;
-      setLimitForm({
-        clientProPrice: isFree(planForm.proPrice) ? 80 : planForm.proPrice,
-        supplierPrice: isFree(planForm.supplierPrice) ? 120 : planForm.supplierPrice,
-        expertPrice: isFree(planForm.expertPrice) ? 120 : planForm.expertPrice,
-        clientProFree: isFree(planForm.proPrice),
-        supplierFree: isFree(planForm.supplierPrice),
-        expertFree: isFree(planForm.expertPrice),
-      });
       setClientProEnabled(planForm.clientProEnabled !== false);
       setDefaultPlan(planForm.defaultPlan === "client_pro" ? "client_pro" : "trial");
     }
-  }, [planForm?.proPrice, planForm?.expertPrice, planForm?.supplierPrice, planForm?.clientProEnabled, planForm?.defaultPlan]);
+  }, [planForm?.clientProEnabled, planForm?.defaultPlan]);
+
+  // Revenus estimés : abonnements actifs × prix Client Pro ENREGISTRÉ.
+  // `null` = configuration non chargée : aucun montant n'est deviné.
+  const activeSubsCount = allSubsWithUsers.filter((s: any) => s.status === "active").length;
+  const clientProMonthlyPrice =
+    limitForm === null ? null : limitForm.clientProFree ? 0 : limitForm.clientProPrice;
+  const estimatedMonthlyRevenue =
+    clientProMonthlyPrice === null ? null : activeSubsCount * clientProMonthlyPrice;
 
   // Sync payment form when config loads
   useEffect(() => {
@@ -2569,7 +2581,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                     <div>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">Revenus estimés</p>
                       <p className="text-xl sm:text-2xl font-bold mt-1">
-                        {new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(allSubsWithUsers.filter((s: any) => s.status === "active").length * (planForm?.proPrice ?? 120))}
+                        {estimatedMonthlyRevenue === null
+                          ? "—"
+                          : new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(estimatedMonthlyRevenue)}
                       </p>
                     </div>
                     <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 text-emerald-600 ring-1 ring-emerald-500/10 shrink-0">
@@ -2577,7 +2591,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
-                    <span>{allSubsWithUsers.filter((s: any) => s.status === "active").length * (planForm?.proPrice ?? 120)} TND</span>
+                    <span>{estimatedMonthlyRevenue === null ? "—" : `${estimatedMonthlyRevenue} TND`}</span>
                     <span>•</span>
                     <span>{materialPrices.length} matériaux</span>
                   </div>
@@ -2720,7 +2734,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
                 <CardHeader className="p-4 pb-2">
                   <CardTitle className="text-sm">Abonnements & Revenus</CardTitle>
-                  <CardDescription className="text-[10px]">Client Pro: {planForm?.proPrice ?? 80} TND | Fournisseur: {planForm?.supplierPrice ?? 120} TND | Expert: {planForm?.expertPrice ?? 120} TND</CardDescription>
+                  <CardDescription className="text-[10px]">Client Pro: {planPriceLabel(planForm?.proPrice)} | Fournisseur: {planPriceLabel(planForm?.supplierPrice)} | Expert: {planPriceLabel(planForm?.expertPrice)}</CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
                   <div className="grid grid-cols-3 gap-2 mb-3">
@@ -4024,6 +4038,15 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 {/* ═══ Limite du nombre de projets par offre ═══ */}
                 <ProjectLimitSettings />
 
+                {limitForm === null ? (
+                  // Configuration non chargée : aucun formulaire, donc aucun prix
+                  // affiché ou enregistré par défaut.
+                  <div className="flex items-center justify-center gap-2 rounded-xl border border-border/30 bg-background/50 p-8 text-xs text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Chargement de la configuration des abonnements…
+                  </div>
+                ) : (
+                  <>
                 {/* ═══ Forfait Client Pro (Start remplacé par Client Pro) ═══ */}
                 <div className="p-5 rounded-xl bg-gradient-to-br from-blue-500/5 to-blue-500/0 border border-blue-200/20 space-y-4">
                   <div className="flex items-center justify-between">
@@ -4074,11 +4097,18 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                       <Switch
                         checked={limitForm.clientProFree}
                         onCheckedChange={(checked) =>
-                          setLimitForm((prev) => ({
-                            ...prev,
-                            clientProFree: checked,
-                            clientProPrice: checked ? prev.clientProPrice : prev.clientProPrice || 80,
-                          }))
+                          setLimitForm((prev) =>
+                            prev === null
+                              ? prev
+                              : {
+                                  ...prev,
+                                  clientProFree: checked,
+                                  // Un forfait gratuit n'a pas de montant : on réaffiche la valeur initiale (désactivée).
+                                  clientProPrice: checked
+                                    ? prev.clientProPrice
+                                    : prev.clientProPrice || DEFAULT_PLAN_PRICES.pro,
+                                },
+                          )
                         }
                       />
                       <span className="text-[11px] text-muted-foreground">Offre gratuite</span>
@@ -4133,11 +4163,17 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                       <Switch
                         checked={limitForm.supplierFree}
                         onCheckedChange={(checked) =>
-                          setLimitForm((prev) => ({
-                            ...prev,
-                            supplierFree: checked,
-                            supplierPrice: checked ? prev.supplierPrice : prev.supplierPrice || 120,
-                          }))
+                          setLimitForm((prev) =>
+                            prev === null
+                              ? prev
+                              : {
+                                  ...prev,
+                                  supplierFree: checked,
+                                  supplierPrice: checked
+                                    ? prev.supplierPrice
+                                    : prev.supplierPrice || DEFAULT_PLAN_PRICES.supplier,
+                                },
+                          )
                         }
                       />
                       <span className="text-[11px] text-muted-foreground">Offre gratuite</span>
@@ -4186,11 +4222,17 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                       <Switch
                         checked={limitForm.expertFree}
                         onCheckedChange={(checked) =>
-                          setLimitForm((prev) => ({
-                            ...prev,
-                            expertFree: checked,
-                            expertPrice: checked ? prev.expertPrice : prev.expertPrice || 120,
-                          }))
+                          setLimitForm((prev) =>
+                            prev === null
+                              ? prev
+                              : {
+                                  ...prev,
+                                  expertFree: checked,
+                                  expertPrice: checked
+                                    ? prev.expertPrice
+                                    : prev.expertPrice || DEFAULT_PLAN_PRICES.expert,
+                                },
+                          )
                         }
                       />
                       <span className="text-[11px] text-muted-foreground">Offre gratuite</span>
@@ -4271,9 +4313,34 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 ) : (
                   <Button
                     onClick={async () => {
+                      // La configuration doit être chargée : sans elle, aucun prix
+                      // ne peut être enregistré (jamais de valeur par défaut).
+                      if (limitForm === null) {
+                        toast.error(
+                          "Configuration des abonnements en cours de chargement. Réessayez dans un instant.",
+                        );
+                        return;
+                      }
                       // Refus d'enregistrer un forfait par défaut désactivé.
                       if (defaultPlan === "client_pro" && !clientProEnabled) {
                         toast.error("Client Pro est désactivé : sélectionnez un autre forfait par défaut.");
+                        return;
+                      }
+                      // Prix réellement envoyés : `null` = « Offre gratuite » choisie
+                      // explicitement par l'administrateur, sinon le montant saisi.
+                      const proPrice = limitForm.clientProFree ? null : limitForm.clientProPrice;
+                      const supplierPrice = limitForm.supplierFree ? null : limitForm.supplierPrice;
+                      const expertPrice = limitForm.expertFree ? null : limitForm.expertPrice;
+                      // Un montant invalide (champ vidé) est REFUSÉ : il n'écrase pas
+                      // le prix enregistré et ne retombe pas sur une valeur par défaut.
+                      if (
+                        [proPrice, supplierPrice, expertPrice].some(
+                          (p) => p !== null && !Number.isFinite(p),
+                        )
+                      ) {
+                        toast.error(
+                          "Prix invalide : saisissez un montant mensuel en TND (nombre positif).",
+                        );
                         return;
                       }
                       setSavingLimits(true);
@@ -4283,20 +4350,11 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         // Forfait par défaut des nouveaux utilisateurs.
                         await updateDefaultPlanConfig({ plan: defaultPlan });
                         // Client Pro (Start remplacé par Client Pro)
-                        await updatePlanPricing({
-                          plan: "pro",
-                          price: limitForm.clientProFree ? null : limitForm.clientProPrice,
-                        });
+                        await updatePlanPricing({ plan: "pro", price: proPrice });
                         // Fournisseur
-                        await updatePlanPricing({
-                          plan: "supplier",
-                          price: limitForm.supplierFree ? null : limitForm.supplierPrice,
-                        });
+                        await updatePlanPricing({ plan: "supplier", price: supplierPrice });
                         // Expert
-                        await updatePlanPricing({
-                          plan: "expert",
-                          price: limitForm.expertFree ? null : limitForm.expertPrice,
-                        });
+                        await updatePlanPricing({ plan: "expert", price: expertPrice });
                         toast.success("Abonnements mis à jour");
                       } catch (err: any) {
                         toast.error(err.message || "Erreur");
@@ -4308,6 +4366,8 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                     <Save className="h-4 w-4" />
                     Enregistrer les abonnements
                   </Button>
+                )}
+                  </>
                 )}
               </CardContent>
             </Card>

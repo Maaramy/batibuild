@@ -27,6 +27,7 @@ import {
   trialIncludes,
   type TrialConfig,
 } from "./trialConfig";
+import { DEFAULT_PLAN_PRICES, resolvePlanPrice } from "../lib/planPricing";
 
 // ============================================================================
 // GESTION CENTRALE DE LA PÉRIODE D'ESSAI ET DE L'ABONNEMENT MENSUEL
@@ -81,7 +82,10 @@ async function readPricing(ctx: DbCtx, now = Date.now()): Promise<PricingInfo> {
     trialEnabled: isTrialCampaignOpen(trial, now),
     trialDays: trial.durationDays,
     trialPdfAllowed: trialIncludes(trial, "pdf"),
-    planPrice: config?.proPrice ?? null,
+    // Prix Client Pro RÉELLEMENT enregistré : un champ absent (document créé par
+    // un autre réglage) vaut la valeur initiale, jamais « gratuit » — même règle
+    // que `payments.getPlanPricing` / `getPublicPricing` (`lib/planPricing.ts`).
+    planPrice: resolvePlanPrice(config?.proPrice, DEFAULT_PLAN_PRICES.pro),
     // Le switch « Offre gratuite » Client Pro est actif quand le prix a été
     // EXPLICITEMENT enregistré à null/0 et que le forfait n'est pas désactivé.
     // Un prix absent (document partiel) ne rend jamais le forfait gratuit.

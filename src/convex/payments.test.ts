@@ -148,7 +148,10 @@ describe("getPlanPricing", () => {
     expect(result).not.toBeNull();
     expect(result!.proPrice).toBe(89);             // from config
     expect(result!.expertPrice).toBe(350);          // from config
-    expect(result!.supplierPrice).toBeNull();       // null = forfait gratuit (absence de prix)
+    // Champ ABSENT → valeur INITIALE du forfait : un champ manquant n'est jamais
+    // interprété comme « gratuit » (cause de la perte du prix enregistré par
+    // l'administrateur — voir `convex/planPricing.test.ts`).
+    expect(result!.supplierPrice).toBe(120);
     expect(result!.freeProjectLimit).toBe(0);             // always 0 (no free quota)
     expect(result!.proProjectLimit).toBe(1000000);         // fallback to default
   });

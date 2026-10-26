@@ -412,7 +412,17 @@ export default function SupplierDashboard() {
   const effStatus = (profile as any)?.effectiveStatus || profile?.subscriptionStatus || "inactive";
   const remainingDays = (profile as any)?.remainingDays ?? 0;
   const plan = (profile as any)?.plan || "none";
-  const MONTHLY_PRICE = paymentConfig?.supplierPrice || (profile as any)?.price || 120;
+  // Prix du forfait fournisseur : la configuration enregistrée par
+  // l'administrateur fait foi (prix affiché ET facturé). `null` = « Offre
+  // gratuite » (donc 0, jamais 120) ; configuration non chargée → repli sur le
+  // prix du profil, sans valeur codée en dur.
+  const configuredSupplierPrice = (paymentConfig as any)?.supplierPrice;
+  const MONTHLY_PRICE =
+    configuredSupplierPrice === undefined
+      ? ((profile as any)?.price ?? 0)
+      : configuredSupplierPrice === null
+        ? 0
+        : configuredSupplierPrice;
 
   // Dès que le paiement est validé (abonnement actif), on ferme automatiquement le popup
   // pour que les coordonnées disparaissent jusqu'à la fin de l'abonnement

@@ -490,7 +490,15 @@ export default function ExpertDashboard() {
 
   const effStatus = (profile as any)?.effectiveStatus || profile?.subscriptionStatus || "inactive";
   const remainingDays = (profile as any)?.remainingDays ?? 0;
-  const MONTHLY_PRICE = paymentConfig?.expertPrice || 150;
+  // Prix du forfait expert : la configuration enregistrée par l'administrateur
+  // fait foi (prix affiché ET facturé). `null` = « Offre gratuite » (donc 0) ;
+  // configuration non chargée → 0 plutôt qu'un montant codé en dur (l'ancien
+  // repli 150 TND divergeait du tarif administré de 120 TND).
+  const configuredExpertPrice = (paymentConfig as any)?.expertPrice;
+  const MONTHLY_PRICE =
+    configuredExpertPrice === undefined || configuredExpertPrice === null
+      ? 0
+      : configuredExpertPrice;
 
   useEffect(() => {
     if (effStatus === "active") setShowPaymentChoice(false);
