@@ -53,11 +53,19 @@
 #
 # La génération ne peut donc pas être inconditionnelle : `convex codegen`
 # exige un déploiement joignable (`CONVEX_DEPLOYMENT` + jeton, ou backend local
-# démarré). Dans une sandbox de build frontend, il n'y a ni l'un ni l'autre —
-# un codegen systématique ferait échouer un build qui n'a besoin de rien. Le
-# script ne le lance donc QUE si un des cinq fichiers manque, et dans ce cas il
-# affiche l'erreur réelle du CLI (plus de `|| true` qui masquait la cause) au
-# lieu de laisser `tsc` échouer 180 fois sur des imports absents.
+# démarré) — la version installée (1.48) n'a aucun mode hors ligne. Dans une
+# sandbox de build frontend, il n'y a ni l'un ni l'autre — un codegen
+# systématique ferait échouer un build qui n'a besoin de rien. Le script ne le
+# lance donc QUE si un des cinq fichiers manque ET qu'un déploiement est
+# réellement configuré (variable d'environnement, ou `.env.local` / `.env`).
+#
+# Sans déploiement configuré, il s'arrête AVANT le CLI : l'erreur brute
+# (« No CONVEX_DEPLOYMENT set, run `npx convex dev`… ») ne disait ni quels
+# fichiers manquaient ni comment s'en sortir sans secret. Le message actuel les
+# nomme, nomme la variable à configurer (CONVEX_DEPLOYMENT, jamais inventée) et
+# rappelle la solution sans secret : générer en développement puis versionner.
+# `convex dev` n'est JAMAIS lancé ici (il configurerait un environnement de
+# développement en production) et aucun `|| true` ne masque un échec.
 # ============================================================================
 
 set -eu
@@ -84,6 +92,11 @@ build_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 PATH="$build_root/node_modules/.bin:$PATH"
 export PATH
 
+# Toutes les étapes lisent des chemins relatifs à la racine (liaisons Convex,
+# tsconfig, dist) : le build ne doit pas changer de résultat selon le
+# répertoire d'appel (CI, plateforme de déploiement, IDE, `sh scripts/build.sh`).
+cd "$build_root"
+
 export NODE_OPTIONS="--max-old-space-size=${BB_BUILD_HEAP_MB:-900}${NODE_OPTIONS:+ $NODE_OPTIONS}"
 
 log "NODE_OPTIONS=$NODE_OPTIONS"
@@ -101,6 +114,22 @@ done
 # ---------------------------------------------------------------------------
 # 1. Codegen Convex — uniquement si les cinq liaisons manquent
 # ---------------------------------------------------------------------------
+
+# Un déploiement est « configuré » si le CLI peut en résoudre un sans question
+# interactive : `CONVEX_DEPLOYMENT` dans l'environnement, ou dans le fichier
+# `.env.local` / `.env` du projet que le CLI charge lui-même. Seule la
+# PRÉSENCE d'une valeur non vide est testée : aucune valeur n'est lue,
+# affichée ni journalisée.
+convex_deployment_configured() {
+  [ -n "${CONVEX_DEPLOYMENT:-}" ] && return 0
+  for env_file in .env.local .env; do
+    if [ -f "$env_file" ] && grep -q '^[[:space:]]*CONVEX_DEPLOYMENT=..*' "$env_file"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 convex_missing=""
 for file in $CONVEX_GENERATED_FILES; do
   [ -f "$CONVEX_GENERATED_DIR/$file" ] || convex_missing="$convex_missing $file"
@@ -108,13 +137,38 @@ done
 
 if [ -n "$convex_missing" ]; then
   log "liaisons Convex manquantes dans $CONVEX_GENERATED_DIR :$convex_missing"
-  log "régénération via « convex codegen --typecheck disable » (le typecheck est fait par tsc -b juste après)"
 
   if [ -n "${CONVEX_DEPLOY_KEY:-}" ]; then
     fail "CONVEX_DEPLOY_KEY (déploiement preview) ne permet pas \`convex codegen\`.
   Les liaisons doivent être générées en développement puis committées :
   \`bunx convex codegen --typecheck disable\` puis commit de $CONVEX_GENERATED_DIR."
   fi
+
+  # La version installée de Convex (1.48) n'a AUCUN codegen hors ligne :
+  # `codegen` résout d'abord un déploiement et, sans lui, meurt sur
+  # « No CONVEX_DEPLOYMENT set, run `npx convex dev` to configure a Convex
+  # project ». Lancer le CLI sans déploiement ne peut donc rien produire :
+  # on s'arrête AVANT, en nommant la cause exacte, les fichiers absents et la
+  # variable à configurer. Jamais `convex dev` (il configurerait un
+  # environnement de développement, interdit en production) et jamais de
+  # valeur inventée.
+  if ! convex_deployment_configured; then
+    fail "liaisons Convex absentes et aucun déploiement Convex configuré.
+  Fichiers manquants :$convex_missing
+  Emplacement attendu : $CONVEX_GENERATED_DIR (convex.json : \"functions\": \"src/convex/\").
+  Variable à fournir dans l'environnement SÉCURISÉ pour autoriser une
+  régénération : CONVEX_DEPLOYMENT — valeur du déploiement Convex existant
+  (aucune valeur n'est inventée ni affichée ici).
+  Solution sans aucun secret : générer les liaisons en développement, puis les
+  versionner —
+      bunx convex codegen --typecheck disable
+      puis commit de $CONVEX_GENERATED_DIR
+  Ces cinq fichiers sont du code source (182 modules du frontend les
+  importent) : sans eux, \`tsc -b\` casse en TS2307 et \`vite build\` en
+  « Could not resolve ». Un checkout propre doit donc les contenir."
+  fi
+
+  log "régénération via « convex codegen --typecheck disable » (le typecheck est fait par tsc -b juste après)"
 
   if ! command -v convex >/dev/null 2>&1; then
     fail "binaire « convex » introuvable (code 127) : impossible de régénérer

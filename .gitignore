@@ -11,3 +11,11 @@ dist
 core
 # Sortie de build de test (copie de dist/ utilisée par knip) : jamais suivie.
 isolate
+
+# Garde-fou : le gabarit `convex init` / `convex dev` ajoute `_generated/` au
+# .gitignore des nouveaux projets. Si une telle règle revenait (CLI, gabarit,
+# copier-coller), les cinq liaisons disparaîtraient du checkout et le build
+# échouerait avant même `tsc -b`. Cette ré-inclusion, placée en dernier, rend
+# l'ordre des règles indifférent.
+!src/convex/_generated/
+!src/convex/_generated/**
