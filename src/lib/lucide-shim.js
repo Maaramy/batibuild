@@ -129,6 +129,7 @@ export { default as FlaskConical } from "../../node_modules/lucide-react/dist/es
 export { default as Flame } from "../../node_modules/lucide-react/dist/esm/icons/flame.js";
 export { default as Gauge } from "../../node_modules/lucide-react/dist/esm/icons/gauge.js";
 export { default as Gem } from "../../node_modules/lucide-react/dist/esm/icons/gem.js";
+export { default as Gift } from "../../node_modules/lucide-react/dist/esm/icons/gift.js";
 export { default as GripVertical } from "../../node_modules/lucide-react/dist/esm/icons/grip-vertical.js";
 export { default as Globe } from "../../node_modules/lucide-react/dist/esm/icons/globe.js";
 export { default as Hammer } from "../../node_modules/lucide-react/dist/esm/icons/hammer.js";
