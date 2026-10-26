@@ -233,6 +233,29 @@ export function evaluateProjectLimit(
   };
 }
 
+/**
+ * Décision d'affichage de l'écran « Limite de projets atteinte ».
+ *
+ * Elle n'est évaluée qu'au moment d'une TENTATIVE de création d'un NOUVEAU
+ * projet :
+ *   • jamais pendant une création en cours ni après une création réussie (le
+ *     résultat du dernier projet autorisé doit toujours s'afficher) ;
+ *   • jamais lorsqu'aucun quota n'est connu (le serveur tranche, afin de ne
+ *     jamais bloquer sur une donnée pas encore chargée).
+ *
+ * Le quota lui-même est calculé côté serveur (`evaluateProjectLimit` sur le
+ * nombre réel de projets) : ce test ne fait que décider de l'écran.
+ */
+export function shouldBlockNewProjectCreation(input: {
+  status: { allowed: boolean } | null | undefined;
+  creationInProgress: boolean;
+  hasCreatedProject: boolean;
+}): boolean {
+  if (input.creationInProgress || input.hasCreatedProject) return false;
+  if (!input.status) return false;
+  return input.status.allowed === false;
+}
+
 /** Message présenté à l'utilisateur qui a atteint le plafond de son offre. */
 export function projectLimitReachedMessage(
   tier: ProjectLimitTier,

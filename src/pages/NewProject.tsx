@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
-import { ProjectLimitGate } from "@/components/ProjectLimitGate";
+import { ProjectLimitGate, type ProjectLimitView } from "@/components/ProjectLimitGate";
+import { PROJECT_LIMIT_MARKER, shouldBlockNewProjectCreation } from "@/lib/projectLimits";
 import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
 import { costEstimateLoadingSteps } from "@/lib/projectJourney";
 import {
@@ -594,6 +595,39 @@ export default function NewProject() {
   const createProject = useMutation(api.projects.createProject);
   const simulateAnalysis = useMutation(api.projects.simulateAnalysis);
 
+  // Quota de projets de l'offre active (essai / offre gratuite / Client Pro),
+  // réglé par l'administrateur et calculé côté serveur.
+  const projectLimit = useQuery(api.projectLimits.getMyProjectLimit);
+  // Écran « Limite de projets atteinte » : renseigné UNIQUEMENT lorsqu'une
+  // tentative de création est refusée parce que le quota est déjà atteint.
+  // Il ne remplace donc jamais le résultat du dernier projet autorisé.
+  const [limitScreen, setLimitScreen] = useState<ProjectLimitView | null>(null);
+
+  /**
+   * Contrôle le quota AVANT d'envoyer une création de projet (le backend le
+   * revérifie dans la transaction). Renvoie `false` si la création doit être
+   * refusée : l'écran de limitation est alors affiché. Aucun blocage lorsqu'un
+   * projet vient d'être créé ou que sa création est en cours : le résultat du
+   * dernier projet autorisé doit toujours pouvoir s'afficher.
+   */
+  const allowNewProjectCreation = () => {
+    // Quota pas encore chargé : le serveur tranche (jamais de faux blocage).
+    if (!projectLimit) return true;
+    const blocked = shouldBlockNewProjectCreation({
+      status: projectLimit,
+      creationInProgress: analysisStartedRef.current,
+      hasCreatedProject: createdProjectIdRef.current !== null,
+    });
+    if (!blocked) return true;
+    setLimitScreen({
+      tierLabel: projectLimit.tierLabel,
+      maxProjects: projectLimit.maxProjects,
+      usedProjects: projectLimit.usedProjects,
+      message: projectLimit.message,
+    });
+    return false;
+  };
+
   // Résultats réels : observation du projet enregistré (statut terminé + coût +
   // analyse IA). La requête est réactive : dès que la mutation a réellement
   // commité, les données arrivent ici sans polling ni appel supplémentaire.
@@ -743,6 +777,22 @@ export default function NewProject() {
     console.error("Estimation error:", error);
     analysisStartedRef.current = false;
     setAnalyzing(false);
+
+    // Refus serveur pour dépassement du quota : aucun projet n'a été enregistré,
+    // on présente donc l'écran de limitation plutôt qu'une erreur générique.
+    const raw =
+      error instanceof Error ? error.message : typeof error === "string" ? error : "";
+    if (!createdProjectIdRef.current && raw.includes(PROJECT_LIMIT_MARKER)) {
+      const known = projectLimit && projectLimit.allowed === false ? projectLimit : null;
+      setLimitScreen({
+        tierLabel: known?.tierLabel ?? null,
+        maxProjects: known?.maxProjects ?? null,
+        usedProjects: known?.usedProjects ?? 0,
+        message: describeEstimateError(error),
+      });
+      return;
+    }
+
     setAnalysisError(describeEstimateError(error));
   };
 
@@ -759,6 +809,9 @@ export default function NewProject() {
   const handleStartAnalysis = async (formName: string = projectName) => {
     if (analysisStartedRef.current) return;
     if (!validateForm(formName)) return;
+    // Quota vérifié AVANT la création (jamais après) : le dernier projet
+    // autorisé s'affiche normalement, seule la création suivante est bloquée.
+    if (!allowNewProjectCreation()) return;
     analysisStartedRef.current = true;
 
     setAnalyzing(true);
@@ -1316,7 +1369,7 @@ export default function NewProject() {
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
         <ClientProPaywall>
-        <ProjectLimitGate>
+        <ProjectLimitGate blocked={limitScreen}>
       
 
       {/* ── Header ── */}

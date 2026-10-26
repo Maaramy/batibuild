@@ -216,6 +216,21 @@ describe("limite de projets — période d'essai", () => {
     expect(await storedProjectCount(t, userId)).toBe(1);
   });
 
+  it("quota de 5 : les cinq premiers projets passent, le sixième est refusé", async () => {
+    await setLimits(adminT, { trial: { enabled: true, maxProjects: 5, resetMode: "total" } });
+
+    const userId = await insertTrialUser(t);
+    const userT = t.withIdentity({ subject: userId });
+
+    for (let i = 0; i < 5; i += 1) {
+      await createProject(userT);
+    }
+    expect(await storedProjectCount(t, userId)).toBe(5);
+
+    await expect(createProject(userT)).rejects.toThrow(/PROJECT_LIMIT_REACHED:/);
+    expect(await storedProjectCount(t, userId)).toBe(5);
+  });
+
   it("les projets existants restent consultables et modifiables après le blocage", async () => {
     await setLimits(adminT, { trial: { enabled: true, maxProjects: 1, resetMode: "total" } });
 

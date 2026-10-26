@@ -1,9 +1,7 @@
 import type { ReactNode } from "react";
-import { useQuery } from "convex/react";
 import { useNavigate } from "react-router";
-import { CreditCard, FolderKanban, Loader2 } from "lucide-react";
+import { CreditCard, FolderKanban } from "lucide-react";
 
-import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,29 +9,31 @@ import { Badge } from "@/components/ui/badge";
 // ============================================================================
 // ProjectLimitGate — limite du nombre de projets par offre
 // ----------------------------------------------------------------------------
-// Bloque la CRÉATION d'un nouveau projet lorsque le plafond réglé par
-// l'administrateur pour l'offre du compte (période d'essai, offre gratuite ou
-// Client Pro) est atteint. Le backend revérifie la limite dans la transaction
-// de création (`projects.createProject`) : cette barrière d'interface est un
-// confort, jamais la seule protection.
+// Cet écran n'est PAS piloté directement par la requête réactive du quota :
+// il s'affiche uniquement lorsque la page de création constate, AU MOMENT d'une
+// tentative de création, que le plafond réglé par l'administrateur pour l'offre
+// du compte (période d'essai, offre gratuite ou Client Pro) est déjà atteint.
+//
+// Bug corrigé : auparavant, la barrière observait le quota en continu et
+// remplaçait donc la page dès que le projet venait d'être créé (le compteur
+// passait à X/X), masquant le résultat du dernier projet autorisé.
 //
 // Les projets DÉJÀ créés restent consultables et modifiables : seule la
-// création est empêchée.
+// création d'un projet SUPPLÉMENTAIRE est empêchée. Le backend revérifie la
+// limite dans la transaction de création (`projects.createProject`) : cette
+// barrière d'interface est un confort, jamais la seule protection.
 // ============================================================================
 
-export function ProjectLimitGate({ children }: { children: ReactNode }) {
-  const limit = useQuery(api.projectLimits.getMyProjectLimit);
-  const navigate = useNavigate();
+/** Données d'affichage de l'écran de limitation (issues du contrôle serveur). */
+export interface ProjectLimitView {
+  tierLabel?: string | null;
+  maxProjects?: number | null;
+  usedProjects?: number;
+  message?: string | null;
+}
 
-  // Chargement (ou visiteur sans compte) : comportement inchangé.
-  if (limit === undefined) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-  if (limit === null || limit.allowed) return <>{children}</>;
+export function ProjectLimitScreen({ limit }: { limit: ProjectLimitView }) {
+  const navigate = useNavigate();
 
   return (
     <div className="mx-auto max-w-2xl px-3 py-10 sm:px-6">
@@ -47,12 +47,13 @@ export function ProjectLimitGate({ children }: { children: ReactNode }) {
           </h3>
           {limit.tierLabel && limit.maxProjects != null && (
             <Badge variant="outline" className="text-[10px]">
-              {limit.tierLabel} · {limit.usedProjects}/{limit.maxProjects} projet
+              {limit.tierLabel} · {limit.usedProjects ?? 0}/{limit.maxProjects} projet
               {limit.maxProjects > 1 ? "s" : ""}
             </Badge>
           )}
           <p className="max-w-md text-xs leading-relaxed text-muted-foreground sm:text-sm">
-            {limit.message}
+            {limit.message ??
+              "Vous avez atteint la limite de projets autorisée pour votre offre actuelle. Passez à Client Pro pour bénéficier des conditions de votre abonnement."}
           </p>
           <p className="max-w-md text-[11px] leading-relaxed text-muted-foreground">
             Vos projets existants restent accessibles et modifiables : aucune donnée n'est supprimée.
@@ -68,6 +69,21 @@ export function ProjectLimitGate({ children }: { children: ReactNode }) {
       </Card>
     </div>
   );
+}
+
+/**
+ * Affiche `children` — et remplace la page par l'écran de limitation SEULEMENT
+ * lorsque `blocked` est fourni (tentative de création au-delà du quota).
+ */
+export function ProjectLimitGate({
+  children,
+  blocked,
+}: {
+  children: ReactNode;
+  blocked: ProjectLimitView | null;
+}) {
+  if (!blocked) return <>{children}</>;
+  return <ProjectLimitScreen limit={blocked} />;
 }
 
 export default ProjectLimitGate;
