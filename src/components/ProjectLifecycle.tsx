@@ -110,7 +110,7 @@ const LIFECYCLE_STEPS: LifecycleStep[] = [
     key: "decision",
     label: "Aide à la décision",
     description:
-      "Anticipez vos achats, maîtrisez votre budget et réduisez les pertes grâce à l'analyse prédictive.",
+      "Analysez votre budget et comparez-le au coût estimatif du projet : scénarios, chantiers finançables et recommandations.",
     icon: BrainCircuit,
     // Étend l'analyse du budget issue du « Coût estimatif » : suit son activation.
     flag: JOURNEY_FLAG_KEYS.decision,

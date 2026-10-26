@@ -5,6 +5,8 @@
 // chiffres affichés sous chaque étape terminée du parcours (page d'accueil) :
 //
 //   - runBIMEstimation  → coût estimatif, quantitatif, coût au m², matériaux
+//   - buildBudgetAnalysis → aide à la décision (budget vs coût, scénarios,
+//                           chantiers finançables, recommandation)
 //   - generateRoadmap   → exécution & suivi (progression, phases, budget)
 //   - annuaires réels   → experts & fournisseurs actifs (cartes)
 //
@@ -26,6 +28,10 @@ import {
   EXPERT_PROFESSION_LABELS,
   expertCategoryOf,
 } from "./recommendedProviders";
+// MÊME moteur que la page « Aide à la décision » : l'aperçu de la page
+// d'accueil ne réimplémente aucun calcul, il exécute `buildBudgetAnalysis` sur
+// les données réelles du projet de référence.
+import { MIN_BUDGET_TND, buildBudgetAnalysis } from "../lib/budgetEngine";
 
 /** Projet de référence des résultats — exemple déterministe (moteurs réels). */
 const DEMO = {
@@ -117,6 +123,39 @@ export interface LifecycleShowcase {
     methods: string[];
     durationLabel: string;
   };
+  /**
+   * 4. Aide à la décision — analyse du budget (moteur RÉEL du module) :
+   * comparaison du budget disponible avec le coût estimatif, chantiers
+   * finançables / reportés, scénarios et recommandation.
+   */
+  decision: {
+    /** Coût total du scénario retenu (identique au « Coût estimatif »). */
+    projectTotal: number;
+    /** Budget disponible analysé (démo déterministe : 80 % du coût). */
+    availableBudget: number;
+    /** % du coût total finançable avec ce budget. */
+    projectReachablePct: number;
+    /** Montant du projet restant à financer. */
+    gapToProjectTotal: number;
+    /** Budget encore nécessaire pour terminer le chantier prioritaire suivant. */
+    gapToNextCategory: number;
+    nextCategoryLabel: string;
+    /** Chantiers réalisables / partiels / reportés. */
+    realisable: number;
+    partial: number;
+    deferred: number;
+    /** Scénarios réels du module (budget actuel, palier +10 000 TND, complet). */
+    scenarios: {
+      key: string;
+      label: string;
+      budget: number;
+      fundedCost: number;
+      progressPct: number;
+      remainingToFund: number;
+    }[];
+    recommendation: string;
+    summarySentence: string;
+  };
   /** 3. Choix des matériaux. */
   materials: {
     analyzed: number;
@@ -197,6 +236,34 @@ export const getShowcase = query({
         estimatedDuration: bim.aiAnalysis.estimatedDuration,
       },
       costEstimate: ce as any,
+    });
+
+    // ── Aide à la décision — analyse du budget avec le moteur RÉEL ──────────
+    // Budget de démonstration déterministe (80 % du coût estimatif, arrondi au
+    // pas de 10 000 TND, jamais sous le minimum analysable) : `buildBudgetAnalysis`
+    // compare alors ce budget au coût réel du projet et produit les chantiers
+    // finançables, les scénarios et la recommandation — exactement comme la
+    // page « Aide à la décision ».
+    const projectTotal = Math.round(ce.totalCost);
+    const demoBudget = Math.max(
+      MIN_BUDGET_TND,
+      Math.min(projectTotal, Math.round((projectTotal * 0.8) / 10_000) * 10_000),
+    );
+    const decisionAnalysis = buildBudgetAnalysis({
+      projectId: "showcase",
+      userId: "showcase",
+      projectName: DEMO.name,
+      scenarioLabel: "Standard",
+      projectTotal,
+      budgetAvailable: demoBudget,
+      breakdown: (ce.breakdown ?? []).map((b: any) => ({
+        category: String(b.category ?? ""),
+        label: String(b.label ?? ""),
+        estimatedCost: Number(b.estimatedCost) || 0,
+        percentage: Number(b.percentage) || 0,
+      })),
+      surface: DEMO.surface,
+      costPerM2: ce.costPerSquareMeter,
     });
 
     // ── Experts & fournisseurs réellement inscrits (annuaires actifs) ────────
@@ -290,6 +357,27 @@ export const getShowcase = query({
         variants: Object.keys(ce.budgetScenarios ?? {}).length,
         methods: bim.aiAnalysis.constructionMethods ?? [],
         durationLabel: bim.aiAnalysis.estimatedDuration ?? "",
+      },
+      decision: {
+        projectTotal,
+        availableBudget: decisionAnalysis.availableBudget,
+        projectReachablePct: decisionAnalysis.projectReachablePct,
+        gapToProjectTotal: decisionAnalysis.gapToProjectTotal,
+        gapToNextCategory: decisionAnalysis.gapToNextCategory,
+        nextCategoryLabel: decisionAnalysis.nextCategoryLabel,
+        realisable: decisionAnalysis.statusSummary.realisable.length,
+        partial: decisionAnalysis.statusSummary.partiel.length,
+        deferred: decisionAnalysis.statusSummary.report.length,
+        scenarios: decisionAnalysis.scenarios.map((s) => ({
+          key: s.scenario,
+          label: s.label,
+          budget: s.budget,
+          fundedCost: s.fundedCost,
+          progressPct: s.progressPct,
+          remainingToFund: s.remainingToFund,
+        })),
+        recommendation: decisionAnalysis.recommendation,
+        summarySentence: decisionAnalysis.summarySentence,
       },
       materials: {
         analyzed: items.length,

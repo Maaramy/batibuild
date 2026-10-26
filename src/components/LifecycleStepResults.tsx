@@ -23,8 +23,10 @@
 // ============================================================================
 
 import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router";
 import { motion, useReducedMotion } from "framer-motion";
 import {
+  ArrowRight,
   Banknote,
   BrainCircuit,
   Building2,
@@ -709,31 +711,88 @@ function PlanResult({ data }: { data: LifecycleShowcase }) {
   );
 }
 
-// ── 2 bis. Aide à la décision — aperçu de l'Intelligence prédictive ─────────
+// ── 2 bis. Aide à la décision — analyse du budget (moteur RÉEL du module) ───
+//
+// Cette carte reprend le contenu RÉEL de l'« Aide à la décision » : comparaison
+// du budget disponible avec le coût estimatif du projet, chantiers finançables
+// / reportés, scénarios de financement et recommandation. Les données
+// proviennent de `buildBudgetAnalysis` (le moteur de la page dédiée) exécuté
+// côté serveur — aucune donnée, aucun composant ni aucune fonctionnalité de
+// « Matériaux AI » n'est utilisée ici.
 
 function DecisionResult({ data }: { data: LifecycleShowcase }) {
-  const { materials } = data;
+  const navigate = useNavigate();
+  const { decision } = data;
+  const nextGap = decision.nextCategoryLabel
+    ? `${formatTnd(decision.gapToNextCategory)} manquants pour « ${decision.nextCategoryLabel} »`
+    : "Projet intégralement finançable";
+
   return (
     <div className="space-y-3">
       <Grid>
-        <Metric icon={BrainCircuit} label="Postes analysés" value={<AnimatedNumber value={materials.analyzed} />} tone="text-violet-600" />
-        <Metric icon={Gauge} label="Matériaux suivis" value={<AnimatedNumber value={materials.selected} />} sub="prix & variantes réels" tone="text-violet-600" />
+        <Metric
+          icon={Wallet}
+          label="Coût estimatif"
+          value={<AnimatedNumber value={decision.projectTotal} format={(n) => formatTnd(n)} />}
+          sub={`${data.project.categoryLabel} · ${data.project.surface} m²`}
+          tone="text-violet-600"
+        />
+        <Metric
+          icon={Coins}
+          label="Budget disponible"
+          value={<AnimatedNumber value={decision.availableBudget} format={(n) => formatTnd(n)} />}
+          sub="Budget analysé par l'IA"
+          tone="text-violet-600"
+        />
         <Metric
           icon={Banknote}
-          label="Économie accessible"
-          value={<AnimatedNumber value={materials.potentialSaving} format={(n) => formatTnd(n)} />}
-          sub="optimisation du budget"
+          label="Reste à financer"
+          value={<AnimatedNumber value={decision.gapToProjectTotal} format={(n) => formatTnd(n)} />}
+          sub={nextGap}
+          tone="text-amber-600"
+        />
+        <Metric
+          icon={Percent}
+          label="Projet finançable"
+          value={<AnimatedNumber value={decision.projectReachablePct} suffix=" %" />}
+          sub={`${decision.realisable} réalisable(s) · ${decision.partial} partiel(s) · ${decision.deferred} reporté(s)`}
           tone="text-emerald-600"
         />
-        <Metric icon={Percent} label="Prix unitaires" value={<AnimatedNumber value={materials.unitPrices.length} />} sub="prévisions de prix" tone="text-sky-600" />
       </Grid>
 
+      {/* Scénarios de financement du module (budget actuel, palier, complet). */}
+      <div className="rounded-lg border border-border/50 bg-background/70 p-2.5">
+        <p className="mb-2 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Scénarios de financement
+        </p>
+        <div className="space-y-1.5">
+          {decision.scenarios.map((s, i) => (
+            <Bar
+              key={s.key}
+              label={`${s.label} · ${formatTnd(s.budget)}`}
+              percentage={s.progressPct}
+              cost={s.fundedCost}
+              delay={0.08 * i}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Recommandation réelle du moteur : montants et chantiers calculés. */}
       <div className="rounded-lg border border-violet-500/20 bg-violet-500/[0.04] p-2.5">
         <p className="flex items-start gap-1.5 text-[10px] leading-snug text-muted-foreground">
           <Wand2 className="mt-0.5 h-3 w-3 shrink-0 text-violet-600" />
-          L'IA analyse les prix, le budget, les quantités et les opportunités d'achat : prévisions,
-          alertes, priorité d'achat et scénarios « Et si ? » — à partir des données réelles du projet.
+          <span className="min-w-0 break-words">{decision.recommendation}</span>
         </p>
+        <button
+          type="button"
+          onClick={() => navigate("/dashboard")}
+          className="mt-2 inline-flex items-center gap-1 text-[10px] font-semibold text-violet-700 transition-colors hover:text-violet-900 dark:text-violet-300 dark:hover:text-violet-200"
+        >
+          <BrainCircuit className="h-3 w-3" />
+          Ouvrir l'aide à la décision
+          <ArrowRight className="h-3 w-3" />
+        </button>
       </div>
     </div>
   );
