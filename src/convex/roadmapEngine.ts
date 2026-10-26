@@ -17,6 +17,14 @@ import {
   type AdminStep,
 } from "./roadmapData";
 import { projectTypeLabel } from "./projectTypes";
+import { realBuiltArea } from "../lib/buildingLevels";
+import {
+  resolveRoadmapQuantitatif,
+  type RoadmapQuantitatif,
+  type RoadmapQuantitatifSource,
+  type RoadmapScenarioKey,
+  type RoadmapBudgetRow,
+} from "./roadmapQuantitatif";
 import {
   EXECUTION_PHASE_ORDER,
   EXECUTION_PHASES,
@@ -57,15 +65,12 @@ export interface RoadmapPhase {
   status: StepStatus | "in_progress";
 }
 
-export interface BudgetRow {
-  key: string;
-  label: string;
-  amount: number;
-  pct: number;
-}
+/** Ligne budgétaire = une catégorie du Quantitatif détaillé. */
+export type BudgetRow = RoadmapBudgetRow;
 
 export interface BudgetScenario {
-  key: "economique" | "standard" | "premium";
+  /** Trois scénarios budgétaires + le scénario « Personnalisé » s'il existe. */
+  key: RoadmapScenarioKey;
   label: string;
   totalCost: number;
   costPerM2: number;
@@ -94,12 +99,16 @@ export interface PlanningTask {
   completedAt?: number;
 }
 
-/** Matériau prévu, repris des articles réellement chiffrés de l'estimation. */
+/** Matériau prévu, repris des articles réellement chiffrés du quantitatif. */
 export interface RoadmapMaterial {
   name: string;
   quantity: number;
   unit: string;
   category: string;
+  /** Prix unitaire du quantitatif détaillé (TND). */
+  unitPrice?: number;
+  /** Montant du poste dans le quantitatif détaillé (TND). */
+  total?: number;
 }
 
 /** Phase d'exécution calculée pour le type de projet (dates, budget, avancement). */
@@ -295,10 +304,15 @@ export interface Roadmap {
   phases: RoadmapPhase[];
   adminSteps: (AdminStep & { status: StepStatus })[];
   budget: {
-    selected: "economique" | "standard" | "premium";
+    selected: RoadmapScenarioKey;
     scenarios: BudgetScenario[];
     totalCost: number;
   };
+  /**
+   * Quantitatif détaillé du projet — SOURCE UNIQUE des prix de la feuille de
+   * route (catégories, postes, quantités, unités, prix unitaires, totaux).
+   */
+  quantitatif?: RoadmapQuantitatif;
   planning: PlanningTask[];
   construction: ConstructionStep[];
   /** Trame d'exécution du type de projet (absente des feuilles de route v1). */
@@ -333,6 +347,8 @@ export interface RoadmapProjectInput {
   pools?: number;
   /** Scénario budgétaire réellement choisi dans « Coût estimatif ». */
   selectedScenario?: string;
+  /** Quantitatif détaillé + personnalisations (source unique des prix). */
+  quantitatif?: RoadmapQuantitatifSource;
   files?: { name: string; type: string }[];
   aiAnalysis?: { confidence?: number; estimatedDuration?: string };
   costEstimate?: {
@@ -550,7 +566,7 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
     plannedDurationDays: summary.plannedDurationDays,
   });
 
-  return {
+  const base: Roadmap = {
     version: ROADMAP_VERSION,
     country: "tunisie",
     currency: "TND",
@@ -588,6 +604,165 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
     disclaimer:
       "Ce guide est généré automatiquement par IA à partir des données du projet. Il ne remplace pas l'avis d'un architecte, d'un ingénieur, d'un bureau d'études ou des autorités compétentes : vérifiez toujours les exigences réglementaires locales (Tunisie) avant toute décision.",
   };
+
+  // ── Synchronisation des prix sur le Quantitatif détaillé ──────────────────
+  // Dernière étape : tous les montants affichés (budget, planning, travaux,
+  // matériaux) sont recalés sur le quantitatif du projet, au dinar près.
+  return syncRoadmapQuantitatif(base, project, project.selectedScenario);
+}
+
+// ─── Synchronisation des prix sur le Quantitatif détaillé ────────────────────
+
+/**
+ * Recale TOUS les montants de la feuille de route sur le « Quantitatif
+ * détaillé » du projet (source unique) :
+ *   • budget (catégories, sous-totaux, total) et scénarios ;
+ *   • coûts du planning et des étapes de travaux (même total, aucune double
+ *     comptabilisation) ;
+ *   • liste des matériaux (quantités, unités, prix unitaires, montants) ;
+ *   • prédictions recalculées depuis les nouveaux montants.
+ *
+ * Les progressions, statuts, photos et dépenses saisis par l'utilisateur ne
+ * sont jamais modifiés. Sans quantitatif enregistré, rien n'est inventé : la
+ * répartition d'origine est conservée et l'absence est signalée.
+ */
+export function syncRoadmapQuantitatif(
+  r: Roadmap,
+  input: RoadmapProjectInput,
+  scenario?: string,
+): Roadmap {
+  // Surface réellement construite (tous niveaux), MÊME base que le coût au m²
+  // du quantitatif détaillé (`realBuiltArea` du moteur de coûts).
+  const builtSurface = input.surface
+    ? realBuiltArea(input.surface, input.floors ?? 1, input.levelSurfaces)
+    : undefined;
+  const quantitatif = resolveRoadmapQuantitatif({
+    costEstimate: input.costEstimate ?? null,
+    quantitatif: input.quantitatif ?? null,
+    builtSurface,
+    scenario: scenario ?? r.budget?.selected,
+  });
+
+  // Projet sans quantitatif : comportement historique conservé, alerte ajoutée.
+  if (quantitatif.source !== "quantitatif_detaille") {
+    return { ...r, quantitatif };
+  }
+
+  const standardTotal =
+    quantitatif.scenarios.find((s) => s.key === "standard")?.totalCost ?? quantitatif.totals.total;
+  const scenarios: BudgetScenario[] = quantitatif.scenarios.map((s) => ({
+    key: s.key,
+    label: s.label,
+    totalCost: s.totalCost,
+    costPerM2: s.costPerM2,
+    multiplier: standardTotal > 0 ? Math.round((s.totalCost / standardTotal) * 100) / 100 : 1,
+    rows: s.rows,
+  }));
+
+  const totalCost = quantitatif.totals.total;
+  const budget: Roadmap["budget"] = {
+    selected: quantitatif.scenario,
+    scenarios,
+    totalCost,
+  };
+
+  // Coûts des tâches : répartition proportionnelle conservée, somme EXACTEMENT
+  // égale au total du quantitatif (aucun montant ajouté ni perdu).
+  const planning = rescalePlanningCosts(r.planning ?? [], totalCost);
+  const planById = new Map(planning.map((t) => [t.id, t]));
+  const construction = (r.construction ?? []).map((c) => {
+    const task = planById.get(c.id);
+    return task ? { ...c, budgetEstime: task.cost, dureeJours: task.durationDays } : c;
+  });
+
+  // Phase 02 : fourchette budgétaire = montants réels du quantitatif.
+  const ecoTotal = scenarios.find((s) => s.key === "economique")?.totalCost ?? totalCost;
+  const premiumTotal = scenarios.find((s) => s.key === "premium")?.totalCost ?? totalCost;
+
+  // Phase 08 : montants affichés dans les étapes = ceux du planning recalé.
+  const phases = (r.phases ?? []).map((p) => {
+    if (p.id === "phase_02") {
+      return {
+        ...p,
+        items: p.items.map((it) =>
+          it.id === "budget_preliminaire"
+            ? {
+                ...it,
+                detail: `Fourchette : ${fmtTnd(ecoTotal)} (économique) → ${fmtTnd(premiumTotal)} (premium).`,
+              }
+            : it,
+        ),
+      };
+    }
+    if (p.id !== "phase_08") return p;
+    const items: PhaseItem[] = construction.map((c) => ({
+      id: c.id,
+      label: c.title,
+      detail: `${c.phaseTitle ?? "Travaux"} · ${c.dureeJours} j · ${fmtTnd(c.budgetEstime)}`,
+      status: c.status,
+    }));
+    return { ...p, items, progress: phaseProgress(items), status: phaseStatus(items) };
+  });
+
+  const predictions = buildPredictions(input, scenarios, planning, construction);
+  const summary = {
+    ...r.summary,
+    plannedBudget: totalCost,
+    budgetGap: (r.summary?.budgetConsumed ?? 0) - totalCost,
+  };
+
+  const execution = r.execution
+    ? buildExecution(
+        playbookForCategory(input.category),
+        executionContextFromProject(input),
+        construction,
+        planning,
+      )
+    : r.execution;
+
+  return {
+    ...r,
+    quantitatif,
+    budget,
+    planning,
+    construction,
+    phases,
+    execution,
+    predictions,
+    summary,
+    materials: quantitatif.materials.map((m) => ({
+      name: m.name,
+      quantity: m.quantity,
+      unit: m.unit,
+      category: m.category,
+      unitPrice: m.unitPrice,
+      total: m.total,
+    })),
+  };
+}
+
+/**
+ * Répartit un total sur les tâches du planning en conservant leurs poids
+ * relatifs : la somme des coûts est exactement le total fourni.
+ */
+export function rescalePlanningCosts(planning: PlanningTask[], totalCost: number): PlanningTask[] {
+  const list = planning ?? [];
+  if (list.length === 0) return list;
+  const current = list.reduce((acc, t) => acc + (Number(t.cost) || 0), 0);
+  if (current === totalCost) return list;
+
+  let allocated = 0;
+  return list.map((t, index) => {
+    if (index === list.length - 1) {
+      return { ...t, cost: totalCost - allocated };
+    }
+    const cost =
+      current > 0
+        ? Math.round((Number(t.cost) || 0) * (totalCost / current))
+        : Math.round(totalCost / list.length);
+    allocated += cost;
+    return { ...t, cost };
+  });
 }
 
 // ─── Budget ─────────────────────────────────────────────────────────────────

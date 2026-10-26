@@ -21,6 +21,7 @@ import {
   rebalanceBudgetRows,
   fmtTnd,
   stripImprevusFromRoadmap,
+  syncRoadmapQuantitatif,
   type Roadmap,
   type RoadmapProjectInput,
   type StepStatus,
@@ -28,6 +29,40 @@ import {
 import { executionContextFromProject, playbookForCategory } from "./roadmapPlaybooks";
 import { getCurrentUser } from "./users";
 import { requireClientProAccess } from "./access";
+import { loadProjectComplementaryWorks } from "./customWorks";
+
+/**
+ * Contexte quantitatif réel du projet : quantitatif détaillé enregistré,
+ * modifications d'articles et postes supprimés (scénario « Personnalisé ») et
+ * travaux complémentaires sélectionnés. C'est la SEULE source des prix de la
+ * feuille de route : elle est relue à chaque génération et à chaque lecture,
+ * donc un prix, une quantité ou un article mis à jour se répercute aussitôt.
+ */
+async function hydrateQuantitatifInput(
+  ctx: any,
+  project: any,
+  input: RoadmapProjectInput,
+): Promise<RoadmapProjectInput> {
+  const lots =
+    (project?.dqe?.lots ?? project?.costEstimate?.dqe?.lots ?? []) as any[];
+  const doc = await ctx.db
+    .query("quantitatifCustomizations")
+    .withIndex("by_project_user", (q: any) =>
+      q.eq("projectId", project._id).eq("userId", project.userId),
+    )
+    .first();
+  const complementaryWorks = await loadProjectComplementaryWorks(ctx, project);
+  return {
+    ...input,
+    quantitatif: {
+      lots,
+      modifications: doc?.modifications ?? [],
+      removedPostes: doc?.removedPostes ?? [],
+      complementaryWorks,
+      baseScenario: doc?.baseScenario,
+    },
+  };
+}
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
 
@@ -42,7 +77,12 @@ export const getRoadmap = query({
       .withIndex("by_user_project", (q) => q.eq("userId", user._id).eq("projectId", args.projectId))
       .first();
     if (!doc) return null;
-    const input = doc.input as RoadmapProjectInput;
+    const project = await ctx.db.get(args.projectId);
+    if (!project) return null;
+    // Prix relus dans le quantitatif détaillé ENREGISTRÉ (et ses
+    // personnalisations) à chaque lecture : toute modification du moteur de
+    // coût est immédiatement répercutée dans « Mon projet de A à Z ».
+    const input = await hydrateQuantitatifInput(ctx, project, doc.input as RoadmapProjectInput);
     const stored = doc.results as Roadmap;
     // Compatibilité : une feuille de route enregistrée avant la suppression des
     // imprévus est ramenée au coût réel, puis ses champs calculés (budget,
@@ -98,7 +138,7 @@ export const generateRoadmapForProject = mutation({
       throw new Error("Ce projet ne vous appartient pas.");
     }
 
-    const input: RoadmapProjectInput = {
+    const input: RoadmapProjectInput = await hydrateQuantitatifInput(ctx, project, {
       _id: project._id,
       name: project.name,
       category: project.category,
@@ -123,7 +163,7 @@ export const generateRoadmapForProject = mutation({
         : undefined,
       costEstimate: project.costEstimate ?? undefined,
       providerRecommendations: project.providerRecommendations ?? undefined,
-    };
+    });
 
     const results = generateRoadmap(input);
     const now = Date.now();
@@ -172,7 +212,14 @@ export const deleteRoadmap = mutation({
 function derive(stored: Roadmap, input: RoadmapProjectInput): Roadmap {
   // Trame du type de projet : une feuille de route vierge générée avec une
   // autre trame est remplacée avant tout calcul (progression préservée sinon).
-  const r = ensureCurrentRoadmap(stored, input);
+  const current = ensureCurrentRoadmap(stored, input);
+  // Prix : recalés sur le quantitatif détaillé du projet à CHAQUE calcul. Une
+  // feuille de route enregistrée avant cette synchronisation reprend le
+  // scénario du projet ; ensuite le scénario choisi dans « A à Z » est conservé.
+  const preferredScenario = current.quantitatif
+    ? current.budget?.selected
+    : input.selectedScenario ?? current.budget?.selected;
+  const r = syncRoadmapQuantitatif(current, input, preferredScenario);
   const phases = r.phases.map((p) => {
     if (p.id === "phase_04") {
       const items = r.adminSteps.map((a) => ({
@@ -251,6 +298,13 @@ async function loadOwned(ctx: any, roadmapId: string, user: { _id: string; role?
   const doc = await ctx.db.get(roadmapId);
   if (!doc) throw new Error("Feuille de route introuvable.");
   assertOwner(doc, user);
+  // Prix relus dans le quantitatif détaillé du projet AVANT toute mise à jour :
+  // une étape cochée, une dépense ou une photo ne peut jamais figer un prix
+  // périmé dans la feuille de route.
+  const project = await ctx.db.get(doc.projectId);
+  if (project) {
+    doc.input = await hydrateQuantitatifInput(ctx, project, doc.input as RoadmapProjectInput);
+  }
   return doc;
 }
 
@@ -407,7 +461,7 @@ export const updatePlanningTask = mutation({
 
 /** Change le scénario de budget actif (Économique / Standard / Premium). */
 export const setBudgetScenario = mutation({
-  args: { roadmapId: v.id("projectRoadmaps"), scenario: v.union(v.literal("economique"), v.literal("standard"), v.literal("premium")) },
+  args: { roadmapId: v.id("projectRoadmaps"), scenario: v.union(v.literal("economique"), v.literal("standard"), v.literal("premium"), v.literal("personnalise")) },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Connectez-vous.");

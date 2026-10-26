@@ -86,6 +86,11 @@ const SCENARIO_STYLES: Record<string, { active: string; badge: string; dot: stri
     badge: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/30",
     dot: "bg-violet-500",
   },
+  personnalise: {
+    active: "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    badge: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    dot: "bg-amber-500",
+  },
 };
 
 const JOURNEY = [
@@ -648,7 +653,28 @@ export default function ProjectGuide() {
 
           {/* ── Budget ── */}
           <TabsContent value="budget" className="space-y-3">
-            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-3">
+            {/* Montants issus du Quantitatif détaillé : la moindre alerte est
+                affichée explicitement (aucun prix par défaut silencieux). */}
+            {roadmap.quantitatif && (
+              <div className="rounded-xl border border-border/40 bg-background/50 p-3">
+                <p className="text-[10px] text-muted-foreground">
+                  {roadmap.quantitatif.source === "quantitatif_detaille"
+                    ? `Montants synchronisés avec le Quantitatif détaillé du projet — ${roadmap.quantitatif.lots.length} catégorie(s) · ${roadmap.quantitatif.lots.reduce((acc, lot) => acc + lot.lines.length, 0)} poste(s) · total ${fmtTnd(roadmap.quantitatif.totals.total)}.`
+                    : "Quantitatif détaillé indisponible : les montants ci-dessous proviennent de l'estimation enregistrée."}
+                </p>
+                {roadmap.quantitatif.alerts.length > 0 && (
+                  <ul className="mt-1.5 space-y-1">
+                    {roadmap.quantitatif.alerts.map((alert) => (
+                      <li key={alert} className="flex items-start gap-1.5 text-[10px] leading-snug text-amber-700 dark:text-amber-400">
+                        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                        <span>{alert}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-4">
               {roadmap.budget.scenarios.map((s) => (
                 <button
                   key={s.key}
@@ -786,6 +812,11 @@ export default function ProjectGuide() {
                     {roadmap.materials.map((m) => (
                       <div key={`${m.name}-${m.unit}`} className="rounded-md border border-border/30 bg-muted/10 px-2 py-1.5">
                         <span className="line-clamp-2 block min-w-0 text-[11px] leading-snug" title={`${m.name} — ${m.category}`}>{m.name}</span>
+                        <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] tabular-nums text-muted-foreground">
+                          <span>{m.quantity} {m.unit}</span>
+                          {typeof m.unitPrice === "number" && <span>{fmtTnd(m.unitPrice)} / {m.unit}</span>}
+                          {typeof m.total === "number" && <span className="font-medium text-foreground/70">{fmtTnd(m.total)}</span>}
+                        </span>
                       </div>
                     ))}
                   </div>

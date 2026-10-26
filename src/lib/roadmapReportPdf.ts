@@ -181,22 +181,72 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
   });
   y = (doc as any).lastAutoTable.finalY + 8;
 
+  // ── Quantitatif détaillé : SOURCE UNIQUE des prix de la feuille de route ──
+  // Chaque catégorie, poste, quantité, unité, prix unitaire et montant est
+  // repris tel quel du quantitatif du projet (aucun prix recalculé ici).
+  if (roadmap.quantitatif && roadmap.quantitatif.lots.length > 0) {
+    if (y > 230) {
+      doc.addPage();
+      y = 16;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...emerald);
+    doc.text(
+      `4.1 Quantitatif détaillé — ${stripEmojis(roadmap.quantitatif.scenarioLabel)} (${fmtTnd(roadmap.quantitatif.totals.total)})`,
+      margin,
+      y,
+    );
+    y += 2;
+    const quantitatifRows: (string | number)[][] = [];
+    for (const lot of roadmap.quantitatif.lots) {
+      quantitatifRows.push([stripEmojis(lot.name), "", "", "", fmtTnd(lot.subtotal)]);
+      for (const line of lot.lines) {
+        quantitatifRows.push([
+          `   ${stripEmojis(line.designation)}`,
+          String(line.quantity),
+          line.unit,
+          fmtTnd(line.unitPrice),
+          fmtTnd(line.total),
+        ]);
+      }
+    }
+    (doc as any).autoTable({
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [["Catégorie / poste", "Qté", "Unité", "P.U.", "Montant"]],
+      body: quantitatifRows,
+      theme: "grid",
+      headStyles: { fillColor: emerald as any, fontSize: 8 },
+      styles: { fontSize: 7, cellPadding: 1.4 },
+      columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 18 }, 2: { cellWidth: 16 }, 3: { cellWidth: 30 } },
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
+  }
+
   // ── Matériaux prévus (articles réels du devis) ──
   if (roadmap.materials && roadmap.materials.length > 0) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.setTextColor(...emerald);
-    doc.text("4.1 Matériaux prévus — quantités du devis", margin, y);
+    doc.text("4.2 Matériaux prévus — quantités du devis", margin, y);
     y += 2;
     (doc as any).autoTable({
       startY: y,
       margin: { left: margin, right: margin },
-      head: [["Matériau", "Quantité", "Unité", "Poste"]],
-      body: roadmap.materials.map((m) => [stripEmojis(m.name), String(m.quantity), m.unit, stripEmojis(m.category)]),
+      head: [["Matériau", "Quantité", "Unité", "P.U.", "Montant", "Poste"]],
+      body: roadmap.materials.map((m) => [
+        stripEmojis(m.name),
+        String(m.quantity),
+        m.unit,
+        typeof m.unitPrice === "number" ? fmtTnd(m.unitPrice) : "—",
+        typeof m.total === "number" ? fmtTnd(m.total) : "—",
+        stripEmojis(m.category),
+      ]),
       theme: "grid",
       headStyles: { fillColor: emerald as any, fontSize: 8 },
-      styles: { fontSize: 7.5, cellPadding: 1.8 },
-      columnStyles: { 0: { cellWidth: 80 }, 3: { cellWidth: 55 } },
+      styles: { fontSize: 7, cellPadding: 1.4 },
+      columnStyles: { 0: { cellWidth: 58 }, 3: { cellWidth: 24 }, 4: { cellWidth: 24 }, 5: { cellWidth: 40 } },
     });
     y = (doc as any).lastAutoTable.finalY + 8;
   }

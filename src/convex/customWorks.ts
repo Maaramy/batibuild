@@ -13,6 +13,7 @@ import {
 import { normalizeLegacyCategory } from "./projectTypes";
 import {
   estimateSelectedCustomWorks,
+  type CustomWorkEstimate,
   type CustomWorksRollup,
 } from "./customWorksEngine";
 
@@ -128,6 +129,53 @@ async function computeRollupAsync(
       normalizeSolarPanelCount(solarPanels),
     ),
   );
+}
+
+/**
+ * Travaux complémentaires réellement chiffrés du projet (travaux sélectionnés
+ * + prix du moteur). Utilisé par « Mon projet de A à Z » pour que le scénario
+ * « Personnalisé » contienne exactement les mêmes catégories et montants que le
+ * Quantitatif détaillé du résultat. Aucun montant n'est recalculé ailleurs.
+ */
+export async function loadProjectComplementaryWorks(
+  ctx: QueryCtx | MutationCtx,
+  project: {
+    _id: Id<"projects">;
+    userId: Id<"users">;
+    category?: string | null;
+    surface?: number | null;
+    floors?: number;
+    surfaceTotale?: number;
+    pools?: number;
+    garages?: number;
+    region?: string;
+    selectedScenario?: string;
+  },
+): Promise<CustomWorkEstimate[]> {
+  if (!supportsCustomWorks(project)) return [];
+  const rec = await ctx.db
+    .query("projectCustomWorks")
+    .withIndex("by_project_user", (q) =>
+      q.eq("projectId", project._id).eq("userId", project.userId),
+    )
+    .first();
+  const keys = normalizeCustomWorkKeys(rec?.keys ?? []);
+  if (!keys.length) return [];
+  const rollup = await computeRollupAsync(
+    ctx,
+    {
+      surface: project.surface ?? undefined,
+      floors: project.floors,
+      surfaceTotale: project.surfaceTotale,
+      pools: project.pools,
+      garages: project.garages,
+      region: project.region,
+      selectedScenario: project.selectedScenario,
+    },
+    keys,
+    normalizeSolarPanelCount(rec?.solarPanels),
+  );
+  return rollup.works;
 }
 
 /** Travaux personnalisés sélectionnés + coûts recalculés pour le projet. */
