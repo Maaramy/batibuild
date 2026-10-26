@@ -1,7 +1,13 @@
 .env.local
 node_modules
 dist
-src/convex/_generated
+# `src/convex/_generated` est VOLONTAIREMENT suivi : c'est du code source pour
+# le build, pas un artefact. Le CLI Convex le dit lui-même (« should be committed
+# to the repo (your code won't typecheck without it!) »). L'ignorer faisait
+# échouer tout build partant d'un checkout GitHub propre : 182 fichiers importent
+# `@/convex/_generated/*`, donc `tsc -b` ET `vite build` cassent en TS2307 / «
+# Could not resolve » alors que la sandbox de dev, où `convex dev` les a générés,
+# compile sans erreur. `convex codegen` les régénère et Vly resynchronise.
 core
 # Sortie de build de test (copie de dist/ utilisée par knip) : jamais suivie.
 isolate
