@@ -14,8 +14,9 @@
 //     20 types du catalogue officiel. Le nom, lui, est dérivé du libellé
 //     officiel (PROJECT_TYPE_LABELS) pour rester synchrone avec le catalogue.
 //   • Le numéro n'est JAMAIS codé en dur : il est calculé à partir du compteur
-//     Convex (voir `allocateGeneratedProjectName` dans projects.ts), lui-même
-//     initialisé depuis les projets déjà enregistrés.
+//     Convex DU COMPTE UTILISATEUR (voir `allocateGeneratedProjectName` dans
+//     projects.ts), lui-même initialisé depuis les projets déjà enregistrés par
+//     ce compte. Chaque utilisateur possède donc sa propre séquence (#1, #2…).
 // ============================================================================
 
 import {
@@ -117,9 +118,9 @@ export function projectNumberFromName(name: string | null | undefined): number |
 }
 
 /**
- * Prochain numéro calculé à partir des projets DÉJÀ enregistrés (le plus grand
- * numéro attribué + 1, donc jamais de réutilisation). Sert à initialiser le
- * compteur Convex quand il n'existe pas encore.
+ * Prochain numéro calculé à partir des projets DÉJÀ enregistrés d'UN compte
+ * (le plus grand numéro attribué + 1, donc jamais de réutilisation). Sert à
+ * initialiser le compteur Convex du compte quand il n'existe pas encore.
  */
 export function nextProjectNumberFromNames(names: Iterable<string>): number {
   let max = 0;

@@ -690,10 +690,11 @@ const schema = defineSchema(
       .index("by_user_status", ["userId", "status"])
       .index("by_category", ["category"])
       .index("by_favorite", ["userId", "isFavorite"])
-      // Index par nom : sert à vérifier qu'un nom généré (« #N Ma maison »)
-      // n'est pas déjà attribué avant de le réutiliser (garde-fou du
-      // compteur de numérotation, voir projectCounters).
-      .index("by_name", ["name"]),
+      // Index par compte + nom : la numérotation étant propre à chaque compte
+      // (« #1 » pour tous les utilisateurs), le garde-fou vérifie qu'un nom
+      // généré (« #N Ma maison ») n'est pas déjà attribué DANS CE COMPTE avant
+      // de le réutiliser (voir projectCounters).
+      .index("by_user_name", ["userId", "name"]),
 
     // Personnalisation du « Quantitatif détaillé » — scénario « Personnalisé »
     // Les scénarios Économique / Standard / Premium d'origine ne sont jamais
@@ -984,15 +985,15 @@ const schema = defineSchema(
       value: v.number(),
     }).index("by_kind", ["kind"]),
 
-    // Compteur séquentiel des numéros de projet (« #1 », « #2 », …) — un seul
-    // compteur global (`kind` = « project »), partagé par tous les utilisateurs
-    // puisque le numéro fait partie du nom affiché et téléchargé (rapports
-    // PDF) : il doit rester unique dans toute la base.
+    // Compteur séquentiel des numéros de projet (« #1 », « #2 », …) — UN
+    // COMPTEUR PAR UTILISATEUR (`kind` = « project:<userId> ») : chaque compte
+    // possède sa propre séquence, indépendante des projets des autres.
     //
     // Lu ET incrémenté dans la même mutation que l'insertion du projet : deux
-    // créations simultanées écrivent le même document et ne peuvent donc
-    // JAMAIS obtenir le même numéro (transaction Convex sérialisée). Un numéro
-    // attribué n'est jamais réutilisé, même si le projet est supprimé ensuite.
+    // créations simultanées pour le MÊME compte écrivent le même document et ne
+    // peuvent donc jamais obtenir le même numéro (transaction Convex
+    // sérialisée). Un numéro attribué n'est jamais réutilisé, même si le projet
+    // est supprimé ensuite ; les projets historiques ne sont pas renumérotés.
     projectCounters: defineTable({
       kind: v.string(),
       value: v.number(),

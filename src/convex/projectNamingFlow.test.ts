@@ -12,8 +12,10 @@ const modules = import.meta.glob("./**/*.*s");
 // NUMÉROTATION AUTOMATIQUE DES PROJETS — comportement backend (Convex)
 // ----------------------------------------------------------------------------
 // • nom vide → « #N Mon/Ma <type> » attribué à l'enregistrement ;
-// • numéros séquentiels, uniques (même en créations simultanées), persistants ;
-// • calcul du prochain numéro à partir des projets DÉJÀ enregistrés ;
+// • séquence PROPRE À CHAQUE COMPTE (« #1 » pour le premier projet du compte) ;
+// • numéros séquentiels, uniques par compte (même en créations simultanées),
+//   persistants et indépendants des projets des autres utilisateurs ;
+// • calcul du prochain numéro à partir des projets DÉJÀ enregistrés du compte ;
 // • une saisie manuelle n'est jamais écrasée ; un nom déjà généré reçoit son
 //   numéro DÉFINITIF (aucun trou, aucun doublon).
 // ============================================================================
@@ -110,7 +112,7 @@ describe("nom du projet généré automatiquement", () => {
     );
   });
 
-  it("attribue un numéro unique même pour plusieurs utilisateurs", async () => {
+  it("numérote chaque compte indépendamment (deux comptes peuvent avoir « #1 »)", async () => {
     const otherUserId = await createUser(t, "voisin@test.com");
     const asOther = t.withIdentity({ subject: otherUserId });
 
@@ -119,8 +121,77 @@ describe("nom du projet généré automatiquement", () => {
       asOther.mutation(api.projects.createProject, { name: "", category: "duplex" }),
     ]);
 
-    const names = [await storedName(t, mine), await storedName(t, theirs)];
-    expect(names.sort()).toEqual(["#1 Ma villa", "#2 Mon duplex"].sort());
+    // Le numéro ne dépend jamais des projets des autres utilisateurs.
+    expect(await storedName(t, mine)).toBe("#1 Ma villa");
+    expect(await storedName(t, theirs)).toBe("#1 Mon duplex");
+  });
+
+  it("continue la séquence du compte à partir de SES projets existants", async () => {
+    // Compte existant avec 7 projets déjà numérotés.
+    await t.run(async (ctx) => {
+      for (let i = 1; i <= 7; i += 1) {
+        await ctx.db.insert("projects", {
+          userId,
+          name: formatProjectName("maison", i),
+          category: "maison",
+          status: "draft",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        } as any);
+      }
+    });
+
+    // ... et un autre compte dont les numéros sont beaucoup plus élevés.
+    const otherUserId = await createUser(t, "grand-compte@test.com");
+    await t.run(async (ctx) =>
+      ctx.db.insert("projects", {
+        userId: otherUserId,
+        name: "#40 Ma maison",
+        category: "maison",
+        status: "draft",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      } as any),
+    );
+
+    const projectId = await asUser.mutation(api.projects.createProject, {
+      name: "",
+      category: "maison",
+    });
+    expect(await storedName(t, projectId)).toBe("#8 Ma maison");
+
+    // Le compte voisin, lui, continue à partir de son propre numéro.
+    const asOther = t.withIdentity({ subject: otherUserId });
+    const theirProject = await asOther.mutation(api.projects.createProject, {
+      name: "",
+      category: "maison",
+    });
+    expect(await storedName(t, theirProject)).toBe("#41 Ma maison");
+  });
+
+  it("n'attribue jamais deux fois le même numéro à un compte, même en concurrence avec un autre", async () => {
+    const otherUserId = await createUser(t, "concurrent@test.com");
+    const asOther = t.withIdentity({ subject: otherUserId });
+
+    const ids = await Promise.all([
+      asUser.mutation(api.projects.createProject, { name: "", category: "maison" }),
+      asOther.mutation(api.projects.createProject, { name: "", category: "maison" }),
+      asUser.mutation(api.projects.createProject, { name: "", category: "villa" }),
+      asOther.mutation(api.projects.createProject, { name: "", category: "villa" }),
+    ]);
+
+    const rows = await t.run(async (ctx) =>
+      Promise.all(ids.map(async (id) => (await ctx.db.get(id))!)),
+    );
+
+    // Chaque compte a bien sa propre séquence #1 puis #2, sans doublon.
+    for (const [owner, expected] of [
+      [userId, ["#1 Ma maison", "#2 Ma villa"]],
+      [otherUserId, ["#1 Ma maison", "#2 Ma villa"]],
+    ] as const) {
+      const names = rows.filter((p) => p.userId === owner).map((p) => p.name).sort();
+      expect(names).toEqual([...expected].sort());
+    }
   });
 
   it("conserve le nom et le numéro après relecture (actualisation, réouverture)", async () => {

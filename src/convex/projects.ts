@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
 import { requireClientProAccess, getFreePlanStatus } from "./access";
 import { assertProjectCreationLimit } from "./projectLimits";
@@ -246,65 +247,79 @@ export const compareProjects = query({
 // ============================================================================
 // Numérotation des projets (« #1 Ma maison », « #2 Ma villa », …)
 // ----------------------------------------------------------------------------
-// Aucun numéro n'est codé en dur : le prochain numéro vient du compteur Convex
-// (`projectCounters`), initialisé depuis les projets déjà enregistrés et
-// attribué définitivement à l'enregistrement du projet.
+// Chaque COMPTE utilisateur possède sa propre séquence : « #1 » pour son
+// premier projet, « #2 » pour le deuxième, etc. Aucun numéro n'est codé en
+// dur : le prochain numéro vient du compteur Convex du compte
+// (`projectCounters`, clé « project:<userId> »), initialisé depuis SES projets
+// déjà enregistrés et attribué définitivement à l'enregistrement.
 // ============================================================================
 
-/** Clé unique du compteur global de numéros de projet. */
-const PROJECT_NUMBER_COUNTER = "project";
+/** Clé du compteur de numéros d'un compte (une séquence par utilisateur). */
+function projectNumberCounterKind(userId: Id<"users">): string {
+  return `project:${userId}`;
+}
 
 /**
- * Lit le compteur de numéros de projet.
+ * Lit le compteur de numéros d'un compte.
  *
  * Le compteur est initialisé — une seule fois, quand il n'existe pas encore —
- * depuis les projets DÉJÀ enregistrés : le prochain numéro est donc bien
- * calculé à partir de la base (« plus grand numéro attribué + 1 ») et non à
- * partir du nombre de projets affichés dans l'interface. Il n'est jamais
- * remis à zéro ni réutilisé.
+ * depuis les projets DÉJÀ enregistrés par CE compte : le prochain numéro est
+ * donc bien calculé à partir de ses projets (« plus grand numéro attribué + 1 »)
+ * et non à partir du nombre de projets des autres utilisateurs. Les projets
+ * historiques (numérotés globalement avant cette règle) ne sont jamais
+ * renumérotés : leur numéro reste la borne de départ de la séquence du compte.
+ * Il n'est jamais remis à zéro ni réutilisé.
  */
 async function projectNumberCounterValue(
   ctx: Pick<QueryCtx | MutationCtx, "db">,
+  userId: Id<"users">,
 ): Promise<number> {
   const counter = await ctx.db
     .query("projectCounters")
-    .withIndex("by_kind", (q) => q.eq("kind", PROJECT_NUMBER_COUNTER))
+    .withIndex("by_kind", (q) => q.eq("kind", projectNumberCounterKind(userId)))
     .first();
   if (counter) return counter.value;
 
-  const projects = await ctx.db.query("projects").collect();
+  const projects = await ctx.db
+    .query("projects")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
   return nextProjectNumberFromNames(projects.map((p) => p.name)) - 1;
 }
 
 /** Prochain numéro qui SERA attribué (aperçu, sans réservation). */
 async function peekProjectNumber(
   ctx: Pick<QueryCtx | MutationCtx, "db">,
+  userId: Id<"users">,
 ): Promise<number> {
-  return (await projectNumberCounterValue(ctx)) + 1;
+  return (await projectNumberCounterValue(ctx, userId)) + 1;
 }
 
 /**
- * Attribue DÉFINITIVEMENT un nom « #N Mon/Ma <type> » à un nouveau projet.
+ * Attribue DÉFINITIVEMENT un nom « #N Mon/Ma <type> » à un nouveau projet du
+ * compte `userId`.
  *
- * Le compteur est lu ET incrémenté dans la transaction courante (comme
- * `invoiceCounters` pour la facturation) : deux créations simultanées, même
- * par deux utilisateurs différents, ne peuvent pas recevoir le même numéro.
- * Un garde-fou vérifie en plus qu'aucun projet existant ne porte déjà le nom
- * calculé (base restaurée depuis une sauvegarde, compteur recréé…) : on avance
- * alors jusqu'au premier numéro réellement libre.
+ * Le compteur du compte est lu ET incrémenté dans la transaction courante
+ * (comme `invoiceCounters` pour la facturation) : deux créations simultanées
+ * sur le MÊME compte ne peuvent pas recevoir le même numéro. Un garde-fou
+ * vérifie en plus qu'aucun projet de ce compte ne porte déjà le nom calculé
+ * (base restaurée depuis une sauvegarde, compteur recréé…) : on avance alors
+ * jusqu'au premier numéro réellement libre POUR CE COMPTE. Le même nom peut
+ * exister sur un autre compte (« #1 Ma maison » chacun), c'est attendu.
  */
 async function allocateGeneratedProjectName(
   ctx: Pick<MutationCtx, "db">,
+  userId: Id<"users">,
   category: string,
 ): Promise<string> {
   const counter = await ctx.db
     .query("projectCounters")
-    .withIndex("by_kind", (q) => q.eq("kind", PROJECT_NUMBER_COUNTER))
+    .withIndex("by_kind", (q) => q.eq("kind", projectNumberCounterKind(userId)))
     .first();
 
   let sequence = counter
     ? counter.value
-    : await projectNumberCounterValue(ctx);
+    : await projectNumberCounterValue(ctx, userId);
   let name = formatProjectName(category, sequence + 1);
 
   for (let attempt = 0; attempt < 1000; attempt += 1) {
@@ -312,7 +327,9 @@ async function allocateGeneratedProjectName(
     name = formatProjectName(category, sequence);
     const clash = await ctx.db
       .query("projects")
-      .withIndex("by_name", (q) => q.eq("name", name))
+      .withIndex("by_user_name", (q) =>
+        q.eq("userId", userId).eq("name", name),
+      )
       .first();
     if (!clash) break;
   }
@@ -321,7 +338,7 @@ async function allocateGeneratedProjectName(
     await ctx.db.patch(counter._id, { value: sequence });
   } else {
     await ctx.db.insert("projectCounters", {
-      kind: PROJECT_NUMBER_COUNTER,
+      kind: projectNumberCounterKind(userId),
       value: sequence,
     });
   }
@@ -344,7 +361,7 @@ export const nextProjectNumber = query({
     const user = await getCurrentUser(ctx);
     if (!user) return null;
 
-    const number = await peekProjectNumber(ctx);
+    const number = await peekProjectNumber(ctx, user._id);
     return {
       number,
       name: args.category ? formatProjectName(args.category, number) : null,
@@ -410,7 +427,7 @@ export const createProject = mutation({
     const requestedName = (args.name ?? "").trim();
     const generated = requestedName === "" || isAutoGeneratedProjectName(requestedName);
     const name = generated
-      ? await allocateGeneratedProjectName(ctx, args.category)
+      ? await allocateGeneratedProjectName(ctx, user._id, args.category)
       : requestedName;
 
     const projectId = await ctx.db.insert("projects", {
