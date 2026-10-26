@@ -4301,10 +4301,6 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                   </p>
                 </div>
 
-                <div className="rounded-lg bg-amber-500/5 border border-amber-200/20 p-3 text-[11px] text-amber-600 dark:text-amber-400">
-                  <p>Le forfait <strong>Free</strong> n'existe plus. La <strong>période d'essai gratuite</strong> (durée, profils et modules configurables ci-dessus) est réservée aux profils Fournisseur et Expert. Pour <strong>Client Pro</strong>, aucune période d'essai n'est attribuée : l'accès passe par l'abonnement Client Pro payant ou par l'« Offre gratuite ». Les comptes encore associés à l'ancien forfait sont convertis sans perte depuis le panneau « Période d'essai ».</p>
-                </div>
-
                 {savingLimits ? (
                   <Button disabled className="gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
