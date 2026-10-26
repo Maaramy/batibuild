@@ -262,20 +262,6 @@ export default function SubscriptionAdminPage() {
           </CardContent>
         </Card>
 
-        <Card className="border border-amber-200/20 bg-amber-500/5">
-          <CardContent className="p-4 text-[11px] text-amber-700 dark:text-amber-400">
-            <p>
-              <strong>Période d'essai gratuite</strong> : le forfait « Free » n'existe plus. Depuis
-              l'onglet « Abonnements » du panneau d'administration, l'administrateur active l'essai,
-              en règle la durée ({trialEnabled ? `${trialDays} jour${trialDays > 1 ? "s" : ""} actuellement` : "actuellement désactivé"}),
-              choisit les profils éligibles et les modules accessibles. <strong>Client Pro en est
-              exclu</strong> : aucune période d'essai automatique ne lui est attribuée ; il relève de
-              l'abonnement Client Pro payant ou de l'« Offre gratuite ». Passé le délai d'essai des
-              autres profils, l'accès est suspendu jusqu'à la souscription d'une offre payante. Un
-              compte ne peut jamais bénéficier d'un second essai gratuit.
-            </p>
-          </CardContent>
-        </Card>
       </div>
     </main>
   );
