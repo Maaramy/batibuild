@@ -174,7 +174,9 @@ export const updateClientProEnabled = mutation({
  * Définit le FORFAIT PAR DÉFAUT attribué aux nouveaux utilisateurs
  * (admin uniquement).
  *
- *   - `"trial"` : aucun forfait payé — la période d'essai gratuite s'applique ;
+ *   - `"trial"` : aucun forfait payé — l'offre gratuite ou la souscription
+ *                   s'appliquent (la période d'essai ne concerne que les
+ *                   profils Fournisseur / Expert, jamais Client Pro) ;
  *   - `"client_pro"` : abonnement Client Pro attribué d'office.
  *
  * Contrôle serveur : un forfait désactivé ne peut jamais être enregistré comme
@@ -194,7 +196,7 @@ export const updateDefaultPlanConfig = mutation({
 
     if (args.plan === "client_pro" && !clientProEnabled) {
       throw new Error(
-        "Client Pro est désactivé : il ne peut pas être défini comme forfait par défaut. Activez Client Pro ou sélectionnez la période d'essai.",
+        "Client Pro est désactivé : il ne peut pas être défini comme forfait par défaut. Activez Client Pro ou sélectionnez l'option sans forfait payé.",
       );
     }
 

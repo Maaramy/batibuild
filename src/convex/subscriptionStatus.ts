@@ -25,6 +25,7 @@ import {
   readTrialConfig,
   trialEndDateFor,
   trialIncludes,
+  type TrialConfig,
 } from "./trialConfig";
 
 // ============================================================================
@@ -57,11 +58,15 @@ export {
 // ============================================================================
 
 interface PricingInfo {
+  /** Configuration complète de l'essai (activation, profils, modules). */
+  trial: TrialConfig;
   /** La période d'essai est-elle activée ET dans sa fenêtre de validité ? */
   trialEnabled: boolean;
   trialDays: number;
   trialPdfAllowed: boolean;
   planPrice: number | null;
+  /** « Offre gratuite » Client Pro activée (prix null/0, forfait disponible). */
+  clientProFreeOffer: boolean;
   currency: string;
 }
 
@@ -72,10 +77,19 @@ async function readPricing(ctx: DbCtx, now = Date.now()): Promise<PricingInfo> {
   const config = await ctx.db.query("paymentConfig").order("desc").first();
   const trial = await readTrialConfig(ctx);
   return {
+    trial,
     trialEnabled: isTrialCampaignOpen(trial, now),
     trialDays: trial.durationDays,
     trialPdfAllowed: trialIncludes(trial, "pdf"),
     planPrice: config?.proPrice ?? null,
+    // Le switch « Offre gratuite » Client Pro est actif quand le prix a été
+    // EXPLICITEMENT enregistré à null/0 et que le forfait n'est pas désactivé.
+    // Un prix absent (document partiel) ne rend jamais le forfait gratuit.
+    // Il accorde l'accès Client Pro sans période d'essai.
+    clientProFreeOffer:
+      config != null &&
+      config.clientProEnabled !== false &&
+      (config.proPrice === null || config.proPrice === 0),
     currency: config?.currency ?? "TND",
   };
 }
@@ -131,10 +145,27 @@ export async function getUserSubscriptionStatus(
   // ── Compatibilité profil ↔ abonnement (règle obligatoire) ──
   const profileCompatibility = await compatibilityFieldsForUser(ctx, user, now);
 
+  // ── Éligibilité à la période d'essai ──
+  // Client Pro et profil non résolu : JAMAIS d'essai, quelle que soit la
+  // configuration. La décision est prise ici, côté serveur, et consommée par
+  // tous les contrôles d'accès (site web et WebView Android).
+  const trialEligible = isProfileEligibleForTrial(
+    pricing.trial,
+    profileCompatibility?.profileRole,
+  );
+
+  // L'« Offre gratuite » Client Pro ne s'applique qu'aux profils Client Pro
+  // (ou non résolus, traités comme tels) — jamais aux Fournisseurs/Experts.
+  const profileRole = profileCompatibility?.profileRole ?? null;
+  const freeOffer =
+    pricing.clientProFreeOffer && (profileRole == null || profileRole === "client");
+
   const snapshot = computeSubscriptionSnapshot({
     now,
     isAdmin: user.role === "admin" || user.role === "moderator",
     trialEnabled: pricing.trialEnabled,
+    trialEligible,
+    freeOffer,
     planPrice: pricing.planPrice,
     currency: pricing.currency,
     profileCompatibility,
@@ -224,7 +255,8 @@ export type TrialStartResult = {
 /**
  * Démarre la période d'essai si — et seulement si — elle est activée par
  * l'administrateur, ouverte (fenêtre de validité), que le profil du compte est
- * éligible et que l'utilisateur n'en a jamais bénéficié.
+ * éligible (Fournisseur / Expert — jamais Client Pro) et que l'utilisateur n'en
+ * a jamais bénéficié.
  *
  * La DURÉE vient de `paymentConfig.trialDurationDays` (1 à 365 jours, réglée
  * dans l'administration) — plus aucune constante codée en dur.
@@ -529,13 +561,14 @@ export const checkSubscriptionPeriods = internalMutation({
 });
 
 // ============================================================================
-// MIGRATION — ancien forfait « Free » (supprimé) → période d'essai gratuite
+// MIGRATION — ancien forfait « Free » (supprimé) → essai (profils éligibles)
 // ============================================================================
 // Le forfait Free n'est plus proposé. Les comptes qui le portent encore sont
 // convertis SANS AUCUNE PERTE : projets, devis, DQE, matériaux, abonnements
 // payants, factures et historiques restent intacts. Seul le libellé de forfait
-// « free » est retiré ; l'essai gratuit est appliqué aux comptes qui n'en ont
-// jamais bénéficié (une seule fois — `trialClaimedAt` reste immuable).
+// « free » est retiré ; l'essai gratuit n'est appliqué qu'aux profils éligibles
+// (Fournisseur / Expert) qui n'en ont jamais bénéficié — les comptes Client Pro
+// n'en reçoivent JAMAIS (une seule fois — `trialClaimedAt` reste immuable).
 //
 // La migration est :
 //   - réservée aux administrateurs ;

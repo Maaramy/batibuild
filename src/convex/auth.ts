@@ -15,7 +15,10 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     // À l'inscription : applique le FORFAIT PAR DÉFAUT configuré par
     // l'administrateur (`paymentConfig.defaultPlan`, lu côté backend) —
     // UNIQUEMENT pour les nouveaux comptes (`existingUserId === null`), jamais
-    // pour les utilisateurs existants. Puis démarre l'éventuel essai gratuit.
+    // pour les utilisateurs existants. Puis tente l'éventuel essai gratuit.
+    // Le profil n'étant pas encore connu à ce stade, le backend refuse
+    // l'essai (Client Pro par défaut) : il est démarré depuis `setUserRole`
+    // pour les profils éligibles Fournisseur / Expert.
     // Idempotents : aucun second essai, aucun remplacement de forfait choisi.
     async afterUserCreatedOrUpdated(ctx, { userId, existingUserId }) {
       if (existingUserId === null) {

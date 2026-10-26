@@ -26,6 +26,7 @@ async function createUser(
     role?: string;
     email?: string;
     name?: string;
+    userRole?: "client" | "supplier" | "expert";
     trialClaimedAt?: number;
     trialStartDate?: number;
     trialEndDate?: number;
@@ -39,6 +40,7 @@ async function createUser(
       email: overrides.email ?? "client@test.com",
       role: overrides.role ?? "user",
       status: "active",
+      userRole: overrides.userRole,
       subscriptionPlan: "free",
       image: undefined,
       company: undefined,
@@ -89,7 +91,7 @@ describe("computeSubscriptionSnapshot", () => {
   };
 
   it("essai activé + essai jamais utilisé → essai disponible (à démarrer)", () => {
-    const snap = computeSubscriptionSnapshot(base);
+    const snap = computeSubscriptionSnapshot({ ...base, trialEligible: true });
     expect(snap.status).toBe("trial_available");
     expect(snap.type).toBe("trial");
     expect(snap.isActive).toBe(true);
@@ -192,6 +194,14 @@ describe("computeSubscriptionSnapshot", () => {
     expect(snap.requiresPayment).toBe(false);
   });
 
+  it("profil Client Pro : essai activé mais jamais disponible, souscription requise", () => {
+    const snap = computeSubscriptionSnapshot({ ...base, trialEligible: false, planPrice: 80 });
+    expect(snap.status).toBe("none");
+    expect(snap.trialShouldStart).toBe(false);
+    expect(snap.isActive).toBe(false);
+    expect(snap.requiresPayment).toBe(true);
+  });
+
   it("essai désactivé et jamais accordé → aucun accès", () => {
     const snap = computeSubscriptionSnapshot({ ...base, trialEnabled: false, planPrice: 80 });
     expect(snap.status).toBe("none");
@@ -272,9 +282,9 @@ describe("subscriptionStatus.startMyTrial", () => {
     t = convexTest(schema, modules);
   });
 
-  it("démarre 7 jours exactement et refuse un second essai", async () => {
+  it("démarre 7 jours exactement et refuse un second essai (profil éligible)", async () => {
     await setFreeOffer(t, true);
-    const userId = await createUser(t);
+    const userId = await createUser(t, { userRole: "expert" });
 
     const first = await asUser(t, userId).mutation(api.subscriptionStatus.startMyTrial, {});
     expect(first.started).toBe(true);
@@ -297,7 +307,7 @@ describe("subscriptionStatus.startMyTrial", () => {
 
   it("ne démarre rien quand la période d'essai est désactivée", async () => {
     await setFreeOffer(t, false);
-    const userId = await createUser(t);
+    const userId = await createUser(t, { userRole: "expert" });
 
     const res = await asUser(t, userId).mutation(api.subscriptionStatus.startMyTrial, {});
     expect(res.started).toBe(false);
@@ -305,6 +315,40 @@ describe("subscriptionStatus.startMyTrial", () => {
 
     const stored = await t.run(async (ctx) => ctx.db.get(userId as any));
     expect(stored?.trialClaimedAt).toBeUndefined();
+  });
+
+  it("ne démarre jamais d'essai pour un profil Client Pro", async () => {
+    await setFreeOffer(t, true);
+    const userId = await createUser(t, { userRole: "client" });
+
+    const res = await asUser(t, userId).mutation(api.subscriptionStatus.startMyTrial, {});
+    expect(res.started).toBe(false);
+    expect(res.reason).toBe("profile_not_eligible");
+
+    const stored = await t.run(async (ctx) => ctx.db.get(userId as any));
+    expect(stored?.trialClaimedAt).toBeUndefined();
+    expect(stored?.trialEndDate).toBeUndefined();
+  });
+
+  it("Client Pro : aucun statut « Essai disponible » même avec l'essai activé", async () => {
+    // Essai explicitement activé (forfait Client Pro toujours payant).
+    const adminId = await createUser(t, { role: "admin", email: "admin-trial@test.com" });
+    await asUser(t, adminId).mutation(api.trialConfig.updateTrialConfig, {
+      enabled: true,
+      durationDays: 14,
+      validFrom: null,
+      validUntil: null,
+      eligibleProfiles: ["expert"],
+      modules: ["estimation"],
+      newAccountsOnly: false,
+    });
+    const userId = await createUser(t, { userRole: "client" });
+
+    const status = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
+    expect(status?.status).toBe("none");
+    expect(status?.isActive).toBe(false);
+    expect(status?.trialShouldStart).toBe(false);
+    expect(status?.trialEligible).toBe(false);
   });
 });
 
@@ -380,7 +424,7 @@ describe("checkClientProAccess — essai gratuit (7 jours)", () => {
   });
 
   it("essai actif → accès accordé", async () => {
-    await setFreeOffer(t, true);
+    // Aucune « Offre gratuite » ici : le test porte sur le seul essai.
     const now = Date.now();
     const userId = await createUser(t, {
       trialClaimedAt: now - DAY_MS,
@@ -396,7 +440,7 @@ describe("checkClientProAccess — essai gratuit (7 jours)", () => {
   });
 
   it("essai expiré → accès refusé avec la raison « trial_expired »", async () => {
-    await setFreeOffer(t, true);
+    // Aucune « Offre gratuite » ici : un essai expiré exige une souscription.
     const now = Date.now();
     const userId = await createUser(t, {
       trialClaimedAt: now - 8 * DAY_MS,

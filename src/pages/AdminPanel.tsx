@@ -4056,7 +4056,8 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                   <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
                     <p><strong className="text-foreground">Fonctionnalités :</strong> Projets de construction illimités, estimation IA aux prix tunisiens, rapports PDF/Excel/CSV, assistant matériaux IA, plans architecturaux et suivi de A à Z.</p>
                     <p><strong className="text-foreground">Dashboard :</strong> Suivi de la date de début et de fin de validité. Renouvellement mensuel requis à l'échéance.</p>
-                    <p><strong className="text-foreground">Règle :</strong> Le client passe au paiement dès la création de compte — aucun essai gratuit.</p>
+                    <p><strong className="text-foreground">Règle :</strong> Le client passe au paiement dès la création de compte — aucune période d'essai automatique.</p>
+                    <p><strong className="text-foreground">Offre gratuite :</strong> durée mensuelle de 30 jours sans paiement, avec un plafond de projets réglable dans « Limite du nombre de projets par offre » → « Offre gratuite ».</p>
                   </div>
                   <div className="flex flex-wrap items-end gap-4">
                     <div className="w-40">
@@ -4210,7 +4211,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {([
-                      { id: "trial" as const, label: "Période d'essai gratuite — aucun forfait payé", available: true, hint: "" },
+                      { id: "trial" as const, label: "Aucun forfait payé — offre gratuite ou souscription", available: true, hint: "" },
                       { id: "client_pro" as const, label: "Client Pro — Abonnement mensuel", available: clientProEnabled, hint: "Client Pro désactivé" },
                     ]).map((opt) => {
                       const selected = defaultPlan === opt.id;
@@ -4246,16 +4247,20 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                   </div>
                   {!clientProEnabled && (
                     <p className="text-[11px] text-muted-foreground">
-                      Client Pro est désactivé : les nouveaux comptes relèvent de la période d'essai.
+                      Client Pro est désactivé : les nouveaux comptes ne reçoivent aucun forfait payé
+                      (offre gratuite ou souscription ; aucune période d'essai Client Pro).
                     </p>
                   )}
                   <p className="text-[11px] text-muted-foreground">
-                    Une modification ne s'applique qu'aux <strong className="text-foreground">nouvelles inscriptions</strong> : le forfait des utilisateurs existants reste inchangé.
+                    « Aucun forfait payé » n'accorde <strong className="text-foreground">aucune période d'essai Client Pro</strong> :
+                    le compte relève de l'offre gratuite ou de la souscription. Une modification ne
+                    s'applique qu'aux <strong className="text-foreground">nouvelles inscriptions</strong> :
+                    le forfait des utilisateurs existants reste inchangé.
                   </p>
                 </div>
 
                 <div className="rounded-lg bg-amber-500/5 border border-amber-200/20 p-3 text-[11px] text-amber-600 dark:text-amber-400">
-                  <p>Le forfait <strong>Free</strong> n'existe plus : la <strong>période d'essai gratuite</strong> (durée, profils et modules configurables ci-dessus) la remplace, puis la souscription à une offre payante devient obligatoire. Les comptes encore associés à l'ancien forfait sont convertis sans perte depuis le panneau « Période d'essai ».</p>
+                  <p>Le forfait <strong>Free</strong> n'existe plus. La <strong>période d'essai gratuite</strong> (durée, profils et modules configurables ci-dessus) est réservée aux profils Fournisseur et Expert. Pour <strong>Client Pro</strong>, aucune période d'essai n'est attribuée : l'accès passe par l'abonnement Client Pro payant ou par l'« Offre gratuite ». Les comptes encore associés à l'ancien forfait sont convertis sans perte depuis le panneau « Période d'essai ».</p>
                 </div>
 
                 {savingLimits ? (
@@ -4823,6 +4828,8 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
 // Activation, durée (1 à 365 jours), fenêtre de validité, profils éligibles et
 // modules ouverts : tout est enregistré dans Convex (`convex/trialConfig.ts`)
 // et vérifié côté serveur. L'interface ne fait que présenter les paramètres.
+// Le profil Client Pro est exclu de l'essai (côté interface ET côté serveur) :
+// il relève de l'abonnement payant ou de l'« Offre gratuite » Client Pro.
 // Aucune donnée n'est supprimée : désactiver l'essai conserve les comptes, les
 // projets et les abonnements payants.
 
@@ -5012,7 +5019,8 @@ function TrialSettings() {
             Période d'essai gratuite
           </h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Remplace le forfait « Free ». Durée, profils et modules sont entièrement configurables.
+            Remplace le forfait « Free ». Réservée aux profils Fournisseur et Expert : le profil
+            Client Pro n'y est plus éligible et ne reçoit aucune période d'essai automatique.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -5137,7 +5145,7 @@ function TrialSettings() {
           <Users className="h-3.5 w-3.5 text-emerald-600" />
           <p className="text-xs font-medium">Profils éligibles</p>
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {TRIAL_PROFILES.map((profile) => {
             const selected = form.eligibleProfiles.includes(profile.key);
             return (
@@ -5169,6 +5177,12 @@ function TrialSettings() {
               </button>
             );
           })}
+        </div>
+        <div className="rounded-lg border border-blue-500/25 bg-blue-500/[0.05] p-2.5 text-[11px] leading-relaxed text-blue-700 dark:text-blue-300">
+          <strong>Client Pro exclu de la période d'essai.</strong> Les nouvelles inscriptions
+          Client Pro passent directement par l'abonnement Client Pro payant ou par l'« Offre
+          gratuite » Client Pro (durée mensuelle de 30 jours et plafond de projets configurables
+          ci-dessous). Aucun essai automatique ne leur est attribué.
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-border/20 pt-2">
           <p className="text-[11px] text-muted-foreground">

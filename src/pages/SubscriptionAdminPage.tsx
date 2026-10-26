@@ -175,9 +175,10 @@ export default function SubscriptionAdminPage() {
               <CardTitle className="text-base">Utilisateurs ({counts.total})</CardTitle>
               <CardDescription className="text-xs">
                 {trialEnabled
-                  ? `Essai gratuit de ${trialDays} jour${trialDays > 1 ? "s" : ""} (durée configurée) puis abonnement mensuel de 30 jours.`
+                  ? `Essai gratuit de ${trialDays} jour${trialDays > 1 ? "s" : ""} (durée configurée), réservé aux profils Fournisseur et Expert, puis abonnement mensuel de 30 jours.`
                   : "Période d'essai désactivée : la souscription est requise dès l'inscription. Abonnement mensuel de 30 jours."}{" "}
-                Les jours restants sont calculés depuis l'horloge serveur.
+                Les profils Client Pro ne bénéficient d'aucune période d'essai automatique. Les jours
+                restants sont calculés depuis l'horloge serveur.
               </CardDescription>
             </div>
             <div className="relative w-full sm:w-64">
@@ -267,9 +268,11 @@ export default function SubscriptionAdminPage() {
               <strong>Période d'essai gratuite</strong> : le forfait « Free » n'existe plus. Depuis
               l'onglet « Abonnements » du panneau d'administration, l'administrateur active l'essai,
               en règle la durée ({trialEnabled ? `${trialDays} jour${trialDays > 1 ? "s" : ""} actuellement` : "actuellement désactivé"}),
-              choisit les profils éligibles et les modules accessibles. Passé ce délai, l'accès aux
-              services est suspendu jusqu'à la souscription d'une offre payante. Un compte ne peut
-              jamais bénéficier d'un second essai gratuit.
+              choisit les profils éligibles et les modules accessibles. <strong>Client Pro en est
+              exclu</strong> : aucune période d'essai automatique ne lui est attribuée ; il relève de
+              l'abonnement Client Pro payant ou de l'« Offre gratuite ». Passé le délai d'essai des
+              autres profils, l'accès est suspendu jusqu'à la souscription d'une offre payante. Un
+              compte ne peut jamais bénéficier d'un second essai gratuit.
             </p>
           </CardContent>
         </Card>

@@ -462,6 +462,21 @@ export const setUserRole = mutation({
       });
     }
 
+    // ── Démarrage de l'essai (profils Fournisseur / Expert uniquement) ──
+    // À l'inscription, le profil n'est pas encore connu : l'essai est donc
+    // différé jusqu'à ce choix (Client Pro n'y a jamais droit). Le backend
+    // revérifie l'éligibilité, l'activation, la fenêtre et l'unicité.
+    if (isNewRegistration && args.userRole !== "client") {
+      try {
+        await ctx.runMutation(internal.subscriptionStatus.startTrialOnSignup, {
+          userId: user._id,
+        });
+      } catch {
+        // L'essai est secondaire : il ne doit jamais empêcher l'enregistrement
+        // du profil choisi à l'inscription.
+      }
+    }
+
     // ── Compatibilité immédiate profil ↔ abonnement ──
     // Aucune conversion automatique de forfait : si l'abonnement actif ne
     // correspond plus au nouveau profil, l'interface est informée pour

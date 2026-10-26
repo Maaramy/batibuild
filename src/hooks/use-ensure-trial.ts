@@ -15,6 +15,9 @@ import { api } from "@/convex/_generated/api";
 // L'appel est idempotent (`trialClaimedAt` immuable côté serveur) : une fois
 // l'essai accordé, la query réactive renvoie le marqueur et plus aucun appel
 // n'est effectué.
+//
+// Client Pro (ou profil non résolu) : aucun appel, aucun essai. Le backend le
+// refuserait de toute façon.
 
 export function useEnsureTrialStarted() {
   const { isAuthenticated } = useConvexAuth();
@@ -26,6 +29,8 @@ export function useEnsureTrialStarted() {
     if (!isAuthenticated || !user) return;
     // Essai déjà accordé (ou compte administrateur) : rien à faire.
     if (user.trialClaimedAt != null) return;
+    // Client Pro : jamais de période d'essai automatique.
+    if (!user.userRole || user.userRole === "client") return;
     if (requested.current) return;
 
     requested.current = true;

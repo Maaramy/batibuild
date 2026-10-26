@@ -11,6 +11,11 @@
 //
 // Le forfait « Free » n'existe plus : il est remplacé par la période d'essai
 // gratuite administrable, puis par les offres payantes.
+//
+// La période d'essai est réservée aux profils Fournisseur et Expert : le profil
+// Client Pro n'y est JAMAIS éligible (aucune attribution automatique).
+// L'administrateur conserve le contrôle de l'offre gratuite Client Pro et de
+// l'abonnement Client Pro payant.
 
 export const CLIENT_PRO_PLAN_LABEL = "Client Pro";
 export const TRIAL_PLAN_LABEL = "Période d'essai";
@@ -107,7 +112,20 @@ export function sanitizeTrialModules(values: readonly unknown[] | null | undefin
 }
 
 // ── Profils éligibles à la période d'essai ──────────────────────────────────
-export type TrialProfileKey = "client" | "supplier" | "expert";
+// « client » (Client Pro) est volontairement absent : il ne peut plus recevoir
+// de période d'essai, ni depuis l'interface ni depuis le backend.
+export type TrialProfileKey = "supplier" | "expert";
+
+/** Profil Client Pro — toujours exclu de la période d'essai. */
+export const TRIAL_EXCLUDED_PROFILE = "client" as const;
+
+/**
+ * Vrai pour un profil qui ne peut jamais bénéficier de l'essai : Client Pro ou
+ * profil non résolu (un compte sans profil est traité comme Client Pro).
+ */
+export function isTrialExcludedProfile(value: unknown): boolean {
+  return value == null || value === TRIAL_EXCLUDED_PROFILE;
+}
 
 export interface TrialProfileDefinition {
   key: TrialProfileKey;
@@ -117,9 +135,18 @@ export interface TrialProfileDefinition {
 }
 
 export const TRIAL_PROFILES: TrialProfileDefinition[] = [
-  { key: "client", label: "Client", description: "Profils Client / Client Pro.", defaultIncluded: true },
-  { key: "supplier", label: "Fournisseur", description: "Espaces fournisseurs.", defaultIncluded: true },
-  { key: "expert", label: "Expert", description: "Espaces experts.", defaultIncluded: true },
+  {
+    key: "supplier",
+    label: "Fournisseur",
+    description: "Espaces fournisseurs — essai autorisé par l'administration.",
+    defaultIncluded: true,
+  },
+  {
+    key: "expert",
+    label: "Expert",
+    description: "Espaces experts — essai autorisé par l'administration.",
+    defaultIncluded: true,
+  },
 ];
 
 export const TRIAL_PROFILE_KEYS: TrialProfileKey[] = TRIAL_PROFILES.map((p) => p.key);

@@ -81,6 +81,8 @@ export function MySubscriptionCard() {
 
   const isExpiredPhase = status.status === "trial_expired" || status.status === "expired";
   const isPending = status.status === "pending";
+  // « Offre gratuite » Client Pro : accès actif sans échéance ni décompte.
+  const isFreeOfferPhase = status.freeOffer === true;
   // Aucun accès : offre gratuite désactivée et essai jamais accordé. L'utilisateur
   // n'a jamais souscrit — afficher « abonnement expiré » serait faux.
   const isNone = status.type === "none";
@@ -112,9 +114,11 @@ export function MySubscriptionCard() {
           ? "Aucun abonnement actif. Choisissez une offre pour accéder aux services de la plateforme."
           : isPending
             ? "Votre paiement est en cours de validation par l'administrateur."
-            : status.isActive
-              ? "Votre abonnement mensuel est actif. Renouvellement requis à l'échéance."
-              : "Votre abonnement est arrivé à expiration. Veuillez renouveler votre abonnement pour continuer.",
+            : status.isActive && isFreeOfferPhase
+              ? "Offre gratuite Client Pro active — sans échéance ni paiement."
+              : status.isActive
+                ? "Votre abonnement mensuel est actif. Renouvellement requis à l'échéance."
+                : "Votre abonnement est arrivé à expiration. Veuillez renouveler votre abonnement pour continuer.",
       };
 
   const Icon = copy.icon;
@@ -174,7 +178,7 @@ export function MySubscriptionCard() {
           </Button>
         </div>
 
-        {!isPending && !isNone && (
+        {!isPending && !isNone && !isFreeOfferPhase && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[10px] font-medium sm:text-xs">
               <span className="text-muted-foreground">Jours restants</span>
@@ -189,7 +193,14 @@ export function MySubscriptionCard() {
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
           <Timer className="h-3.5 w-3.5 shrink-0" />
           <span>
-            Expiration : <span className="font-medium text-foreground">{formatDate(endDate)}</span>
+            {isFreeOfferPhase ? (
+              <span className="font-medium text-foreground">Offre gratuite — sans expiration</span>
+            ) : (
+              <>
+                Expiration :{" "}
+                <span className="font-medium text-foreground">{formatDate(endDate)}</span>
+              </>
+            )}
           </span>
         </div>
 

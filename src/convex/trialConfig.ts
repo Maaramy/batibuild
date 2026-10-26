@@ -5,8 +5,10 @@ import {
   TRIAL_DEFAULT_DAYS,
   DEFAULT_TRIAL_MODULES,
   DEFAULT_TRIAL_PROFILES,
+  TRIAL_EXCLUDED_PROFILE,
   TRIAL_MAX_DAYS,
   TRIAL_MIN_DAYS,
+  isTrialExcludedProfile,
   isTrialModuleKey,
   isTrialProfileKey,
   sanitizeTrialModules,
@@ -22,6 +24,10 @@ import {
 // n'est proposée. À la place, une période d'essai dont l'administrateur règle
 // l'activation, la durée, la fenêtre de validité, les profils éligibles et les
 // modules ouverts — sans modification du code source.
+//
+// IMPORTANT : le profil Client Pro est EXCLU de la période d'essai, à la fois
+// dans le catalogue (`lib/subscriptionPlans.ts`) et ici côté serveur. Aucune
+// configuration enregistrée ne peut lui accorder un essai automatique.
 //
 // Toutes les décisions (démarrage de l'essai, droits pendant l'essai) sont
 // prises CÔTÉ SERVEUR à partir de cette configuration : l'interface ne fait que
@@ -42,7 +48,7 @@ export interface TrialConfig {
   validFrom: number | null;
   /** Fin de la campagne (ms) — `null` = sans borne. */
   validUntil: number | null;
-  /** Profils pouvant bénéficier de l'essai. */
+  /** Profils pouvant bénéficier de l'essai (Fournisseur / Expert uniquement). */
   eligibleProfiles: TrialProfileKey[];
   /** Modules ouverts pendant l'essai. */
   modules: TrialModuleKey[];
@@ -155,13 +161,18 @@ export function isTrialCampaignOpen(config: TrialConfig, now = Date.now()): bool
   return true;
 }
 
-/** Ce profil peut-il bénéficier de l'essai ? (`null` = profil client par défaut.) */
+/**
+ * Ce profil peut-il bénéficier de l'essai ?
+ *
+ * Règle produit : Client Pro et profil non résolu (traité comme Client Pro)
+ * sont TOUJOURS exclus, même si une configuration ancienne les mentionnait.
+ */
 export function isProfileEligibleForTrial(
   config: TrialConfig,
-  profileRole: TrialProfileKey | null | undefined,
+  profileRole: string | null | undefined,
 ): boolean {
-  const role: TrialProfileKey = profileRole ?? "client";
-  return config.eligibleProfiles.includes(role);
+  if (isTrialExcludedProfile(profileRole)) return false;
+  return config.eligibleProfiles.includes(profileRole as TrialProfileKey);
 }
 
 /** Un module est-il ouvert pendant l'essai ? */
@@ -266,6 +277,14 @@ export const updateTrialConfig = mutation({
   },
   handler: async (ctx, args) => {
     const admin = requireAdmin(await getCurrentUser(ctx));
+
+    // Client Pro exclu : refus explicite (jamais de correction silencieuse).
+    if (args.eligibleProfiles.includes(TRIAL_EXCLUDED_PROFILE)) {
+      throw new Error(
+        "La période d'essai ne peut pas être accordée au profil Client Pro : " +
+          "il passe directement par l'offre gratuite ou l'abonnement Client Pro payant.",
+      );
+    }
 
     const unknownProfile = args.eligibleProfiles.find((p) => !isTrialProfileKey(p));
     if (unknownProfile) throw new Error(`Profil inconnu : « ${unknownProfile} ».`);

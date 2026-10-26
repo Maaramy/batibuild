@@ -156,6 +156,12 @@ export default function PricingPage() {
   const uploadPaymentProof = useMutation(api.subscriptions.uploadPaymentProof);
   // ── Règle profil ↔ abonnement : n'afficher QUE les offres du profil actif ──
   const profileRole = useQuery(api.profileSubscription.getMyProfileRole);
+  // ── Essai : uniquement pour les profils explicitement éligibles ──
+  // Client Pro (ou profil non résolu) n'y figure jamais : aucune période
+  // d'essai automatique ne lui est proposée.
+  const trialProfiles: string[] = (paymentConfig as any)?.trialEligibleProfiles ?? [];
+  const trialForMyProfile =
+    trialEnabled && profileRole != null && trialProfiles.includes(profileRole);
 
   const [uploading, setUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<string | null>(null);
@@ -462,9 +468,11 @@ export default function PricingPage() {
           <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
             Abonnement mensuel (30 jours) — renouvellement requis à l'échéance. Chaque forfait inclut un accès complet
             aux outils d'estimation, matériaux IA et téléchargements.{" "}
-            {trialEnabled
-              ? `Pendant la période d'essai gratuite (${trialDurationLabel(trialDays)}), l'accès est offert ; à son terme, la souscription à une offre devient obligatoire.`
-              : "Aucune offre gratuite permanente : la souscription à une offre est requise pour accéder aux services."}
+            {profileRole === "client" || profileRole == null
+              ? "Client Pro : aucune période d'essai automatique — choisissez votre abonnement (ou l'offre gratuite si elle est activée) pour accéder aux services."
+              : trialForMyProfile
+                ? `Pendant la période d'essai gratuite (${trialDurationLabel(trialDays)}) réservée à votre profil, l'accès est offert ; à son terme, la souscription à une offre devient obligatoire.`
+                : "Aucune période d'essai pour votre profil : la souscription à une offre est requise pour accéder aux services."}
           </p>
         </div>
 
@@ -486,8 +494,8 @@ export default function PricingPage() {
           </div>
         )}
 
-        {/* ═══ Période d'essai gratuite — durée réglée par l'administration ═══ */}
-        {trialEnabled && (
+        {/* ═══ Période d'essai gratuite — profils éligibles uniquement ═══ */}
+        {trialForMyProfile && (
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -506,11 +514,11 @@ export default function PricingPage() {
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Chaque nouveau compte éligible bénéficie d'une période d'essai de{" "}
+                  Votre profil bénéficie d'une période d'essai de{" "}
                   <strong>{trialDurationLabel(trialDays)}</strong> sur les modules sélectionnés par
                   l'administration. Aucun paiement n'est déclenché automatiquement : à l'expiration,
                   vous choisissez librement une offre payante. Un compte ne peut bénéficier que d'une
-                  seule période d'essai.
+                  seule période d'essai. Le profil Client Pro n'est pas concerné.
                 </p>
               </div>
             </div>

@@ -41,7 +41,9 @@ async function createUser(
       email: overrides.email ?? nextEmail("user"),
       role: overrides.role ?? "user",
       status: "active",
-      userRole: overrides.userRole,
+      // Profil par défaut des tests de démarrage : Fournisseur (éligible).
+      // Les tests Client Pro passent explicitement `userRole: "client"`.
+      userRole: overrides.userRole ?? "expert",
       image: undefined,
       company: undefined,
       phone: undefined,
@@ -69,7 +71,7 @@ const BASE_CONFIG = {
   durationDays: 14,
   validFrom: null as number | null,
   validUntil: null as number | null,
-  eligibleProfiles: ["client", "supplier", "expert"],
+  eligibleProfiles: ["supplier", "expert"],
   modules: [...DEFAULT_TRIAL_MODULES],
   newAccountsOnly: false,
 };
@@ -158,6 +160,50 @@ describe("trialConfig — configuration administrable", () => {
         eligibleProfiles: ["visiteur"],
       }),
     ).rejects.toThrow(/Profil inconnu/);
+  });
+
+  it("refuse d'accorder la période d'essai au profil Client Pro", async () => {
+    const { adminT } = await asAdmin(t);
+
+    await expect(
+      adminT.mutation(api.trialConfig.updateTrialConfig, {
+        ...BASE_CONFIG,
+        eligibleProfiles: ["client", "expert"],
+      }),
+    ).rejects.toThrow(/Client Pro/);
+  });
+
+  it("une ancienne configuration « client » est normalisée sans essai Client Pro", async () => {
+    const { adminT } = await asAdmin(t);
+
+    // Document historique (écrit avant l'exclusion de Client Pro).
+    await t.run(async (ctx) => {
+      await ctx.db.insert("paymentConfig", {
+        bankName: "",
+        bankTitulaire: "",
+        bankRib: "",
+        bankIban: "",
+        bankSwift: "",
+        d17MerchantName: "",
+        d17Phone: "",
+        d17Email: "",
+        d17Notice: "",
+        currency: "TND",
+        trialEnabled: true,
+        trialEligibleProfiles: ["client", "supplier", "expert"],
+        updatedAt: Date.now(),
+      } as never);
+    });
+
+    const stored = await adminT.query(api.trialConfig.getTrialConfig);
+    expect(stored?.config.eligibleProfiles).toEqual(["supplier", "expert"]);
+
+    const clientId = await createUser(t, { userRole: "client", email: nextEmail("legacy-client") });
+    const res = await t.mutation(internal.subscriptionStatus.startTrialOnSignup, {
+      userId: clientId as never,
+    });
+    expect(res.started).toBe(false);
+    expect(res.reason).toBe("profile_not_eligible");
   });
 
   it("la réinitialisation revient aux valeurs par défaut sans supprimer les données", async () => {
@@ -291,7 +337,7 @@ describe("période d'essai — démarrage", () => {
     const { adminT } = await asAdmin(t);
     await adminT.mutation(api.trialConfig.updateTrialConfig, {
       ...BASE_CONFIG,
-      eligibleProfiles: ["client"],
+      eligibleProfiles: ["expert"],
     });
 
     const supplier = await createUser(t, { userRole: "supplier", email: nextEmail("sup") });
@@ -302,17 +348,42 @@ describe("période d'essai — démarrage", () => {
     expect(res.reason).toBe("profile_not_eligible");
   });
 
-  it("profils éligibles : client, fournisseur et expert reçoivent l'essai quand ils sont cochés", async () => {
+  it("profils éligibles : fournisseur et expert reçoivent l'essai, jamais Client Pro", async () => {
     const { adminT } = await asAdmin(t);
     await adminT.mutation(api.trialConfig.updateTrialConfig, BASE_CONFIG);
 
-    for (const userRole of ["client", "supplier", "expert"] as const) {
+    for (const userRole of ["supplier", "expert"] as const) {
       const userId = await createUser(t, { userRole, email: nextEmail(userRole) });
       const res = await t.mutation(internal.subscriptionStatus.startTrialOnSignup, {
         userId: userId as never,
       });
       expect(res.started).toBe(true);
     }
+
+    const clientId = await createUser(t, { userRole: "client", email: nextEmail("client") });
+    const clientRes = await t.mutation(internal.subscriptionStatus.startTrialOnSignup, {
+      userId: clientId as never,
+    });
+    expect(clientRes.started).toBe(false);
+    expect(clientRes.reason).toBe("profile_not_eligible");
+  });
+
+  it("une inscription Client Pro ne démarre jamais d'essai automatique", async () => {
+    const { adminT } = await asAdmin(t);
+    await adminT.mutation(api.trialConfig.updateTrialConfig, {
+      ...BASE_CONFIG,
+      durationDays: 30,
+    });
+
+    const clientId = await createUser(t, { userRole: "client", email: nextEmail("new-client") });
+    const res = await t.mutation(internal.subscriptionStatus.startTrialOnSignup, {
+      userId: clientId as never,
+    });
+
+    expect(res.started).toBe(false);
+    const user = await t.run(async (ctx) => ctx.db.get(clientId as never));
+    expect(user?.trialClaimedAt).toBeUndefined();
+    expect(user?.trialEndDate).toBeUndefined();
   });
 
   it("essai réservé aux nouveaux inscrits : le rattrapage est refusé", async () => {
@@ -349,8 +420,10 @@ describe("période d'essai — expiration et droits", () => {
     await adminT.mutation(api.trialConfig.updateTrialConfig, BASE_CONFIG);
 
     const now = Date.now();
+    // Accès Client Pro : profil explicite « client ».
     const active = await createUser(t, {
       email: nextEmail("actif"),
+      userRole: "client",
       trialClaimedAt: now - DAY_MS,
       trialStartDate: now - DAY_MS,
       trialEndDate: now + 6 * DAY_MS,
@@ -361,6 +434,7 @@ describe("période d'essai — expiration et droits", () => {
 
     const expired = await createUser(t, {
       email: nextEmail("expire"),
+      userRole: "client",
       trialClaimedAt: now - 10 * DAY_MS,
       trialStartDate: now - 10 * DAY_MS,
       trialEndDate: now - DAY_MS,
@@ -381,6 +455,7 @@ describe("période d'essai — expiration et droits", () => {
     const now = Date.now();
     const userId = await createUser(t, {
       email: nextEmail("pdf"),
+      userRole: "client",
       trialClaimedAt: now - DAY_MS,
       trialStartDate: now - DAY_MS,
       trialEndDate: now + 6 * DAY_MS,
@@ -439,12 +514,13 @@ describe("migration de l'ancien forfait Free", () => {
     t = convexTest(schema, modules);
   });
 
-  it("convertit les comptes « free » sans perdre leurs données", async () => {
+  it("convertit les comptes « free » sans perdre leurs données (aucun essai Client Pro)", async () => {
     const { adminT } = await asAdmin(t);
     await adminT.mutation(api.trialConfig.updateTrialConfig, BASE_CONFIG);
 
     const userId = await createUser(t, {
       email: nextEmail("legacy"),
+      userRole: "client",
       subscriptionPlan: "free",
     });
     const projectId = await t.run(async (ctx) => {
@@ -464,11 +540,13 @@ describe("migration de l'ancien forfait Free", () => {
 
     const res = await adminT.mutation(api.subscriptionStatus.migrateLegacyFreePlanUsers, {});
     expect(res.migrated).toBe(1);
-    expect(res.trialsStarted).toBe(1);
+    // Client Pro : plus aucune période d'essai automatique, même en migration.
+    expect(res.trialsStarted).toBe(0);
 
     const user = await t.run(async (ctx) => ctx.db.get(userId as never));
     expect(user?.subscriptionPlan).toBeUndefined();
-    expect(user?.trialClaimedAt).toBeTruthy();
+    expect(user?.trialClaimedAt).toBeUndefined();
+    expect(user?.subscriptionStatus).toBe("none");
     expect(await t.run(async (ctx) => ctx.db.get(projectId))).not.toBeNull();
 
     // Idempotent : plus aucun candidat au second passage.

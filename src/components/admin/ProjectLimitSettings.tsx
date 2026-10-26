@@ -44,8 +44,8 @@ import {
 // Admin → Abonnements mensuels → Prix et configuration.
 //
 // Trois plafonds indépendants, enregistrés dans Convex (`paymentConfig`) :
-//   • période d'essai gratuite ;
-//   • offre gratuite (forfait sans paiement) ;
+//   • période d'essai gratuite (profils Fournisseur / Expert — Client Pro exclu) ;
+//   • offre gratuite Client Pro (forfait sans paiement, 30 jours) ;
 //   • Client Pro payant (limite facultative, désactivée par défaut).
 //
 // Aucune valeur n'est codée en dur dans le moteur : le backend
@@ -66,8 +66,10 @@ const TIER_TONES: Record<ProjectLimitTier, string> = {
 };
 
 const TIER_HINTS: Record<ProjectLimitTier, string> = {
-  trial: "S'applique aux comptes dont la période d'essai est active.",
-  free: "S'applique aux abonnés dont le forfait est proposé gratuitement (« Offre gratuite »).",
+  trial:
+    "S'applique aux profils Fournisseur et Expert dont la période d'essai est active (Client Pro exclu).",
+  free:
+    "S'applique à l'« Offre gratuite » Client Pro (durée mensuelle de 30 jours) et aux forfaits proposés sans paiement.",
   paid:
     "S'applique aux abonnés Client Pro payants. Désactivé par défaut : les conditions du forfait payant restent inchangées.",
 };
