@@ -56,6 +56,7 @@ import type * as notifications from "../notifications.js";
 import type * as paymentMethodStates from "../paymentMethodStates.js";
 import type * as payments from "../payments.js";
 import type * as priceEngine from "../priceEngine.js";
+import type * as professionalProfileSync from "../professionalProfileSync.js";
 import type * as profileSubscription from "../profileSubscription.js";
 import type * as projectLimits from "../projectLimits.js";
 import type * as projectNaming from "../projectNaming.js";
@@ -145,6 +146,7 @@ declare const fullApi: ApiFromModules<{
   paymentMethodStates: typeof paymentMethodStates;
   payments: typeof payments;
   priceEngine: typeof priceEngine;
+  professionalProfileSync: typeof professionalProfileSync;
   profileSubscription: typeof profileSubscription;
   projectLimits: typeof projectLimits;
   projectNaming: typeof projectNaming;

@@ -1,7 +1,11 @@
 import { query } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import { api } from "./_generated/api";
-import { getUserSubscriptionStatus } from "./subscriptionStatus";
+import { getUserSubscriptionStatus, startTrialFor } from "./subscriptionStatus";
+import {
+  NEW_ACCOUNT_WINDOW_MS,
+  syncProfessionalProfileForUser,
+} from "./professionalProfileSync";
 import { resolveProfileRole, type UserRole } from "./profileSubscription";
 import { readTrialConfig, trialIncludes } from "./trialConfig";
 import { buildClientProCreditSnapshot, CLIENT_PRO_ACCESS_MARKER } from "./clientProCredits";
@@ -154,9 +158,20 @@ export async function isProfilePaymentActive(
 }
 
 /**
- * Applique l'essai professionnel du COMPTE au profil spécialisé qui vient
- * d'être créé. Sans cela, un Expert / Fournisseur en essai restait invisible
- * (profil « inactive ») alors que son compte était en période d'essai.
+ * Active le PROFIL professionnel qui vient d'être créé selon les droits de son
+ * COMPTE : démarre la période d'essai lorsque l'administrateur l'a ouverte pour
+ * ce profil et que le compte n'en a jamais bénéficié, puis aligne le profil
+ * (statut, dates, visibilité) sur les droits réels via `professionalProfileSync`.
+ *
+ * Sans cela, un Expert / Fournisseur restait invisible (« inactive ») alors que
+ * son compte était en période d'essai, et — campagne activée après
+ * l'inscription — aucun essai ne lui était jamais accordé.
+ *
+ * Toutes les conditions d'octroi restent tranchées par `startTrialFor` (campagne
+ * ouverte et dans sa fenêtre, profil éligible, essai jamais utilisé, restriction
+ * « nouveaux inscrits », abonnement payant déjà actif) : rien n'est
+ * court-circuité ici. Renvoie `true` si le profil est actif à l'issue de
+ * l'appel.
  */
 export async function applyProfessionalTrialToProfile(
   ctx: any,
@@ -167,22 +182,30 @@ export async function applyProfessionalTrialToProfile(
   const user = await ctx.db.get(userId);
   if (!user) return false;
   const now = Date.now();
-  if (user.trialClaimedAt == null || user.trialEndDate == null || user.trialEndDate <= now) {
-    return false;
-  }
-  const trial = await readTrialConfig(ctx);
-  const eligible = role === "expert" ? trial.expertTrialEnabled : trial.supplierTrialEnabled;
-  if (!eligible) return false;
 
-  await ctx.db.patch(profileId, {
-    plan: "trial",
-    subscriptionStatus: "trial",
-    trialStartDate: user.trialStartDate ?? user.trialClaimedAt,
-    subscriptionEndDate: user.trialEndDate,
-    isVisible: true,
-    updatedAt: now,
-  });
-  return true;
+  // Le rôle attendu est celui du profil créé : si le compte s'est déclaré sur un
+  // autre profil (ou détient déjà un profil d'un autre type), rien n'est activé.
+  if ((await resolveProfileRole(ctx, user)) !== role) return false;
+
+  const trialRunning =
+    user.trialClaimedAt != null && user.trialEndDate != null && user.trialEndDate > now;
+
+  if (!trialRunning) {
+    // Même règle « nouvel inscrit » que `users.setUserRole` : seule la SOURCE de
+    // l'essai en dépend (donc la restriction « nouveaux inscrits »).
+    const accountIsNew = now - (user.createdAt ?? user._creationTime) < NEW_ACCOUNT_WINDOW_MS;
+    const started = await startTrialFor(ctx, userId, {
+      source: accountIsNew ? "signup" : "catch_up",
+    });
+    if (!started.started) return false;
+  }
+
+  // Alignement serveur du profil (essai en cours ou abonnement payé actif) :
+  // l'interface ne peut jamais accorder ni prolonger ce droit.
+  await syncProfessionalProfileForUser(ctx, userId, now);
+
+  const profile = await ctx.db.get(profileId);
+  return profile?.subscriptionStatus === "trial" || profile?.subscriptionStatus === "active";
 }
 
 /**

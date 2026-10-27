@@ -35,6 +35,7 @@ import {
   resolveProfileRoleFrom,
   type ReferenceSubscriptionDoc,
 } from "./profileSubscription";
+import { syncProfessionalProfileForUser } from "./professionalProfileSync";
 
 /**
  * Get the current signed in user. Returns null if the user is not signed in.
@@ -343,6 +344,14 @@ export const adminUpdateUserPlan = mutation({
         updatedAt: now,
       });
     }
+
+    // ── SYNCHRONISATION PROFIL ↔ FORFAIT PAYÉ ──
+    // Un paiement confirmé (attribution par l'administrateur) RÉTABLIT le profil
+    // professionnel : un Expert / Fournisseur dont l'essai ou l'abonnement était
+    // terminé redevient actif et visible immédiatement — sans nouvelle
+    // inscription, sans perte de données. Un profil Client Pro n'est jamais
+    // concerné (sa cotisation fonctionne par crédits de projets).
+    await syncProfessionalProfileForUser(ctx, args.userId, now);
 
     if (profileAligned) {
       await logAdminAction(

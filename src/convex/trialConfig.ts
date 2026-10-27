@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { getCurrentUser } from "./users";
+import { onboardProfessionalTrialsAndSync } from "./subscriptionStatus";
 import {
   TRIAL_DEFAULT_DAYS,
   DEFAULT_TRIAL_MODULES,
@@ -326,7 +327,18 @@ function requireAdmin<T extends { role?: string | null } | null>(user: T): NonNu
   return user as NonNullable<T>;
 }
 
-/** Enregistre la configuration de la période d'essai (admin uniquement). */
+/**
+ * Enregistre la configuration de la période d'essai (admin uniquement).
+ *
+ * L'activation ne reste pas théorique : la configuration enregistrée est
+ * APPLIQUÉE dans la même transaction aux comptes professionnels concernés —
+ * démarrage de l'essai pour un Expert / Fournisseur déjà inscrit qui n'en a
+ * jamais bénéficié, puis activation ou suspension de chaque profil selon ses
+ * droits réels. Les paramètres enregistrés et leurs effets sont donc visibles
+ * ensemble, y compris après actualisation ou reconnexion. Le cron quotidien
+ * reprend exactement la même logique, et un échec ici ne remet jamais en cause
+ * l'enregistrement des paramètres (tout est réconcilié au passage suivant).
+ */
 export const updateTrialConfig = mutation({
   args: {
     enabled: v.boolean(),
@@ -434,6 +446,14 @@ export const updateTrialConfig = mutation({
         updatedAt: now,
         updatedBy: admin._id,
       } as any);
+    }
+
+    // Application IMMÉDIATE aux comptes professionnels (jamais au détriment de
+    // l'enregistrement : un échec est rattrapé par le cron quotidien).
+    try {
+      await onboardProfessionalTrialsAndSync(ctx, now);
+    } catch {
+      // Le cron quotidien applique la même configuration aux comptes concernés.
     }
 
     try {

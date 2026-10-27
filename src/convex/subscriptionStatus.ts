@@ -30,6 +30,12 @@ import {
 } from "./trialConfig";
 import { resolveClientProPrice } from "../lib/planPricing";
 import { ensureClientProFreeGrant, readClientProCreditConfig } from "./clientProCredits";
+import {
+  NEW_ACCOUNT_WINDOW_MS,
+  syncAllProfessionalProfiles,
+  syncProfessionalProfileForUser,
+  type ProfessionalProfileSyncResult,
+} from "./professionalProfileSync";
 
 // ============================================================================
 // GESTION CENTRALE DE LA PÉRIODE D'ESSAI ET DE L'ABONNEMENT MENSUEL
@@ -327,41 +333,14 @@ export async function startTrialFor(
   // ── Synchronisation du PROFIL professionnel ─────────────────────────────
   // Le profil spécialisé (Expert / Fournisseur) porte la visibilité et le
   // statut d'abonnement : sans cette écriture, l'utilisateur en essai restait
-  // invisible dans l'annuaire malgré son essai actif.
+  // invisible dans l'annuaire malgré son essai actif. La décision vient du
+  // module de synchronisation — mêmes règles que la création du profil,
+  // l'activation par l'administrateur et le cron quotidien.
   try {
-    if (profileRole === "expert") {
-      const expert = await ctx.db
-        .query("expertProfiles")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .first();
-      if (expert) {
-        await ctx.db.patch(expert._id, {
-          plan: "trial",
-          subscriptionStatus: "trial",
-          trialStartDate: now,
-          subscriptionEndDate: trialEndDate,
-          isVisible: true,
-          updatedAt: now,
-        });
-      }
-    } else if (profileRole === "supplier") {
-      const supplier = await ctx.db
-        .query("supplierProfiles")
-        .withIndex("by_user", (q) => q.eq("userId", userId))
-        .first();
-      if (supplier) {
-        await ctx.db.patch(supplier._id, {
-          plan: "trial",
-          subscriptionStatus: "trial",
-          trialStartDate: now,
-          subscriptionEndDate: trialEndDate,
-          isVisible: true,
-          updatedAt: now,
-        });
-      }
-    }
+    await syncProfessionalProfileForUser(ctx, userId, now);
   } catch {
-    // Le statut du compte reste valide ; le profil sera aligné au prochain cron.
+    // Le statut du compte reste valide ; le cron quotidien réconcilie le profil
+    // (la réconciliation est donc idempotente, jamais perdue).
   }
 
   try {
@@ -480,6 +459,83 @@ export const startTrialOnSignup = internalMutation({
 });
 
 // ============================================================================
+// Démarrage automatique des essais professionnels + réconciliation des profils
+// ============================================================================
+
+export interface ProfessionalOnboardingResult extends ProfessionalProfileSyncResult {
+  /** La campagne d'essai est-elle ouverte à cet instant (activation + dates) ? */
+  trialCampaignOpen: boolean;
+  /** Essais réellement démarrés pour des comptes professionnels déjà inscrits. */
+  trialsStarted: number;
+}
+
+/**
+ * Applique la configuration d'essai aux comptes PROFESSIONNELS existants, puis
+ * réconcilie tous les profils Expert / Fournisseur avec leurs droits réels.
+ *
+ * C'est ce qui rend l'activation par l'administrateur effective sans attendre :
+ *   • un Expert / Fournisseur déjà inscrit (profil existant, essai jamais
+ *     utilisé) démarre son essai et son profil devient ACTIF et VISIBLE ;
+ *   • un essai ou un abonnement terminé sans paiement suspend le profil, qui
+ *     devient invisible (aucune donnée supprimée) ;
+ *   • un abonnement payé valide maintient — ou rétablit — le profil actif.
+ *
+ * Seuls les comptes portant DÉJÀ un profil professionnel sont onboardés : aucun
+ * droit n'est accordé à un compte sans profil, et la logique Client Pro (crédits
+ * de projets) n'est jamais touchée. `startTrialFor` reste seul décideur
+ * (campagne ouverte, profil éligible, essai jamais utilisé, restriction
+ * « nouveaux inscrits », abonnement payant déjà actif) : aucune règle n'est
+ * court-circuitée ici.
+ */
+export async function onboardProfessionalTrialsAndSync(
+  ctx: MutationCtx,
+  now = Date.now(),
+): Promise<ProfessionalOnboardingResult> {
+  const config = await readTrialConfig(ctx);
+  const trialCampaignOpen = isTrialCampaignOpen(config, now);
+  let trialsStarted = 0;
+
+  if (trialCampaignOpen) {
+    for (const [role, table] of [
+      ["expert", "expertProfiles"],
+      ["supplier", "supplierProfiles"],
+    ] as const) {
+      // Interrupteur du forfait + sélection de l'administrateur.
+      if (!isProfileEligibleForTrial(config, role)) continue;
+
+      const profiles = await ctx.db.query(table).collect();
+      for (const profile of profiles) {
+        const user = await ctx.db.get(profile.userId);
+        if (!user || user.trialClaimedAt != null) continue;
+
+        // Même règle « nouvel inscrit » que l'inscription : elle décide de la
+        // SOURCE de l'essai, donc du respect de la restriction de
+        // l'administrateur — jamais de l'octroi lui-même.
+        const accountIsNew =
+          now - (user.createdAt ?? user._creationTime) < NEW_ACCOUNT_WINDOW_MS;
+        const started = await startTrialFor(ctx, user._id, {
+          source: accountIsNew ? "signup" : "catch_up",
+        });
+        if (started.started) trialsStarted++;
+      }
+    }
+  }
+
+  const sync = await syncAllProfessionalProfiles(ctx, now);
+  return { ...sync, trialCampaignOpen, trialsStarted };
+}
+
+/**
+ * Point d'entrée différé — appelé après l'enregistrement de la configuration
+ * d'essai : les comptes professionnels concernés sont onboardés sans retarder
+ * la réponse à l'administrateur et sans bloquer la sauvegarde des paramètres.
+ */
+export const onboardEligibleProfessionalTrials = internalMutation({
+  args: {},
+  handler: async (ctx) => await onboardProfessionalTrialsAndSync(ctx),
+});
+
+// ============================================================================
 // Cron — fin d'essai / fin d'abonnement & décrément des compteurs
 // ============================================================================
 
@@ -490,6 +546,9 @@ export const startTrialOnSignup = internalMutation({
  *                          zéro du forfait restent gérés par
  *                          `emailNotifications.checkExpiredSubscriptions`)
  *   - périodes en cours  → `…DaysRemaining` recalculés depuis l'horloge serveur
+ *   - profils Expert / Fournisseur → essais démarrés pour les comptes concernés,
+ *                          puis profils activés ou suspendus selon les droits
+ *                          réels (`onboardProfessionalTrialsAndSync`)
  */
 export const checkSubscriptionPeriods = internalMutation({
   args: {},
@@ -609,12 +668,17 @@ export const checkSubscriptionPeriods = internalMutation({
       }
     }
 
-    // ── Profils professionnels : visibilité et statut cohérents ────────────
-    // Un essai ou un abonnement échu rend le profil INVISIBLE (annuaire,
-    // recommandations, mise en relation) sans supprimer aucune donnée. Le
-    // retour du paiement le rétablit automatiquement.
-    let profilesSuspended = 0;
+    // ── Profils professionnels : visibilité, statut et démarrage d'essai ───
+    // Décision CENTRALISÉE (`convex/professionalProfileSync.ts`) : un essai ou
+    // un abonnement échu rend le profil INVISIBLE (annuaire, recommandations,
+    // mise en relation) sans supprimer aucune donnée, et un droit valide (essai
+    // en cours, abonnement payé, offre gratuite) ACTIVE le profil resté inactif
+    // — profil créé après le démarrage de l'essai, retour du paiement, écriture
+    // interrompue. Un abonné payant n'est jamais interrompu.
+    const profileSync = await onboardProfessionalTrialsAndSync(ctx, now);
+    const profilesSuspended = profileSync.suspended;
 
+    // Rappels avant échéance (essai ou abonnement) — inchangés.
     for (const [role, table] of [
       ["expert", "expertProfiles"],
       ["supplier", "supplierProfiles"],
@@ -623,35 +687,6 @@ export const checkSubscriptionPeriods = internalMutation({
       for (const profile of profiles) {
         const status = profile.subscriptionStatus;
         const end = profile.subscriptionEndDate ?? null;
-
-        if ((status === "trial" || status === "active") && end != null && end <= now) {
-          await ctx.db.patch(profile._id, {
-            subscriptionStatus: "expired",
-            isVisible: false,
-            updatedAt: now,
-          });
-          profilesSuspended++;
-
-          try {
-            await ctx.db.insert("notifications", {
-              userId: profile.userId,
-              type: "subscription",
-              title: "Votre profil est temporairement invisible",
-              message:
-                (status === "trial"
-                  ? "Votre période d'essai est terminée. "
-                  : "Votre abonnement mensuel a expiré. ") +
-                "Votre profil n'apparaît plus dans les résultats de recherche ni dans la mise en relation. " +
-                "Souscrivez ou renouvelez votre abonnement pour rétablir vos services — vos données et votre profil sont conservés.",
-              read: false,
-              link: role === "expert" ? "/dashboard/expert" : "/dashboard/supplier",
-              createdAt: now,
-            });
-          } catch {
-            // Optionnel
-          }
-          continue;
-        }
 
         if ((status === "trial" || status === "active") && end != null) {
           const daysLeft = Math.ceil((end - now) / (24 * 60 * 60 * 1000));
@@ -685,7 +720,14 @@ export const checkSubscriptionPeriods = internalMutation({
       }
     }
 
-    return { trialsExpired, subscriptionsExpired, countersRefreshed, profilesSuspended };
+    return {
+      trialsExpired,
+      subscriptionsExpired,
+      countersRefreshed,
+      profilesSuspended,
+      profilesActivated: profileSync.activated,
+      trialsOnboarded: profileSync.trialsStarted,
+    };
   },
 });
 
