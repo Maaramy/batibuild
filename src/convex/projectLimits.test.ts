@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "./schema.js";
-import { api } from "./_generated/api.js";
+import { api, internal } from "./_generated/api.js";
 import type { Id } from "./_generated/dataModel.js";
 
 const modules = import.meta.glob("./**/*.*s");
@@ -214,6 +214,42 @@ describe("limite de projets — période d'essai", () => {
 
     // Aucun projet supplémentaire n'a été enregistré.
     expect(await storedProjectCount(t, userId)).toBe(1);
+  });
+
+  it("essai Client Pro : durée configurée, plafond appliqué et paramètres persistés", async () => {
+    await adminT.mutation(api.trialConfig.updateTrialConfig, {
+      enabled: true,
+      durationDays: 7,
+      clientProDurationDays: 14,
+      validFrom: null,
+      validUntil: null,
+      eligibleProfiles: ["client"],
+      modules: ["estimation"],
+      newAccountsOnly: false,
+    });
+    await setLimits(adminT, { trial: { enabled: true, maxProjects: 3, resetMode: "total" } });
+
+    // Le plafond enregistré est relu depuis Convex (persistance).
+    const stored = await adminT.query(api.projectLimits.getProjectLimitConfig);
+    expect(stored?.config.trial).toEqual({ enabled: true, maxProjects: 3, resetMode: "total" });
+
+    const userId = await insertUser(t, { userRole: "client" });
+    const started = await t.mutation(internal.subscriptionStatus.startTrialOnSignup, {
+      userId: userId as never,
+    });
+    expect(started.started).toBe(true);
+
+    const user = await t.run(async (ctx) => ctx.db.get(userId));
+    expect(user?.trialDaysTotal).toBe(14);
+
+    const userT = t.withIdentity({ subject: userId });
+    await createProject(userT);
+    await createProject(userT);
+    await createProject(userT);
+
+    await expect(createProject(userT)).rejects.toThrow(/PROJECT_LIMIT_REACHED:/);
+    await expect(createProject(userT)).rejects.toThrow(/Passez à Client Pro/);
+    expect(await storedProjectCount(t, userId)).toBe(3);
   });
 
   it("quota de 5 : les cinq premiers projets passent, le sixième est refusé", async () => {

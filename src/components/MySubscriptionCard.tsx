@@ -70,6 +70,8 @@ export function MySubscriptionCard() {
   if (status.status === "admin") return null;
 
   const isTrialPhase = status.type === "trial";
+  // Essai accordé au forfait Client Pro (l'administrateur peut l'activer).
+  const isClientProTrial = isTrialPhase && status.profileRole === "client";
   const daysTotal = isTrialPhase ? status.trialDaysTotal : status.subscriptionDaysTotal;
   const daysRemaining = isTrialPhase ? status.trialDaysRemaining : status.subscriptionDaysRemaining;
   const endDate = isTrialPhase ? status.trialEndDate : status.subscriptionEndDate;
@@ -90,13 +92,17 @@ export function MySubscriptionCard() {
 
   const copy = isTrialPhase
     ? {
-        title: "Période d'essai",
+        title: isClientProTrial ? "Essai Client Pro" : "Période d'essai",
         badge: status.isActive ? "🟢 Essai actif" : "🔴 Essai expiré",
         icon: Sparkles,
         tone: status.isActive ? "emerald" : "red",
         message: status.isActive
-          ? "Profitez de votre période d’essai gratuit."
-          : "Votre période d’essai gratuit est terminée. Veuillez choisir une offre pour continuer à utiliser la plateforme.",
+          ? isClientProTrial
+            ? "Profitez de votre essai Client Pro. À son terme, l'abonnement Client Pro mensuel devient nécessaire : aucun paiement n'est déclenché automatiquement."
+            : "Profitez de votre période d’essai gratuit."
+          : isClientProTrial
+            ? "Votre essai Client Pro est terminé. Souscrivez au forfait Client Pro mensuel pour continuer à utiliser la plateforme."
+            : "Votre période d’essai gratuit est terminée. Veuillez choisir une offre pour continuer à utiliser la plateforme.",
       }    : {
           title: "Abonnement mensuel",
         badge: isNone

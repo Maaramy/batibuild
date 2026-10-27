@@ -327,7 +327,7 @@ describe("subscriptionStatus.startMyTrial", () => {
     expect(stored?.trialClaimedAt).toBeUndefined();
   });
 
-  it("ne démarre jamais d'essai pour un profil Client Pro", async () => {
+  it("un client non sélectionné par l'administrateur ne reçoit pas d'essai", async () => {
     await setTrialEnabled(t, true);
     const userId = await createUser(t, { userRole: "client" });
 
@@ -340,8 +340,8 @@ describe("subscriptionStatus.startMyTrial", () => {
     expect(stored?.trialEndDate).toBeUndefined();
   });
 
-  it("Client Pro : aucun statut « Essai disponible » même avec l'essai activé", async () => {
-    // Essai explicitement activé (forfait Client Pro toujours payant).
+  it("Client Pro non sélectionné : aucun statut « Essai disponible »", async () => {
+    // Essai activé, mais profils éligibles limités à Expert : Client Pro exclu.
     const adminId = await createUser(t, { role: "admin", email: "admin-trial@test.com" });
     await asUser(t, adminId).mutation(api.trialConfig.updateTrialConfig, {
       enabled: true,
@@ -359,6 +359,28 @@ describe("subscriptionStatus.startMyTrial", () => {
     expect(status?.isActive).toBe(false);
     expect(status?.trialShouldStart).toBe(false);
     expect(status?.trialEligible).toBe(false);
+  });
+
+  it("Client Pro sélectionné : « Essai disponible » et durée dédiée", async () => {
+    const adminId = await createUser(t, { role: "admin", email: "admin-trial2@test.com" });
+    await asUser(t, adminId).mutation(api.trialConfig.updateTrialConfig, {
+      enabled: true,
+      durationDays: 7,
+      clientProDurationDays: 14,
+      validFrom: null,
+      validUntil: null,
+      eligibleProfiles: ["client"],
+      modules: ["estimation"],
+      newAccountsOnly: false,
+    });
+    const userId = await createUser(t, { userRole: "client" });
+
+    const status = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
+    expect(status?.status).toBe("trial_available");
+    expect(status?.trialEligible).toBe(true);
+    expect(status?.trialShouldStart).toBe(true);
+    // Durée affichée avant le démarrage = durée Client Pro.
+    expect(status?.trialDaysTotal).toBe(14);
   });
 });
 

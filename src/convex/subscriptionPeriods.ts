@@ -301,6 +301,11 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     };
   }
 
+  // Libellé de la période d'essai : Client Pro a le sien quand l'administrateur
+  // l'a rendu éligible.
+  const trialPlanName =
+    profileCompatibility?.profileRole === "client" ? "Essai Client Pro" : "Essai gratuit";
+
   // 3. Période d'essai active → accès autorisé (modules réglés par l'admin).
   if (trialActive) {
     return {
@@ -309,7 +314,7 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
       type: "trial",
       isActive: true,
       requiresPayment: false,
-      planName: "Essai gratuit",
+      planName: trialPlanName,
       price: null,
       startDate: trialStartDate ?? null,
       endDate: trialEndDate ?? null,
@@ -344,7 +349,7 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
       type: "trial",
       isActive: false,
       requiresPayment: true,
-      planName: "Essai gratuit",
+      planName: trialPlanName,
       price: null,
       startDate: trialStartDate ?? null,
       endDate: trialEndDate ?? null,
@@ -352,8 +357,8 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
   }
 
   // 6. Essai activé par l'administrateur + profil éligible + jamais utilisé
-  //    → essai à démarrer. Le profil Client Pro n'est jamais éligible : il
-  //    tombe dans « aucun accès » et doit souscrire à l'abonnement payant.
+  //    → essai à démarrer. Client Pro n'en bénéficie que si l'administrateur l'a
+  //    coché ; sinon le compte tombe dans « aucun accès » et doit souscrire.
   if (trialEnabled && trialEligible) {
     return {
       ...base,
@@ -361,7 +366,7 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
       type: "trial",
       isActive: true,
       requiresPayment: false,
-      planName: "Essai gratuit",
+      planName: trialPlanName,
       price: null,
       startDate: null,
       endDate: null,

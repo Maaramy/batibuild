@@ -23,6 +23,7 @@ import {
   isProfileEligibleForTrial,
   isTrialCampaignOpen,
   readTrialConfig,
+  trialDaysFor,
   trialEndDateFor,
   trialIncludes,
   type TrialConfig,
@@ -142,13 +143,19 @@ export async function getUserSubscriptionStatus(
   const profileCompatibility = await compatibilityFieldsForUser(ctx, user, now);
 
   // ── Éligibilité à la période d'essai ──
-  // Client Pro et profil non résolu : JAMAIS d'essai, quelle que soit la
-  // configuration. La décision est prise ici, côté serveur, et consommée par
-  // tous les contrôles d'accès (site web et WebView Android).
+  // Décidée par la sélection de l'administrateur (`trialEligibleProfiles`) :
+  // Client Pro en fait partie s'il a été coché ; un profil non résolu reste
+  // exclu. La décision est prise ici, côté serveur, et consommée par tous les
+  // contrôles d'accès (site web et WebView Android).
   const trialEligible = isProfileEligibleForTrial(
     pricing.trial,
     profileCompatibility?.profileRole,
   );
+
+  // Durée d'essai affichée avant tout démarrage : celle du profil (Client Pro a
+  // sa propre durée). Une fois l'essai démarré, `trialDaysTotal` persisté fait
+  // foi.
+  const scheduledTrialDays = trialDaysFor(pricing.trial, profileCompatibility?.profileRole);
 
   // L'ancienne « Offre gratuite » Client Pro (accès permanent sans échéance ni
   // paiement) a été SUPPRIMÉE : plus aucun statut « actif sans échéance » n'est
@@ -166,7 +173,7 @@ export async function getUserSubscriptionStatus(
     trialClaimedAt: user.trialClaimedAt ?? null,
     trialStartDate: user.trialStartDate ?? null,
     trialEndDate: user.trialEndDate ?? null,
-    trialDaysTotal: user.trialDaysTotal ?? pricing.trialDays,
+    trialDaysTotal: user.trialDaysTotal ?? scheduledTrialDays,
     trialPdfAllowed: pricing.trialPdfAllowed,
     subscriptionStartDate,
     subscriptionEndDate,
@@ -297,8 +304,12 @@ export async function startTrialFor(
     return { started: false, reason: "subscription_active" };
   }
 
-  const trialEndDate = trialEndDateFor(config, now);
+  // Durée effective : celle réglée pour Client Pro s'il y en a une, sinon la
+  // durée commune. Jamais une constante codée en dur.
+  const trialDays = trialDaysFor(config, profileRole);
+  const trialEndDate = trialEndDateFor(config, now, trialDays);
   const daysTotal = Math.max(1, daysRemainingUntil(trialEndDate, now));
+  const trialLabel = profileRole === "client" ? "essai Client Pro" : "essai gratuit";
 
   await ctx.db.patch(userId, {
     trialClaimedAt: now,
@@ -314,8 +325,11 @@ export async function startTrialFor(
     await ctx.db.insert("notifications", {
       userId,
       type: "subscription",
-      title: "Votre période d'essai a démarré",
-      message: `Profitez de ${daysTotal} jour${daysTotal > 1 ? "s" : ""} d'essai gratuit. Votre essai se termine le ${formatDateFr(trialEndDate)}.`,
+      title:
+        profileRole === "client"
+          ? "Votre essai Client Pro a démarré"
+          : "Votre période d'essai a démarré",
+      message: `Profitez de ${daysTotal} jour${daysTotal > 1 ? "s" : ""} d'${trialLabel}. Votre essai se termine le ${formatDateFr(trialEndDate)}.`,
       read: false,
       link: "/dashboard/pricing",
       createdAt: now,
@@ -467,6 +481,10 @@ export const checkSubscriptionPeriods = internalMutation({
   handler: async (ctx) => {
     const now = Date.now();
     const users = await ctx.db.query("users").collect();
+    // Tarif mensuel Client Pro en vigueur : sert à inviter l'utilisateur à
+    // souscrire au bon montant après l'essai (aucun paiement n'est déclenché).
+    const pricingConfig = await ctx.db.query("paymentConfig").order("desc").first();
+    const clientProPrice = resolveClientProPrice(pricingConfig?.proPrice);
 
     let trialsExpired = 0;
     let subscriptionsExpired = 0;
@@ -499,13 +517,22 @@ export const checkSubscriptionPeriods = internalMutation({
         patch.trialDaysRemaining = 0;
         trialsExpired++;
 
+        // Client Pro : l'essai terminé ne prolonge AUCUN accès et n'active
+        // aucun abonnement ; l'utilisateur est invité à souscrire au tarif
+        // mensuel configuré.
+        const clientTrial = (await resolveProfileRole(ctx, user)) === "client";
+        const clientProPriceLabel = `${clientProPrice} ${pricingConfig?.currency ?? "TND"}`;
+
         try {
           await ctx.db.insert("notifications", {
             userId: user._id,
             type: "subscription",
-            title: "Votre période d'essai est terminée",
-            message:
-              "Votre période d'essai gratuit est terminée. Veuillez choisir une offre pour continuer à utiliser la plateforme.",
+            title: clientTrial
+              ? "Votre essai Client Pro est terminé"
+              : "Votre période d'essai est terminée",
+            message: clientTrial
+              ? `Votre période d'essai Client Pro est terminée. Souscrivez au forfait Client Pro mensuel (${clientProPriceLabel}) pour continuer à utiliser la plateforme. Aucun montant n'a été prélevé.`
+              : "Votre période d'essai gratuit est terminée. Veuillez choisir une offre pour continuer à utiliser la plateforme.",
             read: false,
             link: "/dashboard/pricing",
             createdAt: now,
@@ -521,7 +548,7 @@ export const checkSubscriptionPeriods = internalMutation({
             templateKey: "subscription_expired",
             vars: {
               ...splitName(user.name),
-              typeAbonnement: "Essai gratuit",
+              typeAbonnement: clientTrial ? "Essai Client Pro" : "Essai gratuit",
               dateActivation: formatDateFr(user.trialStartDate),
               dateExpiration: formatDateFr(user.trialEndDate),
             },

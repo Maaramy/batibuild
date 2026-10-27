@@ -282,6 +282,8 @@ export const getPublicPricing = query({
       // Période d'essai gratuite (activée + fenêtre de validité, calcul serveur).
       trialEnabled: isTrialCampaignOpen(trial),
       trialDurationDays: trial.durationDays,
+      // Durée dédiée au forfait Client Pro (`null` = durée commune).
+      trialClientProDurationDays: trial.clientProDurationDays,
       trialModules: trial.modules,
       trialEligibleProfiles: trial.eligibleProfiles,
       // Prix réellement enregistré (voir `updatePlanPricing` et `lib/planPricing.ts`).

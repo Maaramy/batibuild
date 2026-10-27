@@ -44,7 +44,8 @@ import {
 // Admin → Abonnements mensuels → Prix et configuration.
 //
 // Trois plafonds indépendants, enregistrés dans Convex (`paymentConfig`) :
-//   • période d'essai gratuite (profils Fournisseur / Expert — Client Pro exclu) ;
+//   • période d'essai gratuite (profils sélectionnés par l'administrateur —
+//     Client Pro compris) ;
 //   • accès temporaires facturés 0 TND (forfait par défaut, offre gratuite
 //     Fournisseur / Expert — l'offre gratuite permanente Client Pro a été
 //     supprimée) ;
@@ -69,7 +70,7 @@ const TIER_TONES: Record<ProjectLimitTier, string> = {
 
 const TIER_HINTS: Record<ProjectLimitTier, string> = {
   trial:
-    "S'applique aux profils Fournisseur et Expert dont la période d'essai est active (Client Pro exclu).",
+    "S'applique à toute période d'essai active (Client Pro, Fournisseur, Expert), selon les profils cochés dans « Période d'essai gratuite ».",
   free:
     "S'applique aux accès temporaires facturés 0 TND (forfait par défaut) et aux forfaits Fournisseur / Expert proposés sans paiement.",
   paid:

@@ -1303,11 +1303,14 @@ const schema = defineSchema(
       // Entièrement réglée par l'administrateur (Admin → Abonnements mensuels →
       // Période d'essai gratuite). `convex/trialConfig.ts` est la source de
       // vérité : activation, durée (1 à 365 jours), fenêtre globale de
-      // validité, profils éligibles et modules ouverts pendant l'essai.
+      // validité, profils éligibles (Client Pro inclus s'il est coché) et
+      // modules ouverts pendant l'essai. `trialClientProDurationDays` porte la
+      // durée dédiée au forfait Client Pro (absente = durée commune).
       // Aucun droit n'est accordé côté client : chaque décision d'accès est
       // recalculée depuis ces champs côté serveur.
       trialEnabled: v.optional(v.boolean()),
       trialDurationDays: v.optional(v.number()),
+      trialClientProDurationDays: v.optional(v.number()),
       trialValidFrom: v.optional(v.number()),
       trialValidUntil: v.optional(v.number()),
       trialEligibleProfiles: v.optional(v.array(v.string())),

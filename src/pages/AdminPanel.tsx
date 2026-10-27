@@ -26,6 +26,7 @@ import { FeatureFlagsAdmin } from "@/components/admin/FeatureFlagsAdmin";
 import { PaymentMethodsAdmin } from "@/components/admin/PaymentMethodsAdmin";
 import { InvoicesAdmin } from "@/components/admin/InvoicesAdmin";
 import type { TrialConfig } from "@/convex/trialConfig";
+import { PROJECT_LIMIT_MAX, PROJECT_LIMIT_MIN } from "@/lib/projectLimits";
 import {
   TRIAL_MAX_DAYS,
   TRIAL_MIN_DAYS,
@@ -4026,7 +4027,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <CardHeader>
                 <CardTitle className="text-base">Abonnements mensuels — prix et configuration</CardTitle>
                 <CardDescription className="text-xs">
-                  Forfaits mensuels (30 jours). Renouvellement requis à l'échéance. Le forfait « Free » n'est plus proposé : il est remplacé par la période d'essai gratuite ci-dessous, puis par une offre payante. Client Pro est toujours payant (aucune offre gratuite permanente) ; les forfaits Fournisseur et Expert peuvent, eux, être proposés sans paiement.
+                  Forfaits mensuels (30 jours). Renouvellement requis à l'échéance. Le forfait « Free » n'est plus proposé : il est remplacé par la période d'essai gratuite ci-dessous, puis par une offre payante. L'essai peut couvrir Client Pro, Fournisseur et Expert (sélection de l'administrateur) ; aucune activation gratuite permanente n'existe et l'abonnement Client Pro payant n'est ouvert qu'après paiement confirmé.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -4262,14 +4263,16 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                   {!clientProEnabled && (
                     <p className="text-[11px] text-muted-foreground">
                       Client Pro est désactivé : les nouveaux comptes ne reçoivent aucun forfait payé
-                      (souscription obligatoire ; aucune période d'essai Client Pro).
+                      (souscription obligatoire ; aucun essai Client Pro n'est démarré).
                     </p>
                   )}
                   <p className="text-[11px] text-muted-foreground">
-                    « Aucun forfait payé » n'accorde <strong className="text-foreground">aucune période d'essai Client Pro</strong> :
-                    le compte doit souscrire à l'abonnement Client Pro payant. Une modification ne
-                    s'applique qu'aux <strong className="text-foreground">nouvelles inscriptions</strong> :
-                    le forfait des utilisateurs existants reste inchangé.
+                    « Aucun forfait payé » n'attribue <strong className="text-foreground">aucun abonnement</strong> :
+                    le compte suit la période d'essai gratuite si elle est activée et si Client Pro
+                    figure parmi les profils éligibles, puis doit souscrire à l'offre payante. Une
+                    modification ne s'applique qu'aux{" "}
+                    <strong className="text-foreground">nouvelles inscriptions</strong> : le forfait des
+                    utilisateurs existants reste inchangé.
                   </p>
                 </div>
 
@@ -4897,6 +4900,28 @@ function TrialSettings() {
   const [saving, setSaving] = useState(false);
   const [migrating, setMigrating] = useState(false);
 
+  // ── Plafond de projets pendant l'essai ─────────────────────────────────
+  // Source de vérité : `convex/projectLimits.ts` (vérifiée côté serveur à
+  // chaque création). Le même règlet s'applique à tous les essais, Client Pro
+  // compris : aucun doublon de configuration n'est créé.
+  const limitData = useQuery(api.projectLimits.getProjectLimitConfig);
+  const saveLimitConfig = useMutation(api.projectLimits.updateProjectLimitConfig);
+  const [trialQuota, setTrialQuota] = useState<{
+    enabled: boolean;
+    maxProjects: number;
+  } | null>(null);
+  const [savingQuota, setSavingQuota] = useState(false);
+  const quotaSignature = JSON.stringify(limitData?.config?.trial ?? null);
+  useEffect(() => {
+    if (limitData?.config) {
+      setTrialQuota({
+        enabled: limitData.config.trial.enabled,
+        maxProjects: limitData.config.trial.maxProjects,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quotaSignature]);
+
   // Synchronisation depuis le serveur uniquement quand la configuration
   // enregistrée change réellement (une saisie en cours n'est pas écrasée par
   // un simple rafraîchissement réactif).
@@ -4913,6 +4938,17 @@ function TrialSettings() {
     if (!Number.isFinite(form.durationDays)) return "Durée invalide.";
     if (form.durationDays < TRIAL_MIN_DAYS || form.durationDays > TRIAL_MAX_DAYS) {
       return `La durée doit être comprise entre ${TRIAL_MIN_DAYS} et ${TRIAL_MAX_DAYS} jours.`;
+    }
+    if (form.clientProDurationDays != null) {
+      if (!Number.isFinite(form.clientProDurationDays)) {
+        return "Durée de l'essai Client Pro invalide.";
+      }
+      if (
+        form.clientProDurationDays < TRIAL_MIN_DAYS ||
+        form.clientProDurationDays > TRIAL_MAX_DAYS
+      ) {
+        return `La durée de l'essai Client Pro doit être comprise entre ${TRIAL_MIN_DAYS} et ${TRIAL_MAX_DAYS} jours.`;
+      }
     }
     if (form.validFrom != null && form.validUntil != null && form.validUntil <= form.validFrom) {
       return "La date de fin doit être postérieure à la date de début.";
@@ -4963,21 +4999,67 @@ function TrialSettings() {
       await saveTrialConfig({
         enabled: form.enabled,
         durationDays: Math.round(form.durationDays),
+        clientProDurationDays:
+          form.clientProDurationDays == null
+            ? null
+            : Math.round(form.clientProDurationDays),
         validFrom: form.validFrom,
         validUntil: form.validUntil,
         eligibleProfiles: form.eligibleProfiles,
         modules: form.modules,
         newAccountsOnly: form.newAccountsOnly,
       });
+      const clientProSelected = form.eligibleProfiles.includes("client");
+      const clientProDays =
+        form.clientProDurationDays == null
+          ? trialDurationLabel(form.durationDays)
+          : trialDurationLabel(form.clientProDurationDays);
       toast.success(
         form.enabled
-          ? `Période d'essai enregistrée : ${trialDurationLabel(form.durationDays)} pour les nouveaux comptes éligibles.`
+          ? `Période d'essai enregistrée : ${trialDurationLabel(form.durationDays)} pour les nouveaux comptes éligibles` +
+            (clientProSelected ? ` (Client Pro : ${clientProDays}).` : ".")
           : "Période d'essai désactivée : les paramètres sont conservés.",
       );
     } catch (err: any) {
       toast.error(err?.message || "Impossible d'enregistrer les paramètres de l'essai.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveQuota = async () => {
+    if (!trialQuota || !limitData?.config) return;
+    if (
+      !Number.isInteger(trialQuota.maxProjects) ||
+      trialQuota.maxProjects < PROJECT_LIMIT_MIN ||
+      trialQuota.maxProjects > PROJECT_LIMIT_MAX
+    ) {
+      toast.error(
+        `Le nombre maximal de projets doit être compris entre ${PROJECT_LIMIT_MIN} et ${PROJECT_LIMIT_MAX}.`,
+      );
+      return;
+    }
+    setSavingQuota(true);
+    try {
+      await saveLimitConfig({
+        trial: {
+          enabled: trialQuota.enabled,
+          maxProjects: Math.round(trialQuota.maxProjects),
+          resetMode: limitData.config.trial.resetMode,
+        },
+        // Les plafonds des autres offres restent strictement inchangés.
+        free: limitData.config.free,
+        paid: limitData.config.paid,
+      });
+      toast.success(
+        trialQuota.enabled
+          ? `Plafond de l'essai enregistré : ${trialQuota.maxProjects} projet(s) maximum.`
+          : "Plafond de l'essai désactivé : création illimitée pendant l'essai.",
+      );
+    } catch (err: any) {
+      toast.error(err?.message || "Impossible d'enregistrer le plafond de l'essai.");
+    } finally {
+      setSavingQuota(false);
     }
   };
 
@@ -5047,8 +5129,9 @@ function TrialSettings() {
             Période d'essai gratuite
           </h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Remplace le forfait « Free ». Réservée aux profils Fournisseur et Expert : le profil
-            Client Pro n'y est plus éligible et ne reçoit aucune période d'essai automatique.
+            Remplace le forfait « Free ». L'administrateur choisit les profils éligibles — Client Pro
+            compris — la durée, le plafond de projets et les modules. À l'expiration, l'accès est
+            retiré et la souscription à l'offre payante devient obligatoire.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -5096,7 +5179,7 @@ function TrialSettings() {
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-32">
-            <label className="text-[11px] text-muted-foreground">Nombre de jours</label>
+            <label className="text-[11px] text-muted-foreground">Fournisseur / Expert (jours)</label>
             <Input
               type="number"
               min={TRIAL_MIN_DAYS}
@@ -5105,6 +5188,24 @@ function TrialSettings() {
               onChange={(e) =>
                 setForm({ ...form, durationDays: parseInt(e.target.value, 10) || 0 })
               }
+              className="mt-1 h-8 w-full text-sm"
+            />
+          </div>
+          <div className="w-32">
+            <label className="text-[11px] text-muted-foreground">Client Pro (jours)</label>
+            <Input
+              type="number"
+              min={TRIAL_MIN_DAYS}
+              max={TRIAL_MAX_DAYS}
+              placeholder={`Identique (${form.durationDays})`}
+              value={form.clientProDurationDays ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value.trim();
+                setForm({
+                  ...form,
+                  clientProDurationDays: raw === "" ? null : parseInt(raw, 10) || 0,
+                });
+              }}
               className="mt-1 h-8 w-full text-sm"
             />
           </div>
@@ -5126,6 +5227,10 @@ function TrialSettings() {
             ))}
           </div>
         </div>
+        <p className="text-[10px] text-muted-foreground">
+          Durée Client Pro vide = même durée que les autres profils. Chaque nouvel essai reçoit la
+          durée en vigueur au moment de son démarrage ; les essais en cours ne sont pas modifiés.
+        </p>
         {durationError && (
           <p className="text-[11px] text-red-600 dark:text-red-400">{durationError}</p>
         )}
@@ -5206,11 +5311,12 @@ function TrialSettings() {
             );
           })}
         </div>
-        <div className="rounded-lg border border-blue-500/25 bg-blue-500/[0.05] p-2.5 text-[11px] leading-relaxed text-blue-700 dark:text-blue-300">
-          <strong>Client Pro exclu de la période d'essai.</strong> Les nouvelles inscriptions
-          Client Pro passent directement par l'abonnement Client Pro payant ou par l'« Offre
-          gratuite » Client Pro (durée mensuelle de 30 jours et plafond de projets configurables
-          ci-dessous). Aucun essai automatique ne leur est attribué.
+        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/[0.05] p-2.5 text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300">
+          <strong>Essai Client Pro.</strong> Coché, Client Pro reçoit l'essai pour la durée indiquée
+          ci-dessus (ou sa durée dédiée). À l'expiration, l'accès Client Pro est retiré et
+          l'utilisateur est invité à souscrire au forfait Client Pro mensuel au tarif configuré :
+          l'abonnement payant n'est activé qu'après confirmation effective du paiement. Le plafond
+          de projets de l'essai se règle juste en dessous.
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-border/20 pt-2">
           <p className="text-[11px] text-muted-foreground">
@@ -5266,6 +5372,93 @@ function TrialSettings() {
           Aucun module n'est accordé au-delà de cette sélection. Le téléchargement des rapports PDF
           reste réservé à Client Pro sauf si ce module est explicitement coché.
         </p>
+      </div>
+
+      {/* Plafond de projets pendant l'essai */}
+      <div className="space-y-3 rounded-lg border border-border/30 bg-background/60 p-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+          <p className="text-xs font-medium">Projets autorisés pendant l'essai</p>
+        </div>
+        {trialQuota === null ? (
+          <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Chargement du plafond de projets…
+          </p>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <p className="max-w-md text-[11px] text-muted-foreground">
+                Nombre maximal de projets créables pendant l'essai (Client Pro, Fournisseur et
+                Expert). La limite est vérifiée côté serveur à chaque création ; les projets déjà
+                créés restent consultables et modifiables.
+              </p>
+              <Switch
+                checked={trialQuota.enabled}
+                onCheckedChange={(checked) => setTrialQuota({ ...trialQuota, enabled: checked })}
+              />
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="w-32">
+                <label className="text-[11px] text-muted-foreground">Projets maximum</label>
+                <Input
+                  type="number"
+                  min={PROJECT_LIMIT_MIN}
+                  max={PROJECT_LIMIT_MAX}
+                  disabled={!trialQuota.enabled}
+                  value={Number.isFinite(trialQuota.maxProjects) ? trialQuota.maxProjects : ""}
+                  onChange={(e) =>
+                    setTrialQuota({
+                      ...trialQuota,
+                      maxProjects: parseInt(e.target.value, 10) || 0,
+                    })
+                  }
+                  className="mt-1 h-8 w-full text-sm"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 pb-0.5">
+                {[1, 3, 5, 10].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    disabled={!trialQuota.enabled}
+                    onClick={() => setTrialQuota({ ...trialQuota, maxProjects: n })}
+                    className={cn(
+                      "rounded-md border px-2 py-1 text-[11px] transition-colors disabled:opacity-50",
+                      trialQuota.maxProjects === n
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                        : "border-border/40 text-muted-foreground hover:border-emerald-500/40",
+                    )}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void handleSaveQuota()}
+                disabled={savingQuota}
+                className="gap-2"
+              >
+                {savingQuota ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
+                Enregistrer le plafond
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Décompte :{" "}
+              {limitData?.config?.trial.resetMode === "total"
+                ? "total cumulé (jamais réinitialisé)"
+                : "par période d'essai"}
+              . Le mode de décompte et les plafonds des autres offres restent modifiables dans
+              « Limite du nombre de projets par offre », juste en dessous.
+            </p>
+          </>
+        )}
       </div>
 
       {/* Actions */}

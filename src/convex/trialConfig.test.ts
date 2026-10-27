@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "./schema.js";
 import { api, internal } from "./_generated/api.js";
-import { DEFAULT_TRIAL_MODULES } from "../lib/subscriptionPlans.js";
+import { DEFAULT_TRIAL_MODULES, TRIAL_MAX_DAYS } from "../lib/subscriptionPlans.js";
 
 // ============================================================================
 // PÉRIODE D'ESSAI GRATUITE — configuration administrable
@@ -162,21 +162,45 @@ describe("trialConfig — configuration administrable", () => {
     ).rejects.toThrow(/Profil inconnu/);
   });
 
-  it("refuse d'accorder la période d'essai au profil Client Pro", async () => {
+  it("accepte Client Pro dans les profils éligibles et enregistre sa durée dédiée", async () => {
+    const { adminT } = await asAdmin(t);
+
+    await adminT.mutation(api.trialConfig.updateTrialConfig, {
+      ...BASE_CONFIG,
+      eligibleProfiles: ["client", "expert"],
+      clientProDurationDays: 21,
+    });
+
+    const stored = await adminT.query(api.trialConfig.getTrialConfig);
+    expect(stored?.config.eligibleProfiles).toEqual(["client", "expert"]);
+    expect(stored?.config.clientProDurationDays).toBe(21);
+    // La durée commune n'est pas modifiée par la durée Client Pro.
+    expect(stored?.config.durationDays).toBe(BASE_CONFIG.durationDays);
+  });
+
+  it("refuse une durée d'essai Client Pro hors bornes", async () => {
     const { adminT } = await asAdmin(t);
 
     await expect(
       adminT.mutation(api.trialConfig.updateTrialConfig, {
         ...BASE_CONFIG,
-        eligibleProfiles: ["client", "expert"],
+        clientProDurationDays: TRIAL_MAX_DAYS + 1,
+      }),
+    ).rejects.toThrow(/Client Pro/);
+
+    await expect(
+      adminT.mutation(api.trialConfig.updateTrialConfig, {
+        ...BASE_CONFIG,
+        clientProDurationDays: 0,
       }),
     ).rejects.toThrow(/Client Pro/);
   });
 
-  it("une ancienne configuration « client » est normalisée sans essai Client Pro", async () => {
+  it("une ancienne configuration incluant Client Pro est conservée telle quelle", async () => {
     const { adminT } = await asAdmin(t);
 
-    // Document historique (écrit avant l'exclusion de Client Pro).
+    // Document historique : Client Pro y figure déjà, la configuration doit
+    // être respectée (plus aucune exclusion imposée par le code).
     await t.run(async (ctx) => {
       await ctx.db.insert("paymentConfig", {
         bankName: "",
@@ -196,14 +220,13 @@ describe("trialConfig — configuration administrable", () => {
     });
 
     const stored = await adminT.query(api.trialConfig.getTrialConfig);
-    expect(stored?.config.eligibleProfiles).toEqual(["supplier", "expert"]);
+    expect(stored?.config.eligibleProfiles).toEqual(["client", "supplier", "expert"]);
 
     const clientId = await createUser(t, { userRole: "client", email: nextEmail("legacy-client") });
     const res = await t.mutation(internal.subscriptionStatus.startTrialOnSignup, {
       userId: clientId as never,
     });
-    expect(res.started).toBe(false);
-    expect(res.reason).toBe("profile_not_eligible");
+    expect(res.started).toBe(true);
   });
 
   it("la réinitialisation revient aux valeurs par défaut sans supprimer les données", async () => {
@@ -348,7 +371,7 @@ describe("période d'essai — démarrage", () => {
     expect(res.reason).toBe("profile_not_eligible");
   });
 
-  it("profils éligibles : fournisseur et expert reçoivent l'essai, jamais Client Pro", async () => {
+  it("profils éligibles : fournisseur et expert reçoivent l'essai, Client Pro non coché est exclu", async () => {
     const { adminT } = await asAdmin(t);
     await adminT.mutation(api.trialConfig.updateTrialConfig, BASE_CONFIG);
 
@@ -368,7 +391,7 @@ describe("période d'essai — démarrage", () => {
     expect(clientRes.reason).toBe("profile_not_eligible");
   });
 
-  it("une inscription Client Pro ne démarre jamais d'essai automatique", async () => {
+  it("tant que Client Pro n'est pas coché, son inscription ne démarre aucun essai", async () => {
     const { adminT } = await asAdmin(t);
     await adminT.mutation(api.trialConfig.updateTrialConfig, {
       ...BASE_CONFIG,
@@ -501,6 +524,187 @@ describe("période d'essai — expiration et droits", () => {
     // L'essai est consommé et ne sera jamais rejoué.
     expect(user?.trialClaimedAt).toBeTruthy();
     expect(user?.trialEndDate).toBeUndefined();
+  });
+});
+
+// ============================================================================
+// Essai Client Pro — activation, durée, expiration, passage au payant
+// ============================================================================
+
+describe("période d'essai — Client Pro", () => {
+  let t: ReturnType<typeof convexTest>;
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  const CLIENT_CONFIG = {
+    ...BASE_CONFIG,
+    durationDays: 7,
+    eligibleProfiles: ["client"],
+    clientProDurationDays: 21,
+  };
+
+  it("un nouvel inscrit Client Pro démarre l'essai avec la durée dédiée", async () => {
+    const { adminT } = await asAdmin(t);
+    await adminT.mutation(api.trialConfig.updateTrialConfig, CLIENT_CONFIG);
+
+    const userId = await createUser(t, { userRole: "client", email: nextEmail("pro-essai") });
+    const res = await t.mutation(internal.subscriptionStatus.startTrialOnSignup, {
+      userId: userId as never,
+    });
+
+    expect(res.started).toBe(true);
+    const user = await t.run(async (ctx) => ctx.db.get(userId as never));
+    expect(user?.trialDaysTotal).toBe(21);
+    expect(user?.trialEndDate! - user?.trialStartDate!).toBe(21 * DAY_MS);
+
+    const snapshot = await asUser(t, userId).query(
+      api.subscriptionStatus.getMySubscriptionStatus,
+    );
+    expect(snapshot?.status).toBe("trialing");
+    expect(snapshot?.type).toBe("trial");
+    expect(snapshot?.trialDaysRemaining).toBe(21);
+
+    const access = await asUser(t, userId).query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(true);
+  });
+
+  it("sans durée dédiée, Client Pro suit la durée commune", async () => {
+    const { adminT } = await asAdmin(t);
+    await adminT.mutation(api.trialConfig.updateTrialConfig, {
+      ...CLIENT_CONFIG,
+      durationDays: 10,
+      clientProDurationDays: null,
+    });
+
+    const userId = await createUser(t, { userRole: "client", email: nextEmail("pro-commun") });
+    await t.mutation(internal.subscriptionStatus.startTrialOnSignup, {
+      userId: userId as never,
+    });
+
+    const user = await t.run(async (ctx) => ctx.db.get(userId as never));
+    expect(user?.trialDaysTotal).toBe(10);
+    expect(user?.trialEndDate! - user?.trialStartDate!).toBe(10 * DAY_MS);
+  });
+
+  it("les paramètres restent identiques après relecture (actualisation / reconnexion)", async () => {
+    const { adminT } = await asAdmin(t);
+    await adminT.mutation(api.trialConfig.updateTrialConfig, CLIENT_CONFIG);
+
+    // Nouvelle session administrateur : même configuration enregistrée.
+    const secondAdmin = await createUser(t, { role: "admin", email: nextEmail("admin2") });
+    const reloaded = await asUser(t, secondAdmin).query(api.trialConfig.getTrialConfig);
+    expect(reloaded?.config.enabled).toBe(true);
+    expect(reloaded?.config.durationDays).toBe(7);
+    expect(reloaded?.config.clientProDurationDays).toBe(21);
+    expect(reloaded?.config.eligibleProfiles).toEqual(["client"]);
+
+    // La page Abonnements (lecture publique) expose les mêmes valeurs.
+    const pricing = await t.query(api.payments.getPublicPricing);
+    expect(pricing.trialEnabled).toBe(true);
+    expect(pricing.trialEligibleProfiles).toContain("client");
+    expect(pricing.trialClientProDurationDays).toBe(21);
+  });
+
+  it("à l'expiration : accès Client Pro retiré, invitation à souscrire, projets conservés", async () => {
+    const { adminT } = await asAdmin(t);
+    await adminT.mutation(api.trialConfig.updateTrialConfig, CLIENT_CONFIG);
+
+    const now = Date.now();
+    const userId = await createUser(t, {
+      userRole: "client",
+      email: nextEmail("pro-expire"),
+      trialClaimedAt: now - 9 * DAY_MS,
+      trialStartDate: now - 9 * DAY_MS,
+      trialEndDate: now - DAY_MS,
+    });
+    await t.run(async (ctx) =>
+      ctx.db.patch(userId as never, { subscriptionStatus: "trialing" }),
+    );
+    const projectId = await t.run(async (ctx) =>
+      ctx.db.insert("projects", {
+        userId,
+        name: "Projet conservé",
+        category: "villa",
+        createdAt: now - 5 * DAY_MS,
+        updatedAt: now - 5 * DAY_MS,
+      }),
+    );
+
+    await t.mutation(internal.subscriptionStatus.checkSubscriptionPeriods, {});
+
+    const user = await t.run(async (ctx) => ctx.db.get(userId as never));
+    expect(user?.subscriptionStatus).toBe("trial_expired");
+    expect(user?.trialDaysRemaining).toBe(0);
+
+    const snapshot = await asUser(t, userId).query(
+      api.subscriptionStatus.getMySubscriptionStatus,
+    );
+    expect(snapshot?.status).toBe("trial_expired");
+    expect(snapshot?.requiresPayment).toBe(true);
+
+    const access = await asUser(t, userId).query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(false);
+    expect(access.reason).toBe("trial_expired");
+
+    const notifications = await t.run(async (ctx) =>
+      (await ctx.db.query("notifications").collect()).filter((n) => n.userId === userId),
+    );
+    expect(
+      notifications.some(
+        (n) =>
+          n.title === "Votre essai Client Pro est terminé" &&
+          n.message.includes("forfait Client Pro mensuel"),
+      ),
+    ).toBe(true);
+
+    // Aucun abonnement payant n'a été créé sans paiement.
+    const subs = await t.run(async (ctx) =>
+      (await ctx.db.query("subscriptions").collect()).filter((s) => s.userId === userId),
+    );
+    expect(subs.filter((s) => s.status === "active")).toHaveLength(0);
+
+    // Les projets existants ne sont jamais supprimés.
+    expect(await t.run(async (ctx) => ctx.db.get(projectId))).not.toBeNull();
+  });
+
+  it("après l'essai, seul un paiement confirmé active Client Pro (30 jours)", async () => {
+    const { adminId, adminT } = await asAdmin(t);
+    await adminT.mutation(api.trialConfig.updateTrialConfig, CLIENT_CONFIG);
+
+    const now = Date.now();
+    const userId = await createUser(t, {
+      userRole: "client",
+      email: nextEmail("pro-paiement"),
+      trialClaimedAt: now - 22 * DAY_MS,
+      trialStartDate: now - 22 * DAY_MS,
+      trialEndDate: now - DAY_MS,
+    });
+    await t.mutation(internal.subscriptionStatus.checkSubscriptionPeriods, {});
+
+    const subscriptionId = await asUser(t, userId).mutation(
+      api.subscriptions.createSubscription,
+      { plan: "pro", paymentMethod: "d17", amount: 80, currency: "TND" },
+    );
+
+    // Demande envoyée : toujours aucun accès tant que le paiement n'est pas validé.
+    const pending = await asUser(t, userId).query(
+      api.subscriptionStatus.getMySubscriptionStatus,
+    );
+    expect(pending?.status).toBe("pending");
+    expect(pending?.isActive).toBe(false);
+
+    await asUser(t, adminId).mutation(api.subscriptions.adminApproveSubscription, {
+      subscriptionId,
+    });
+
+    const active = await asUser(t, userId).query(
+      api.subscriptionStatus.getMySubscriptionStatus,
+    );
+    expect(active?.status).toBe("active");
+    expect(active?.isActive).toBe(true);
+    expect(active?.subscriptionDaysRemaining).toBe(30);
+    expect((await asUser(t, userId).query(api.access.checkClientProAccess)).allowed).toBe(true);
   });
 });
 

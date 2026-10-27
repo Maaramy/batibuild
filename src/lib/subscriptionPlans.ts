@@ -12,11 +12,12 @@
 // Le forfait « Free » n'existe plus : il est remplacé par la période d'essai
 // gratuite administrable, puis par les offres payantes.
 //
-// La période d'essai est réservée aux profils Fournisseur et Expert : le profil
-// Client Pro n'y est JAMAIS éligible (aucune attribution automatique).
+// La période d'essai couvre les profils que l'administrateur sélectionne, y
+// compris Client Pro (désactivé par défaut : opt-in explicite). La durée peut
+// être réglée séparément pour Client Pro (`clientProDurationDays`).
 // L'« Offre gratuite » Client Pro (accès permanent sans échéance ni paiement) a
-// été supprimée : l'administrateur conserve le contrôle du TARIF mensuel Client
-// Pro, dont l'accès n'est ouvert qu'après paiement confirmé.
+// été supprimée : à l'expiration de l'essai, seul un paiement confirmé ouvre
+// l'abonnement Client Pro, au tarif mensuel enregistré par l'administrateur.
 
 export const CLIENT_PRO_PLAN_LABEL = "Client Pro";
 export const TRIAL_PLAN_LABEL = "Période d'essai";
@@ -27,6 +28,11 @@ export const TRIAL_MIN_DAYS = 1;
 export const TRIAL_MAX_DAYS = 365;
 /** Durée proposée par défaut (l'administrateur la modifie librement). */
 export const TRIAL_DEFAULT_DAYS = 7;
+/**
+ * Durée dédiée au forfait Client Pro. `null` = même durée que les autres
+ * profils (`durationDays`). Réglée par l'administrateur, jamais codée en dur.
+ */
+export const TRIAL_CLIENT_PRO_DEFAULT_DAYS: number | null = null;
 /** Durées les plus courantes, proposées comme raccourcis dans l'administration. */
 export const TRIAL_PRESET_DAYS = [7, 14, 30] as const;
 
@@ -113,19 +119,17 @@ export function sanitizeTrialModules(values: readonly unknown[] | null | undefin
 }
 
 // ── Profils éligibles à la période d'essai ──────────────────────────────────
-// « client » (Client Pro) est volontairement absent : il ne peut plus recevoir
-// de période d'essai, ni depuis l'interface ni depuis le backend.
-export type TrialProfileKey = "supplier" | "expert";
-
-/** Profil Client Pro — toujours exclu de la période d'essai. */
-export const TRIAL_EXCLUDED_PROFILE = "client" as const;
+// Client Pro figure dans le catalogue mais reste DÉSACTIVÉ par défaut : il ne
+// reçoit un essai que si l'administrateur le coche explicitement.
+export type TrialProfileKey = "client" | "supplier" | "expert";
 
 /**
- * Vrai pour un profil qui ne peut jamais bénéficier de l'essai : Client Pro ou
- * profil non résolu (un compte sans profil est traité comme Client Pro).
+ * Vrai pour un profil qui ne peut pas bénéficier de l'essai. Seul un profil
+ * NON RÉSOLU est exclu (aucune information fiable pour l'identifier) ; Client
+ * Pro, Fournisseur et Expert dépendent de la sélection de l'administrateur.
  */
 export function isTrialExcludedProfile(value: unknown): boolean {
-  return value == null || value === TRIAL_EXCLUDED_PROFILE;
+  return value == null;
 }
 
 export interface TrialProfileDefinition {
@@ -136,6 +140,13 @@ export interface TrialProfileDefinition {
 }
 
 export const TRIAL_PROFILES: TrialProfileDefinition[] = [
+  {
+    key: "client",
+    label: "Client Pro",
+    description:
+      "Essai Client Pro — à l'expiration, l'abonnement payant reste obligatoire (aucune activation sans paiement).",
+    defaultIncluded: false,
+  },
   {
     key: "supplier",
     label: "Fournisseur",
