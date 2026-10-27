@@ -64,7 +64,7 @@ function insertTrialUser(t: ReturnType<typeof convexTest>, overrides: UserOverri
   });
 }
 
-/** Compte avec abonnement mensuel ACTIF (payant ou gratuit selon `proPrice`). */
+/** Compte avec abonnement mensuel ACTIF (Client Pro, toujours payant). */
 function insertMonthlyUser(t: ReturnType<typeof convexTest>, overrides: UserOverrides = {}) {
   const now = Date.now();
   return insertUser(t, {
@@ -376,8 +376,10 @@ describe("limite de projets — offre gratuite et Client Pro", () => {
     adminT = t.withIdentity({ subject: adminId });
   });
 
-  it("l'offre gratuite (prix null/0) a son propre plafond", async () => {
-    // Client Pro rendu gratuit par l'administrateur (« Offre gratuite »).
+  it("une configuration historique à 0 TND ne rend pas Client Pro gratuit (plafond « offre gratuite » inopérant)", async () => {
+    // Ancienne « Offre gratuite » Client Pro : prix nul dans un document
+    // historique. Client Pro reste payant, donc le compte relève du palier
+    // « abonnement payant » (illimité par défaut), pas de l'offre gratuite.
     await configurePricing(t, adminId, { proPrice: 0 });
     await setLimits(adminT, { free: { enabled: true, maxProjects: 2, resetMode: "offer" } });
 
@@ -386,8 +388,8 @@ describe("limite de projets — offre gratuite et Client Pro", () => {
 
     await createProject(userT);
     await createProject(userT);
-    await expect(createProject(userT)).rejects.toThrow(/offre gratuite/);
-    expect(await storedProjectCount(t, userId)).toBe(2);
+    await createProject(userT);
+    expect(await storedProjectCount(t, userId)).toBe(3);
   });
 
   it("le plafond de l'offre gratuite ne s'applique pas au Client Pro payant", async () => {

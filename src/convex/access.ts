@@ -13,9 +13,9 @@ import type { TrialModuleKey } from "../lib/subscriptionPlans";
 // matériaux IA, plans architecturaux, suivi de A à Z),
 // le client doit disposer d'un abonnement Client Pro PAYANT actif.
 //   - Abonnement expiré  → renouvellement obligatoire pour maintenir l'accès.
-//   - Exception          → l'administrateur peut activer le « switch gratuit »
-//                          sur le forfait Client Pro (prix null dans la config) :
-//                          dans ce cas l'accès est accordé sans paiement.
+//   - Aucune exception   → l'ancienne « Offre gratuite » Client Pro (accès
+//                          permanent sans échéance ni paiement) a été supprimée :
+//                          aucun prix nul ne peut ouvrir cet accès.
 //   - Admin / modérateur → accès toujours accordé (bypass de test).
 
 export type ClientProAccessReason =
@@ -39,31 +39,35 @@ export const CLIENT_PRO_ACCESS_MARKER = "CLIENT_PRO_ACCESS:";
 /** Marqueur d'erreur serveur : téléchargement PDF réservé au forfait payant. */
 export const PDF_ACCESS_MARKER = "PDF_ACCESS_REQUIRED:";
 
-/** État « Offre gratuite » (switch admin) pour chaque forfait — prix null ou 0. */
+/**
+ * État « Offre gratuite » des forfaits Fournisseur / Expert (prix null ou 0).
+ *
+ * Client Pro n'y figure PAS : il est TOUJOURS payant. L'« Offre gratuite »
+ * Client Pro (accès permanent sans échéance ni paiement) a été supprimée.
+ */
 export interface FreePlanStatus {
-  proFree: boolean;
   supplierFree: boolean;
   expertFree: boolean;
 }
 
 /**
- * État « Offre gratuite » (prix null/0) de CHAQUE forfait payant.
+ * État « Offre gratuite » (prix null/0) des forfaits Fournisseur / Expert.
  *
  * Ce n'est pas l'ancien forfait « Free » (supprimé) : c'est l'interrupteur qui
- * rend un forfait payant gratuit, lu depuis la configuration administrée.
+ * rend ces deux forfaits gratuits, lu depuis la configuration administrée.
+ * Aucun état équivalent n'existe pour Client Pro.
  */
 export async function getFreePlanStatus(ctx: any): Promise<FreePlanStatus> {
   try {
     const pricing = await ctx.runQuery(api.payments.getPublicPricing);
     const isFree = (p: number | null | undefined) => p === null || p === 0;
     return {
-      proFree: isFree(pricing?.proPrice),
       supplierFree: isFree(pricing?.supplierPrice),
       expertFree: isFree(pricing?.expertPrice),
     };
   } catch {
     // Config illisible → règle payante par défaut
-    return { proFree: false, supplierFree: false, expertFree: false };
+    return { supplierFree: false, expertFree: false };
   }
 }
 
@@ -179,8 +183,8 @@ export async function getClientProAccess(
     ? await getUserSubscriptionStatus(ctx, user._id)
     : await ctx.runQuery(api.subscriptionStatus.getMySubscriptionStatus);
 
-  // Période active (essai gratuit, abonnement mensuel ou « Offre gratuite »)
-  // ET forfait compatible avec le profil — sinon refus.
+  // Période active (période d'essai temporaire avec échéance, ou abonnement
+  // mensuel payant validé) ET forfait compatible avec le profil — sinon refus.
   if (snapshot?.isActive && snapshot?.planCompatible !== false) {
     // Pendant la PÉRIODE D'ESSAI, seuls les modules cochés par l'administrateur
     // sont ouverts : un module non configuré est refusé côté serveur (l'ancien

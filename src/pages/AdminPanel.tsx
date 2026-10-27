@@ -237,13 +237,12 @@ export default function AdminPanel() {
   const updatePlanPricing = useMutation(api.payments.updatePlanPricing);
   const paymentConfigData = useQuery(api.payments.getPaymentConfigAdmin) || null;
   const updatePaymentConfig = useMutation(api.payments.updatePaymentConfig);
-  // Forfait Free (0 TND) — activé/désactivé par l'administrateur (jamais codé en dur).
   // Disponibilité de Client Pro + forfait par défaut des nouveaux utilisateurs.
   const updateClientProEnabled = useMutation(api.payments.updateClientProEnabled);
   const updateDefaultPlanConfig = useMutation(api.payments.updateDefaultPlanConfig);
   // Abonnements mensuels (30 jours) — trois offres : Client Pro, Fournisseur, Expert.
-  // Prix null/0 = forfait gratuit (bascule « Offre gratuite » par forfait).
-  // Client Pro est payant par défaut (80 TND/mois) — plus aucun essai gratuit.
+  // Prix null/0 = « Offre gratuite » — uniquement Fournisseur / Expert.
+  // Client Pro est TOUJOURS payant : aucune bascule gratuite ne lui est proposée.
   //
   // Les valeurs affichées viennent TOUJOURS de la configuration enregistrée
   // (`planPricingFormValues`). Tant qu'elle n'est pas chargée, `limitForm` reste
@@ -2733,7 +2732,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
                 <CardHeader className="p-4 pb-2">
                   <CardTitle className="text-sm">Abonnements & Revenus</CardTitle>
-                  <CardDescription className="text-[10px]">Client Pro: {planPriceLabel(planForm?.proPrice)} | Fournisseur: {planPriceLabel(planForm?.supplierPrice)} | Expert: {planPriceLabel(planForm?.expertPrice)}</CardDescription>
+                  <CardDescription className="text-[10px]">Client Pro: {limitForm ? planPriceLabel(limitForm.clientProPrice) : "—"} | Fournisseur: {planPriceLabel(planForm?.supplierPrice)} | Expert: {planPriceLabel(planForm?.expertPrice)}</CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
                   <div className="grid grid-cols-3 gap-2 mb-3">
@@ -4858,7 +4857,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
 // modules ouverts : tout est enregistré dans Convex (`convex/trialConfig.ts`)
 // et vérifié côté serveur. L'interface ne fait que présenter les paramètres.
 // Le profil Client Pro est exclu de l'essai (côté interface ET côté serveur) :
-// il relève de l'abonnement payant ou de l'« Offre gratuite » Client Pro.
+// il relève uniquement de l'abonnement Client Pro payant.
 // Aucune donnée n'est supprimée : désactiver l'essai conserve les comptes, les
 // projets et les abonnements payants.
 

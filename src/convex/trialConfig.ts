@@ -76,7 +76,7 @@ export interface TrialConfigSource {
   trialEligibleProfiles?: string[] | null;
   trialModules?: string[] | null;
   trialNewAccountsOnly?: boolean | null;
-  /** Legacy : l'ancien interrupteur d'offre gratuite (prix null/0). */
+  /** Legacy : ancien interrupteur d'offre gratuite — IGNORÉ (voir ci-dessous). */
   proPrice?: number | null;
   freePlanEnabled?: boolean | null;
 }
@@ -90,21 +90,14 @@ export function clampTrialDays(days: number | null | undefined): number {
 /**
  * Normalise la configuration enregistrée.
  *
- * Compatibilité : tant que l'administrateur n'a jamais enregistré la nouvelle
- * configuration (`trialEnabled` absent), l'ancien interrupteur « Offre
- * gratuite » (prix Client Pro null/0) continue de commander l'essai — le
- * comportement en production ne change donc pas au déploiement. Dès que
- * l'administrateur enregistre, `trialEnabled` fait foi.
+ * SEUL `trialEnabled` commande la période d'essai. L'ancien couplage avec le
+ * prix Client Pro (null/0 = ancienne « Offre gratuite » Client Pro) a été
+ * SUPPRIMÉ : il réactivait l'essai dans le dos de l'administrateur et
+ * maintenait un mécanisme gratuit contradictoire. Un document historique sans
+ * `trialEnabled` est donc lu comme « essai désactivé ».
  */
 export function normalizeTrialConfig(source: TrialConfigSource | null | undefined): TrialConfig {
-  // Sans aucun document `paymentConfig`, l'essai est DÉSACTIVÉ (aucune offre
-  // gratuite par défaut). Le repli legacy ne s'applique qu'à un document
-  // existant dont le prix Client Pro est explicitement null/0.
-  const hasConfig = source != null;
-  const legacyFreeOffer =
-    hasConfig && (source!.proPrice === null || source!.proPrice === 0);
-  const enabled =
-    typeof source?.trialEnabled === "boolean" ? source.trialEnabled : legacyFreeOffer;
+  const enabled = source?.trialEnabled === true;
 
   return {
     enabled,
