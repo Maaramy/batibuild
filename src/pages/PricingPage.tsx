@@ -773,7 +773,7 @@ function PackCard({
         <span className="ml-1 text-sm text-muted-foreground">{currency}</span>
       </div>
       <p className="mb-4 flex-1 text-[11px] leading-relaxed text-muted-foreground">
-        Paiement unique. Les projets achetés s'ajoutent à votre solde et n'expirent pas.
+        Paiement unique. Les crédits achetés s'ajoutent à votre solde et n'expirent pas.
         Aucun renouvellement automatique.
       </p>
       <Button variant="outline" className="h-10 w-full" onClick={onSelect} disabled={disabled}>

@@ -295,7 +295,7 @@ export function MySubscriptionCard() {
 }
 
 function creditPackageCta(_exhausted: boolean): string {
-  return "Acheter des projets";
+  return "Acheter des crédits";
 }
 
 export default MySubscriptionCard;
