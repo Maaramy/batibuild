@@ -2,7 +2,6 @@ import { v } from "convex/values";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { getCurrentUser } from "./users";
 import {
-  TRIAL_CLIENT_PRO_DEFAULT_DAYS,
   TRIAL_DEFAULT_DAYS,
   DEFAULT_TRIAL_MODULES,
   DEFAULT_TRIAL_PROFILES,
@@ -18,59 +17,57 @@ import {
 } from "../lib/subscriptionPlans";
 import { defaultPlanPriceFields } from "../lib/planPricing";
 
+/** Durée par défaut de l'essai de chaque abonnement professionnel. */
+const TRIAL_EXPERT_DEFAULT_DAYS = 7;
+const TRIAL_SUPPLIER_DEFAULT_DAYS = 7;
+
 // ============================================================================
-// PÉRIODE D'ESSAI GRATUITE — CONFIGURATION ADMINISTRABLE (source de vérité)
+// PÉRIODE D'ESSAI GRATUITE — ABONNEMENTS MENSUELS EXPERT / FOURNISSEUR
 // ============================================================================
-// Remplace l'ancien forfait « Free » : plus aucune offre gratuite permanente
-// n'est proposée. À la place, une période d'essai dont l'administrateur règle
-// l'activation, la durée, la fenêtre de validité, les profils éligibles et les
-// modules ouverts — sans modification du code source.
-//
-// Client Pro est désormais éligible SI — et seulement si — l'administrateur le
-// coche dans `trialEligibleProfiles`. Sa durée peut être réglée séparément
-// (`trialClientProDurationDays`, repli sur la durée commune). À l'expiration,
-// l'accès Client Pro est retiré et l'abonnement payant reste obligatoire :
-// aucun abonnement n'est activé sans paiement confirmé.
+// Le forfait Client Pro n'est plus un abonnement mensuel : il fonctionne par
+// crédits de projets (`convex/clientProCredits.ts`). La période d'essai est
+// donc réservée aux DEUX abonnements professionnels, avec des paramètres
+// INDÉPENDANTS :
+//   • activation propre à chaque forfait ;
+//   • durée propre à chaque forfait (jours) ;
+//   • services inclus (modules ouverts pendant l'essai) ;
+//   • conditions de renouvellement (mensuel, sans reconduction automatique).
 //
 // Toutes les décisions (démarrage de l'essai, droits pendant l'essai) sont
-// prises CÔTÉ SERVEUR à partir de cette configuration : l'interface ne fait que
-// l'afficher, elle ne peut pas accorder de droits.
-//
-// Stockage : `paymentConfig` (document unique le plus récent), champs
-// `trialEnabled`, `trialDurationDays`, `trialClientProDurationDays`,
-// `trialValidFrom`, `trialValidUntil`, `trialEligibleProfiles`, `trialModules`,
-// `trialNewAccountsOnly`. Le plafond de projets de l'essai reste réglé par
-// `convex/projectLimits.ts` (aucune duplication de configuration).
-// Aucune donnée existante n'est supprimée : les estimations, projets,
-// abonnements payants et comptes restent strictement inchangés.
+// prises CÔTÉ SERVEUR à partir de cette configuration : l'interface ne fait
+// que l'afficher, elle ne peut pas accorder de droits.
+// ============================================================================
 
 export interface TrialConfig {
-  /** Période d'essai proposée aux nouveaux comptes ? */
+  /** Campagne d'essai ouverte (interrupteur général + fenêtre de dates). */
   enabled: boolean;
-  /** Durée accordée à chaque nouvel essai (jours, 1 à 365). */
+  /** Durée commune (repli quand un forfait n'a pas de durée dédiée). */
   durationDays: number;
-  /**
-   * Durée de l'essai du forfait Client Pro (jours). `null` = même durée que
-   * `durationDays`. Permet, par exemple, 7 jours pour Fournisseur / Expert et
-   * 14 jours pour Client Pro.
-   */
+  /** Legacy : durée Client Pro (conservée en lecture, sans effet). */
   clientProDurationDays: number | null;
-  /** Début de la campagne (ms) — `null` = sans borne. */
+  /** Essai de l'abonnement mensuel Expert. */
+  expertTrialEnabled: boolean;
+  expertTrialDays: number;
+  /** Essai de l'abonnement mensuel Fournisseur. */
+  supplierTrialEnabled: boolean;
+  supplierTrialDays: number;
   validFrom: number | null;
-  /** Fin de la campagne (ms) — `null` = sans borne. */
   validUntil: number | null;
-  /** Profils pouvant bénéficier de l'essai (Client Pro inclus si coché). */
+  /** Profils éligibles (Expert / Fournisseur uniquement). */
   eligibleProfiles: TrialProfileKey[];
   /** Modules ouverts pendant l'essai. */
   modules: TrialModuleKey[];
-  /** Interdire le rattrapage des comptes existants (essai réservé aux nouveaux inscrits). */
   newAccountsOnly: boolean;
 }
 
 export const DEFAULT_TRIAL_CONFIG: TrialConfig = {
   enabled: false,
   durationDays: TRIAL_DEFAULT_DAYS,
-  clientProDurationDays: TRIAL_CLIENT_PRO_DEFAULT_DAYS,
+  clientProDurationDays: null,
+  expertTrialEnabled: true,
+  expertTrialDays: TRIAL_EXPERT_DEFAULT_DAYS,
+  supplierTrialEnabled: true,
+  supplierTrialDays: TRIAL_SUPPLIER_DEFAULT_DAYS,
   validFrom: null,
   validUntil: null,
   eligibleProfiles: DEFAULT_TRIAL_PROFILES,
@@ -78,18 +75,19 @@ export const DEFAULT_TRIAL_CONFIG: TrialConfig = {
   newAccountsOnly: false,
 };
 
-/** Champs `paymentConfig` lus par ce module (tolérants : documents anciens). */
 export interface TrialConfigSource {
   trialEnabled?: boolean | null;
   trialDurationDays?: number | null;
-  /** Durée spécifique au forfait Client Pro — absente = durée commune. */
   trialClientProDurationDays?: number | null;
+  expertTrialEnabled?: boolean | null;
+  expertTrialDays?: number | null;
+  supplierTrialEnabled?: boolean | null;
+  supplierTrialDays?: number | null;
   trialValidFrom?: number | null;
   trialValidUntil?: number | null;
   trialEligibleProfiles?: string[] | null;
   trialModules?: string[] | null;
   trialNewAccountsOnly?: boolean | null;
-  /** Legacy : ancien interrupteur d'offre gratuite — IGNORÉ (voir ci-dessous). */
   proPrice?: number | null;
   freePlanEnabled?: boolean | null;
 }
@@ -100,7 +98,7 @@ export function clampTrialDays(days: number | null | undefined): number {
   return Math.min(TRIAL_MAX_DAYS, Math.max(TRIAL_MIN_DAYS, value));
 }
 
-/** Durée Client Pro enregistrée : `null` (durée commune) ou jours bornés. */
+/** Legacy : conservé pour la lecture des documents anciens (sans effet). */
 export function clampClientProTrialDays(days: number | null | undefined): number | null {
   if (days == null || !Number.isFinite(days)) return null;
   return clampTrialDays(days);
@@ -109,11 +107,11 @@ export function clampClientProTrialDays(days: number | null | undefined): number
 /**
  * Normalise la configuration enregistrée.
  *
- * SEUL `trialEnabled` commande la période d'essai. L'ancien couplage avec le
- * prix Client Pro (null/0 = ancienne « Offre gratuite » Client Pro) a été
- * SUPPRIMÉ : il réactivait l'essai dans le dos de l'administrateur et
- * maintenait un mécanisme gratuit contradictoire. Un document historique sans
- * `trialEnabled` est donc lu comme « essai désactivé ».
+ * SEUL `trialEnabled` commande l'ouverture de la campagne. Chaque forfait
+ * professionnel conserve ensuite son propre interrupteur : couper l'essai
+ * Expert ne coupe pas l'essai Fournisseur. Un document historique (sans les
+ * nouveaux champs) hérite de l'interrupteur commun, ce qui préserve le
+ * comportement existant sans jamais accorder d'essai Client Pro.
  */
 export function normalizeTrialConfig(source: TrialConfigSource | null | undefined): TrialConfig {
   const enabled = source?.trialEnabled === true;
@@ -122,6 +120,16 @@ export function normalizeTrialConfig(source: TrialConfigSource | null | undefine
     enabled,
     durationDays: clampTrialDays(source?.trialDurationDays),
     clientProDurationDays: clampClientProTrialDays(source?.trialClientProDurationDays),
+    expertTrialEnabled:
+      source?.expertTrialEnabled === undefined ? enabled : source.expertTrialEnabled === true,
+    expertTrialDays: clampTrialDays(
+      source?.expertTrialDays ?? source?.trialDurationDays ?? TRIAL_EXPERT_DEFAULT_DAYS,
+    ),
+    supplierTrialEnabled:
+      source?.supplierTrialEnabled === undefined ? enabled : source.supplierTrialEnabled === true,
+    supplierTrialDays: clampTrialDays(
+      source?.supplierTrialDays ?? source?.trialDurationDays ?? TRIAL_SUPPLIER_DEFAULT_DAYS,
+    ),
     validFrom: typeof source?.trialValidFrom === "number" ? source.trialValidFrom : null,
     validUntil: typeof source?.trialValidUntil === "number" ? source.trialValidUntil : null,
     eligibleProfiles: source?.trialEligibleProfiles
@@ -138,26 +146,17 @@ export function normalizeTrialConfig(source: TrialConfigSource | null | undefine
 export function validateTrialConfig(config: TrialConfig): string[] {
   const errors: string[] = [];
 
-  if (!Number.isInteger(config.durationDays)) {
-    errors.push("La durée de l'essai doit être un nombre entier de jours.");
-  } else if (config.durationDays < TRIAL_MIN_DAYS || config.durationDays > TRIAL_MAX_DAYS) {
-    errors.push(
-      `La durée de l'essai doit être comprise entre ${TRIAL_MIN_DAYS} et ${TRIAL_MAX_DAYS} jours.`,
-    );
-  }
-
-  if (config.clientProDurationDays != null) {
-    if (!Number.isInteger(config.clientProDurationDays)) {
-      errors.push("La durée de l'essai Client Pro doit être un nombre entier de jours.");
-    } else if (
-      config.clientProDurationDays < TRIAL_MIN_DAYS ||
-      config.clientProDurationDays > TRIAL_MAX_DAYS
-    ) {
-      errors.push(
-        `La durée de l'essai Client Pro doit être comprise entre ${TRIAL_MIN_DAYS} et ${TRIAL_MAX_DAYS} jours.`,
-      );
+  const checkDays = (days: number, label: string) => {
+    if (!Number.isInteger(days)) {
+      errors.push(`${label} : la durée doit être un nombre entier de jours.`);
+    } else if (days < TRIAL_MIN_DAYS || days > TRIAL_MAX_DAYS) {
+      errors.push(`${label} : la durée doit être comprise entre ${TRIAL_MIN_DAYS} et ${TRIAL_MAX_DAYS} jours.`);
     }
-  }
+  };
+
+  checkDays(config.durationDays, "Durée commune de l'essai");
+  checkDays(config.expertTrialDays, "Durée de l'essai Expert");
+  checkDays(config.supplierTrialDays, "Durée de l'essai Fournisseur");
 
   if (config.validFrom != null && !Number.isFinite(config.validFrom)) {
     errors.push("La date de début de la période d'essai est invalide.");
@@ -172,7 +171,9 @@ export function validateTrialConfig(config: TrialConfig): string[] {
   if (config.eligibleProfiles.length === 0) {
     errors.push("Sélectionnez au moins un profil éligible à la période d'essai.");
   }
-
+  if (!config.expertTrialEnabled && !config.supplierTrialEnabled) {
+    errors.push("Activez au moins un forfait professionnel pour la période d'essai.");
+  }
   if (config.modules.length === 0) {
     errors.push("Sélectionnez au moins un module accessible pendant la période d'essai.");
   }
@@ -191,47 +192,39 @@ export function isTrialCampaignOpen(config: TrialConfig, now = Date.now()): bool
 /**
  * Ce profil peut-il bénéficier de l'essai ?
  *
- * Le profil doit être explicitement coché par l'administrateur. Un profil NON
- * RÉSOLU est refusé (aucune information fiable pour l'identifier) ; Client Pro
- * n'est donc éligible que si l'administrateur l'a sélectionné.
+ * Client Pro est TOUJOURS exclu : ses droits viennent des crédits de projets.
+ * Pour Expert / Fournisseur, le profil doit être coché ET son forfait doit
+ * avoir son propre essai activé.
  */
 export function isProfileEligibleForTrial(
   config: TrialConfig,
   profileRole: string | null | undefined,
 ): boolean {
   if (isTrialExcludedProfile(profileRole)) return false;
+  if (profileRole === "expert" && !config.expertTrialEnabled) return false;
+  if (profileRole === "supplier" && !config.supplierTrialEnabled) return false;
   return config.eligibleProfiles.includes(profileRole as TrialProfileKey);
 }
 
-/**
- * Durée d'essai applicable à un profil : durée Client Pro si elle est réglée,
- * sinon durée commune. Source unique utilisée au démarrage de l'essai et par
- * l'affichage (page Abonnements, « Mon abonnement »).
- */
+/** Durée d'essai applicable au forfait du profil (jours réglés par l'admin). */
 export function trialDaysFor(
   config: TrialConfig,
   profileRole: string | null | undefined,
 ): number {
-  if (profileRole === "client" && config.clientProDurationDays != null) {
-    return config.clientProDurationDays;
-  }
+  if (profileRole === "expert") return config.expertTrialDays;
+  if (profileRole === "supplier") return config.supplierTrialDays;
+  // Client Pro (ou profil inconnu) : aucune période d'essai.
   return config.durationDays;
 }
 
 /** Un module est-il ouvert pendant l'essai ? */
-export function trialIncludes(
-  config: TrialConfig,
-  module: TrialModuleKey,
-): boolean {
+export function trialIncludes(config: TrialConfig, module: TrialModuleKey): boolean {
   return config.modules.includes(module);
 }
 
 /**
- * Date de fin d'un essai démarré à `startedAt`.
- *
- * L'essai ne dépasse JAMAIS la fin de la campagne lorsqu'une fenêtre globale
- * est définie : sinon un essai démarré la veille de la clôture donnerait des
- * jours au-delà de la période autorisée par l'administrateur.
+ * Date de fin d'un essai démarré à `startedAt`. L'essai ne dépasse JAMAIS la
+ * fin de la campagne lorsqu'une fenêtre globale est définie.
  */
 export function trialEndDateFor(
   config: TrialConfig,
@@ -295,7 +288,10 @@ export const getPublicTrialConfig = query({
     return {
       enabled: isTrialCampaignOpen(config),
       durationDays: config.durationDays,
-      clientProDurationDays: config.clientProDurationDays,
+      expertTrialEnabled: config.expertTrialEnabled,
+      expertTrialDays: config.expertTrialDays,
+      supplierTrialEnabled: config.supplierTrialEnabled,
+      supplierTrialDays: config.supplierTrialDays,
       eligibleProfiles: config.eligibleProfiles,
       modules: config.modules,
       validUntil: config.validUntil,
@@ -315,9 +311,12 @@ export const updateTrialConfig = mutation({
   args: {
     enabled: v.boolean(),
     durationDays: v.number(),
-    // Durée dédiée à Client Pro. Omise = valeur déjà enregistrée conservée
-    // (compatibilité avec les appels existants), `null` = durée commune.
+    // Legacy : accepté pour compatibilité, sans effet sur Client Pro.
     clientProDurationDays: v.optional(v.union(v.number(), v.null())),
+    expertTrialEnabled: v.optional(v.boolean()),
+    expertTrialDays: v.optional(v.number()),
+    supplierTrialEnabled: v.optional(v.boolean()),
+    supplierTrialDays: v.optional(v.number()),
     validFrom: v.union(v.number(), v.null()),
     validUntil: v.union(v.number(), v.null()),
     eligibleProfiles: v.array(v.string()),
@@ -332,41 +331,33 @@ export const updateTrialConfig = mutation({
     const unknownModule = args.modules.find((m) => !isTrialModuleKey(m));
     if (unknownModule) throw new Error(`Module inconnu : « ${unknownModule} ».`);
 
-    // La durée est validée AVANT d'être bornée : une valeur hors limites est
-    // refusée (jamais corrigée en silence).
-    if (
-      !Number.isInteger(args.durationDays) ||
-      args.durationDays < TRIAL_MIN_DAYS ||
-      args.durationDays > TRIAL_MAX_DAYS
-    ) {
-      throw new Error(
-        `La durée de l'essai doit être comprise entre ${TRIAL_MIN_DAYS} et ${TRIAL_MAX_DAYS} jours.`,
-      );
-    }
-
-    // Durée Client Pro : validée AVANT d'être enregistrée (jamais corrigée en
-    // silence). Une valeur omise conserve la configuration en cours.
     const current = await readTrialConfig(ctx);
-    if (args.clientProDurationDays != null) {
-      if (
-        !Number.isInteger(args.clientProDurationDays) ||
-        args.clientProDurationDays < TRIAL_MIN_DAYS ||
-        args.clientProDurationDays > TRIAL_MAX_DAYS
-      ) {
+
+    const validateDays = (days: number, label: string) => {
+      if (!Number.isInteger(days) || days < TRIAL_MIN_DAYS || days > TRIAL_MAX_DAYS) {
         throw new Error(
-          `La durée de l'essai Client Pro doit être comprise entre ${TRIAL_MIN_DAYS} et ${TRIAL_MAX_DAYS} jours.`,
+          `${label} : la durée doit être comprise entre ${TRIAL_MIN_DAYS} et ${TRIAL_MAX_DAYS} jours.`,
         );
       }
-    }
-    const clientProDurationDays =
-      args.clientProDurationDays === undefined
-        ? current.clientProDurationDays
-        : args.clientProDurationDays;
+    };
+    validateDays(args.durationDays, "Durée commune de l'essai");
+
+    const expertTrialDays = args.expertTrialDays ?? current.expertTrialDays;
+    const supplierTrialDays = args.supplierTrialDays ?? current.supplierTrialDays;
+    validateDays(expertTrialDays, "Durée de l'essai Expert");
+    validateDays(supplierTrialDays, "Durée de l'essai Fournisseur");
 
     const next: TrialConfig = {
       enabled: args.enabled,
       durationDays: args.durationDays,
-      clientProDurationDays,
+      clientProDurationDays:
+        args.clientProDurationDays === undefined
+          ? current.clientProDurationDays
+          : args.clientProDurationDays,
+      expertTrialEnabled: args.expertTrialEnabled ?? current.expertTrialEnabled,
+      expertTrialDays,
+      supplierTrialEnabled: args.supplierTrialEnabled ?? current.supplierTrialEnabled,
+      supplierTrialDays,
       validFrom: args.validFrom,
       validUntil: args.validUntil,
       eligibleProfiles: sanitizeTrialProfiles(args.eligibleProfiles),
@@ -383,6 +374,10 @@ export const updateTrialConfig = mutation({
       trialEnabled: next.enabled,
       trialDurationDays: next.durationDays,
       trialClientProDurationDays: next.clientProDurationDays ?? undefined,
+      expertTrialEnabled: next.expertTrialEnabled,
+      expertTrialDays: next.expertTrialDays,
+      supplierTrialEnabled: next.supplierTrialEnabled,
+      supplierTrialDays: next.supplierTrialDays,
       trialValidFrom: next.validFrom ?? undefined,
       trialValidUntil: next.validUntil ?? undefined,
       trialEligibleProfiles: next.eligibleProfiles,
@@ -404,9 +399,6 @@ export const updateTrialConfig = mutation({
         d17Email: "",
         d17Notice: "",
         currency: "TND",
-        // Un nouveau document de configuration porte TOUJOURS les prix des
-        // forfaits : un document partiel faisait perdre le prix Client Pro
-        // (champ absent lu comme « gratuit » par l'administration).
         ...defaultPlanPriceFields(),
         ...stored,
         updatedAt: now,
@@ -420,11 +412,11 @@ export const updateTrialConfig = mutation({
         adminName: admin.name,
         action: "update_trial_config",
         details:
-          `Période d'essai ${next.enabled ? "activée" : "désactivée"} — ${next.durationDays} jour(s)` +
-          (next.clientProDurationDays != null
-            ? ` (Client Pro : ${next.clientProDurationDays} jour(s))`
-            : "") +
-          ` · profils : ${next.eligibleProfiles.join(", ")} · modules : ${next.modules.join(", ")}`,
+          `Essai ${next.enabled ? "activé" : "désactivé"} — Expert ${
+            next.expertTrialEnabled ? `${next.expertTrialDays} j` : "désactivé"
+          }, Fournisseur ${
+            next.supplierTrialEnabled ? `${next.supplierTrialDays} j` : "désactivé"
+          } · profils : ${next.eligibleProfiles.join(", ")} · modules : ${next.modules.join(", ")}`,
         createdAt: now,
       });
     } catch {
@@ -446,6 +438,10 @@ export const resetTrialConfig = mutation({
       trialEnabled: DEFAULT_TRIAL_CONFIG.enabled,
       trialDurationDays: DEFAULT_TRIAL_CONFIG.durationDays,
       trialClientProDurationDays: undefined,
+      expertTrialEnabled: DEFAULT_TRIAL_CONFIG.expertTrialEnabled,
+      expertTrialDays: DEFAULT_TRIAL_CONFIG.expertTrialDays,
+      supplierTrialEnabled: DEFAULT_TRIAL_CONFIG.supplierTrialEnabled,
+      supplierTrialDays: DEFAULT_TRIAL_CONFIG.supplierTrialDays,
       trialValidFrom: undefined,
       trialValidUntil: undefined,
       trialEligibleProfiles: DEFAULT_TRIAL_CONFIG.eligibleProfiles,
@@ -468,9 +464,6 @@ export const resetTrialConfig = mutation({
         d17Email: "",
         d17Notice: "",
         currency: "TND",
-        // Un nouveau document de configuration porte TOUJOURS les prix des
-        // forfaits : un document partiel faisait perdre le prix Client Pro
-        // (champ absent lu comme « gratuit » par l'administration).
         ...defaultPlanPriceFields(),
         ...stored,
         updatedAt: now,

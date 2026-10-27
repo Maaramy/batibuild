@@ -1,24 +1,74 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/hooks/use-auth";
-import { api } from "@/convex/_generated/api";
-import { useQuery, useMutation } from "convex/react";
-import { useNavigate, useSearchParams } from "react-router";
-import { ArrowLeft, Check, ChevronRight, HardHat, Loader2, Star, Shield, Banknote, Copy, CheckCheck, Smartphone, Wallet, Landmark, UserRound, Upload, Image, X, Sparkles, RefreshCcw, CreditCard } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { useNavigate } from "react-router";
+import {
+  ArrowLeft,
+  Banknote,
+  BriefcaseBusiness,
+  Check,
+  CheckCheck,
+  Coins,
+  Copy,
+  CreditCard,
+  HardHat,
+  Image,
+  Landmark,
+  Loader2,
+  Shield,
+  Smartphone,
+  Sparkles,
+  Truck,
+  Upload,
+  UserRound,
+  Wallet,
+  X,
+} from "lucide-react";
 import { motion } from "framer-motion";
-import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
+
+import { api } from "@/convex/_generated/api";
+import { useAuth } from "@/hooks/use-auth";
 import { usePageSEO } from "@/hooks/use-page-seo";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { MySubscriptionCard } from "@/components/MySubscriptionCard";
 import { availablePaymentMethods } from "@/lib/paymentMethods";
-import { TRIAL_PLAN_LABEL, trialDurationLabel } from "@/lib/subscriptionPlans";
 import { planPriceLabel } from "@/lib/planPricing";
+import {
+  PROFESSIONAL_SERVICES,
+  trialDurationLabel,
+} from "@/lib/subscriptionPlans";
+import {
+  projectsLabel,
+  type ClientProCreditPackage,
+} from "@/lib/clientProCredits";
 
-// Coordonnées de règlement de repli (si aucune configuration n'est enregistrée).
-// AUCUN PRIX ici : les tarifs viennent exclusivement de la configuration
-// enregistrée par l'administrateur (`payments.getPublicPricing`), sinon ils sont
-// affichés comme non chargés — jamais remplacés par une valeur par défaut.
-const DEFAULT_PAYMENT = {
+// ============================================================================
+// PAGE ABONNEMENTS
+// ----------------------------------------------------------------------------
+// Deux dispositifs totalement séparés :
+//
+//   1. COTISATION CLIENT PRO — crédits de projets.
+//      Gratuité initiale unique (réglée par l'admin), puis packs de projets.
+//      Aucun abonnement mensuel, aucun renouvellement automatique.
+//
+//   2. ABONNEMENT MENSUEL EXPERT / FOURNISSEUR.
+//      Essai gratuit configurable, puis paiement mensuel confirmé. À l'expiration
+//      le profil devient invisible ; les données sont conservées.
+//
+//   Un professionnel peut cumuler les deux : l'achat Client Pro n'active jamais
+//   l'abonnement professionnel, et inversement.
+//
+// Aucun prix n'est codé en dur : tout vient de Convex (`getPublicPricing`,
+// `getMyClientProCredits`). Tant que la configuration charge, aucun montant
+// n'est envoyé.
+// ============================================================================
+
+type PlanId = "expert" | "supplier";
+type Intent = { kind: "credits"; pack: ClientProCreditPackage } | { kind: "plan"; plan: PlanId } | null;
+
+const PAYMENT_FALLBACK = {
   bankName: "Banque de Tunisie (BT)",
   bankTitulaire: "GALISKON PROJECT",
   bankRib: "07 001 1234567890123 47",
@@ -30,67 +80,6 @@ const DEFAULT_PAYMENT = {
   d17Notice: "Envoyez le paiement via l'application D17 de La Poste Tunisienne",
   currency: "TND",
 };
-
-// Abonnements mensuels (30 jours) — trois offres : Client Pro, Fournisseur, Expert.
-// Un prix null/0 en base signifie que le forfait est gratuit (bascule admin
-// « Offre gratuite » d'un forfait payant). Le forfait « Free » permanent
-// n'existe plus : il est remplacé par la période d'essai configurée par
-// l'administrateur, puis par une offre payante.
-type PlanId = "pro" | "supplier" | "expert";
-
-const PLAN_LABELS: Record<string, string> = { pro: "Client Pro", supplier: "Fournisseur", expert: "Expert" };
-
-/**
- * Contenu marketing des trois offres — avantages spécifiques à chaque type
- * d'utilisateur (client : estimation & analyse de projets ; fournisseur :
- * visibilité, catalogue et opportunités commerciales ; expert : consultation,
- * visibilité et développement de l'activité).
- */
-const PLANS: {
-  id: PlanId;
-  quota: number;
-  subtitle: string;
-  features: string[];
-  popular?: boolean;
-}[] = [
-  {
-    id: "pro",
-    quota: -1,
-    subtitle: "Votre projet. Votre budget. Vos décisions, mieux préparées.",
-    features: [
-      "Estimez vos projets au juste prix du marché tunisien",
-      "Optimisez le budget de vos projets de construction",
-      "Comparez vos scénarios avant de vous engager",
-      "Générez et téléchargez vos études en PDF",
-      "Accédez à vos projets et analyses sans limitation",
-    ],
-    popular: true,
-  },
-  {
-    id: "supplier",
-    quota: -1,
-    subtitle: "Plus de visibilité. Plus d’opportunités. Plus de clients.",
-    features: [
-      "Présentez vos matériaux aux porteurs de projets",
-      "Développez votre visibilité auprès des professionnels",
-      "Recevez des opportunités adaptées à vos produits",
-      "Mettez en avant votre catalogue et vos prix",
-      "Gérez votre présence fournisseur simplement",
-    ],
-  },
-  {
-    id: "expert",
-    quota: -1,
-    subtitle: "Votre expertise. De nouvelles opportunités. Votre croissance.",
-    features: [
-      "Présentez votre expertise aux porteurs de projets",
-      "Recevez des demandes de consultation adaptées à votre profil",
-      "Développez votre visibilité auprès de nouveaux clients",
-      "Gérez vos demandes et rendez-vous depuis votre espace",
-      "Valorisez votre profil, vos services et vos tarifs",
-    ],
-  },
-];
 
 function PaymentField({
   label,
@@ -115,11 +104,7 @@ function PaymentField({
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
           title={`Copier ${label}`}
         >
-          {isCopied ? (
-            <CheckCheck className="h-3.5 w-3.5 text-emerald-500" />
-          ) : (
-            <Copy className="h-3.5 w-3.5" />
-          )}
+          {isCopied ? <CheckCheck className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
         </button>
       )}
     </div>
@@ -127,27 +112,40 @@ function PaymentField({
 }
 
 export default function PricingPage() {
-  usePageSEO({ title: "Abonnements - batibuild", description: "Choisissez votre abonnement mensuel batibuild : Client, Fournisseur ou Expert — accès illimité, renouvellement mensuel." });
+  usePageSEO({
+    title: "Abonnements et cotisations - batibuild",
+    description:
+      "Cotisation Client Pro par projets, abonnements mensuels Expert et Fournisseur : choisissez le dispositif adapté à votre profil.",
+  });
+
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const currentSubscription = useQuery(api.subscriptions.getMySubscription);
-  const createSubscription = useMutation(api.subscriptions.createSubscription);
-  const [copying, setCopying] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<string>("bank_transfer");
-  const paymentSectionRef = useRef<HTMLDivElement>(null);
-  const paymentConfig = useQuery(api.payments.getPublicPricing);
-  // ── Période d'essai gratuite : activation et durée viennent de la
-  // configuration administrée (`convex/trialConfig.ts`), jamais d'une constante.
-  const trialEnabled = (paymentConfig as any)?.trialEnabled === true;
-  const commonTrialDays: number = (paymentConfig as any)?.trialDurationDays ?? 7;
-  const clientProTrialDays: number | null =
-    (paymentConfig as any)?.trialClientProDurationDays ?? null;
 
-  // ── Méthodes de paiement disponibles (activées par l'administrateur) ──
-  const paymentMethods = availablePaymentMethods(
-    (paymentConfig as any)?.paymentMethods,
-  );
+  const paymentConfig = useQuery(api.payments.getPublicPricing);
+  const credits = useQuery(api.clientProCredits.getMyClientProCredits);
+  const myOrders = useQuery(api.clientProCredits.getMyClientProOrders) ?? [];
+  const subscription = useQuery(api.subscriptions.getMySubscription);
+  const profileRole = useQuery(api.profileSubscription.getMyProfileRole);
+  const status = useQuery(api.subscriptionStatus.getMySubscriptionStatus);
+
+  const requestCotisation = useMutation(api.clientProCredits.requestClientProCotisation);
+  const cancelOrder = useMutation(api.clientProCredits.cancelClientProOrder);
+  const uploadCotisationProof = useMutation(api.clientProCredits.uploadClientProPaymentProof);
+  const createSubscription = useMutation(api.subscriptions.createSubscription);
+  const uploadPaymentProof = useMutation(api.subscriptions.uploadPaymentProof);
+  const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+
+  const [intent, setIntent] = useState<Intent>(null);
+  const [paymentMethod, setPaymentMethod] = useState("bank_transfer");
+  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const paymentRef = useRef<HTMLDivElement>(null);
+
+  const config = paymentConfig as any;
+  const currency = config?.currency ?? PAYMENT_FALLBACK.currency;
+  const paymentMethods = availablePaymentMethods(config?.paymentMethods);
   const paymentMethodsSignature = paymentMethods.map((m) => m.slug).join("|");
+
   useEffect(() => {
     if (paymentMethods.length === 0) return;
     if (!paymentMethods.some((m) => m.slug === paymentMethod)) {
@@ -155,744 +153,690 @@ export default function PricingPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentMethodsSignature]);
-  const generateUploadUrl = useMutation(api.users.generateUploadUrl);
-  const uploadPaymentProof = useMutation(api.subscriptions.uploadPaymentProof);
-  // ── Règle profil ↔ abonnement : n'afficher QUE les offres du profil actif ──
-  const profileRole = useQuery(api.profileSubscription.getMyProfileRole);
-  // ── Essai : uniquement pour les profils explicitement éligibles ──
-  // Client Pro en fait partie lorsque l'administrateur l'a coché.
-  const trialProfiles: string[] = (paymentConfig as any)?.trialEligibleProfiles ?? [];
-  const trialForMyProfile =
-    trialEnabled && profileRole != null && trialProfiles.includes(profileRole);
-  // Durée affichée : celle réglée pour Client Pro s'il y en a une.
-  const trialDays =
-    profileRole === "client" && clientProTrialDays != null ? clientProTrialDays : commonTrialDays;
 
-  const [uploading, setUploading] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [searchParams] = useSearchParams();
-  const [selectedPlan, setSelectedPlan] = useState<PlanId>(() => {
-    const p = searchParams.get("plan");
-    return p === "pro" ? "pro" : p === "supplier" ? "supplier" : "expert";
-  });
+  const pendingOrder = myOrders.find((order: any) => order.status === "pending");
+  const isPendingSubscription = subscription?.status === "pending";
 
-  // ── Offres autorisées pour le profil actif (Client Pro → pro, Fournisseur →
-  // supplier, Expert → expert). Le backend refuse de toute façon tout achat
-  // incompatible — ce filtrage n'est qu'un guidage d'affichage. ──
-  const allowedPlans: PlanId[] =
-    profileRole === "supplier" ? ["supplier"] : profileRole === "expert" ? ["expert"] : ["pro"];
-  const visiblePlans = PLANS.filter((p) => allowedPlans.includes(p.id));
-  // Forfait pré-sélectionné invalide pour ce profil → aligné sur l'offre autorisée.
-  const effectiveSelectedPlan: PlanId = allowedPlans.includes(selectedPlan)
-    ? selectedPlan
-    : allowedPlans[0];
+  const professionalRole: PlanId | null =
+    profileRole === "expert" ? "expert" : profileRole === "supplier" ? "supplier" : null;
 
-  // ── Prix RÉELLEMENT enregistrés par l'administrateur ──────────────────────
-  //   `undefined` → configuration en cours de chargement : aucun prix n'est
-  //                 affiché ni utilisé pour un paiement (jamais 80 TND par défaut) ;
-  //   `null`      → « Offre gratuite » activée par l'administrateur ;
-  //   nombre      → prix mensuel enregistré, utilisé tel quel.
-  const planPrice = (plan: PlanId): number | null | undefined => {
-    const c = paymentConfig as any;
-    if (c == null) return undefined;
-    const stored =
-      plan === "pro" ? c.proPrice : plan === "supplier" ? c.supplierPrice : c.expertPrice;
-    if (stored === undefined) return undefined;
-    return stored;
-  };
-  const isFreePlan = (plan: PlanId): boolean => {
-    const p = planPrice(plan);
-    return p === null || p === 0;
-  };
+  const rolePlan = professionalRole
+    ? config
+      ? {
+          expert: {
+            price: config.expertPrice,
+            trialEnabled: config.expertTrialEnabled === true,
+            trialDays: config.expertTrialDays ?? 7,
+            services: config.expertIncludedServices,
+            autoRenew: config.expertAutoRenew !== false,
+          },
+          supplier: {
+            price: config.supplierPrice,
+            trialEnabled: config.supplierTrialEnabled === true,
+            trialDays: config.supplierTrialDays ?? 7,
+            services: config.supplierIncludedServices,
+            autoRenew: config.supplierAutoRenew !== false,
+          },
+        }[professionalRole]
+      : null
+    : null;
 
-  const currentPlanPrice = planPrice(effectiveSelectedPlan);
-  const currency = paymentConfig?.currency || DEFAULT_PAYMENT.currency;
-  const currentPriceLabel = planPriceLabel(currentPlanPrice);
+  const selectedAmount = useMemo(() => {
+    if (!intent) return null;
+    if (intent.kind === "credits") return intent.pack.price;
+    const plan = professionalRole ? rolePlan : null;
+    if (!plan) return null;
+    return plan.price;
+  }, [intent, professionalRole, rolePlan]);
 
-  const BANK_INFO: Record<string, string> = paymentConfig ? {
-    bank: paymentConfig.bankName,
-    titulaire: paymentConfig.bankTitulaire,
-    rib: paymentConfig.bankRib,
-    iban: paymentConfig.bankIban,
-    swift: paymentConfig.bankSwift,
-    montant: currentPriceLabel,
-  } : {
-    bank: DEFAULT_PAYMENT.bankName,
-    titulaire: DEFAULT_PAYMENT.bankTitulaire,
-    rib: DEFAULT_PAYMENT.bankRib,
-    iban: DEFAULT_PAYMENT.bankIban,
-    swift: DEFAULT_PAYMENT.bankSwift,
-    montant: currentPriceLabel,
-  };
-
-  const D17_INFO: Record<string, string> = paymentConfig ? {
-    merchantName: paymentConfig.d17MerchantName,
-    phone: paymentConfig.d17Phone,
-    email: paymentConfig.d17Email,
-    montant: currentPriceLabel,
-    notice: paymentConfig.d17Notice,
-  } : {
-    merchantName: DEFAULT_PAYMENT.d17MerchantName,
-    phone: DEFAULT_PAYMENT.d17Phone,
-    email: DEFAULT_PAYMENT.d17Email,
-    montant: currentPriceLabel,
-    notice: DEFAULT_PAYMENT.d17Notice,
-  };
-
-  const isPending = currentSubscription?.status === "pending";
-  // Méthode réellement rattachée à la demande en attente (et non le sélecteur
-  // courant) : le justificatif attendu est celui du paiement effectué.
-  const pendingPaymentMethod = isPending
-    ? currentSubscription?.paymentMethod ?? paymentMethod
-    : paymentMethod;
-  const currentPlan: string | null = currentSubscription && !isPending ? (currentSubscription.plan as string) : null;
-
-  const isCurrentPlan = (plan: PlanId) => currentPlan === plan && !isPending;
-
-  const handleSelectPlan = async (planId: PlanId) => {
-    // Garde-frontière : ne jamais lancer une souscription incompatible.
-    if (!allowedPlans.includes(planId)) return;
-    if (!isAuthenticated) {
-      navigate("/auth");
-      return;
-    }
-
-    setSelectedPlan(planId);
-
-    // Scroll to payment method section smoothly
-    setTimeout(() => {
-      paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
-
-    const planAmount = planPrice(planId);
-    // Tarif non encore chargé : on refuse la souscription plutôt que d'envoyer un
-    // montant inventé (une ancienne version transmettait 80 TND par défaut).
-    if (planAmount === undefined) {
-      toast.error(
-        "La configuration des tarifs est en cours de chargement. Réessayez dans un instant.",
-      );
-      return;
-    }
-    const free = planAmount === null || planAmount === 0;
-
-    // Aucune méthode active côté serveur → impossible de régler un forfait payant.
-    if (!free && paymentMethods.length === 0) {
-      toast.error(
-        "Aucune méthode de paiement n'est disponible. Contactez le support batibuild.",
-      );
-      return;
-    }
-
-    // Forfait mensuel — activation immédiate si gratuit, sinon paiement (virement/D17)
-    await createSubscription({
-      plan: planId,
-      paymentMethod: free ? undefined : paymentMethod,
-      amount: free ? 0 : planAmount,
-      currency: paymentConfig?.currency ?? DEFAULT_PAYMENT.currency,
-    });
-
-    toast.success(
-      free
-        ? "Forfait gratuit activé avec succès !"
-        : paymentMethod === "d17"
-        ? "Demande d'abonnement envoyée ! En attente de validation du paiement D17."
-        : "Demande d'abonnement envoyée ! En attente de validation du virement."
-    );
-  };
-
-  const handleUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !currentSubscription?._id) return;
-
-    // Validate file type
-    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-      toast.error("Format accepté : image (JPG, PNG) ou PDF");
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Fichier trop volumineux (max 5 Mo)");
-      return;
-    }
-
-    setUploading(true);
-    setUploadProgress(10);
-
-    try {
-      // Get upload URL from Convex
-      const uploadUrl = await generateUploadUrl();
-      setUploadProgress(30);
-
-      // Upload to Convex storage
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      setUploadProgress(70);
-
-      if (!result.ok) throw new Error("Échec de l'upload");
-
-      const { storageId } = await result.json();
-      setUploadProgress(85);
-
-      // Get the URL for the uploaded file
-      const fileUrl = `${window.location.origin}/api/storage/${storageId}`;
-
-      // Attach to subscription
-      await uploadPaymentProof({
-        subscriptionId: currentSubscription._id as any,
-        storageId: storageId as any,
-        url: fileUrl,
-        fileName: file.name,
-      });
-
-      setUploadProgress(100);
-      setUploadedFile(file.name);
-      toast.success("Reçu de paiement envoyé avec succès !");
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de l'upload du reçu");
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-    }
-  };
+  const amountLabel =
+    selectedAmount === null
+      ? "—"
+      : selectedAmount === 0
+        ? "Gratuit"
+        : `${selectedAmount} ${currency}`;
 
   const handleCopy = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopying(label);
       toast.success(`${label} copié`);
-      setTimeout(() => setCopying(null), 2000);
     } catch {
       toast.error("Impossible de copier");
     }
   };
 
-  const renderPlanCard = (
-    plan: PlanId,
-    // `undefined` = tarif en cours de chargement (aucun montant affiché)
-    price: number | null | undefined,
-    _quota: number,
-    subtitle: string,
-    features: string[],
-    popular?: boolean,
-    index = 0,
-  ) => {
-    const isCurrent = isCurrentPlan(plan);
-    const reached = false;
-    // Bouton désactivé (tarif non chargé / offre déjà active / en attente) : on
-    // garde le style neutre.
-    const isDisabled =
-      price === undefined ||
-      (!reached && isCurrent) ||
-      (isPending && plan === currentSubscription?.plan);
+  const scrollToPayment = () =>
+    setTimeout(() => paymentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
 
-    return (
-      <motion.div
-        key={plan}
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.1, duration: 0.5 }}
-        className={`relative flex flex-col rounded-2xl border p-6 transition-all duration-300 hover:shadow-xl ${
-          popular
-            ? "border-primary/30 bg-gradient-to-b from-primary/5 to-background shadow-lg shadow-primary/5"
-            : "border-border/50 bg-background/50 backdrop-blur-sm"
-        }`}
-      >
-        {popular && (
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-            <Badge className="bg-primary text-primary-foreground shadow-lg px-4 py-1">
-              <Star className="h-3 w-3 mr-1 fill-current" />
-              Populaire
-            </Badge>
-          </div>
-        )}
-
-        {isCurrent && (
-          <div className="absolute -top-3 right-4">
-            <Badge variant="secondary" className="px-3 py-0.5 text-xs">
-              Actuel
-            </Badge>
-          </div>
-        )}
-
-        <div className="mb-5">
-          <h3 className="text-lg font-semibold">{PLAN_LABELS[plan]}</h3>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
-        </div>
-
-        <div className="mb-5">
-          {price === undefined ? (
-            <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Chargement du tarif…
-            </span>
-          ) : (price ?? 0) > 0 ? (
-            <>
-              <span className="text-4xl font-bold">{price}</span>
-              <span className="ml-1 text-sm text-muted-foreground">TND · /mois</span>
-            </>
-          ) : (
-            <span className="text-4xl font-bold text-emerald-600">Gratuit</span>
-          )}
-        </div>
-
-        <ul className="mb-8 flex-1 space-y-3">
-          {features.map((feature) => (
-            <li key={feature} className="flex items-start gap-2 text-sm">
-              <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-              <span className="min-w-0 leading-snug">{feature}</span>
-            </li>
-          ))}
-        </ul>
-
-        <Button
-          variant={popular && !isCurrent ? "default" : "outline"}
-          className={`mt-auto w-full h-11 text-sm gap-1 ${
-            isDisabled ? "" : "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white"
-          }`}
-          onClick={() => handleSelectPlan(plan)}
-          disabled={isDisabled}
-        >
-          {isCurrent && !reached
-            ? "Offre actuelle"
-            : isPending && plan === currentSubscription?.plan
-            ? "En attente..."
-            : reached
-            ? `Renouveler · ${PLAN_LABELS[plan]}`
-            : `Choisir ${PLAN_LABELS[plan]}`}
-          {!isCurrent && !isPending && <ChevronRight className="h-3.5 w-3.5" />}
-        </Button>
-      </motion.div>
-    );
+  const requireAuth = (): boolean => {
+    if (isAuthenticated) return true;
+    navigate("/auth?returnTo=/dashboard/pricing");
+    return false;
   };
+
+  const handleSelectPack = (pack: ClientProCreditPackage) => {
+    if (!requireAuth()) return;
+    setIntent({ kind: "credits", pack });
+    scrollToPayment();
+  };
+
+  const handleSelectPlan = () => {
+    if (!requireAuth() || !professionalRole) return;
+    setIntent({ kind: "plan", plan: professionalRole });
+    scrollToPayment();
+  };
+
+  const handleConfirm = async () => {
+    if (!intent) return;
+    if (selectedAmount === null) {
+      toast.error("La configuration des tarifs est en cours de chargement. Réessayez dans un instant.");
+      return;
+    }
+    if (selectedAmount > 0 && paymentMethods.length === 0) {
+      toast.error("Aucune méthode de paiement n'est disponible. Contactez le support batibuild.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      if (intent.kind === "credits") {
+        await requestCotisation({
+          projects: intent.pack.projects,
+          paymentMethod: selectedAmount > 0 ? paymentMethod : undefined,
+        });
+        toast.success(
+          "Demande de cotisation envoyée. Les projets seront ajoutés après confirmation du paiement.",
+        );
+        setIntent(null);
+      } else {
+        const plan = rolePlan;
+        if (!plan) return;
+        const free = plan.price === null || plan.price === 0;
+        await createSubscription({
+          plan: intent.plan,
+          paymentMethod: free ? undefined : paymentMethod,
+          amount: free ? 0 : plan.price,
+          currency,
+        });
+        toast.success(
+          free
+            ? "Abonnement professionnel gratuit activé."
+            : paymentMethod === "d17"
+              ? "Demande envoyée. En attente de validation du paiement D17."
+              : "Demande envoyée. En attente de validation du virement.",
+        );
+        setIntent(null);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Impossible d'enregistrer la demande.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const uploadProof = async (
+    file: File,
+    kind: "credits" | "plan",
+    targetId: string,
+  ) => {
+    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+      toast.error("Format accepté : image (JPG, PNG) ou PDF");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux (max 5 Mo)");
+      return;
+    }
+    setUploading(true);
+    try {
+      const uploadUrl = await generateUploadUrl();
+      const res = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!res.ok) throw new Error("Échec de l'upload");
+      const { storageId } = await res.json();
+      const url = `${window.location.origin}/api/storage/${storageId}`;
+      if (kind === "credits") {
+        await uploadCotisationProof({
+          orderId: targetId as any,
+          storageId: storageId as any,
+          url,
+          fileName: file.name,
+        });
+      } else {
+        await uploadPaymentProof({
+          subscriptionId: targetId as any,
+          storageId: storageId as any,
+          url,
+          fileName: file.name,
+        });
+      }
+      toast.success("Justificatif joint à votre demande.");
+    } catch (err: any) {
+      toast.error(err?.message || "Erreur lors de l'envoi du justificatif.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!pendingOrder) return;
+    if (!window.confirm("Annuler cette demande de cotisation ? Aucun crédit n'a été attribué.")) return;
+    try {
+      await cancelOrder({ orderId: pendingOrder._id });
+      toast.success("Demande annulée.");
+    } catch (err: any) {
+      toast.error(err?.message || "Annulation impossible.");
+    }
+  };
+
+  const bankInfo = {
+    bank: config?.bankName || PAYMENT_FALLBACK.bankName,
+    titulaire: config?.bankTitulaire || PAYMENT_FALLBACK.bankTitulaire,
+    rib: config?.bankRib || PAYMENT_FALLBACK.bankRib,
+    iban: config?.bankIban || PAYMENT_FALLBACK.bankIban,
+    swift: config?.bankSwift || PAYMENT_FALLBACK.bankSwift,
+  };
+  const d17Info = {
+    merchantName: config?.d17MerchantName || PAYMENT_FALLBACK.d17MerchantName,
+    phone: config?.d17Phone || PAYMENT_FALLBACK.d17Phone,
+    email: config?.d17Email || PAYMENT_FALLBACK.d17Email,
+    notice: config?.d17Notice || PAYMENT_FALLBACK.d17Notice,
+  };
+
+  const loading = paymentConfig === undefined || credits === undefined;
+  const balance = credits?.balance;
+  const exhausted = (balance?.remaining ?? 0) <= 0;
+  const canStack = credits?.config.allowStacking !== false;
+  const purchasesDisabled = !!pendingOrder || (exhausted === false && !canStack);
 
   return (
     <main className="min-h-screen bg-background">
-      <header className="border-b border-border/30 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 flex items-center h-14">
+      <header className="sticky top-0 z-10 border-b border-border/30 bg-background/80 backdrop-blur-sm">
+        <div className="mx-auto flex h-14 max-w-6xl items-center px-4 sm:px-6">
           <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4" />
-            Retour
+            <ArrowLeft className="h-4 w-4" /> Retour
           </Button>
           <div className="ml-4 flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <HardHat className="h-3.5 w-3.5" />
             </div>
-            <span className="font-semibold text-sm">Abonnements</span>
+            <span className="text-sm font-semibold">Abonnements & cotisations</span>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
-        <div className="text-center mb-8">
-          <Badge variant="outline" className="mb-4 px-3 py-1 text-xs font-medium">
-            Abonnement actuel : {currentPlan ? PLAN_LABELS[currentPlan] : "Aucun"}
-            {isPending && " (En attente de validation)"}
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <div className="mb-8 text-center">
+          <Badge variant="outline" className="mb-3 px-3 py-1 text-xs font-medium">
+            Cotisation Client Pro · abonnements mensuels Expert / Fournisseur
           </Badge>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Choisissez votre abonnement</h1>
-          <p className="mt-2 text-sm text-muted-foreground max-w-lg mx-auto">
-            Abonnement mensuel (30 jours) — renouvellement requis à l'échéance. Chaque forfait inclut un accès complet
-            aux outils d'estimation, matériaux IA et téléchargements.{" "}
-            {trialForMyProfile
-              ? `Pendant la période d'essai gratuite (${trialDurationLabel(trialDays)}) réservée à votre profil, l'accès est offert ; à son terme, la souscription à une offre devient obligatoire et aucun paiement n'est déclenché automatiquement.`
-              : "Aucune période d'essai pour votre profil : la souscription à une offre est requise pour accéder aux services."}
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Vos droits, séparés et maîtrisés</h1>
+          <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
+            Client Pro fonctionne par crédits de projets : un quota gratuit une seule fois, puis des
+            packs achetés sans renouvellement automatique. Expert et Fournisseur disposent d'un
+            abonnement mensuel avec essai gratuit, indépendant de Client Pro.
           </p>
         </div>
 
-        {/* ═══ Mon abonnement : essai gratuit (7 j) ou abonnement mensuel (30 j) ═══ */}
         <div className="mb-8">
           <MySubscriptionCard />
         </div>
 
-        {/* ═══ Les forfaits autorisés pour le profil actif ═══ */}
-        {profileRole != null && profileRole !== "client" && (
-          <div className="mb-6 flex items-start gap-2 rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 text-xs text-blue-700 dark:text-blue-300">
-            <Shield className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>
-              Votre profil est «{" "}
-              <strong>{PLAN_LABELS[profileRole]}</strong> ». Seules les offres{" "}
-              <strong>{PLAN_LABELS[profileRole]}</strong> peuvent être souscrites avec ce type de
-              profil.
-            </span>
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-border/40 bg-muted/10 p-10 text-xs text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Chargement des tarifs enregistrés…
           </div>
-        )}
-
-        {/* ═══ Période d'essai gratuite — profils éligibles uniquement ═══ */}
-        {trialForMyProfile && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="mb-10 rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/[0.07] to-background p-5 sm:p-6"
-          >
-            <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
-                <Sparkles className="h-4 w-4 text-emerald-600" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold">{TRIAL_PLAN_LABEL} gratuite</p>
-                  <Badge variant="outline" className="border-emerald-500/30 text-[10px] text-emerald-700 dark:text-emerald-400">
-                    {trialDurationLabel(trialDays)} offerts
+        ) : (
+          <div className="space-y-10">
+            {/* ═══ A. COTISATION CLIENT PRO ═══ */}
+            <section>
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="flex items-center gap-2 text-lg font-semibold">
+                    <Coins className="h-5 w-5 text-blue-600" /> Cotisation Client Pro
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Chaque nouveau projet consomme un crédit. Payez uniquement les projets dont vous
+                    avez besoin — aucun abonnement mensuel.
+                  </p>
+                </div>
+                {balance && (
+                  <Badge
+                    variant="outline"
+                    className={
+                      exhausted
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-700"
+                        : "border-emerald-500/40 bg-emerald-500/10 text-emerald-700"
+                    }
+                  >
+                    {balance.remaining} restant{balance.remaining > 1 ? "s" : ""} · {balance.used} utilisé
+                    {balance.used > 1 ? "s" : ""} / {balance.granted}
                   </Badge>
-                </div>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  Votre profil bénéficie d'une période d'essai de{" "}
-                  <strong>{trialDurationLabel(trialDays)}</strong> sur les modules sélectionnés par
-                  l'administration. Aucun paiement n'est déclenché automatiquement : à l'expiration,
-                  vous choisissez librement une offre payante. Un compte ne peut bénéficier que d'une
-                  seule période d'essai.
-                </p>
+                )}
               </div>
-            </div>
-          </motion.div>
-        )}
 
-        {/* ═══ Les 3 forfaits ═══ */}
-        <div
-          className={`grid grid-cols-1 ${visiblePlans.length > 1 ? "md:grid-cols-3" : "md:grid-cols-1 max-w-md mx-auto"} gap-6 mb-10 pt-2`}
-        >
-          {visiblePlans.map((p, i) =>
-            renderPlanCard(p.id, planPrice(p.id), p.quota, p.subtitle, p.features, p.popular && visiblePlans.length > 1, i),
-          )}
-        </div>
-
-        {/* ═══ Récapitulatif inclus dans chaque forfait ═══ */}
-        <div className="mb-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="flex items-start gap-3 rounded-2xl border border-blue-500/15 bg-blue-500/5 p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10">
-              <HardHat className="h-4 w-4 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold">Projets de construction</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Estimation du coût de vos projets, aménagements et rénovations aux prix du marché tunisien.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10">
-              <Sparkles className="h-4 w-4 text-violet-600" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold">Assistant matériaux IA</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Recommandations comparées (économique · équilibré · premium) avec fournisseurs au meilleur prix.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* ═══ Payment Method Section ═══ */}
-        <motion.div
-          ref={paymentSectionRef}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-          className="rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/[0.02] to-background p-5 sm:p-6 scroll-mt-24"
-        >
-          <div className="flex items-center gap-2.5 mb-4">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-              <Wallet className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold leading-tight">Moyen de paiement</h2>
-              <p className="text-[11px] text-muted-foreground">
-                <strong>{PLAN_LABELS[effectiveSelectedPlan]} · {currentPriceLabel}</strong> (paiement unique)
-              </p>
-            </div>
-          </div>
-
-          {/* Abonnement selector — offres du profil uniquement */}
-          <div
-            className={`mb-4 grid ${visiblePlans.length > 1 ? "grid-cols-2" : "grid-cols-1"} gap-1 rounded-xl border border-border/40 bg-muted/20 p-1`}
-          >
-            {(visiblePlans.map((p) => p.id) as PlanId[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => setSelectedPlan(p)}
-                className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 text-xs font-medium transition-all ${
-                  effectiveSelectedPlan === p
-                    ? "border-border/40 bg-background text-primary shadow-sm"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {PLAN_LABELS[p]}
-                <span className="text-[9px] opacity-70">{planPriceLabel(planPrice(p))}</span>
-              </button>
-            ))}
-          </div>
-
-          {currentPlanPrice === undefined ? (
-            <div className="flex items-center justify-center gap-2 rounded-xl border border-border/40 bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Chargement du tarif enregistré…
-            </div>
-          ) : (currentPlanPrice ?? 0) > 0 ? (
-          <>
-          {/* Payment method selector — méthodes activées par l'administrateur */}
-          {paymentMethods.length === 0 ? (
-            <div className="mb-4 rounded-xl border border-amber-200/50 bg-amber-50/60 px-4 py-3">
-              <p className="text-xs font-semibold text-amber-700">
-                Aucune méthode de paiement n'est disponible actuellement.
-              </p>
-              <p className="mt-0.5 text-[10px] text-amber-600/80">
-                Merci de contacter le support batibuild pour finaliser votre abonnement.
-              </p>
-            </div>
-          ) : (
-          <div
-            className="mb-4 flex gap-1 rounded-xl border border-border/40 bg-muted/20 p-1"
-          >
-            {paymentMethods.map((method) => {
-              const MethodIcon =
-                method.icon === "smartphone" ? Smartphone : method.icon === "card" ? CreditCard : Banknote;
-              const active = paymentMethod === method.slug;
-              const activeColor = method.slug === "d17" ? "text-amber-600" : "text-primary";
-              return (
-                <button
-                  key={method.slug}
-                  onClick={() => setPaymentMethod(method.slug)}
-                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-all ${
-                    active
-                      ? `border-border/40 bg-background shadow-sm ${activeColor}`
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <MethodIcon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{method.shortLabel}</span>
-                </button>
-              );
-            })}
-          </div>
-          )}
-
-          {paymentMethod === "bank_transfer" ? (
-            <>
-              <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
-                <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-muted/10 px-4 py-3">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                      <Landmark className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold">{BANK_INFO.bank}</p>
-                      <p className="truncate text-[10px] text-muted-foreground">Coordonnées bancaires</p>
-                    </div>
-                  </div>
-                  <span className="shrink-0 rounded-lg bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground">
-                    {BANK_INFO.montant}
+              {credits?.config.freeGrantEnabled && (
+                <div className="mb-4 flex items-start gap-2 rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 text-xs text-blue-700 dark:text-blue-300">
+                  <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    {credits.freeGranted
+                      ? `Votre gratuité initiale (${projectsLabel(credits.config.freeProjects)}, une seule fois) est déjà appliquée.`
+                      : `À votre première inscription, ${projectsLabel(credits.config.freeProjects)} vous sont offerts une seule fois.`}{" "}
+                    Le premier projet est accessible immédiatement ; la cotisation n'est demandée
+                    qu'une fois tous les crédits consommés.
                   </span>
                 </div>
-                <div className="divide-y divide-border/30">
-                  <div className="flex items-center justify-between gap-3 bg-primary/[0.04] px-4 py-3">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
-                        <UserRound className="h-3.5 w-3.5 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Titulaire du compte</p>
-                        <p className="truncate text-sm font-bold">{BANK_INFO.titulaire}</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleCopy(BANK_INFO.titulaire, "Titulaire")}
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-                      title="Copier le titulaire"
-                    >
-                      {copying === "Titulaire" ? (
-                        <CheckCheck className="h-3.5 w-3.5 text-emerald-500" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </button>
-                  </div>
-                  <PaymentField label="RIB" value={BANK_INFO.rib} copyable onCopy={handleCopy} isCopied={copying === "RIB"} />
-                  <PaymentField label="IBAN" value={BANK_INFO.iban} copyable onCopy={handleCopy} isCopied={copying === "IBAN"} />
-                  <PaymentField label="Swift / BIC" value={BANK_INFO.swift} copyable onCopy={handleCopy} isCopied={copying === "Swift / BIC"} />
-                </div>
+              )}
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {(credits?.packages ?? []).map((pack) => (
+                  <PackCard
+                    key={pack.projects}
+                    pack={pack}
+                    currency={currency}
+                    disabled={purchasesDisabled || pack.projects === 0}
+                    onSelect={() => handleSelectPack(pack)}
+                  />
+                ))}
               </div>
 
-              <div className="mt-2.5 flex items-start gap-1.5 text-[10px] text-muted-foreground/70">
-                <Shield className="h-3 w-3 shrink-0 mt-0.5" />
-                <p>
-                  Activation manuelle sous 24h ouvrées après réception du virement. Confirmation par email. Question ? support@batibuild.app
+              {purchasesDisabled && (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {pendingOrder
+                    ? "Une cotisation est déjà en attente de validation : joignez votre justificatif ci-dessous."
+                    : "Utilisez d'abord vos crédits restants avant d'acheter un nouveau pack."}
                 </p>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
-                <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-amber-500/[0.07] px-4 py-3">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15">
-                      <Smartphone className="h-4 w-4 text-amber-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold">D17 · La Poste Tunisienne</p>
-                      <p className="truncate text-[10px] text-muted-foreground">Paiement marchand</p>
-                    </div>
-                  </div>
-                  <span className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-bold text-white">
-                    {D17_INFO.montant}
-                  </span>
+              )}
+            </section>
+
+            {/* ═══ B/C. ABONNEMENT MENSUEL PROFESSIONNEL ═══ */}
+            {professionalRole && rolePlan && (
+              <section>
+                <div className="mb-4">
+                  <h2 className="flex items-center gap-2 text-lg font-semibold">
+                    {professionalRole === "expert" ? (
+                      <BriefcaseBusiness className="h-5 w-5 text-violet-600" />
+                    ) : (
+                      <Truck className="h-5 w-5 text-amber-600" />
+                    )}
+                    Abonnement mensuel {professionalRole === "expert" ? "Expert" : "Fournisseur"}
+                  </h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Indépendant de la cotisation Client Pro. À l'expiration sans paiement, votre
+                    profil devient invisible dans l'annuaire ; vos données sont conservées.
+                  </p>
                 </div>
-                <div className="divide-y divide-border/30">
-                  <div className="flex items-center justify-between gap-3 bg-amber-500/[0.07] px-4 py-3">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/15">
-                        <UserRound className="h-3.5 w-3.5 text-amber-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Bénéficiaire</p>
-                        <p className="truncate text-sm font-bold">{D17_INFO.merchantName}</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleCopy(D17_INFO.merchantName, "Bénéficiaire")}
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-                      title="Copier le bénéficiaire"
-                    >
-                      {copying === "Bénéficiaire" ? (
-                        <CheckCheck className="h-3.5 w-3.5 text-emerald-500" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
+
+                <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                  <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-col rounded-2xl border border-primary/25 bg-gradient-to-b from-primary/5 to-background p-6"
+                  >
+                    <div className="mb-4 flex items-center justify-between gap-2">
+                      <h3 className="text-base font-semibold">
+                        {professionalRole === "expert" ? "Expert" : "Fournisseur"}
+                      </h3>
+                      {rolePlan.trialEnabled && (
+                        <Badge variant="outline" className="border-emerald-500/30 text-[10px] text-emerald-700">
+                          Essai {trialDurationLabel(rolePlan.trialDays)} inclus
+                        </Badge>
                       )}
-                    </button>
-                  </div>
-                  <PaymentField label="Téléphone D17" value={D17_INFO.phone} copyable onCopy={handleCopy} isCopied={copying === "Téléphone D17"} />
-                  <PaymentField label="Email" value={D17_INFO.email} copyable onCopy={handleCopy} isCopied={copying === "Email"} />
-                </div>
-              </div>
+                    </div>
 
-              <div className="mt-2.5 flex items-start gap-1.5 text-[10px] text-muted-foreground/70">
-                <Shield className="h-3 w-3 shrink-0 mt-0.5" />
-                <p>
-                  {D17_INFO.notice}. Activation manuelle sous 24h ouvrées après vérification du paiement
-                  par l'administrateur.
-                </p>
-              </div>
+                    <div className="mb-4">
+                      {rolePlan.price === null ? (
+                        <span className="text-3xl font-bold text-emerald-600">Gratuit</span>
+                      ) : (
+                        <>
+                          <span className="text-4xl font-bold">{rolePlan.price}</span>
+                          <span className="ml-1 text-sm text-muted-foreground">TND / mois</span>
+                        </>
+                      )}
+                    </div>
 
-              <div className="mt-2.5 rounded-lg border border-amber-200/50 bg-amber-50/60 px-3 py-2.5">
-                <p className="text-[10px] font-semibold text-amber-700">Comment payer avec D17 ?</p>
-                <ol className="mt-1 grid grid-cols-1 gap-x-4 gap-y-0.5 text-[10px] leading-relaxed text-amber-700/90 sm:grid-cols-2">
-                  <li>1. Ouvrez l'application D17</li>
-                  <li>2. Sélectionnez « Paiement marchand »</li>
-                  <li>3. Entrez le téléphone et le montant de {currentPriceLabel}</li>
-                  <li>4. Joignez la capture du paiement ci-dessous</li>
-                </ol>
-              </div>
-            </>
-          )}
+                    <ul className="mb-6 flex-1 space-y-2.5">
+                      {(
+                        rolePlan.services && rolePlan.services.length > 0
+                          ? PROFESSIONAL_SERVICES[professionalRole].filter((s) =>
+                              rolePlan.services!.includes(s.key),
+                            )
+                          : PROFESSIONAL_SERVICES[professionalRole]
+                      ).map((service) => (
+                        <li key={service.key} className="flex items-start gap-2 text-sm">
+                          <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                          <span className="leading-snug">{service.label}</span>
+                        </li>
+                      ))}
+                    </ul>
 
-          {isPending && (
-            <div className="mt-4 space-y-3">
-              <div className="px-4 py-3 rounded-xl bg-amber-50/50 border border-amber-200/30">
-                <div className="flex items-start gap-2">
-                  <Loader2 className="h-4 w-4 text-amber-600 shrink-0 mt-0.5 animate-spin" />
-                  <div>
-                    <p className="text-xs font-semibold text-amber-700">Paiement en attente de validation</p>
-                    <p className="text-[10px] text-amber-600/70 mt-0.5">
-                      Votre abonnement sera activé dès validation du{" "}
-                      {pendingPaymentMethod === "d17" ? "paiement D17" : "virement"} par l'administrateur.
+                    <p className="mb-4 text-[11px] leading-relaxed text-muted-foreground">
+                      {rolePlan.trialEnabled
+                        ? `Essai gratuit de ${trialDurationLabel(rolePlan.trialDays)} pour les nouveaux profils, puis abonnement mensuel.`
+                        : "Aucun essai gratuit : l'abonnement mensuel est requis pour publier votre profil."}{" "}
+                      {rolePlan.autoRenew
+                        ? "Un rappel est envoyé avant l'échéance ; aucun prélèvement automatique."
+                        : "Renouvellement manuel à l'échéance."}
                     </p>
-                  </div>
-                </div>
-              </div>
 
-              {/* ═══ Upload Receipt Section ═══ */}
-              <div className="px-4 py-3 rounded-xl bg-white/50 border border-border/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <Upload className="h-3.5 w-3.5 text-primary" />
-                  <p className="text-xs font-semibold">Joindre votre reçu de paiement</p>
-                </div>
-                <p className="text-[9px] text-muted-foreground mb-3">
-                  Ajoutez une capture d'écran du{" "}
-                  {pendingPaymentMethod === "d17" ? "paiement D17" : "virement bancaire"} : le
-                  justificatif est joint à votre demande et accélère l'activation.
-                </p>
-
-                {uploadedFile ? (
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-50 border border-emerald-200">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                      <span className="text-xs text-emerald-700 truncate">{uploadedFile}</span>
-                    </div>
-                    <button
-                      onClick={() => setUploadedFile(null)}
-                      className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-emerald-100 transition-colors shrink-0"
+                    <Button
+                      className="h-11 w-full gap-1"
+                      disabled={isPendingSubscription || rolePlan.price === undefined}
+                      onClick={handleSelectPlan}
                     >
-                      <X className="h-3 w-3 text-emerald-500" />
-                    </button>
+                      {isPendingSubscription
+                        ? "Paiement en attente…"
+                        : status?.type === "trial" && status.isActive
+                          ? "Souscrire l'abonnement mensuel"
+                          : status?.isActive
+                            ? "Renouveler mon abonnement"
+                            : "Choisir cet abonnement"}
+                    </Button>
+                  </motion.div>
+
+                  <div className="space-y-3 rounded-2xl border border-border/40 bg-background/50 p-5">
+                    <p className="text-sm font-semibold">Ce que votre abonnement couvre</p>
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      Le forfait professionnel donne accès aux services Expert ou Fournisseur :
+                      visibilité dans l'annuaire, demandes de devis / consultation et messagerie.
+                      Il n'ouvre PAS les services Client Pro (estimation, rapports PDF, aide à la
+                      décision) : ceux-ci nécessitent une cotisation Client Pro séparée.
+                    </p>
+                    <div className="rounded-lg border border-border/30 bg-muted/10 p-3 text-[11px] text-muted-foreground">
+                      <p className="font-medium text-foreground">À l'expiration</p>
+                      <ul className="mt-1 space-y-1">
+                        <li>• Profil masqué des recherches et recommandations</li>
+                        <li>• Nouvelles demandes professionnelles bloquées</li>
+                        <li>• Compte, projets et documents conservés</li>
+                        <li>• Rétablissement automatique après paiement confirmé</li>
+                      </ul>
+                    </div>
                   </div>
-                ) : (
-                  <div className="relative">
-                    {uploading ? (
-                      <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border border-border/20">
-                        <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
-                        <div className="flex-1">
-                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary rounded-full transition-all duration-300"
-                              style={{ width: `${uploadProgress}%` }}
-                            />
+                </div>
+              </section>
+            )}
+
+            {/* ═══ Paiement sélectionné ═══ */}
+            {intent && (
+              <motion.div
+                ref={paymentRef}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="scroll-mt-24 rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.03] to-background p-5 sm:p-6"
+              >
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                      <Wallet className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold leading-tight">Moyen de paiement</h2>
+                      <p className="text-[11px] text-muted-foreground">
+                        {intent.kind === "credits"
+                          ? `Cotisation Client Pro — ${projectsLabel(intent.pack.projects)} · ${amountLabel}`
+                          : `Abonnement mensuel ${professionalRole === "expert" ? "Expert" : "Fournisseur"} · ${amountLabel}`}{" "}
+                        (paiement unique, sans reconduction automatique)
+                      </p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="gap-1 text-[11px]" onClick={() => setIntent(null)}>
+                    <X className="h-3.5 w-3.5" /> Annuler
+                  </Button>
+                </div>
+
+                {selectedAmount !== null && selectedAmount > 0 ? (
+                  <>
+                    {paymentMethods.length === 0 ? (
+                      <div className="rounded-xl border border-amber-200/50 bg-amber-50/60 px-4 py-3 text-xs text-amber-700">
+                        Aucune méthode de paiement n'est disponible. Contactez le support batibuild.
+                      </div>
+                    ) : (
+                      <div className="mb-4 flex gap-1 rounded-xl border border-border/40 bg-muted/20 p-1">
+                        {paymentMethods.map((method) => {
+                          const MethodIcon =
+                            method.icon === "smartphone" ? Smartphone : method.icon === "card" ? CreditCard : Banknote;
+                          const active = paymentMethod === method.slug;
+                          return (
+                            <button
+                              key={method.slug}
+                              onClick={() => setPaymentMethod(method.slug)}
+                              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition-all ${
+                                active
+                                  ? "border-border/40 bg-background text-primary shadow-sm"
+                                  : "border-transparent text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              <MethodIcon className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">{method.shortLabel}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {paymentMethod === "bank_transfer" ? (
+                      <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
+                        <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-muted/10 px-4 py-3">
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                              <Landmark className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold">{bankInfo.bank}</p>
+                              <p className="truncate text-[10px] text-muted-foreground">Coordonnées bancaires</p>
+                            </div>
                           </div>
-                          <p className="text-[9px] text-muted-foreground mt-1">
-                            Téléchargement... {uploadProgress}%
-                          </p>
+                          <span className="shrink-0 rounded-lg bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground">
+                            {amountLabel}
+                          </span>
+                        </div>
+                        <div className="divide-y divide-border/30">
+                          <div className="flex items-center justify-between gap-3 bg-primary/[0.04] px-4 py-3">
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+                                <UserRound className="h-3.5 w-3.5 text-primary" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                  Titulaire du compte
+                                </p>
+                                <p className="truncate text-sm font-bold">{bankInfo.titulaire}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <PaymentField label="RIB" value={bankInfo.rib} copyable onCopy={handleCopy} />
+                          <PaymentField label="IBAN" value={bankInfo.iban} copyable onCopy={handleCopy} />
+                          <PaymentField label="Swift / BIC" value={bankInfo.swift} copyable onCopy={handleCopy} />
                         </div>
                       </div>
                     ) : (
-                      <label className="flex items-center gap-2 p-3 rounded-lg border-2 border-dashed border-border/40 hover:border-primary/40 cursor-pointer transition-all hover:bg-muted/20">
-                        <Image className="h-5 w-5 text-muted-foreground shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium">Cliquez pour ajouter un reçu</p>
-                          <p className="text-[9px] text-muted-foreground">Image ou PDF · Max 5 Mo</p>
+                      <div className="overflow-hidden rounded-xl border border-border/40 bg-background shadow-sm">
+                        <div className="flex items-center justify-between gap-3 border-b border-border/30 bg-amber-500/[0.07] px-4 py-3">
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15">
+                              <Smartphone className="h-4 w-4 text-amber-600" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold">D17 · La Poste Tunisienne</p>
+                              <p className="truncate text-[10px] text-muted-foreground">Paiement marchand</p>
+                            </div>
+                          </div>
+                          <span className="shrink-0 rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-bold text-white">
+                            {amountLabel}
+                          </span>
                         </div>
-                        <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={handleUploadReceipt}
-                          className="hidden"
-                        />
-                      </label>
+                        <div className="divide-y divide-border/30">
+                          <PaymentField label="Bénéficiaire" value={d17Info.merchantName} copyable onCopy={handleCopy} />
+                          <PaymentField label="Téléphone" value={d17Info.phone} copyable onCopy={handleCopy} />
+                          <PaymentField label="Email" value={d17Info.email} copyable onCopy={handleCopy} />
+                        </div>
+                        <div className="border-t border-border/30 bg-amber-50/50 px-4 py-2.5 text-[10px] text-amber-700">
+                          {d17Info.notice}
+                        </div>
+                      </div>
                     )}
+
+                    <div className="mt-3 flex items-start gap-1.5 text-[10px] text-muted-foreground">
+                      <Shield className="mt-0.5 h-3 w-3 shrink-0" />
+                      <p>
+                        Activation après vérification du paiement par l'administrateur. Aucun prélèvement
+                        automatique. Joignez votre justificatif ci-dessous pour accélérer la validation.
+                      </p>
+                    </div>
+
+                    <Button className="mt-4 h-11 w-full gap-2" onClick={handleConfirm} disabled={busy}>
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                      Envoyer ma demande · {amountLabel}
+                    </Button>
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-emerald-200/40 bg-emerald-50/50 px-4 py-3 text-xs text-emerald-700">
+                    Ce forfait est gratuit : l'activation est immédiate.
+                    <Button className="mt-3 w-full" onClick={handleConfirm} disabled={busy}>
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                      Activer
+                    </Button>
                   </div>
                 )}
-              </div>
-            </div>
-          )}
+              </motion.div>
+            )}
 
-          {false && (
-            <div className="mt-4 px-4 py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
-              <div className="flex items-start gap-2">
-                <RefreshCcw className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs font-semibold text-emerald-700">
-                    Abonnement expiré ? Renouvellez votre forfait mensuel.
-                  </p>
-                  <p className="text-[10px] text-emerald-700/70 mt-0.5">
-                    Renouvelez le même forfait ou passez à une offre supérieure — abonnement mensuel renouvelable.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-            </>
-          ) : (
-            <div className="mt-4 px-4 py-3 rounded-xl bg-emerald-50/50 border border-emerald-200/30">
-              <div className="flex items-start gap-2">
-                <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs font-semibold text-emerald-700">Ce forfait est gratuit — activation immédiate</p>
-                  <p className="text-[10px] text-emerald-600/70 mt-0.5">Aucun paiement requis. Votre abonnement sera activé instantanément.</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </motion.div>
+            {/* ═══ Demandes en attente ═══ */}
+            {pendingOrder && (
+              <PendingPanel
+                title="Cotisation Client Pro en attente de validation"
+                lines={[
+                  `${projectsLabel(pendingOrder.projects)} · ${pendingOrder.price} ${pendingOrder.currency}`,
+                  `Paiement : ${paymentMethodLabel(pendingOrder.paymentMethod)}`,
+                  `Demande du ${new Date(pendingOrder.createdAt).toLocaleString("fr-FR")}`,
+                ]}
+                onCancel={handleCancelOrder}
+                uploadDisabled={uploading}
+                onUpload={(file) => uploadProof(file, "credits", pendingOrder._id)}
+              />
+            )}
+
+            {isPendingSubscription && subscription && (
+              <PendingPanel
+                title="Abonnement professionnel en attente de validation"
+                lines={[
+                  `Forfait ${subscription.plan} · ${planPriceLabel(subscription.amount ?? null)}`,
+                  `Paiement : ${paymentMethodLabel(subscription.paymentMethod)}`,
+                  `Demande du ${new Date(subscription.startDate).toLocaleString("fr-FR")}`,
+                ]}
+                uploadDisabled={uploading}
+                onUpload={(file) => uploadProof(file, "plan", subscription._id)}
+              />
+            )}
+          </div>
+        )}
       </div>
     </main>
   );
+}
+
+function PackCard({
+  pack,
+  currency,
+  disabled,
+  onSelect,
+}: {
+  pack: ClientProCreditPackage;
+  currency: string;
+  disabled: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col rounded-2xl border border-border/50 bg-background/50 p-5 backdrop-blur-sm"
+    >
+      <div className="mb-3 flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10">
+          <Coins className="h-4 w-4 text-blue-600" />
+        </div>
+        <p className="text-sm font-semibold">{projectsLabel(pack.projects)}</p>
+      </div>
+      <div className="mb-4">
+        <span className="text-3xl font-bold">{pack.price}</span>
+        <span className="ml-1 text-sm text-muted-foreground">{currency}</span>
+      </div>
+      <p className="mb-4 flex-1 text-[11px] leading-relaxed text-muted-foreground">
+        Paiement unique. Les projets achetés s'ajoutent à votre solde et n'expirent pas.
+        Aucun renouvellement automatique.
+      </p>
+      <Button variant="outline" className="h-10 w-full" onClick={onSelect} disabled={disabled}>
+        Payer cette cotisation
+      </Button>
+    </motion.div>
+  );
+}
+
+function PendingPanel({
+  title,
+  lines,
+  onUpload,
+  onCancel,
+  uploadDisabled,
+}: {
+  title: string;
+  lines: string[];
+  onUpload: (file: File) => void;
+  onCancel?: () => void;
+  uploadDisabled?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-amber-200/50 bg-amber-50/40 p-5">
+      <div className="flex items-start gap-2">
+        <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-600" />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-amber-800">{title}</p>
+          {lines.map((line) => (
+            <p key={line} className="text-[11px] text-amber-700/80">
+              {line}
+            </p>
+          ))}
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-amber-300/70 px-3 py-2 text-[11px] text-amber-800 hover:bg-amber-100/40">
+          {uploadDisabled ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Upload className="h-3.5 w-3.5" />
+          )}
+          Joindre votre reçu
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            className="hidden"
+            disabled={uploadDisabled}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onUpload(file);
+              e.target.value = "";
+            }}
+          />
+        </label>
+        <span className="flex items-center gap-1 text-[10px] text-amber-700/70">
+          <Image className="h-3 w-3" /> Image ou PDF · max 5 Mo
+        </span>
+        {onCancel && (
+          <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={onCancel}>
+            Annuler la demande
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function paymentMethodLabel(method: string | undefined): string {
+  if (method === "d17") return "D17";
+  if (method === "bank_transfer") return "Virement bancaire";
+  return method || "—";
 }

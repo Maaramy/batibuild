@@ -22,6 +22,7 @@ import type * as bimConfig from "../bimConfig.js";
 import type * as bimEngine from "../bimEngine.js";
 import type * as bimQuantitatif from "../bimQuantitatif.js";
 import type * as blog from "../blog.js";
+import type * as clientProCredits from "../clientProCredits.js";
 import type * as costEvolution from "../costEvolution.js";
 import type * as crons from "../crons.js";
 import type * as customWorks from "../customWorks.js";
@@ -110,6 +111,7 @@ declare const fullApi: ApiFromModules<{
   bimEngine: typeof bimEngine;
   bimQuantitatif: typeof bimQuantitatif;
   blog: typeof blog;
+  clientProCredits: typeof clientProCredits;
   costEvolution: typeof costEvolution;
   crons: typeof crons;
   customWorks: typeof customWorks;

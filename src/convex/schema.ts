@@ -405,6 +405,17 @@ const schema = defineSchema(
       subscriptionStartDate: v.optional(v.number()),
       subscriptionDaysTotal: v.optional(v.number()),
       subscriptionDaysRemaining: v.optional(v.number()),
+      // ── COTISATION CLIENT PRO (crédits de projets) ────────────────────────
+      // Le forfait Client Pro n'est PAS un abonnement mensuel : il fonctionne
+      // par crédits de projets. `clientProFreeGrantedAt` est immuable et
+      // garantit que la gratuité initiale n'est accordée qu'UNE seule fois.
+      // Les compteurs ci-dessous sont la source de vérité du solde ; chaque
+      // mouvement est doublé dans `clientProCreditEvents` (historique).
+      clientProFreeGrantedAt: v.optional(v.number()),
+      clientProFreeProjectsGranted: v.optional(v.number()),
+      clientProFreeProjectsUsed: v.optional(v.number()),
+      clientProPaidProjectsGranted: v.optional(v.number()),
+      clientProPaidProjectsUsed: v.optional(v.number()),
       // Miroir du statut d'abonnement. « free » est conservé pour la lecture des
       // documents anciens (forfait supprimé) : il n'est plus jamais écrit.
       subscriptionStatus: v.optional(
@@ -1028,6 +1039,70 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_status", ["status"]),
 
+    // ── COTISATIONS CLIENT PRO (crédits de projets) ───────────────────────────
+    // Une commande = un paiement de cotisation, pour un nombre de projets
+    // précis. Elle naît « pending » : AUCUN crédit n'est attribué avant la
+    // confirmation effective du paiement par un administrateur. La transition
+    // pending → confirmed est unique et atomique, ce qui rend l'attribution
+    // idempotente : un même paiement ne peut jamais créditer deux fois.
+    clientProCreditOrders: defineTable({
+      userId: v.id("users"),
+      /** Nombre de projets achetés (figé à la commande). */
+      projects: v.number(),
+      /** Montant réellement à régler (figé à la commande — un changement de
+       *  tarif ne réécrit jamais une commande existante). */
+      price: v.number(),
+      currency: v.string(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("confirmed"),
+        v.literal("rejected"),
+        v.literal("cancelled"),
+      ),
+      paymentMethod: v.optional(v.string()),
+      paymentProofStorageId: v.optional(v.id("_storage")),
+      paymentProofUrl: v.optional(v.string()),
+      paymentProofFileName: v.optional(v.string()),
+      paymentProofUploadedAt: v.optional(v.number()),
+      invoiceId: v.optional(v.id("invoices")),
+      /** Crédits réellement attribués à la confirmation (traçabilité). */
+      grantedProjects: v.optional(v.number()),
+      confirmedAt: v.optional(v.number()),
+      confirmedBy: v.optional(v.id("users")),
+      rejectedAt: v.optional(v.number()),
+      rejectionReason: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_status", ["status"]),
+
+    // Journal des mouvements de crédits (attribution gratuite, achat,
+    // consommation, remboursement, attribution manuelle). Il ne remplace pas
+    // les compteurs du compte : il permet l'audit et empêche qu'un même projet
+    // soit décompté (ou remboursé) deux fois.
+    clientProCreditEvents: defineTable({
+      userId: v.id("users"),
+      type: v.union(
+        v.literal("free_grant"),
+        v.literal("purchase"),
+        v.literal("admin_grant"),
+        v.literal("consume"),
+        v.literal("refund"),
+      ),
+      /** Positif pour une attribution, négatif pour une consommation. */
+      projects: v.number(),
+      /** Source débitée/créditée pour les mouvements de quota. */
+      bucket: v.optional(v.union(v.literal("free"), v.literal("paid"))),
+      projectId: v.optional(v.id("projects")),
+      orderId: v.optional(v.id("clientProCreditOrders")),
+      note: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_project", ["projectId"])
+      .index("by_order", ["orderId"]),
+
     // ── FACTURES ──────────────────────────────────────────────────────────────
     // Historique de facturation : une facture par paiement ou renouvellement.
     //
@@ -1166,6 +1241,11 @@ const schema = defineSchema(
         v.literal("update_invoice_status"),
         v.literal("update_trial_config"),
         v.literal("update_project_limits"),
+        v.literal("update_client_pro_credits"),
+        v.literal("update_expert_plan"),
+        v.literal("update_supplier_plan"),
+        v.literal("approve_client_pro_cotisation"),
+        v.literal("migrate_client_pro_credits"),
         v.literal("migrate_free_plan_users"),
         v.literal("email_template_delete"),
         v.literal("notification_recipient_save"),
@@ -1310,6 +1390,9 @@ const schema = defineSchema(
       // recalculée depuis ces champs côté serveur.
       trialEnabled: v.optional(v.boolean()),
       trialDurationDays: v.optional(v.number()),
+      // Legacy : durée dédiée au forfait Client Pro. Client Pro n'est plus un
+      // abonnement mensuel et ne bénéficie plus d'une période d'essai ; le
+      // champ reste déclaré pour que les documents existants restent lisibles.
       trialClientProDurationDays: v.optional(v.number()),
       trialValidFrom: v.optional(v.number()),
       trialValidUntil: v.optional(v.number()),
@@ -1318,6 +1401,37 @@ const schema = defineSchema(
       // true = essai réservé aux nouveaux inscrits (pas de rattrapage des
       // comptes existants par `startMyTrial`).
       trialNewAccountsOnly: v.optional(v.boolean()),
+      // ── Abonnements mensuels Expert / Fournisseur — paramètres INDÉPENDANTS ──
+      // Prix : `expertPrice` / `supplierPrice` ci-dessus. Essai et services
+      // inclus sont réglés séparément par forfait. Absent = repli sur la
+      // configuration d'essai commune (`trialEnabled`, `trialDurationDays`).
+      expertTrialEnabled: v.optional(v.boolean()),
+      expertTrialDays: v.optional(v.number()),
+      expertIncludedServices: v.optional(v.array(v.string())),
+      expertAutoRenew: v.optional(v.boolean()),
+      supplierTrialEnabled: v.optional(v.boolean()),
+      supplierTrialDays: v.optional(v.number()),
+      supplierIncludedServices: v.optional(v.array(v.string())),
+      supplierAutoRenew: v.optional(v.boolean()),
+      // ── Cotisation Client Pro (crédits de projets) ────────────────────────
+      // Le forfait Client Pro n'est plus un abonnement mensuel : l'utilisateur
+      // dispose d'un quota de projets gratuits (une seule fois), puis achète
+      // des packs de projets. Tous ces paramètres sont enregistrés ici et lus
+      // côté serveur par `convex/clientProCredits.ts`.
+      clientProFreeGrantEnabled: v.optional(v.boolean()),
+      clientProFreeProjects: v.optional(v.number()),
+      clientProCotisationPrice: v.optional(v.number()),
+      clientProCotisationProjects: v.optional(v.number()),
+      clientProCreditTiers: v.optional(
+        v.array(
+          v.object({
+            projects: v.number(),
+            price: v.number(),
+          }),
+        ),
+      ),
+      clientProRefundOnDelete: v.optional(v.boolean()),
+      clientProAllowStacking: v.optional(v.boolean()),
       // ── Limite du nombre de projets par offre ────────────────────────────
       // Réglée par l'administrateur (Admin → Abonnements mensuels). Source de
       // vérité : `convex/projectLimits.ts`, vérifiée côté serveur dans la même

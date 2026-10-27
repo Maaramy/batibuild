@@ -1,7 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { getFreePlanStatus, isProfilePaymentActive } from "./access";
+import {
+  applyProfessionalTrialToProfile,
+  getFreePlanStatus,
+  isProfilePaymentActive,
+} from "./access";
 import { DEFAULT_PLAN_PRICES, resolvePlanPrice } from "../lib/planPricing";
 import { requireProfileRoleForCreation, requireProfileRole } from "./profileSubscription";
 import { SUPPLIER_SPECIALTIES_LABELS } from "./schema";
@@ -84,32 +88,32 @@ export const getMyProfile = query({
 
     if (!profile) return null;
 
-    // Trial period removed — legacy trial profiles are treated as inactive.
-    // « Offre gratuite » (switch admin) : l'espace fournisseur est activé
-    // automatiquement, sans abonnement payant ni expiration.
+    // Essai Fournisseur : actif jusqu'à sa date de fin. « Offre gratuite »
+    // (switch admin) : l'espace fournisseur est activé sans abonnement payant.
     const now = Date.now();
     const free = await getFreePlanStatus(ctx);
     const planFree = free.supplierFree;
 
-    let effectiveStatus =
-      profile.subscriptionStatus === "trial"
-        ? "inactive"
-        : profile.subscriptionStatus;
+    let effectiveStatus = profile.subscriptionStatus;
     if (planFree) {
       effectiveStatus = "active";
     }
     if (
       !planFree &&
-      effectiveStatus === "active" &&
+      (effectiveStatus === "active" || effectiveStatus === "trial") &&
       profile.subscriptionEndDate &&
-      profile.subscriptionEndDate < now
+      profile.subscriptionEndDate <= now
     ) {
       effectiveStatus = "expired";
     }
 
     // Calculate remaining days (Illimité quand l'offre gratuite est active)
     let remainingDays = 0;
-    if (effectiveStatus === "active" && profile.subscriptionEndDate && !planFree) {
+    if (
+      (effectiveStatus === "active" || effectiveStatus === "trial") &&
+      profile.subscriptionEndDate &&
+      !planFree
+    ) {
       remainingDays = Math.max(
         0,
         Math.ceil(
@@ -145,15 +149,9 @@ export const getActiveSuppliers = query({
     const now = Date.now();
     const free = await getFreePlanStatus(ctx);
 
-    // « Offre gratuite » : tous les profils visibles sont actifs automatiquement
-    const suppliers = free.supplierFree
-      ? await ctx.db.query("supplierProfiles").collect()
-      : await ctx.db
-          .query("supplierProfiles")
-          .withIndex("by_subscription", (q) =>
-            q.eq("subscriptionStatus", "active")
-          )
-          .collect();
+    // Tous les profils sont relus : l'éligibilité (essai en cours, abonnement
+    // actif, offre gratuite) est tranchée par `isProfilePaymentActive`.
+    const suppliers = await ctx.db.query("supplierProfiles").collect();
 
     const visible = [];
     for (const s of suppliers) {
@@ -214,8 +212,7 @@ export const getAllSupplierProfiles = query({
         return {
           ...profile,
           logo: await repairLogoUrl(ctx, profile.logo),
-          subscriptionStatus:
-            profile.subscriptionStatus === "trial" ? "inactive" : profile.subscriptionStatus,
+          subscriptionStatus: profile.subscriptionStatus,
           specialties: keepSupplierSpecialties(profile.specialties),
           specialtiesLabels: keepSupplierSpecialties(profile.specialties).map(
             (s) => SUPPLIER_SPECIALTIES_LABELS[s] || s
@@ -332,6 +329,9 @@ export const createProfile = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Essai Fournisseur du compte → profil visible pendant l'essai.
+    await applyProfessionalTrialToProfile(ctx, user._id, profileId, "supplier");
 
     return profileId;
   },

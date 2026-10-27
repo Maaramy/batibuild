@@ -43,7 +43,7 @@ export function ProjectLimitScreen({ limit }: { limit: ProjectLimitView }) {
             <FolderKanban className="h-6 w-6" />
           </div>
           <h3 className="text-base font-bold tracking-tight sm:text-lg">
-            Limite de projets atteinte
+            Crédits de projets épuisés
           </h3>
           {limit.tierLabel && limit.maxProjects != null && (
             <Badge variant="outline" className="text-[10px]">
@@ -53,14 +53,14 @@ export function ProjectLimitScreen({ limit }: { limit: ProjectLimitView }) {
           )}
           <p className="max-w-md text-xs leading-relaxed text-muted-foreground sm:text-sm">
             {limit.message ??
-              "Vous avez atteint la limite de projets autorisée pour votre offre actuelle. Passez à Client Pro pour bénéficier des conditions de votre abonnement."}
+              "Vous avez utilisé tous les projets de votre forfait Client Pro. Payez une cotisation pour obtenir de nouveaux projets : vos projets existants restent accessibles et modifiables."}
           </p>
           <p className="max-w-md text-[11px] leading-relaxed text-muted-foreground">
             Vos projets existants restent accessibles et modifiables : aucune donnée n'est supprimée.
           </p>
           <Button className="mt-2 gap-1.5" onClick={() => navigate("/dashboard/pricing")}>
             <CreditCard className="h-4 w-4" />
-            Voir les offres et passer à Client Pro
+            Acheter une cotisation Client Pro
           </Button>
           <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard/projects")}>
             Accéder à mes projets

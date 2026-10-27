@@ -3,6 +3,7 @@ import { Anonymous } from "@convex-dev/auth/providers/Anonymous";
 import { Password } from "@convex-dev/auth/providers/Password";
 import { emailOtp } from "./auth/emailOtp";
 import { applyDefaultPlanForNewUser, startTrialFor } from "./subscriptionStatus";
+import { ensureClientProFreeGrant } from "./clientProCredits";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   // `verify` makes the Password provider require e-mail validation:
@@ -24,6 +25,10 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       if (existingUserId === null) {
         await applyDefaultPlanForNewUser(ctx, userId);
       }
+      // Gratuité Client Pro : accordée UNE SEULE FOIS (idempotent), y compris
+      // aux comptes existants lors de leur prochaine connexion. Aucun droit
+      // permanent : le solde est ensuite consommé projet par projet.
+      await ensureClientProFreeGrant(ctx, userId);
       await startTrialFor(ctx, userId);
     },
   },

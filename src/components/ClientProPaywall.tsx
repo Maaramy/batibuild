@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { useNavigate } from "react-router";
-import { CreditCard, Hourglass, Loader2, Lock, Sparkles } from "lucide-react";
+import { Coins, CreditCard, Hourglass, Loader2, Lock, Sparkles } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -20,11 +20,17 @@ const REASON_COPY: Record<
   string,
   { icon: typeof Lock; title: string; desc: string; cta?: string }
 > = {
+  no_credits: {
+    icon: Coins,
+    title: "Cotisation Client Pro requise",
+    desc: "Vous avez utilisé tous les projets de votre forfait Client Pro. Payez une cotisation pour obtenir de nouveaux projets et continuer à utiliser les services Client Pro (estimation, rapports PDF, aide à la décision). Vos projets existants sont conservés.",
+    cta: "Voir les cotisations",
+  },
   not_client_pro: {
-    icon: Lock,
-    title: "Offre Client Pro requise",
-    desc: "Cet espace est réservé aux clients titulaires de l'offre Client Pro. Souscrivez à un abonnement payant actif pour accéder à l'ensemble des services : projets de construction, matériaux IA, plans architecturaux et suivi de A à Z.",
-    cta: "Voir les offres",
+    icon: Coins,
+    title: "Cotisation Client Pro requise",
+    desc: "Les services Client Pro sont indépendants de votre abonnement professionnel. Achetez une cotisation Client Pro (crédits de projets) pour y accéder.",
+    cta: "Voir les cotisations",
   },
   plan_not_allowed_for_profile: {
     icon: Lock,

@@ -3,8 +3,16 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./users";
-import { requireClientProAccess, getFreePlanStatus } from "./access";
-import { assertProjectCreationLimit } from "./projectLimits";
+import {
+  getFreePlanStatus,
+  isProfilePaymentActive,
+  requireClientProAccess,
+} from "./access";
+import {
+  assertClientProProjectCredit,
+  consumeClientProCredit,
+  refundClientProCredit,
+} from "./clientProCredits";
 import { readFlag } from "./featureFlags";
 import {
   projectCategoryValidator,
@@ -409,14 +417,12 @@ export const createProject = mutation({
       throw new Error("Cette fonctionnalité n'est actuellement pas disponible.");
     }
 
-    // Services Client Pro : abonnement payant actif requis
-    await requireClientProAccess(ctx, user, "Projets de construction", "estimation");
-
-    // Limite du nombre de projets de l'offre (période d'essai / offre gratuite /
-    // Client Pro) réglée par l'administrateur. Vérifiée DANS la transaction de
-    // création : deux créations simultanées ne peuvent pas dépasser le plafond.
-    // Les projets déjà créés restent consultables et modifiables.
-    await assertProjectCreationLimit(ctx, user);
+    // ── COTISATION CLIENT PRO : crédit de projet ──────────────────────────
+    // Vérifié DANS la transaction de création. Le premier projet est accordé
+    // immédiatement lorsque le quota gratuit vaut 1 ; c'est seulement la
+    // création SUIVANTE, sans crédit, qui déclenche la demande de cotisation.
+    // Aucune création simultanée ne peut dépasser le solde.
+    await assertClientProProjectCredit(ctx, user);
 
     const now = Date.now();
 
@@ -453,6 +459,9 @@ export const createProject = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Consommation du crédit Client Pro — même transaction que l'insertion.
+    await consumeClientProCredit(ctx, user._id, projectId);
 
     // ── Notification administrateur : nouveau projet créé ──
     // Après l'insertion effective ; l'échec d'envoi ne bloque jamais la
@@ -833,6 +842,13 @@ export const deleteProject = mutation({
       throw new Error("SUPPRESSION_REFUSEE:Les projets terminés ne peuvent pas être supprimés. Contactez un administrateur si nécessaire.");
     }
 
+    // Restitution éventuelle du crédit Client Pro (règle administrable).
+    // Le crédit n'est rendu qu'à son PROPRIÉTAIRE, jamais lors d'une
+    // suppression administrative du projet d'un autre compte.
+    if (project.userId === user._id) {
+      await refundClientProCredit(ctx, project.userId, args.projectId);
+    }
+
     await ctx.db.delete(args.projectId);
   },
 });
@@ -1185,46 +1201,19 @@ export const simulateAnalysis = mutation({
     const providerTypes = recommendations.providers.map((p: any) => p.type);
     const supplierMap = new Map<string, any[]>();
 
-    // ── Also fetch registered suppliers from the database ──
-    // « Offre gratuite » (switch admin) : tous les fournisseurs visibles sont
-    // recommandés automatiquement, sans abonnement actif.
+    // ── Fournisseurs inscrits recommandés ──
+    // Contrôle CENTRALISÉ de visibilité : essai en cours, abonnement payant
+    // actif ou offre gratuite administrable — et profil visible/valide. Une
+    // période d'essai échue ou un abonnement impayé exclut le fournisseur.
     const now = Date.now();
     const free = await getFreePlanStatus(ctx);
-    const allProfiles = free.supplierFree
-      ? (await ctx.db.query("supplierProfiles").collect()).filter(
-          (s) => s.isVisible
-        )
-      : [
-          ...(await ctx.db
-            .query("supplierProfiles")
-            .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "active"))
-            .collect()),
-          ...(await ctx.db
-            .query("supplierProfiles")
-            .withIndex("by_subscription", (q) => q.eq("subscriptionStatus", "trial"))
-            .collect()),
-        ].filter((s) => s.isVisible);
-
-    // Filter out expired trials/subscriptions
-    const validProfiles = free.supplierFree
-      ? allProfiles
-      : allProfiles.filter((s) => {
-          if (
-            s.subscriptionStatus === "trial" &&
-            s.trialStartDate &&
-            s.trialStartDate + 7 * 24 * 60 * 60 * 1000 < now
-          ) {
-            return false;
-          }
-          if (
-            s.subscriptionStatus === "active" &&
-            s.subscriptionEndDate &&
-            s.subscriptionEndDate < now
-          ) {
-            return false;
-          }
-          return true;
-        });
+    const allProfiles = await ctx.db.query("supplierProfiles").collect();
+    const validProfiles: typeof allProfiles = [];
+    for (const profile of allProfiles) {
+      if (await isProfilePaymentActive(ctx, free.supplierFree, profile, now)) {
+        validProfiles.push(profile);
+      }
+    }
 
     // Map registered suppliers to provider types via their specialties
     for (const profile of validProfiles) {

@@ -16,6 +16,7 @@ import BlogAdmin from "./BlogAdmin";
 import BIMSettings from "./BIMSettings";
 import CostEvolutionSettings from "@/components/admin/CostEvolutionSettings";
 import ProjectLimitSettings from "@/components/admin/ProjectLimitSettings";
+import SubscriptionSettingsPanel from "@/components/admin/SubscriptionSettingsPanel";
 import EmailSettings from "./EmailSettings";
 import EmailTemplates from "./EmailTemplates";
 import EmailHistory from "./EmailHistory";
@@ -4027,10 +4028,19 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <CardHeader>
                 <CardTitle className="text-base">Abonnements mensuels — prix et configuration</CardTitle>
                 <CardDescription className="text-xs">
-                  Forfaits mensuels (30 jours). Renouvellement requis à l'échéance. Le forfait « Free » n'est plus proposé : il est remplacé par la période d'essai gratuite ci-dessous, puis par une offre payante. L'essai peut couvrir Client Pro, Fournisseur et Expert (sélection de l'administrateur) ; aucune activation gratuite permanente n'existe et l'abonnement Client Pro payant n'est ouvert qu'après paiement confirmé.
+                  Trois dispositifs distincts : cotisation Client Pro par crédits de projets,
+                  abonnement mensuel Expert et abonnement mensuel Fournisseur. Aucun paiement
+                  n'attribue de droits sans confirmation ; les droits Client Pro et professionnels
+                  sont indépendants.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                <SubscriptionSettingsPanel />
+
+                {/* Ancienne interface conservée mais MASQUÉE : remplacée par les trois
+                    sections ci-dessus (cotisation Client Pro / Expert / Fournisseur).
+                    Aucun de ces contrôles n'est visible ni utilisé par l'administrateur. */}
+                <div className="hidden" aria-hidden="true">
                 {/* ═══ Période d'essai gratuite (remplace l'ancien forfait Free) ═══ */}
                 <TrialSettings />
 
@@ -4340,6 +4350,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 )}
                   </>
                 )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -5009,15 +5020,9 @@ function TrialSettings() {
         modules: form.modules,
         newAccountsOnly: form.newAccountsOnly,
       });
-      const clientProSelected = form.eligibleProfiles.includes("client");
-      const clientProDays =
-        form.clientProDurationDays == null
-          ? trialDurationLabel(form.durationDays)
-          : trialDurationLabel(form.clientProDurationDays);
       toast.success(
         form.enabled
-          ? `Période d'essai enregistrée : ${trialDurationLabel(form.durationDays)} pour les nouveaux comptes éligibles` +
-            (clientProSelected ? ` (Client Pro : ${clientProDays}).` : ".")
+          ? `Période d'essai enregistrée : ${trialDurationLabel(form.durationDays)} pour les nouveaux comptes Expert / Fournisseur éligibles.`
           : "Période d'essai désactivée : les paramètres sont conservés.",
       );
     } catch (err: any) {

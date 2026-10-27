@@ -9,6 +9,9 @@ import {
 } from "../lib/paymentMethods";
 import { getEnabledPaymentMethodSlugs, getPaymentMethodStates } from "./paymentMethodStates";
 import { isTrialCampaignOpen, readTrialConfig } from "./trialConfig";
+import { readClientProCreditConfig } from "./clientProCredits";
+import { clientProPackages } from "../lib/clientProCredits";
+import { PROFESSIONAL_SERVICES } from "../lib/subscriptionPlans";
 import {
   DEFAULT_PLAN_PRICES,
   resolveClientProPrice,
@@ -92,6 +95,130 @@ export const getPlanPricing = query({
       proDownloadLimit: config.proDownloadLimit ?? DEFAULT_PLAN_PRICING.proDownloadLimit,
       expertDownloadLimit: config.expertDownloadLimit ?? DEFAULT_PLAN_PRICING.expertDownloadLimit,
     };
+  },
+});
+
+/**
+ * Abonnements mensuels Expert / Fournisseur — configuration INDÉPENDANTE.
+ *
+ * Chaque forfait a son prix, son essai (activation + durée), ses services
+ * inclus et sa politique de renouvellement. Aucun paiement n'est déclenché
+ * automatiquement : le renouvellement reste une demande confirmée par
+ * l'administrateur.
+ */
+export const getProfessionalPlansAdmin = query({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || (admin.role !== "admin" && admin.role !== "moderator")) return null;
+
+    const config = await ctx.db.query("paymentConfig").order("desc").first();
+    const trial = await readTrialConfig(ctx);
+
+    return {
+      expert: {
+        price: resolvePlanPrice(config?.expertPrice, DEFAULT_PLAN_PRICES.expert),
+        trialEnabled: trial.expertTrialEnabled,
+        trialDays: trial.expertTrialDays,
+        includedServices: config?.expertIncludedServices ?? null,
+        autoRenew: config?.expertAutoRenew !== false,
+      },
+      supplier: {
+        price: resolvePlanPrice(config?.supplierPrice, DEFAULT_PLAN_PRICES.supplier),
+        trialEnabled: trial.supplierTrialEnabled,
+        trialDays: trial.supplierTrialDays,
+        includedServices: config?.supplierIncludedServices ?? null,
+        autoRenew: config?.supplierAutoRenew !== false,
+      },
+    };
+  },
+});
+
+/** Enregistre la configuration d'un abonnement mensuel professionnel. */
+export const updateProfessionalPlanConfig = mutation({
+  args: {
+    plan: v.union(v.literal("expert"), v.literal("supplier")),
+    // `null` = offre gratuite explicitement activée (aucun montant).
+    price: v.union(v.number(), v.null()),
+    trialEnabled: v.boolean(),
+    trialDays: v.number(),
+    includedServices: v.array(v.string()),
+    autoRenew: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized: Admin access required");
+    }
+
+    if (args.price !== null) {
+      if (!Number.isFinite(args.price) || args.price < 0) {
+        throw new Error("Le prix mensuel doit être un montant positif ou « Offre gratuite ».");
+      }
+    }
+    if (
+      !Number.isInteger(args.trialDays) ||
+      args.trialDays < 1 ||
+      args.trialDays > 365
+    ) {
+      throw new Error("La durée de l'essai doit être comprise entre 1 et 365 jours.");
+    }
+
+    const catalog = args.plan === "expert" ? PROFESSIONAL_SERVICES.expert : PROFESSIONAL_SERVICES.supplier;
+    const unknown = args.includedServices.find(
+      (key) => !catalog.some((service) => service.key === key),
+    );
+    if (unknown) throw new Error(`Service inconnu : « ${unknown} ».`);
+
+    const existing = await ctx.db.query("paymentConfig").order("desc").first();
+    const now = Date.now();
+    const patch: Record<string, any> = {
+      ...(args.plan === "expert"
+        ? {
+            expertPrice: args.price,
+            expertTrialEnabled: args.trialEnabled,
+            expertTrialDays: args.trialDays,
+            expertIncludedServices: args.includedServices,
+            expertAutoRenew: args.autoRenew,
+          }
+        : {
+            supplierPrice: args.price,
+            supplierTrialEnabled: args.trialEnabled,
+            supplierTrialDays: args.trialDays,
+            supplierIncludedServices: args.includedServices,
+            supplierAutoRenew: args.autoRenew,
+          }),
+      updatedAt: now,
+      updatedBy: admin._id,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, patch);
+    } else {
+      await ctx.db.insert("paymentConfig", {
+        ...DEFAULT_PLAN_PRICING,
+        ...patch,
+        createdAt: now,
+      } as any);
+    }
+
+    try {
+      await ctx.db.insert("adminLogs", {
+        adminId: admin._id,
+        adminName: admin.name,
+        action: args.plan === "expert" ? "update_expert_plan" : "update_supplier_plan",
+        details:
+          `Abonnement ${args.plan === "expert" ? "Expert" : "Fournisseur"} — ` +
+          `${args.price === null ? "offre gratuite" : `${args.price} TND/mois`} · ` +
+          `essai ${args.trialEnabled ? `${args.trialDays} j` : "désactivé"} · ` +
+          `${args.includedServices.length} service(s)`,
+        createdAt: now,
+      });
+    } catch {
+      // Optionnel
+    }
+
+    return { success: true };
   },
 });
 
@@ -273,17 +400,38 @@ export const getPublicPricing = query({
     if (!config) return { ...DEFAULT_PLAN_PRICING, paymentMethods: enabledMethods };
 
     const trial = await readTrialConfig(ctx);
+    const credits = await readClientProCreditConfig(ctx);
 
     return {
       startPrice: config.startPrice ?? DEFAULT_PLAN_PRICING.startPrice,
+      // ── Cotisation Client Pro (crédits de projets) ──
+      // Le forfait Client Pro n'est plus mensuel : la page Abonnements utilise
+      // ces paramètres (relus depuis Convex) pour afficher les packs.
+      clientProCredits: {
+        freeGrantEnabled: credits.freeGrantEnabled,
+        freeProjects: credits.freeProjects,
+        packages: clientProPackages(credits),
+        allowStacking: credits.allowStacking,
+        refundOnDelete: credits.refundOnDelete,
+      },
       clientProEnabled: config.clientProEnabled !== false,
       // Legacy "free" (forfait supprimé) interprété comme « période d'essai ».
       defaultPlan: config.defaultPlan === "client_pro" ? "client_pro" : "trial",
       // Période d'essai gratuite (activée + fenêtre de validité, calcul serveur).
       trialEnabled: isTrialCampaignOpen(trial),
       trialDurationDays: trial.durationDays,
-      // Durée dédiée au forfait Client Pro (`null` = durée commune).
+      // Legacy : conservé pour les clients déjà déployés (sans effet sur les
+      // droits — Client Pro fonctionne désormais par crédits de projets).
       trialClientProDurationDays: trial.clientProDurationDays,
+      // Abonnements mensuels professionnels : essais INDÉPENDANTS.
+      expertTrialEnabled: trial.expertTrialEnabled,
+      expertTrialDays: trial.expertTrialDays,
+      supplierTrialEnabled: trial.supplierTrialEnabled,
+      supplierTrialDays: trial.supplierTrialDays,
+      expertIncludedServices: config.expertIncludedServices ?? null,
+      supplierIncludedServices: config.supplierIncludedServices ?? null,
+      expertAutoRenew: config.expertAutoRenew !== false,
+      supplierAutoRenew: config.supplierAutoRenew !== false,
       trialModules: trial.modules,
       trialEligibleProfiles: trial.eligibleProfiles,
       // Prix réellement enregistré (voir `updatePlanPricing` et `lib/planPricing.ts`).

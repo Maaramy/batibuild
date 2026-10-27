@@ -1,7 +1,11 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCurrentUser } from "./users";
-import { getFreePlanStatus, isProfilePaymentActive } from "./access";
+import {
+  applyProfessionalTrialToProfile,
+  getFreePlanStatus,
+  isProfilePaymentActive,
+} from "./access";
 import { DEFAULT_PLAN_PRICES, resolvePlanPrice } from "../lib/planPricing";
 import { requireProfileRoleForCreation, requireProfileRole } from "./profileSubscription";
 import {
@@ -87,24 +91,25 @@ export const getMyProfile = query({
     const free = await getFreePlanStatus(ctx);
     const planFree = free.expertFree;
 
-    let effectiveStatus =
-      profile.subscriptionStatus === "trial"
-        ? "inactive"
-        : profile.subscriptionStatus;
+    let effectiveStatus = profile.subscriptionStatus;
     if (planFree) {
       effectiveStatus = "active";
     }
     if (
       !planFree &&
-      effectiveStatus === "active" &&
+      (effectiveStatus === "active" || effectiveStatus === "trial") &&
       profile.subscriptionEndDate &&
-      profile.subscriptionEndDate < now
+      profile.subscriptionEndDate <= now
     ) {
       effectiveStatus = "expired";
     }
 
     let remainingDays = 0;
-    if (effectiveStatus === "active" && profile.subscriptionEndDate && !planFree) {
+    if (
+      (effectiveStatus === "active" || effectiveStatus === "trial") &&
+      profile.subscriptionEndDate &&
+      !planFree
+    ) {
       remainingDays = Math.max(
         0,
         Math.ceil((profile.subscriptionEndDate - now) / (24 * 60 * 60 * 1000))
@@ -335,6 +340,9 @@ export const createProfile = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Essai Expert du compte → profil visible pendant l'essai.
+    await applyProfessionalTrialToProfile(ctx, user._id, profileId, "expert");
 
     // Log admin action
     try {
@@ -608,8 +616,7 @@ export const getAllExpertProfiles = query({
         const user = await ctx.db.get(profile.userId);
         return {
           ...profile,
-          subscriptionStatus:
-            profile.subscriptionStatus === "trial" ? "inactive" : profile.subscriptionStatus,
+          subscriptionStatus: profile.subscriptionStatus,
           user: user
             ? {
                 _id: user._id,

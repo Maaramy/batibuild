@@ -29,6 +29,7 @@ import {
   type TrialConfig,
 } from "./trialConfig";
 import { resolveClientProPrice } from "../lib/planPricing";
+import { ensureClientProFreeGrant, readClientProCreditConfig } from "./clientProCredits";
 
 // ============================================================================
 // GESTION CENTRALE DE LA PÉRIODE D'ESSAI ET DE L'ABONNEMENT MENSUEL
@@ -309,7 +310,8 @@ export async function startTrialFor(
   const trialDays = trialDaysFor(config, profileRole);
   const trialEndDate = trialEndDateFor(config, now, trialDays);
   const daysTotal = Math.max(1, daysRemainingUntil(trialEndDate, now));
-  const trialLabel = profileRole === "client" ? "essai Client Pro" : "essai gratuit";
+  const roleLabel = profileRole === "expert" ? "Expert" : "Fournisseur";
+  const trialLabel = `essai ${roleLabel}`;
 
   await ctx.db.patch(userId, {
     trialClaimedAt: now,
@@ -321,14 +323,51 @@ export async function startTrialFor(
     updatedAt: now,
   });
 
+  // ── Synchronisation du PROFIL professionnel ─────────────────────────────
+  // Le profil spécialisé (Expert / Fournisseur) porte la visibilité et le
+  // statut d'abonnement : sans cette écriture, l'utilisateur en essai restait
+  // invisible dans l'annuaire malgré son essai actif.
+  try {
+    if (profileRole === "expert") {
+      const expert = await ctx.db
+        .query("expertProfiles")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .first();
+      if (expert) {
+        await ctx.db.patch(expert._id, {
+          plan: "trial",
+          subscriptionStatus: "trial",
+          trialStartDate: now,
+          subscriptionEndDate: trialEndDate,
+          isVisible: true,
+          updatedAt: now,
+        });
+      }
+    } else if (profileRole === "supplier") {
+      const supplier = await ctx.db
+        .query("supplierProfiles")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .first();
+      if (supplier) {
+        await ctx.db.patch(supplier._id, {
+          plan: "trial",
+          subscriptionStatus: "trial",
+          trialStartDate: now,
+          subscriptionEndDate: trialEndDate,
+          isVisible: true,
+          updatedAt: now,
+        });
+      }
+    }
+  } catch {
+    // Le statut du compte reste valide ; le profil sera aligné au prochain cron.
+  }
+
   try {
     await ctx.db.insert("notifications", {
       userId,
       type: "subscription",
-      title:
-        profileRole === "client"
-          ? "Votre essai Client Pro a démarré"
-          : "Votre période d'essai a démarré",
+      title: `Votre période d'essai ${roleLabel} a démarré`,
       message: `Profitez de ${daysTotal} jour${daysTotal > 1 ? "s" : ""} d'${trialLabel}. Votre essai se termine le ${formatDateFr(trialEndDate)}.`,
       read: false,
       link: "/dashboard/pricing",
@@ -375,17 +414,16 @@ export const startMyTrial = mutation({
 export type DefaultPlanValue = "trial" | "client_pro";
 
 /**
- * Attribue le FORFAIT PAR DÉFAUT configuré par l'administrateur à un NOUVEL
+ * Applique le FORFAIT PAR DÉFAUT configuré par l'administrateur à un NOUVEL
  * utilisateur (appelé à l'inscription uniquement).
  *
- * Règles :
- *   - ne remplace JAMAIS un forfait déjà défini → les utilisateurs existants
- *     restent strictement inchangés ;
- *   - lit toujours la configuration Convex (`paymentConfig.defaultPlan`),
- *     jamais une valeur codée en dur ;
- *   - n'attribue jamais un forfait désactivé (repli sur « aucun forfait »,
- *     donc sur la période d'essai si elle est activée) ;
- *   - ne supprime aucune donnée.
+ * Client Pro n'est plus un abonnement mensuel : le défaut « client_pro »
+ * accorde la gratuité initiale en CRÉDITS DE PROJETS (une seule fois), jamais
+ * un abonnement payant gratuit ni un accès permanent. Le défaut « trial »
+ * n'écrit rien sur le compte : la période d'essai professionnelle (Expert /
+ * Fournisseur) est démarrée séparément par `startTrialFor`.
+ *
+ * Aucune donnée n'est supprimée ; un forfait déjà attribué n'est jamais écrasé.
  */
 export async function applyDefaultPlanForNewUser(
   ctx: MutationCtx,
@@ -397,51 +435,22 @@ export async function applyDefaultPlanForNewUser(
   if (user.subscriptionPlan != null) return { applied: false, plan: null };
 
   const config = await ctx.db.query("paymentConfig").order("desc").first();
-  const now = Date.now();
   const requested: DefaultPlanValue = config?.defaultPlan === "client_pro" ? "client_pro" : "trial";
   const clientProEnabled = config?.clientProEnabled !== false;
 
-  // Un forfait désactivé n'est jamais attribué : repli sur « aucun forfait ».
   const plan: DefaultPlanValue =
     requested === "client_pro" && clientProEnabled ? "client_pro" : "trial";
 
   if (plan === "client_pro") {
-    // Client Pro : abonnement mensuel (30 jours) actif attribué par défaut.
-    const endDate = now + MONTHLY_DURATION_DAYS * DAY_MS;
-    await ctx.db.patch(userId, {
-      subscriptionPlan: "pro",
-      subscriptionStartDate: now,
-      subscriptionEndDate: endDate,
-      subscriptionDaysTotal: MONTHLY_DURATION_DAYS,
-      subscriptionDaysRemaining: MONTHLY_DURATION_DAYS,
-      subscriptionStatus: "active",
-      updatedAt: now,
-    });
-    const existing = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
-    if (!existing) {
-      await ctx.db.insert("subscriptions", {
-        userId,
-        plan: "pro",
-        status: "active",
-        startDate: now,
-        endDate,
-        paymentMethod: "default_plan",
-        amount: 0,
-        currency: "TND",
-        monthlyDownloadCount: 0,
-        downloadLimit: Infinity,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-    return { applied: true, plan: "client_pro" };
+    // Crédits de projets gratuits (quota réglé par l'administrateur) — jamais
+    // un abonnement mensuel, jamais un accès permanent.
+    const credits = await readClientProCreditConfig(ctx);
+    await ensureClientProFreeGrant(ctx, userId);
+    return { applied: credits.freeGrantEnabled, plan: "client_pro" };
   }
 
-  // « Aucun forfait » : rien n'est écrit sur le compte. La période d'essai est
-  // démarrée séparément par `startTrialFor` (même configuration serveur).
+  // « Aucun forfait payé » : rien n'est écrit sur le compte. La période d'essai
+  // professionnelle est démarrée séparément par `startTrialFor`.
   return { applied: false, plan: "trial" };
 }
 
@@ -517,22 +526,20 @@ export const checkSubscriptionPeriods = internalMutation({
         patch.trialDaysRemaining = 0;
         trialsExpired++;
 
-        // Client Pro : l'essai terminé ne prolonge AUCUN accès et n'active
-        // aucun abonnement ; l'utilisateur est invité à souscrire au tarif
-        // mensuel configuré.
-        const clientTrial = (await resolveProfileRole(ctx, user)) === "client";
-        const clientProPriceLabel = `${clientProPrice} ${pricingConfig?.currency ?? "TND"}`;
+        // Essai professionnel terminé : aucun abonnement n'est activé et aucun
+        // montant n'est prélevé. L'utilisateur doit souscrire son abonnement
+        // mensuel pour rester visible et conserver ses services.
+        const role = await resolveProfileRole(ctx, user);
+        const roleLabel = role === "expert" ? "Expert" : role === "supplier" ? "Fournisseur" : "professionnel";
 
         try {
           await ctx.db.insert("notifications", {
             userId: user._id,
             type: "subscription",
-            title: clientTrial
-              ? "Votre essai Client Pro est terminé"
-              : "Votre période d'essai est terminée",
-            message: clientTrial
-              ? `Votre période d'essai Client Pro est terminée. Souscrivez au forfait Client Pro mensuel (${clientProPriceLabel}) pour continuer à utiliser la plateforme. Aucun montant n'a été prélevé.`
-              : "Votre période d'essai gratuit est terminée. Veuillez choisir une offre pour continuer à utiliser la plateforme.",
+            title: `Votre période d'essai ${roleLabel} est terminée`,
+            message:
+              `Votre période d'essai est terminée. Votre profil est temporairement invisible dans l'annuaire. ` +
+              `Souscrivez à l'abonnement mensuel ${roleLabel} pour rétablir immédiatement vos services et votre visibilité. Aucun montant n'a été prélevé.`,
             read: false,
             link: "/dashboard/pricing",
             createdAt: now,
@@ -548,7 +555,7 @@ export const checkSubscriptionPeriods = internalMutation({
             templateKey: "subscription_expired",
             vars: {
               ...splitName(user.name),
-              typeAbonnement: clientTrial ? "Essai Client Pro" : "Essai gratuit",
+              typeAbonnement: `Essai ${roleLabel}`,
               dateActivation: formatDateFr(user.trialStartDate),
               dateExpiration: formatDateFr(user.trialEndDate),
             },
@@ -576,7 +583,77 @@ export const checkSubscriptionPeriods = internalMutation({
       }
     }
 
-    return { trialsExpired, subscriptionsExpired, countersRefreshed };
+    // ── Profils professionnels : visibilité et statut cohérents ────────────
+    // Un essai ou un abonnement échu rend le profil INVISIBLE (annuaire,
+    // recommandations, mise en relation) sans supprimer aucune donnée. Le
+    // retour du paiement le rétablit automatiquement.
+    let profilesSuspended = 0;
+    const professionalTrialReminders: number[] = [3, 1];
+
+    for (const [role, table] of [
+      ["expert", "expertProfiles"],
+      ["supplier", "supplierProfiles"],
+    ] as const) {
+      const profiles = await ctx.db.query(table).collect();
+      for (const profile of profiles) {
+        const status = profile.subscriptionStatus;
+        const end = profile.subscriptionEndDate ?? null;
+
+        if ((status === "trial" || status === "active") && end != null && end <= now) {
+          await ctx.db.patch(profile._id, {
+            subscriptionStatus: "expired",
+            isVisible: false,
+            updatedAt: now,
+          });
+          profilesSuspended++;
+
+          try {
+            await ctx.db.insert("notifications", {
+              userId: profile.userId,
+              type: "subscription",
+              title: "Votre profil est temporairement invisible",
+              message:
+                (status === "trial"
+                  ? "Votre période d'essai est terminée. "
+                  : "Votre abonnement mensuel a expiré. ") +
+                "Votre profil n'apparaît plus dans les résultats de recherche ni dans la mise en relation. " +
+                "Souscrivez ou renouvelez votre abonnement pour rétablir vos services — vos données et votre profil sont conservés.",
+              read: false,
+              link: role === "expert" ? "/dashboard/expert" : "/dashboard/supplier",
+              createdAt: now,
+            });
+          } catch {
+            // Optionnel
+          }
+          continue;
+        }
+
+        if ((status === "trial" || status === "active") && end != null) {
+          const daysLeft = Math.ceil((end - now) / (24 * 60 * 60 * 1000));
+          if (professionalTrialReminders.includes(daysLeft)) {
+            try {
+              await ctx.db.insert("notifications", {
+                userId: profile.userId,
+                type: "subscription",
+                title:
+                  status === "trial"
+                    ? `Votre essai ${role === "expert" ? "Expert" : "Fournisseur"} se termine dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`
+                    : `Votre abonnement se termine dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""}`,
+                message:
+                  "Souscrivez ou renouvelez votre abonnement mensuel pour conserver vos services et votre visibilité dans l'annuaire. Aucun prélèvement automatique.",
+                read: false,
+                link: "/dashboard/pricing",
+                createdAt: now,
+              });
+            } catch {
+              // Optionnel
+            }
+          }
+        }
+      }
+    }
+
+    return { trialsExpired, subscriptionsExpired, countersRefreshed, profilesSuspended };
   },
 });
 

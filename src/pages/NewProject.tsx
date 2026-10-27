@@ -9,6 +9,10 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { ProjectLimitGate, type ProjectLimitView } from "@/components/ProjectLimitGate";
 import { PROJECT_LIMIT_MARKER, shouldBlockNewProjectCreation } from "@/lib/projectLimits";
+import {
+  CLIENT_PRO_CREDITS_MARKER,
+  clientProCreditsExhaustedMessage,
+} from "@/lib/clientProCredits";
 import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
 import { costEstimateLoadingSteps } from "@/lib/projectJourney";
 import {
@@ -598,6 +602,11 @@ export default function NewProject() {
   // Quota de projets de l'offre active (essai / offre gratuite / Client Pro),
   // réglé par l'administrateur et calculé côté serveur.
   const projectLimit = useQuery(api.projectLimits.getMyProjectLimit);
+  // ── Cotisation Client Pro : solde de crédits de projets ──
+  // Contrôle d'interface ; le serveur revérifie et consomme le crédit dans la
+  // transaction de création. Le premier projet d'un quota gratuit de 1 passe
+  // donc immédiatement ; seul le suivant est bloqué.
+  const clientCredits = useQuery(api.clientProCredits.getMyClientProCredits);
   // Écran « Limite de projets atteinte » : renseigné UNIQUEMENT lorsqu'une
   // tentative de création est refusée parce que le quota est déjà atteint.
   // Il ne remplace donc jamais le résultat du dernier projet autorisé.
@@ -611,6 +620,17 @@ export default function NewProject() {
    * dernier projet autorisé doit toujours pouvoir s'afficher.
    */
   const allowNewProjectCreation = () => {
+    // Crédits Client Pro épuisés : cotisation requise.
+    if (clientCredits && clientCredits.canCreateProject === false) {
+      const balance = clientCredits.balance;
+      setLimitScreen({
+        tierLabel: "Client Pro · crédits épuisés",
+        maxProjects: balance.granted,
+        usedProjects: balance.used,
+        message: clientProCreditsExhaustedMessage(balance),
+      });
+      return false;
+    }
     // Quota pas encore chargé : le serveur tranche (jamais de faux blocage).
     if (!projectLimit) return true;
     const blocked = shouldBlockNewProjectCreation({
@@ -782,12 +802,22 @@ export default function NewProject() {
     // on présente donc l'écran de limitation plutôt qu'une erreur générique.
     const raw =
       error instanceof Error ? error.message : typeof error === "string" ? error : "";
-    if (!createdProjectIdRef.current && raw.includes(PROJECT_LIMIT_MARKER)) {
+    if (
+      !createdProjectIdRef.current &&
+      (raw.includes(PROJECT_LIMIT_MARKER) || raw.includes(CLIENT_PRO_CREDITS_MARKER))
+    ) {
+      const creditsRejected = raw.includes(CLIENT_PRO_CREDITS_MARKER);
       const known = projectLimit && projectLimit.allowed === false ? projectLimit : null;
       setLimitScreen({
-        tierLabel: known?.tierLabel ?? null,
-        maxProjects: known?.maxProjects ?? null,
-        usedProjects: known?.usedProjects ?? 0,
+        tierLabel: creditsRejected
+          ? "Client Pro · crédits épuisés"
+          : known?.tierLabel ?? null,
+        maxProjects: creditsRejected
+          ? clientCredits?.balance.granted ?? null
+          : known?.maxProjects ?? null,
+        usedProjects: creditsRejected
+          ? clientCredits?.balance.used ?? 0
+          : known?.usedProjects ?? 0,
         message: describeEstimateError(error),
       });
       return;

@@ -12,12 +12,11 @@
 // Le forfait « Free » n'existe plus : il est remplacé par la période d'essai
 // gratuite administrable, puis par les offres payantes.
 //
-// La période d'essai couvre les profils que l'administrateur sélectionne, y
-// compris Client Pro (désactivé par défaut : opt-in explicite). La durée peut
-// être réglée séparément pour Client Pro (`clientProDurationDays`).
-// L'« Offre gratuite » Client Pro (accès permanent sans échéance ni paiement) a
-// été supprimée : à l'expiration de l'essai, seul un paiement confirmé ouvre
-// l'abonnement Client Pro, au tarif mensuel enregistré par l'administrateur.
+// La période d'essai est réservée aux abonnements mensuels PROFESSIONNELS
+// (Expert et Fournisseur), avec une durée et une activation INDÉPENDANTES.
+// Client Pro n'est pas un abonnement mensuel : il fonctionne par crédits de
+// projets (gratuité initiale limitée, puis cotisation par pack de projets).
+// Il n'a donc aucune période d'essai.
 
 export const CLIENT_PRO_PLAN_LABEL = "Client Pro";
 export const TRIAL_PLAN_LABEL = "Période d'essai";
@@ -29,10 +28,11 @@ export const TRIAL_MAX_DAYS = 365;
 /** Durée proposée par défaut (l'administrateur la modifie librement). */
 export const TRIAL_DEFAULT_DAYS = 7;
 /**
- * Durée dédiée au forfait Client Pro. `null` = même durée que les autres
- * profils (`durationDays`). Réglée par l'administrateur, jamais codée en dur.
+ * Durées par défaut des deux abonnements professionnels. Elles sont réglées
+ * séparément par l'administrateur (aucune durée n'est codée en dur à l'usage).
  */
-export const TRIAL_CLIENT_PRO_DEFAULT_DAYS: number | null = null;
+export const TRIAL_EXPERT_DEFAULT_DAYS = 7;
+export const TRIAL_SUPPLIER_DEFAULT_DAYS = 7;
 /** Durées les plus courantes, proposées comme raccourcis dans l'administration. */
 export const TRIAL_PRESET_DAYS = [7, 14, 30] as const;
 
@@ -119,17 +119,16 @@ export function sanitizeTrialModules(values: readonly unknown[] | null | undefin
 }
 
 // ── Profils éligibles à la période d'essai ──────────────────────────────────
-// Client Pro figure dans le catalogue mais reste DÉSACTIVÉ par défaut : il ne
-// reçoit un essai que si l'administrateur le coche explicitement.
-export type TrialProfileKey = "client" | "supplier" | "expert";
+// UNIQUEMENT les abonnements mensuels professionnels. Client Pro est exclu :
+// ses droits proviennent de la cotisation par crédits de projets.
+export type TrialProfileKey = "supplier" | "expert";
 
 /**
- * Vrai pour un profil qui ne peut pas bénéficier de l'essai. Seul un profil
- * NON RÉSOLU est exclu (aucune information fiable pour l'identifier) ; Client
- * Pro, Fournisseur et Expert dépendent de la sélection de l'administrateur.
+ * Vrai pour un profil qui ne peut pas bénéficier de l'essai : Client Pro
+ * (modèle par crédits), profil non résolu, et tout rôle inconnu.
  */
 export function isTrialExcludedProfile(value: unknown): boolean {
-  return value == null;
+  return value !== "supplier" && value !== "expert";
 }
 
 export interface TrialProfileDefinition {
@@ -141,22 +140,17 @@ export interface TrialProfileDefinition {
 
 export const TRIAL_PROFILES: TrialProfileDefinition[] = [
   {
-    key: "client",
-    label: "Client Pro",
+    key: "expert",
+    label: "Expert",
     description:
-      "Essai Client Pro — à l'expiration, l'abonnement payant reste obligatoire (aucune activation sans paiement).",
-    defaultIncluded: false,
+      "Abonnement mensuel Expert — essai gratuit de durée réglable, puis paiement obligatoire.",
+    defaultIncluded: true,
   },
   {
     key: "supplier",
     label: "Fournisseur",
-    description: "Espaces fournisseurs — essai autorisé par l'administration.",
-    defaultIncluded: true,
-  },
-  {
-    key: "expert",
-    label: "Expert",
-    description: "Espaces experts — essai autorisé par l'administration.",
+    description:
+      "Abonnement mensuel Fournisseur — essai gratuit de durée réglable, puis paiement obligatoire.",
     defaultIncluded: true,
   },
 ];
@@ -201,6 +195,51 @@ export const PDF_UPGRADE_MESSAGE =
   "Le téléchargement des rapports PDF n'est pas inclus dans votre période d'essai. Passez à l'abonnement Client Pro pour télécharger et conserver vos rapports professionnels.";
 export const PDF_UPGRADE_CTA = "Passer à Client Pro";
 export const PDF_UPGRADE_CANCEL = "Annuler";
+
+// ── Services inclus dans les abonnements mensuels professionnels ────────────
+// Catalogue de présentation : l'administrateur coche les services réellement
+// inclus. Ces libellés sont affichés tels quels (admin + page Abonnements).
+export type ProfessionalRole = "expert" | "supplier";
+
+export interface ProfessionalServiceDefinition {
+  key: string;
+  label: string;
+}
+
+export const PROFESSIONAL_SERVICES: Record<
+  ProfessionalRole,
+  ProfessionalServiceDefinition[]
+> = {
+  expert: [
+    { key: "profile", label: "Profil expert publié dans l'annuaire" },
+    { key: "directory", label: "Mise en relation avec les porteurs de projets" },
+    { key: "requests", label: "Réception des demandes de consultation et de devis" },
+    { key: "messaging", label: "Messagerie et suivi des demandes" },
+    { key: "stats", label: "Statistiques de visibilité et de performance" },
+    { key: "urgent", label: "Mise en avant des disponibilités et urgences" },
+  ],
+  supplier: [
+    { key: "profile", label: "Profil fournisseur publié dans l'annuaire" },
+    { key: "catalog", label: "Présentation du catalogue et des prix" },
+    { key: "quotes", label: "Réception des demandes de devis" },
+    { key: "messaging", label: "Messagerie et réponses aux demandes" },
+    { key: "recommendations", label: "Recommandations dans les projets" },
+    { key: "stats", label: "Statistiques de visibilité et de performance" },
+  ],
+};
+
+export const DEFAULT_PROFESSIONAL_SERVICES: Record<ProfessionalRole, string[]> = {
+  expert: PROFESSIONAL_SERVICES.expert.map((s) => s.key),
+  supplier: PROFESSIONAL_SERVICES.supplier.map((s) => s.key),
+};
+
+export function professionalServiceLabels(
+  role: ProfessionalRole,
+  keys: readonly string[] | null | undefined,
+): string[] {
+  const set = new Set(keys ?? DEFAULT_PROFESSIONAL_SERVICES[role]);
+  return PROFESSIONAL_SERVICES[role].filter((s) => set.has(s.key)).map((s) => s.label);
+}
 
 /** Chemin de la page « Abonnements mensuels — Prix et configuration ». */
 export const PRICING_PAGE_PATH = "/dashboard/pricing";

@@ -4,6 +4,7 @@ import { api } from "./_generated/api";
 import { getUserSubscriptionStatus } from "./subscriptionStatus";
 import { resolveProfileRole, type UserRole } from "./profileSubscription";
 import { readTrialConfig, trialIncludes } from "./trialConfig";
+import { buildClientProCreditSnapshot } from "./clientProCredits";
 import type { TrialModuleKey } from "../lib/subscriptionPlans";
 
 // ============================================================================
@@ -20,8 +21,10 @@ import type { TrialModuleKey } from "../lib/subscriptionPlans";
 
 export type ClientProAccessReason =
   | "ok"
-  /** Période d'essai active sans le module demandé (ex. rapports PDF). */
+  /** Période d'essai (legacy) active sans le module demandé (ex. rapports PDF). */
   | "trial_no_module"
+  /** Crédits de projets Client Pro épuisés → cotisation requise. */
+  | "no_credits"
   | "not_client_pro"
   | "plan_not_allowed_for_profile"
   | "no_subscription"
@@ -90,25 +93,93 @@ export interface PaymentGatedProfile {
 }
 
 /**
- * Le paiement couvre-t-il l'espace de ce profil ? (offre gratuite, abonnement
- * actif non expiré, ou essai legacy encore dans les délais.)
+ * Le paiement couvre-t-il l'espace de ce profil ?
+ *
+ * Règle centralisée (utilisée par l'annuaire, les recommandations, les devis,
+ * la messagerie et l'administration) :
+ *   • compte désactivé → invisible ;
+ *   • profil masqué par l'administrateur (`isVisible === false`) → invisible ;
+ *   • profil incomplet (nom, téléphone, e-mail, spécialités, régions) → invisible ;
+ *   • « Offre gratuite » administrable → actif ;
+ *   • essai en cours (date de fin future) → actif ;
+ *   • abonnement mensuel actif non expiré → actif ;
+ *   • tout le reste (inactive, pending, expired, date dépassée) → invisible.
  */
 export async function isProfilePaymentActive(
   ctx: any,
   freePlanEnabled: boolean,
-  profile: PaymentGatedProfile,
+  profile: PaymentGatedProfile & {
+    userId?: any;
+    companyName?: string | null;
+    displayName?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    specialties?: string[] | null;
+    regions?: string[] | null;
+  },
   now = Date.now(),
 ): Promise<boolean> {
-  if (freePlanEnabled) return true;
-  const status = profile.subscriptionStatus;
-  if (status !== "active" && status !== "trial") return false;
+  // Profil explicitement masqué : aucune exception, même en offre gratuite.
+  if (profile.isVisible === false) return false;
+
+  if (profile.userId && ctx?.db) {
+    const user = await ctx.db.get(profile.userId);
+    if (!user || user.status === "disabled") return false;
+  }
+
+  // Conditions normales de validation : un profil vide n'est jamais publié.
+  const name = (profile.companyName ?? profile.displayName ?? "").trim();
   if (
-    status === "active" &&
-    profile.subscriptionEndDate &&
-    profile.subscriptionEndDate < now
+    !name ||
+    !(profile.phone ?? "").trim() ||
+    !(profile.email ?? "").trim() ||
+    (profile.specialties?.length ?? 0) === 0 ||
+    (profile.regions?.length ?? 0) === 0
   ) {
     return false;
   }
+
+  if (freePlanEnabled) return true;
+
+  const status = profile.subscriptionStatus;
+  if (status === "trial") {
+    // Un essai sans échéance n'existe pas : il doit avoir une date de fin future.
+    return profile.subscriptionEndDate != null && profile.subscriptionEndDate > now;
+  }
+  if (status !== "active") return false;
+  if (profile.subscriptionEndDate != null && profile.subscriptionEndDate <= now) return false;
+  return true;
+}
+
+/**
+ * Applique l'essai professionnel du COMPTE au profil spécialisé qui vient
+ * d'être créé. Sans cela, un Expert / Fournisseur en essai restait invisible
+ * (profil « inactive ») alors que son compte était en période d'essai.
+ */
+export async function applyProfessionalTrialToProfile(
+  ctx: any,
+  userId: any,
+  profileId: any,
+  role: "supplier" | "expert",
+): Promise<boolean> {
+  const user = await ctx.db.get(userId);
+  if (!user) return false;
+  const now = Date.now();
+  if (user.trialClaimedAt == null || user.trialEndDate == null || user.trialEndDate <= now) {
+    return false;
+  }
+  const trial = await readTrialConfig(ctx);
+  const eligible = role === "expert" ? trial.expertTrialEnabled : trial.supplierTrialEnabled;
+  if (!eligible) return false;
+
+  await ctx.db.patch(profileId, {
+    plan: "trial",
+    subscriptionStatus: "trial",
+    trialStartDate: user.trialStartDate ?? user.trialClaimedAt,
+    subscriptionEndDate: user.trialEndDate,
+    isVisible: true,
+    updatedAt: now,
+  });
   return true;
 }
 
@@ -136,19 +207,23 @@ async function isTrialModuleAllowed(ctx: any, module: TrialModuleKey): Promise<b
 /** Message d'erreur standard renvoyé par les fonctions backend gatées. */
 export function clientProAccessError(service: string): Error {
   return new Error(
-    `${CLIENT_PRO_ACCESS_MARKER}L'accès à « ${service} » nécessite un abonnement Client Pro payant actif. ` +
-      "En cas d'expiration, le renouvellement est obligatoire pour maintenir l'accès.",
+    `${CLIENT_PRO_ACCESS_MARKER}L'accès à « ${service} » nécessite des crédits Client Pro. ` +
+      "Payez une cotisation (nombre de projets de votre choix) pour ouvrir les services Client Pro.",
   );
 }
 
 /**
- * Calcule l'accès Client Pro d'un utilisateur (requêtes, mutations, actions).
+ * Calcule l'accès aux services Client Pro d'un utilisateur (queries, mutations,
+ * actions) — INDÉPENDAMMENT de son éventuel forfait professionnel.
  *
- * Toute la décision vient de `getUserSubscriptionStatus` (source de vérité
- * unique) : période d'essai gratuite (durée et éligibilité réglées par
- * l'administrateur) puis abonnement mensuel de 30 jours ; après l'échéance de
- * l'un ou de l'autre, le paiement (ou le renouvellement) devient obligatoire.
- * L'ancien forfait « Free » n'existe plus et n'accorde aucun droit.
+ * Droits Client Pro :
+ *   • crédits de projets disponibles ou déjà accordés (cotisation) ;
+ *   • abonnement mensuel Client Pro historique encore valide (paiements déjà
+ *     confirmés : l'échéance est respectée, rien n'est révoqué) ;
+ *   • période d'essai Client Pro historique encore en cours (legacy).
+ *
+ * Un abonnement Expert / Fournisseur n'ouvre JAMAIS ces droits : un
+ * professionnel doit acheter sa cotisation Client Pro séparément.
  */
 export async function getClientProAccess(
   ctx: any,
@@ -161,56 +236,41 @@ export async function getClientProAccess(
     return { allowed: true, reason: "ok" };
   }
 
-  // ── Règle obligatoire : les services Client Pro exigent le profil Client Pro ──
-  // Vérification backend (profil explicite, ou inféré des profils spécialisés).
-  // Un Expert ou un Fournisseur n'accède JAMAIS aux fonctionnalités Client Pro,
-  // même avec un abonnement payant actif.
-  //
-  // Les requêtes/mutations ont `ctx.db` ; les actions n'ont PAS `ctx.db` et
-  // passent par la query publique `getMyProfileRole` (même utilisateur).
-  let profileRole: UserRole | null;
-  if (ctx.db) {
-    profileRole = await resolveProfileRole(ctx, user);
-  } else {
-    profileRole = (await ctx.runQuery(api.profileSubscription.getMyProfileRole)) as UserRole | null;
-  }
-  if (profileRole !== null && profileRole !== "client") {
-    return { allowed: false, reason: "not_client_pro" };
-  }
-
   // Les actions n'ont PAS accès à ctx.db → on passe par la query publique.
-  const snapshot: any = ctx.db
-    ? await getUserSubscriptionStatus(ctx, user._id)
-    : await ctx.runQuery(api.subscriptionStatus.getMySubscriptionStatus);
+  const [snapshot, credits] = await Promise.all([
+    ctx.db
+      ? getUserSubscriptionStatus(ctx, user._id)
+      : ctx.runQuery(api.subscriptionStatus.getMySubscriptionStatus),
+    ctx.db
+      ? buildClientProCreditSnapshot(ctx, user)
+      : ctx.runQuery(api.clientProCredits.getMyClientProCredits),
+  ]);
 
-  // Période active (période d'essai temporaire avec échéance, ou abonnement
-  // mensuel payant validé) ET forfait compatible avec le profil — sinon refus.
-  if (snapshot?.isActive && snapshot?.planCompatible !== false) {
-    // Pendant la PÉRIODE D'ESSAI, seuls les modules cochés par l'administrateur
-    // sont ouverts : un module non configuré est refusé côté serveur (l'ancien
-    // forfait « Free » n'accordait au contraire aucun droit particulier).
-    if (snapshot?.type === "trial" && module) {
-      if (!(await isTrialModuleAllowed(ctx, module))) {
-        return { allowed: false, reason: "trial_no_module" };
-      }
+  // 1. Cotisation Client Pro (crédits) — indépendante du profil.
+  if (credits?.entitled === true) return { allowed: true, reason: "ok" };
+
+  // 2. Abonnement mensuel Client Pro HISTORIQUE encore valide.
+  const legacyMonthlyActive =
+    snapshot?.type === "monthly" &&
+    snapshot?.isActive === true &&
+    snapshot?.activePlan === "pro";
+  if (legacyMonthlyActive) return { allowed: true, reason: "ok" };
+
+  // 3. Essai Client Pro historique encore en cours (legacy) : seuls les
+  //    modules ouverts par l'administrateur sont accessibles.
+  if (snapshot?.type === "trial" && snapshot?.isActive === true) {
+    if (module && !(await isTrialModuleAllowed(ctx, module))) {
+      return { allowed: false, reason: "trial_no_module" };
     }
     return { allowed: true, reason: "ok" };
-  }
-  if (snapshot?.isActive && snapshot?.planCompatible === false) {
-    return { allowed: false, reason: "plan_not_allowed_for_profile" };
   }
 
   if (snapshot?.status === "pending") return { allowed: false, reason: "pending" };
   if (snapshot?.status === "trial_expired") return { allowed: false, reason: "trial_expired" };
   if (snapshot?.status === "expired") return { allowed: false, reason: "expired" };
 
-  // Aucun essai accordé et offre gratuite désactivée : l'utilisateur n'a jamais
-  // été Client Pro (ou son forfait n'est plus reconnu).
-  if (user.subscriptionPlan !== "pro" && snapshot?.type !== "trial") {
-    return { allowed: false, reason: "not_client_pro" };
-  }
-
-  return { allowed: false, reason: "no_subscription" };
+  // 4. Aucun crédit : une cotisation est requise pour ouvrir les services.
+  return { allowed: false, reason: "no_credits" };
 }
 
 /**
@@ -253,37 +313,38 @@ export interface PdfDownloadAccess {
   plan: string | null;
 }
 
-/** Décision pure/centralisée : l'utilisateur peut-il télécharger un rapport PDF ? */
+/** Décision centralisée : l'utilisateur peut-il télécharger un rapport PDF ? */
 export async function getPdfDownloadAccess(ctx: any, user: any): Promise<PdfDownloadAccess> {
   if (!user) return { allowed: false, reason: "no_subscription", plan: null };
   if (user.role === "admin" || user.role === "moderator") {
     return { allowed: true, reason: "ok", plan: user.subscriptionPlan ?? null };
   }
 
-  // Les rapports PDF des projets sont réservés au profil Client (Client Pro).
-  let profileRole: UserRole | null;
-  if (ctx.db) profileRole = await resolveProfileRole(ctx, user);
-  else
-    profileRole = (await ctx.runQuery(api.profileSubscription.getMyProfileRole)) as UserRole | null;
-  if (profileRole !== null && profileRole !== "client") {
-    return { allowed: false, reason: "not_client_pro", plan: user.subscriptionPlan ?? null };
-  }
-
-  const snapshot: any = ctx.db
-    ? await getUserSubscriptionStatus(ctx, user._id)
-    : await ctx.runQuery(api.subscriptionStatus.getMySubscriptionStatus);
+  const [snapshot, credits]: any[] = await Promise.all([
+    ctx.db
+      ? getUserSubscriptionStatus(ctx, user._id)
+      : ctx.runQuery(api.subscriptionStatus.getMySubscriptionStatus),
+    ctx.db
+      ? buildClientProCreditSnapshot(ctx, user)
+      : ctx.runQuery(api.clientProCredits.getMyClientProCredits),
+  ]);
 
   const plan = snapshot?.plan ?? user.subscriptionPlan ?? null;
-  // Abonnement mensuel PAYANT actif (`type === "monthly"`) → PDF autorisé.
-  const paidActive =
+
+  // Cotisation Client Pro : les rapports PDF font partie des services ouverts
+  // par les crédits, y compris pour un Expert / Fournisseur (droit distinct).
+  if (credits?.entitled === true) return { allowed: true, reason: "ok", plan };
+
+  // Abonnement mensuel Client Pro HISTORIQUE encore valide.
+  if (
     snapshot?.type === "monthly" &&
     snapshot?.isActive === true &&
-    snapshot?.planCompatible !== false;
-  if (paidActive) return { allowed: true, reason: "ok", plan };
+    snapshot?.activePlan === "pro"
+  ) {
+    return { allowed: true, reason: "ok", plan };
+  }
 
-  // Période d'essai : le PDF n'est ouvert que si l'administrateur a coché le
-  // module « Rapports PDF » dans la configuration de l'essai (décision
-  // recalculée côté serveur dans `getUserSubscriptionStatus`).
+  // Essai Client Pro historique : module PDF ouvert par l'administrateur.
   if (snapshot?.type === "trial" && snapshot?.isActive === true) {
     return snapshot.trialPdfAllowed === true
       ? { allowed: true, reason: "ok", plan }
@@ -294,7 +355,7 @@ export async function getPdfDownloadAccess(ctx: any, user: any): Promise<PdfDown
   if (snapshot?.status === "trial_expired") {
     return { allowed: false, reason: "trial_expired", plan };
   }
-  return { allowed: false, reason: "no_subscription", plan };
+  return { allowed: false, reason: "no_credits", plan };
 }
 
 /** Droit de télécharger un rapport PDF (réactif) — consommé par l'interface. */
@@ -326,8 +387,19 @@ export const checkClientProAccess = query({
     const user = await getCurrentUser(ctx);
     const access = await getClientProAccess(ctx, user);
     const snapshot = user ? await getUserSubscriptionStatus(ctx, user._id) : null;
+    const credits = user ? await buildClientProCreditSnapshot(ctx, user) : null;
     return {
       ...access,
+      // Solde Client Pro (crédits de projets) — affichage et paywall.
+      credits: credits
+        ? {
+            remaining: credits.balance.remaining,
+            granted: credits.balance.granted,
+            used: credits.balance.used,
+            entitled: credits.entitled,
+            legacyMonthlyActive: credits.legacyMonthlyActive,
+          }
+        : null,
       plan: user?.subscriptionPlan ?? null,
       endDate: user?.subscriptionEndDate ?? null,
       isAdmin: user?.role === "admin" || user?.role === "moderator",

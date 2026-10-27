@@ -179,6 +179,17 @@ export const createSubscription = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
 
+    // ── Client Pro n'est PLUS un abonnement mensuel ──────────────────────
+    // Ses droits s'achètent par cotisation (crédits de projets) via
+    // `clientProCredits.requestClientProCotisation`. Aucun abonnement mensuel
+    // « pro » ne peut être créé, même par un appel direct à cette mutation.
+    if (args.plan === "pro") {
+      throw new Error(
+        "Le forfait Client Pro fonctionne par cotisation (crédits de projets) : " +
+          "utilisez la page Abonnements pour acheter des projets. Aucun abonnement mensuel Client Pro n'est créé.",
+      );
+    }
+
     // ── Règle obligatoire : le forfait doit correspondre au profil actif ──
     // Client Pro → pro · Fournisseur → supplier · Expert → expert.
     // Vérification backend : le frontend ne peut pas contourner cette règle.
@@ -210,29 +221,11 @@ export const createSubscription = mutation({
       }
     }
 
-    // ── Client Pro : TOUJOURS payant ──────────────────────────────────────
-    // L'« Offre gratuite » Client Pro (accès permanent sans échéance ni
-    // paiement) a été supprimée. Un montant nul ou absent n'active donc JAMAIS
-    // un abonnement Client Pro : la demande reste « en attente » jusqu'à la
-    // validation effective du paiement par l'administrateur. Le montant n'est
-    // jamais déduit d'une valeur transmise par le client pour décider d'une
-    // activation gratuite.
-    const isClientPro = args.plan === "pro";
-    if (
-      isClientPro &&
-      (args.amount === null || args.amount === 0 || args.amount === undefined)
-    ) {
-      throw new Error(
-        "Le forfait Client Pro est payant : sélectionnez un moyen de paiement et le montant de votre abonnement.",
-      );
-    }
-
     // Forfait gratuit (montant null ou 0) des forfaits Fournisseur / Expert :
     // l'administrateur peut activer une « offre gratuite » sur ces forfaits,
     // qui est alors ouverte immédiatement, sans paiement.
     const isFreePlan =
-      !isClientPro &&
-      (args.amount === null || args.amount === 0 || args.amount === undefined);
+      args.amount === null || args.amount === 0 || args.amount === undefined;
 
     // ── Contrôle serveur : une méthode désactivée par l'admin est refusée,
     // même si le frontend tente de la forcer. ──
