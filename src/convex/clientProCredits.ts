@@ -35,6 +35,7 @@ import {
 } from "../lib/clientProCredits";
 import { defaultPlanPriceFields } from "../lib/planPricing";
 import { isTrialCampaignOpen, readTrialConfig } from "./trialConfig";
+import { getUserSubscriptionStatus } from "./subscriptionStatus";
 
 // ============================================================================
 // COTISATION CLIENT PRO — CRÉDITS DE PROJETS (source de vérité serveur)
@@ -48,6 +49,9 @@ import { isTrialCampaignOpen, readTrialConfig } from "./trialConfig";
 // • les droits Client Pro sont INDÉPENDANTS du forfait professionnel Expert /
 //   Fournisseur : un même compte peut cumuler les deux.
 // ============================================================================
+
+/** Marqueur d'erreur serveur : accès Client Pro refusé (voir `access.ts`). */
+export const CLIENT_PRO_ACCESS_MARKER = "CLIENT_PRO_ACCESS:";
 
 type DbCtx = QueryCtx | MutationCtx;
 
@@ -221,8 +225,45 @@ export async function ensureClientProFreeGrant(
 }
 
 /**
- * Contrôle AVANT insertion d'un projet : crédits disponibles (ou abonnement
- * mensuel pro historique encore actif). Lève une erreur marquée sinon.
+ * Une PÉRIODE D'ACCÈS déjà accordée couvre-t-elle la création d'un projet ?
+ *
+ *   • période d'essai en cours (quelle que soit sa durée) → l'essai a son
+ *     propre plafond, réglé par l'administrateur ;
+ *   • abonnement mensuel Client Pro historique encore valide → le paiement de
+ *     la période est respecté (aucune révocation rétroactive).
+ *
+ * Les abonnements mensuels Expert / Fournisseur ne couvrent PAS les crédits
+ * Client Pro : les droits sont indépendants (un professionnel achète sa
+ * cotisation Client Pro séparément).
+ */
+async function isCreationCoveredByPeriod(
+  ctx: MutationCtx,
+  user: Doc<"users">,
+): Promise<boolean> {
+  const now = Date.now();
+
+  // Période d'essai en cours (essai daté et non expiré).
+  if (user.trialClaimedAt != null && user.trialEndDate != null && user.trialEndDate > now) {
+    return true;
+  }
+
+  // Abonnement mensuel Client Pro encore valide : ligne d'abonnement (historique)
+  // ou période payée enregistrée sur le compte.
+  const legacy = await readLegacyMonthlyPro(ctx, user._id, now);
+  if (legacy.active) return true;
+  if (user.subscriptionPlan === "pro" && (user.subscriptionEndDate ?? 0) > now) return true;
+
+  return false;
+}
+
+/**
+ * Contrôle AVANT insertion d'un projet :
+ *   1. période d'essai / abonnement Client Pro déjà payé → création couverte ;
+ *   2. période terminée (essai expiré, abonnement expiré, paiement en attente)
+ *      → accès Client Pro refusé avec la raison exacte (`CLIENT_PRO_ACCESS:`) ;
+ *   3. sinon → crédits de projets : le premier projet est accordé immédiatement
+ *      avec la gratuité initiale, la création SUIVANTE sans crédit déclenche la
+ *      cotisation (`CLIENT_PRO_CREDITS_REQUIRED:`).
  */
 export async function assertClientProProjectCredit(
   ctx: MutationCtx,
@@ -230,9 +271,27 @@ export async function assertClientProProjectCredit(
 ): Promise<void> {
   if (user.role === "admin" || user.role === "moderator") return;
 
+  if (await isCreationCoveredByPeriod(ctx, user)) {
+    // La gratuité initiale est tout de même matérialisée une seule fois : aucun
+    // compte ne peut la réclamer plus tard en plus de ses projets existants.
+    await ensureClientProFreeGrant(ctx, user._id);
+    return;
+  }
+
   const fresh = (await ensureClientProFreeGrant(ctx, user._id)) ?? user;
   const snapshot = await buildClientProCreditSnapshot(ctx, fresh);
   if (snapshot.canCreateProject) return;
+
+  // Période terminée : on renvoie la raison serveur exacte (essai expiré,
+  // abonnement expiré, paiement en attente) plutôt qu'un message de quota.
+  const period = await getUserSubscriptionStatus(ctx, user._id);
+  if (period && period.status !== "none" && !period.isActive) {
+    throw new Error(
+      `${CLIENT_PRO_ACCESS_MARKER}L'accès à la création de projets nécessite un forfait Client Pro actif. ` +
+        `${period.status === "trial_expired" ? "Votre période d'essai est terminée" : period.status === "pending" ? "Votre paiement est en attente de validation" : "Votre abonnement est expiré"} : ` +
+        "payez une cotisation pour créer un nouveau projet. Vos projets existants restent accessibles et modifiables.",
+    );
+  }
 
   throw new Error(
     `${CLIENT_PRO_CREDITS_MARKER}${projectsLabel(snapshot.balance.granted)} au total, ` +
@@ -254,10 +313,9 @@ export async function consumeClientProCredit(
   if (!user) return;
   if (user.role === "admin" || user.role === "moderator") return;
 
-  // Un abonnement mensuel pro historique actif couvre la création : aucune
-  // consommation de crédits (le client a payé sa période mensuelle).
-  const legacy = await readLegacyMonthlyPro(ctx, userId);
-  if (legacy.active) return;
+  // Une période déjà accordée (essai en cours, abonnement Client Pro payé)
+  // couvre la création : aucune consommation de crédits.
+  if (await isCreationCoveredByPeriod(ctx, user)) return;
 
   const balance = balanceFromUser(user);
   if (balance.remaining <= 0) {

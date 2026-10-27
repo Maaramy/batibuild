@@ -40,7 +40,10 @@ async function createUser(
       role: overrides.role ?? "user",
       status: "active",
       subscriptionPlan: overrides.subscriptionPlan ?? "free",
-      userRole: overrides.userRole,
+      // Profil Fournisseur par défaut : les abonnements mensuels facturés le
+      // sont désormais pour Expert / Fournisseur (Client Pro fonctionne par
+      // cotisation et produit sa propre facture).
+      userRole: overrides.userRole ?? "supplier",
       company: overrides.company,
       // Les tests n'envoient aucun e-mail : le module de facturation ne doit
       // jamais en dépendre.
@@ -72,12 +75,35 @@ async function subscribe(
   } = {},
 ) {
   return asUser(t, userId).mutation(api.subscriptions.createSubscription, {
-    plan: overrides.plan ?? "pro",
+    plan: overrides.plan ?? "supplier",
     paymentMethod: overrides.paymentMethod ?? "d17",
-    amount: overrides.amount ?? 80,
+    amount: overrides.amount ?? 120,
     currency: "TND",
     paymentId: overrides.paymentId,
   });
+}
+
+let cotisationApproverCount = 0;
+
+/**
+ * Achète une cotisation Client Pro (crédits de projets) et fait confirmer le
+ * paiement par un administrateur : la facture « Client Pro » est émise par ce
+ * parcours (le forfait Client Pro n'est plus mensuel).
+ */
+async function buyClientProCredits(t: ReturnType<typeof convexTest>, userId: string) {
+  const orderId = await asUser(t, userId).mutation(
+    api.clientProCredits.requestClientProCotisation,
+    { projects: 1, paymentMethod: "d17" },
+  );
+  cotisationApproverCount += 1;
+  const approverId = await createUser(t, {
+    role: "admin",
+    email: `cotisation-approbateur${cotisationApproverCount}@test.tn`,
+  });
+  await asUser(t, approverId).mutation(api.clientProCredits.adminApproveClientProOrder, {
+    orderId: (orderId as any).orderId,
+  });
+  return orderId;
 }
 
 let approverCount = 0;
@@ -143,14 +169,14 @@ describe("facturation — génération automatique", () => {
     expect(invoice.taxAmount).toBe(0);
     expect(invoice.taxRate).toBe(0);
     expect(invoice.currency).toBe("TND");
-    expect(invoice.profileType).toBe("client");
-    expect(invoice.plan).toBe("pro");
+    expect(invoice.profileType).toBe("supplier");
+    expect(invoice.plan).toBe("supplier");
     expect(invoice.paymentMethod).toBe("d17");
     expect(invoice.issueDate).toBeGreaterThan(0);
     expect(invoice.paymentDate).toBeGreaterThan(0);
     // Période de l'abonnement facturée (30 jours).
     expect(invoice.billingPeriodEnd - invoice.billingPeriodStart).toBe(30 * DAY_MS);
-    expect(invoice.description).toContain("Client Pro");
+    expect(invoice.description).toContain("Fournisseur");
     // Instantané du client : la facture reste nominative.
     expect(invoice.customerName).toBe("Amine Ben Salah");
     expect(invoice.customerEmail).toBe("amine@test.tn");
@@ -188,12 +214,14 @@ describe("facturation — génération automatique", () => {
   });
 
   it("Client Pro n'est jamais gratuit : souscription sans paiement refusée, aucune facture émise", async () => {
-    const userId = await createUser(t);
-    // L'« Offre gratuite » Client Pro a été supprimée : un montant nul / absent
-    // n'active plus l'abonnement, il est refusé. Aucun document comptable.
+    // Profil Client Pro explicite : le forfait Client Pro n'est plus un
+    // abonnement mensuel (aucune souscription, même gratuite, n'est possible).
+    const userId = await createUser(t, { userRole: "client", email: "client-pro-facture@test.tn" });
+    // L'« Offre gratuite » Client Pro a été supprimée : le forfait s'achète par
+    // cotisation (crédits de projets), dont la facture est émise séparément.
     await expect(
       asUser(t, userId).mutation(api.subscriptions.createSubscription, { plan: "pro" }),
-    ).rejects.toThrow(/Client Pro est payant/);
+    ).rejects.toThrow(/cotisation/);
     expect(await myInvoices(t, userId)).toHaveLength(0);
   });
 
@@ -559,13 +587,17 @@ describe("facturation — filtres et statistiques administrateur", () => {
   });
 
   it("filtre par statut, profil, abonnement, recherche et période", async () => {
-    const client = await createUser(t, { email: "client-pro@test.tn", name: "Karim" });
+    const client = await createUser(t, {
+      email: "client-pro@test.tn",
+      name: "Karim",
+      userRole: "client",
+    });
     const supplier = await createUser(t, {
       email: "fournisseur@test.tn",
       name: "Med Bâtiment",
       userRole: "supplier",
     });
-    await subscribeConfirmed(t, client, { amount: 80, plan: "pro" });
+    await buyClientProCredits(t, client);
     await subscribeConfirmed(t, supplier, { amount: 120, plan: "supplier" });
 
     const asAdmin = asUser(t, adminId);

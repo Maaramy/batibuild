@@ -1409,10 +1409,13 @@ const schema = defineSchema(
       expertTrialDays: v.optional(v.number()),
       expertIncludedServices: v.optional(v.array(v.string())),
       expertAutoRenew: v.optional(v.boolean()),
+      // Nombre de jours avant l'échéance pour envoyer le rappel de renouvellement.
+      expertReminderDays: v.optional(v.number()),
       supplierTrialEnabled: v.optional(v.boolean()),
       supplierTrialDays: v.optional(v.number()),
       supplierIncludedServices: v.optional(v.array(v.string())),
       supplierAutoRenew: v.optional(v.boolean()),
+      supplierReminderDays: v.optional(v.number()),
       // ── Cotisation Client Pro (crédits de projets) ────────────────────────
       // Le forfait Client Pro n'est plus un abonnement mensuel : l'utilisateur
       // dispose d'un quota de projets gratuits (une seule fois), puis achète

@@ -122,6 +122,7 @@ export const getProfessionalPlansAdmin = query({
         trialDays: trial.expertTrialDays,
         includedServices: config?.expertIncludedServices ?? null,
         autoRenew: config?.expertAutoRenew !== false,
+        reminderDays: config?.expertReminderDays ?? 3,
       },
       supplier: {
         price: resolvePlanPrice(config?.supplierPrice, DEFAULT_PLAN_PRICES.supplier),
@@ -129,6 +130,7 @@ export const getProfessionalPlansAdmin = query({
         trialDays: trial.supplierTrialDays,
         includedServices: config?.supplierIncludedServices ?? null,
         autoRenew: config?.supplierAutoRenew !== false,
+        reminderDays: config?.supplierReminderDays ?? 3,
       },
     };
   },
@@ -144,6 +146,7 @@ export const updateProfessionalPlanConfig = mutation({
     trialDays: v.number(),
     includedServices: v.array(v.string()),
     autoRenew: v.boolean(),
+    reminderDays: v.number(),
   },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
@@ -163,6 +166,13 @@ export const updateProfessionalPlanConfig = mutation({
     ) {
       throw new Error("La durée de l'essai doit être comprise entre 1 et 365 jours.");
     }
+    if (
+      !Number.isInteger(args.reminderDays) ||
+      args.reminderDays < 1 ||
+      args.reminderDays > 30
+    ) {
+      throw new Error("Le rappel avant échéance doit être compris entre 1 et 30 jours.");
+    }
 
     const catalog = args.plan === "expert" ? PROFESSIONAL_SERVICES.expert : PROFESSIONAL_SERVICES.supplier;
     const unknown = args.includedServices.find(
@@ -180,6 +190,7 @@ export const updateProfessionalPlanConfig = mutation({
             expertTrialDays: args.trialDays,
             expertIncludedServices: args.includedServices,
             expertAutoRenew: args.autoRenew,
+            expertReminderDays: args.reminderDays,
           }
         : {
             supplierPrice: args.price,
@@ -187,6 +198,7 @@ export const updateProfessionalPlanConfig = mutation({
             supplierTrialDays: args.trialDays,
             supplierIncludedServices: args.includedServices,
             supplierAutoRenew: args.autoRenew,
+            supplierReminderDays: args.reminderDays,
           }),
       updatedAt: now,
       updatedBy: admin._id,

@@ -234,15 +234,17 @@ describe("notifications administrateur — événements déclencheurs", () => {
   });
 
   it("notifie une souscription en attente, puis son activation", async () => {
+    // Client Pro fonctionne par cotisation (crédits de projets) : le seul
+    // abonnement mensuel est professionnel (Expert / Fournisseur).
     const userId = await createUser(t, {
       name: "Leïla Mansour",
       email: "souscription@test.tn",
-      userRole: "client",
+      userRole: "expert",
     });
 
     const subscriptionId = await asUser(t, userId).mutation(
       api.subscriptions.createSubscription,
-      { plan: "pro", paymentMethod: "d17", amount: 80, currency: "TND" },
+      { plan: "expert", paymentMethod: "d17", amount: 80, currency: "TND" },
     );
     await flush();
 
@@ -263,6 +265,7 @@ describe("notifications administrateur — événements déclencheurs", () => {
       "En attente de validation du paiement",
       "Paiement validé — abonnement actif",
     ]);
+    expect(payloadOf(rows[0]).vars.profil).toBe("Expert");
   });
 
   it("n'envoie rien lorsqu'aucune adresse n'est configurée", async () => {

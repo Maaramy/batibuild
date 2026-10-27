@@ -6,6 +6,7 @@ import { getCurrentUser } from "./users";
 import { getUserSubscriptionStatus } from "./subscriptionStatus";
 import { readTrialConfig, trialIncludes } from "./trialConfig";
 import { isFullJourneyGroup, projectJourneyGroup } from "../lib/projectJourney";
+import { getClientProAccess } from "./access";
 import {
   evaluateDecisionSupportAccess,
   type DecisionSupportAccessReason,
@@ -84,7 +85,7 @@ export async function resolveDecisionSupport(
   const trialConfig =
     snapshot?.type === "trial" && snapshot?.isActive ? await readTrialConfig(ctx) : null;
 
-  const access = evaluateDecisionSupportAccess({
+  let access = evaluateDecisionSupportAccess({
     authenticated: !!user,
     isAdmin,
     owned,
@@ -99,6 +100,25 @@ export async function resolveDecisionSupport(
         }
       : null,
   });
+
+  // ── Cotisation Client Pro (crédits de projets) ───────────────────────────
+  // « Aide à la décision » est un service Client Pro : les crédits PAYÉS ou la
+  // gratuité initiale l'ouvrent (règle serveur unique, partagée avec les
+  // rapports PDF — `access.ts`). Les refus qui ne relèvent PAS de l'abonnement
+  // (non connecté, projet d'autrui, parcours incomplet) ne sont jamais
+  // contournés : la cotisation n'est lue que lorsqu'ils sont déjà écartés.
+  if (!access.allowed && access.reason !== "group_not_eligible") {
+    const clientPro = await getClientProAccess(ctx, user, "decision");
+    if (clientPro.allowed) {
+      access = {
+        allowed: true,
+        reason: "ok",
+        group: access.group,
+        upgradeRequired: false,
+        renewalRequired: false,
+      };
+    }
+  }
 
   return { access, project: project ?? null, user: user ?? null };
 }

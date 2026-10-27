@@ -56,6 +56,7 @@ export { default as FolderOpen } from "../../node_modules/lucide-react/dist/esm/
 export { default as MessageCircleQuestion } from "../../node_modules/lucide-react/dist/esm/icons/message-circle-question.js";
 export { default as FolderKanban } from "../../node_modules/lucide-react/dist/esm/icons/folder-kanban.js";
 export { default as Briefcase } from "../../node_modules/lucide-react/dist/esm/icons/briefcase.js";
+export { default as BriefcaseBusiness } from "../../node_modules/lucide-react/dist/esm/icons/briefcase-business.js";
 export { default as Building } from "../../node_modules/lucide-react/dist/esm/icons/building.js";
 export { default as Building2 } from "../../node_modules/lucide-react/dist/esm/icons/building-2.js";
 export { default as LifeBuoy } from "../../node_modules/lucide-react/dist/esm/icons/life-buoy.js";
@@ -273,6 +274,7 @@ export { default as User } from "../../node_modules/lucide-react/dist/esm/icons/
 export { default as UserCheck } from "../../node_modules/lucide-react/dist/esm/icons/user-check.js";
 export { default as UserPlus } from "../../node_modules/lucide-react/dist/esm/icons/user-plus.js";
 export { default as UserRound } from "../../node_modules/lucide-react/dist/esm/icons/user-round.js";
+export { default as UserRoundCheck } from "../../node_modules/lucide-react/dist/esm/icons/user-round-check.js";
 export { default as Users } from "../../node_modules/lucide-react/dist/esm/icons/users.js";
 export { default as UtensilsCrossed } from "../../node_modules/lucide-react/dist/esm/icons/utensils-crossed.js";
 export { default as Wallet } from "../../node_modules/lucide-react/dist/esm/icons/wallet.js";

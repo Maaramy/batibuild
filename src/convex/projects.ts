@@ -13,6 +13,7 @@ import {
   consumeClientProCredit,
   refundClientProCredit,
 } from "./clientProCredits";
+import { assertProjectCreationLimit } from "./projectLimits";
 import { readFlag } from "./featureFlags";
 import {
   projectCategoryValidator,
@@ -423,6 +424,12 @@ export const createProject = mutation({
     // création SUIVANTE, sans crédit, qui déclenche la demande de cotisation.
     // Aucune création simultanée ne peut dépasser le solde.
     await assertClientProProjectCredit(ctx, user);
+
+    // ── PLAFOND DE L'OFFRE (période d'essai / offre gratuite / Client Pro
+    // payant) : réglage administrateur, vérifié dans la même transaction. Les
+    // périodes déjà accordées (essai en cours, abonnement payé) conservent leur
+    // propre plafond ; les crédits Client Pro s'y ajoutent quand ils existent.
+    await assertProjectCreationLimit(ctx, user);
 
     const now = Date.now();
 

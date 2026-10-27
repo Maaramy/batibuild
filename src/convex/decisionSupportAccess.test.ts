@@ -41,6 +41,13 @@ async function configurePricing(
       freePlanEnabled,
       // Offre gratuite (essai) désactivée : les scénarios portent sur l'abonnement.
       clientProEnabled: true,
+      // Cotisation Client Pro : gratuité initiale désactivée pour que la
+      // décision d'accès ne dépende QUE du forfait payé (aucun crédit offert).
+      clientProFreeGrantEnabled: false,
+      clientProFreeProjects: 0,
+      clientProCotisationPrice: 80,
+      clientProCotisationProjects: 1,
+      clientProCreditTiers: [],
     }),
   );
 }

@@ -515,16 +515,34 @@ describe("checkClientProAccess — Offre gratuite (switch admin)", () => {
     });
   }
 
-  it("client sans abonnement payant : accès refusé par défaut (forfait payant)", async () => {
+  /** Désactive la gratuité initiale (aucun crédit accordé à l'inscription). */
+  async function disableFreeGrant() {
+    const adminId = await createTestUser(t, { role: "admin" });
+    await asAdmin(t, adminId).mutation(api.clientProCredits.updateClientProCreditConfig, {
+      freeGrantEnabled: false,
+      freeProjects: 0,
+      cotisationPrice: 80,
+      cotisationProjects: 1,
+      tiers: [],
+      refundOnDelete: false,
+      allowStacking: true,
+    });
+  }
+
+  it("client sans cotisation : seule la gratuité initiale ouvre l'accès (crédits limités)", async () => {
     const userId = await createProUser("client@test.com");
     const userT = t.withIdentity({ subject: userId });
 
     const access = await userT.query(api.access.checkClientProAccess);
-    expect(access.allowed).toBe(false);
-    expect(access.reason).toBe("no_subscription");
+    // Gratuité initiale (1 projet par défaut) : accès accordé en crédits,
+    // jamais un accès permanent ni un abonnement mensuel.
+    expect(access.allowed).toBe(true);
+    expect(access.credits?.entitled).toBe(true);
+    expect(access.credits?.remaining).toBe(1);
   });
 
-  it("abonnement expiré : accès refusé (renouvellement obligatoire)", async () => {
+  it("abonnement Client Pro expiré et gratuité initiale désactivée : accès refusé", async () => {
+    await disableFreeGrant();
     const userId = await createProUser("expired@test.com", true, true);
     const userT = t.withIdentity({ subject: userId });
 
@@ -572,15 +590,24 @@ describe("checkClientProAccess — Offre gratuite (switch admin)", () => {
       }),
     ).rejects.toThrow(/Client Pro est payant/);
 
-    // Compte créé via l'inscription : aucun forfait payé → aucun accès.
+    // Gratuité initiale désactivée : un compte neuf n'obtient aucun droit.
+    await adminT.mutation(api.clientProCredits.updateClientProCreditConfig, {
+      freeGrantEnabled: false,
+      freeProjects: 0,
+      cotisationPrice: 80,
+      cotisationProjects: 1,
+      tiers: [],
+      refundOnDelete: false,
+      allowStacking: true,
+    });
     const userId = await createTestUser(t, { role: "user", email: "fresh@test.com" });
     const userT = t.withIdentity({ subject: userId });
     const access = await userT.query(api.access.checkClientProAccess);
     expect(access.allowed).toBe(false);
-    expect(access.reason).not.toBe("ok");
+    expect(access.reason).toBe("no_credits");
   });
 
-  it("switch désactivé (prix payant) : l'accès redevient payant", async () => {
+  it("prix Client Pro payant : l'accès passe uniquement par la cotisation", async () => {
     const adminId = await createTestUser(t, { role: "admin" });
     const adminT = asAdmin(t, adminId);
 
@@ -592,8 +619,8 @@ describe("checkClientProAccess — Offre gratuite (switch admin)", () => {
     const userId = await createProUser("paidagain@test.com");
     const userT = t.withIdentity({ subject: userId });
     const access = await userT.query(api.access.checkClientProAccess);
-    expect(access.allowed).toBe(false);
-    expect(access.reason).toBe("no_subscription");
+    // Aucun abonnement mensuel Client Pro n'existe : l'accès vient des crédits.
+    expect(access.credits?.remaining).toBe(1);
   });
 });
 

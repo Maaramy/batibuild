@@ -152,7 +152,7 @@ describe("Forfait par défaut — attribution aux nouvelles inscriptions", () =>
     expect(subs.length).toBe(0);
   });
 
-  it("défaut Client Pro → le nouvel utilisateur reçoit Client Pro (abonnement actif)", async () => {
+  it("défaut Client Pro → le nouvel utilisateur reçoit les crédits de projets initiaux", async () => {
     const adminId = await insertAdmin(t);
     const adminT = t.withIdentity({ subject: adminId });
     await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "client_pro" });
@@ -161,19 +161,23 @@ describe("Forfait par défaut — attribution aux nouvelles inscriptions", () =>
     await applyDefaultPlan(t, userId);
 
     const user = await t.run(async (ctx) => ctx.db.get(userId));
-    expect(user?.subscriptionPlan).toBe("pro");
-    expect(user?.subscriptionEndDate).toBeGreaterThan(Date.now());
+    // Client Pro n'est pas un abonnement mensuel : la gratuité initiale est
+    // accordée en CRÉDITS DE PROJETS, une seule fois, sans échéance payante.
+    expect(user?.clientProFreeGrantedAt).toBeGreaterThan(0);
+    expect(user?.clientProFreeProjectsGranted).toBeGreaterThan(0);
+    expect(user?.subscriptionPlan).toBeUndefined();
+    expect(user?.subscriptionEndDate).toBeUndefined();
 
+    // Aucun abonnement mensuel n'est créé (et donc aucun renouvellement).
     const subs = await t.run(async (ctx) => ctx.db.query("subscriptions").collect());
-    expect(subs.length).toBe(1);
-    expect(subs[0].plan).toBe("pro");
-    expect(subs[0].status).toBe("active");
+    expect(subs.length).toBe(0);
 
-    // Accès réel confirmé côté backend.
+    // Accès réel confirmé côté backend (crédits disponibles).
     const access = await t
       .withIdentity({ subject: userId })
       .query(api.access.checkClientProAccess);
     expect(access.allowed).toBe(true);
+    expect(access.credits?.remaining).toBeGreaterThan(0);
   });
 
   it("changer le défaut ne modifie PAS les utilisateurs existants", async () => {
@@ -199,11 +203,13 @@ describe("Forfait par défaut — attribution aux nouvelles inscriptions", () =>
     const adminId = await insertAdmin(t);
     const adminT = t.withIdentity({ subject: adminId });
 
-    // Défaut = Client Pro → 1er utilisateur.
+    // Défaut = Client Pro → 1er utilisateur : crédits initiaux accordés.
     await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "client_pro" });
     const u1 = await insertNewUser(t, { email: "u1@test.com" });
     await applyDefaultPlan(t, u1);
-    expect((await t.run(async (ctx) => ctx.db.get(u1)))?.subscriptionPlan).toBe("pro");
+    expect(
+      (await t.run(async (ctx) => ctx.db.get(u1)))?.clientProFreeProjectsGranted,
+    ).toBeGreaterThan(0);
 
     // Défaut = période d'essai → 2e utilisateur : aucun forfait payé.
     await adminT.mutation(api.payments.updateDefaultPlanConfig, { plan: "trial" });

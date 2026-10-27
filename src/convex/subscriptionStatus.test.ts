@@ -492,6 +492,10 @@ describe("checkClientProAccess — essai gratuit (7 jours)", () => {
 
 // ============================================================================
 // Souscription — l'abonnement mensuel désactive l'essai
+// ----------------------------------------------------------------------------
+// Client Pro n'est PLUS un abonnement mensuel (il fonctionne par cotisation de
+// crédits de projets) : le forfait mensuel de ces tests est donc l'abonnement
+// PROFESSIONNEL (Expert), seul modèle mensuel restant.
 // ============================================================================
 
 describe("createSubscription — période mensuelle de 30 jours", () => {
@@ -502,10 +506,10 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
   });
 
   it("virement bancaire en attente : aucun accès tant que l'admin n'a pas validé", async () => {
-    const userId = await createUser(t, { email: "pending@test.com" });
+    const userId = await createUser(t, { userRole: "expert", email: "pending@test.com" });
 
     await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
-      plan: "pro",
+      plan: "expert",
       paymentMethod: "bank_transfer",
       amount: 80,
       currency: "TND",
@@ -523,11 +527,11 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
 
   it("renouvellement par virement : l'abonné garde l'accès jusqu'à la fin de sa période payée", async () => {
     const now = Date.now();
-    const userId = await createUser(t, { email: "renew@test.com" });
+    const userId = await createUser(t, { userRole: "expert", email: "renew@test.com" });
 
     // Abonnement payant encore valable 10 jours.
     await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
-      plan: "pro",
+      plan: "expert",
       paymentMethod: "d17",
       amount: 80,
       currency: "TND",
@@ -538,7 +542,7 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
 
     // Renouvellement par virement, en attente de validation.
     await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
-      plan: "pro",
+      plan: "expert",
       paymentMethod: "bank_transfer",
       amount: 80,
       currency: "TND",
@@ -553,12 +557,12 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
     expect(access.allowed).toBe(true);
   });
 
-  it("virement refusé par l'admin : aucun accès accordé", async () => {
+  it("virement refusé par l'admin : aucun abonnement mensuel accordé", async () => {
     const adminId = await createUser(t, { role: "admin", email: "admin2@test.com" });
-    const userId = await createUser(t, { email: "rejected@test.com" });
+    const userId = await createUser(t, { userRole: "expert", email: "rejected@test.com" });
 
     const subId = await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
-      plan: "pro",
+      plan: "expert",
       paymentMethod: "bank_transfer",
       amount: 80,
       currency: "TND",
@@ -568,18 +572,24 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
       subscriptionId: subId,
     });
 
-    const access = await asUser(t, userId).query(api.access.checkClientProAccess);
-    expect(access.allowed).toBe(false);
-    expect(access.reason).not.toBe("ok");
+    // Aucune période payée : la demande refusée n'ouvre AUCUN droit mensuel.
+    const subs = await t.run(async (ctx) =>
+      (await ctx.db.query("subscriptions").collect()).filter((s) => s.userId === userId),
+    );
+    expect(subs.filter((s) => s.status === "active")).toHaveLength(0);
+
+    const status = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
+    expect(status?.status).not.toBe("active");
+    expect(status?.isActive).toBe(false);
   });
 
   it("paiement D17 : justificatif attendu, activation par l'administrateur", async () => {
-    const userId = await createUser(t, { email: "d17-manuel@test.com" });
+    const userId = await createUser(t, { userRole: "expert", email: "d17-manuel@test.com" });
 
     // D17 suit la même procédure que le virement : demande en attente.
     const subscriptionId = await asUser(t, userId).mutation(
       api.subscriptions.createSubscription,
-      { plan: "pro", paymentMethod: "d17", amount: 80, currency: "TND" },
+      { plan: "expert", paymentMethod: "d17", amount: 80, currency: "TND" },
     );
 
     const pending = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
@@ -614,6 +624,7 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
     await setTrialEnabled(t, true);
     const now = Date.now();
     const userId = await createUser(t, {
+      userRole: "expert",
       trialClaimedAt: now - DAY_MS,
       trialStartDate: now - DAY_MS,
       trialEndDate: now + 6 * DAY_MS,
@@ -623,7 +634,7 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
     const subscriptionId = await asUser(t, userId).mutation(
       api.subscriptions.createSubscription,
       {
-        plan: "pro",
+        plan: "expert",
         paymentMethod: "d17",
         amount: 80,
         currency: "TND",

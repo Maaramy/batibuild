@@ -153,17 +153,32 @@ describe("createSubscription — compatibilité profil ↔ forfait", () => {
     expect(status?.planCompatible).toBe(true);
   });
 
-  it("les comptes legacy sans userRole peuvent souscrire l'offre Client Pro", async () => {
+  it("les comptes legacy sans userRole n'ont plus d'abonnement Client Pro mensuel : cotisation", async () => {
     const userId = await createUser(t, { email: "legacy@test.com" });
-    await asUser(t, userId).mutation(api.subscriptions.createSubscription, {
-      plan: "pro",
-      paymentMethod: "d17",
-      amount: 80,
-      currency: "TND",
-    });
-    const status = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
-    // Payant : en attente de la validation du paiement par l'administrateur.
-    expect(status?.status).toBe("pending");
+
+    // Client Pro n'est plus un abonnement mensuel : la souscription mensuelle
+    // est refusée, même pour un compte historique sans profil explicite.
+    await expect(
+      asUser(t, userId).mutation(api.subscriptions.createSubscription, {
+        plan: "pro",
+        paymentMethod: "d17",
+        amount: 80,
+        currency: "TND",
+      }),
+    ).rejects.toThrow(/cotisation/);
+
+    // Les droits Client Pro s'achètent par une cotisation de projets, dont le
+    // prix est FIGÉ à la commande et dont les crédits n'arrivent qu'après
+    // validation du paiement.
+    const order = await asUser(t, userId).mutation(
+      api.clientProCredits.requestClientProCotisation,
+      { projects: 1, paymentMethod: "d17" },
+    );
+    expect(order.projects).toBe(1);
+    expect(order.price).toBeGreaterThan(0);
+
+    const credits = await asUser(t, userId).query(api.clientProCredits.getMyClientProCredits);
+    expect(credits?.balance.paidGranted).toBe(0);
   });
 });
 
@@ -222,7 +237,20 @@ describe("checkClientProAccess — règle profil", () => {
     t = convexTest(schema, modules);
   });
 
-  it("refuse les services Client Pro à un Expert avec abonnement actif", async () => {
+  it("un abonnement Expert actif n'accorde AUCUN droit Client Pro", async () => {
+    // Gratuité initiale désactivée : la décision ne dépend que du forfait
+    // professionnel, qui ne doit jamais ouvrir les services Client Pro.
+    const adminId = await createUser(t, { role: "admin", email: "admin-expert-access@test.com" });
+    await asUser(t, adminId).mutation(api.clientProCredits.updateClientProCreditConfig, {
+      freeGrantEnabled: false,
+      freeProjects: 0,
+      cotisationPrice: 80,
+      cotisationProjects: 1,
+      tiers: [],
+      refundOnDelete: false,
+      allowStacking: true,
+    });
+
     const userId = await createUser(t, { email: "exp-access@test.com", userRole: "expert" });
     await t.run(async (ctx) => {
       await ctx.db.patch(userId as any, {
@@ -235,7 +263,11 @@ describe("checkClientProAccess — règle profil", () => {
 
     const access = await asUser(t, userId).query(api.access.checkClientProAccess);
     expect(access.allowed).toBe(false);
-    expect(access.reason).toBe("not_client_pro");
+    expect(access.reason).toBe("no_credits");
+    // L'Expert conserve son propre forfait : rien n'est supprimé ni dégradé.
+    const status = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
+    expect(status?.isActive).toBe(true);
+    expect(status?.planCompatible).toBe(true);
   });
 
   it("refuse un Client Pro dont le forfait actif ne correspond pas au profil", async () => {

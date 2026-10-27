@@ -179,6 +179,21 @@ export const createSubscription = mutation({
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
 
+    // ── Règle obligatoire : le forfait doit correspondre au profil actif ──
+    // Client Pro → pro · Fournisseur → supplier · Expert → expert.
+    // Vérification backend AVANT toute autre : le frontend ne peut pas
+    // contourner cette règle (un profil professionnel ne peut pas souscrire le
+    // forfait d'un autre profil).
+    const profileRole = await resolveProfileRole(ctx, user);
+    const expectedPlan = expectedPlanForProfile(profileRole);
+    if (args.plan !== expectedPlan) {
+      const roleLabel = PROFILE_ROLE_LABELS[profileRole ?? "client"];
+      throw new Error(
+        `${PROFILE_SUBSCRIPTION_ERROR_MARKER}Votre profil « ${roleLabel} » autorise uniquement l'offre ${PLAN_VALUE_LABELS[expectedPlan]}. ` +
+          "Seules les offres correspondant à votre type de profil peuvent être souscrites.",
+      );
+    }
+
     // ── Client Pro n'est PLUS un abonnement mensuel ──────────────────────
     // Ses droits s'achètent par cotisation (crédits de projets) via
     // `clientProCredits.requestClientProCotisation`. Aucun abonnement mensuel
@@ -187,19 +202,6 @@ export const createSubscription = mutation({
       throw new Error(
         "Le forfait Client Pro fonctionne par cotisation (crédits de projets) : " +
           "utilisez la page Abonnements pour acheter des projets. Aucun abonnement mensuel Client Pro n'est créé.",
-      );
-    }
-
-    // ── Règle obligatoire : le forfait doit correspondre au profil actif ──
-    // Client Pro → pro · Fournisseur → supplier · Expert → expert.
-    // Vérification backend : le frontend ne peut pas contourner cette règle.
-    const profileRole = await resolveProfileRole(ctx, user);
-    const expectedPlan = expectedPlanForProfile(profileRole);
-    if (args.plan !== expectedPlan) {
-      const roleLabel = PROFILE_ROLE_LABELS[profileRole ?? "client"];
-      throw new Error(
-        `${PROFILE_SUBSCRIPTION_ERROR_MARKER}Votre profil « ${roleLabel} » autorise uniquement l'offre ${PLAN_VALUE_LABELS[expectedPlan]}. ` +
-          "Seules les offres correspondant à votre type de profil peuvent être souscrites.",
       );
     }
 

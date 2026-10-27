@@ -4,7 +4,9 @@ import { api } from "./_generated/api";
 import { getUserSubscriptionStatus } from "./subscriptionStatus";
 import { resolveProfileRole, type UserRole } from "./profileSubscription";
 import { readTrialConfig, trialIncludes } from "./trialConfig";
-import { buildClientProCreditSnapshot } from "./clientProCredits";
+import { buildClientProCreditSnapshot, CLIENT_PRO_ACCESS_MARKER } from "./clientProCredits";
+
+export { CLIENT_PRO_ACCESS_MARKER };
 import type { TrialModuleKey } from "../lib/subscriptionPlans";
 
 // ============================================================================
@@ -36,8 +38,6 @@ export interface ClientProAccess {
   allowed: boolean;
   reason: ClientProAccessReason;
 }
-
-export const CLIENT_PRO_ACCESS_MARKER = "CLIENT_PRO_ACCESS:";
 
 /** Marqueur d'erreur serveur : téléchargement PDF réservé au forfait payant. */
 export const PDF_ACCESS_MARKER = "PDF_ACCESS_REQUIRED:";
@@ -143,8 +143,10 @@ export async function isProfilePaymentActive(
 
   const status = profile.subscriptionStatus;
   if (status === "trial") {
-    // Un essai sans échéance n'existe pas : il doit avoir une date de fin future.
-    return profile.subscriptionEndDate != null && profile.subscriptionEndDate > now;
+    // Essai daté : il doit être encore dans sa période. Un ancien profil d'essai
+    // sans échéance enregistrée (données historiques) reste actif jusqu'à
+    // l'intervention de l'administrateur — aucune donnée n'est cassée.
+    return profile.subscriptionEndDate == null || profile.subscriptionEndDate > now;
   }
   if (status !== "active") return false;
   if (profile.subscriptionEndDate != null && profile.subscriptionEndDate <= now) return false;
@@ -246,8 +248,17 @@ export async function getClientProAccess(
       : ctx.runQuery(api.clientProCredits.getMyClientProCredits),
   ]);
 
-  // 1. Cotisation Client Pro (crédits) — indépendante du profil.
-  if (credits?.entitled === true) return { allowed: true, reason: "ok" };
+  // 0. Cohérence profil ↔ forfait : un compte dont le forfait actif appartient
+  //    à un AUTRE profil (donnée incohérente) ne peut pas prétendre aux
+  //    services Client Pro. Les droits Client Pro restent, eux, indépendants du
+  //    forfait professionnel (un Expert peut acheter sa cotisation).
+  if (snapshot?.planCompatible === false && snapshot?.activePlan != null) {
+    return { allowed: false, reason: "plan_not_allowed_for_profile" };
+  }
+
+  // 1. Crédits PAYÉS (cotisation confirmée) : l'accès est acquis, indépendamment
+  //    du profil et de l'état d'un éventuel abonnement professionnel.
+  if ((credits?.balance?.paidRemaining ?? 0) > 0) return { allowed: true, reason: "ok" };
 
   // 2. Abonnement mensuel Client Pro HISTORIQUE encore valide.
   const legacyMonthlyActive =
@@ -256,8 +267,8 @@ export async function getClientProAccess(
     snapshot?.activePlan === "pro";
   if (legacyMonthlyActive) return { allowed: true, reason: "ok" };
 
-  // 3. Essai Client Pro historique encore en cours (legacy) : seuls les
-  //    modules ouverts par l'administrateur sont accessibles.
+  // 3. Période d'essai / d'accès temporaire encore en cours : seuls les modules
+  //    ouverts par l'administrateur sont accessibles.
   if (snapshot?.type === "trial" && snapshot?.isActive === true) {
     if (module && !(await isTrialModuleAllowed(ctx, module))) {
       return { allowed: false, reason: "trial_no_module" };
@@ -265,11 +276,16 @@ export async function getClientProAccess(
     return { allowed: true, reason: "ok" };
   }
 
+  // 4. Période terminée : la raison exacte est renvoyée (aucun droit prolongé).
   if (snapshot?.status === "pending") return { allowed: false, reason: "pending" };
   if (snapshot?.status === "trial_expired") return { allowed: false, reason: "trial_expired" };
   if (snapshot?.status === "expired") return { allowed: false, reason: "expired" };
 
-  // 4. Aucun crédit : une cotisation est requise pour ouvrir les services.
+  // 5. Gratuité initiale / crédits de projets disponibles : les services Client
+  //    Pro sont ouverts pour ces projets (jamais un accès permanent).
+  if (credits?.entitled === true) return { allowed: true, reason: "ok" };
+
+  // 6. Aucun crédit : une cotisation est requise pour ouvrir les services.
   return { allowed: false, reason: "no_credits" };
 }
 
@@ -331,9 +347,15 @@ export async function getPdfDownloadAccess(ctx: any, user: any): Promise<PdfDown
 
   const plan = snapshot?.plan ?? user.subscriptionPlan ?? null;
 
+  // Cohérence profil ↔ forfait (même règle que l'accès aux services).
+  if (snapshot?.planCompatible === false && snapshot?.activePlan != null) {
+    return { allowed: false, reason: "plan_not_allowed_for_profile", plan };
+  }
+
   // Cotisation Client Pro : les rapports PDF font partie des services ouverts
-  // par les crédits, y compris pour un Expert / Fournisseur (droit distinct).
-  if (credits?.entitled === true) return { allowed: true, reason: "ok", plan };
+  // par les crédits PAYÉS, y compris pour un Expert / Fournisseur (droit
+  // distinct du forfait professionnel).
+  if ((credits?.balance?.paidRemaining ?? 0) > 0) return { allowed: true, reason: "ok", plan };
 
   // Abonnement mensuel Client Pro HISTORIQUE encore valide.
   if (
@@ -344,7 +366,7 @@ export async function getPdfDownloadAccess(ctx: any, user: any): Promise<PdfDown
     return { allowed: true, reason: "ok", plan };
   }
 
-  // Essai Client Pro historique : module PDF ouvert par l'administrateur.
+  // Période d'essai / d'accès temporaire : module PDF ouvert par l'administrateur.
   if (snapshot?.type === "trial" && snapshot?.isActive === true) {
     return snapshot.trialPdfAllowed === true
       ? { allowed: true, reason: "ok", plan }
@@ -355,6 +377,10 @@ export async function getPdfDownloadAccess(ctx: any, user: any): Promise<PdfDown
   if (snapshot?.status === "trial_expired") {
     return { allowed: false, reason: "trial_expired", plan };
   }
+
+  // Gratuité initiale / crédits de projets disponibles.
+  if (credits?.entitled === true) return { allowed: true, reason: "ok", plan };
+
   return { allowed: false, reason: "no_credits", plan };
 }
 

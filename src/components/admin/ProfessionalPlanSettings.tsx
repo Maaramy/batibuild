@@ -41,6 +41,7 @@ interface PlanForm {
   trialDays: string;
   services: string[];
   autoRenew: boolean;
+  reminderDays: string;
 }
 
 const EMPTY_FORM: PlanForm = {
@@ -50,6 +51,7 @@ const EMPTY_FORM: PlanForm = {
   trialDays: "7",
   services: [],
   autoRenew: true,
+  reminderDays: "3",
 };
 
 export function ProfessionalPlanSettings({ role }: { role: ProfessionalRole }) {
@@ -74,6 +76,7 @@ export function ProfessionalPlanSettings({ role }: { role: ProfessionalRole }) {
       trialDays: String(plan.trialDays),
       services,
       autoRenew: plan.autoRenew,
+      reminderDays: String((plan as any).reminderDays ?? 3),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, role]);
@@ -105,6 +108,7 @@ export function ProfessionalPlanSettings({ role }: { role: ProfessionalRole }) {
         trialDays,
         includedServices: form.services,
         autoRenew: form.autoRenew,
+        reminderDays: parseInt(form.reminderDays, 10) || 3,
       });
       toast.success(`Abonnement ${label} enregistré — paramètres persistants.`);
     } catch (err: any) {
@@ -260,10 +264,23 @@ export function ProfessionalPlanSettings({ role }: { role: ProfessionalRole }) {
             </p>
           </div>
         </div>
-        <Switch
-          checked={form.autoRenew}
-          onCheckedChange={(checked) => setForm((prev) => ({ ...prev, autoRenew: checked }))}
-        />
+        <div className="flex items-center gap-2">
+          <div className="w-32">
+            <label className="text-[10px] text-muted-foreground">Rappel (jours avant)</label>
+            <Input
+              type="number"
+              min={1}
+              max={30}
+              value={form.reminderDays}
+              onChange={(e) => setForm((prev) => ({ ...prev, reminderDays: e.target.value }))}
+              className="mt-1 h-8 text-sm"
+            />
+          </div>
+          <Switch
+            checked={form.autoRenew}
+            onCheckedChange={(checked) => setForm((prev) => ({ ...prev, autoRenew: checked }))}
+          />
+        </div>
       </div>
 
       <div className="flex items-center justify-between border-t border-border/20 pt-3">

@@ -668,9 +668,20 @@ describe("période d'essai — Client Pro", () => {
     expect(await t.run(async (ctx) => ctx.db.get(projectId))).not.toBeNull();
   });
 
-  it("après l'essai, seul un paiement confirmé active Client Pro (30 jours)", async () => {
+  it("après l'essai, seul un paiement confirmé ouvre Client Pro (cotisation par projets)", async () => {
     const { adminId, adminT } = await asAdmin(t);
     await adminT.mutation(api.trialConfig.updateTrialConfig, CLIENT_CONFIG);
+    // Gratuité initiale désactivée : après l'essai, seuls les crédits PAYÉS
+    // peuvent rouvrir les services Client Pro.
+    await adminT.mutation(api.clientProCredits.updateClientProCreditConfig, {
+      freeGrantEnabled: false,
+      freeProjects: 0,
+      cotisationPrice: 80,
+      cotisationProjects: 1,
+      tiers: [],
+      refundOnDelete: false,
+      allowStacking: true,
+    });
 
     const now = Date.now();
     const userId = await createUser(t, {
@@ -682,29 +693,36 @@ describe("période d'essai — Client Pro", () => {
     });
     await t.mutation(internal.subscriptionStatus.checkSubscriptionPeriods, {});
 
-    const subscriptionId = await asUser(t, userId).mutation(
-      api.subscriptions.createSubscription,
-      { plan: "pro", paymentMethod: "d17", amount: 80, currency: "TND" },
-    );
+    // Après l'essai : accès retiré, aucune période payante créée d'office.
+    const expired = await asUser(t, userId).query(api.access.checkClientProAccess);
+    expect(expired.allowed).toBe(false);
+    expect(expired.reason).toBe("trial_expired");
 
-    // Demande envoyée : toujours aucun accès tant que le paiement n'est pas validé.
-    const pending = await asUser(t, userId).query(
-      api.subscriptionStatus.getMySubscriptionStatus,
+    // Cotisation de projets : la demande n'attribue aucun crédit.
+    const order = await asUser(t, userId).mutation(
+      api.clientProCredits.requestClientProCotisation,
+      { projects: 1, paymentMethod: "d17" },
     );
-    expect(pending?.status).toBe("pending");
-    expect(pending?.isActive).toBe(false);
+    const pending = await asUser(t, userId).query(api.clientProCredits.getMyClientProCredits);
+    expect(pending?.balance.paidGranted).toBe(0);
+    expect((await asUser(t, userId).query(api.access.checkClientProAccess)).allowed).toBe(false);
 
-    await asUser(t, adminId).mutation(api.subscriptions.adminApproveSubscription, {
-      subscriptionId,
+    // Après confirmation du paiement : les projets achetés sont attribués.
+    await asUser(t, adminId).mutation(api.clientProCredits.adminApproveClientProOrder, {
+      orderId: order.orderId,
     });
 
-    const active = await asUser(t, userId).query(
-      api.subscriptionStatus.getMySubscriptionStatus,
-    );
-    expect(active?.status).toBe("active");
-    expect(active?.isActive).toBe(true);
-    expect(active?.subscriptionDaysRemaining).toBe(30);
+    const granted = await asUser(t, userId).query(api.clientProCredits.getMyClientProCredits);
+    expect(granted?.balance.paidGranted).toBe(1);
+    expect(granted?.balance.remaining).toBe(1);
     expect((await asUser(t, userId).query(api.access.checkClientProAccess)).allowed).toBe(true);
+
+    // Aucun abonnement mensuel Client Pro n'a été créé (et aucun montant n'a été
+    // prélevé automatiquement).
+    const subs = await t.run(async (ctx) =>
+      (await ctx.db.query("subscriptions").collect()).filter((s) => s.userId === userId),
+    );
+    expect(subs.filter((s) => s.status === "active")).toHaveLength(0);
   });
 });
 

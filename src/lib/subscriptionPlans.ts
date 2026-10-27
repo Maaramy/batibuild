@@ -12,11 +12,11 @@
 // Le forfait « Free » n'existe plus : il est remplacé par la période d'essai
 // gratuite administrable, puis par les offres payantes.
 //
-// La période d'essai est réservée aux abonnements mensuels PROFESSIONNELS
-// (Expert et Fournisseur), avec une durée et une activation INDÉPENDANTES.
-// Client Pro n'est pas un abonnement mensuel : il fonctionne par crédits de
-// projets (gratuité initiale limitée, puis cotisation par pack de projets).
-// Il n'a donc aucune période d'essai.
+// La période d'essai couvre les abonnements mensuels PROFESSIONNELS (Expert et
+// Fournisseur), avec une durée et une activation INDÉPENDANTES, ainsi que le
+// forfait Client Pro, dont l'essai est une PÉRIODE D'ACCÈS TEMPORAIRE (durée
+// dédiée, avec échéance). Client Pro n'est pas un abonnement mensuel : après
+// l'échéance, ses droits proviennent de la cotisation par crédits de projets.
 
 export const CLIENT_PRO_PLAN_LABEL = "Client Pro";
 export const TRIAL_PLAN_LABEL = "Période d'essai";
@@ -119,16 +119,17 @@ export function sanitizeTrialModules(values: readonly unknown[] | null | undefin
 }
 
 // ── Profils éligibles à la période d'essai ──────────────────────────────────
-// UNIQUEMENT les abonnements mensuels professionnels. Client Pro est exclu :
-// ses droits proviennent de la cotisation par crédits de projets.
-export type TrialProfileKey = "supplier" | "expert";
+// L'administrateur choisit librement les profils concernés :
+//   • Client Pro    → période d'accès temporaire (échéance), puis cotisation
+//                     par crédits de projets ; aucun abonnement mensuel.
+//   • Expert / Fournisseur → abonnement mensuel, essai puis paiement.
+// Chaque profil est coché indépendamment ; rien n'est accordé par défaut sans
+// configuration explicite de l'administrateur.
+export type TrialProfileKey = "client" | "supplier" | "expert";
 
-/**
- * Vrai pour un profil qui ne peut pas bénéficier de l'essai : Client Pro
- * (modèle par crédits), profil non résolu, et tout rôle inconnu.
- */
+/** Vrai pour un profil qui ne peut pas bénéficier de l'essai (rôle inconnu). */
 export function isTrialExcludedProfile(value: unknown): boolean {
-  return value !== "supplier" && value !== "expert";
+  return value !== "client" && value !== "supplier" && value !== "expert";
 }
 
 export interface TrialProfileDefinition {
@@ -140,17 +141,24 @@ export interface TrialProfileDefinition {
 
 export const TRIAL_PROFILES: TrialProfileDefinition[] = [
   {
-    key: "expert",
-    label: "Expert",
+    key: "client",
+    label: "Client Pro",
     description:
-      "Abonnement mensuel Expert — essai gratuit de durée réglable, puis paiement obligatoire.",
-    defaultIncluded: true,
+      "Période d'accès temporaire au forfait Client Pro (durée réglable), puis cotisation par crédits de projets — aucun abonnement mensuel.",
+    defaultIncluded: false,
   },
   {
     key: "supplier",
     label: "Fournisseur",
     description:
       "Abonnement mensuel Fournisseur — essai gratuit de durée réglable, puis paiement obligatoire.",
+    defaultIncluded: true,
+  },
+  {
+    key: "expert",
+    label: "Expert",
+    description:
+      "Abonnement mensuel Expert — essai gratuit de durée réglable, puis paiement obligatoire.",
     defaultIncluded: true,
   },
 ];

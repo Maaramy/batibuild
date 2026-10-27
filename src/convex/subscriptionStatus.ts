@@ -305,13 +305,14 @@ export async function startTrialFor(
     return { started: false, reason: "subscription_active" };
   }
 
-  // Durée effective : celle réglée pour Client Pro s'il y en a une, sinon la
-  // durée commune. Jamais une constante codée en dur.
+  // Durée effective : celle réglée pour le forfait (Client Pro a la sienne),
+  // sinon la durée commune. Jamais une constante codée en dur.
   const trialDays = trialDaysFor(config, profileRole);
   const trialEndDate = trialEndDateFor(config, now, trialDays);
   const daysTotal = Math.max(1, daysRemainingUntil(trialEndDate, now));
-  const roleLabel = profileRole === "expert" ? "Expert" : "Fournisseur";
-  const trialLabel = `essai ${roleLabel}`;
+  const roleLabel =
+    profileRole === "expert" ? "Expert" : profileRole === "supplier" ? "Fournisseur" : "Client Pro";
+  const trialLabel = profileRole === "client" ? "Client Pro" : `essai ${roleLabel}`;
 
   await ctx.db.patch(userId, {
     trialClaimedAt: now,
@@ -367,8 +368,13 @@ export async function startTrialFor(
     await ctx.db.insert("notifications", {
       userId,
       type: "subscription",
-      title: `Votre période d'essai ${roleLabel} a démarré`,
-      message: `Profitez de ${daysTotal} jour${daysTotal > 1 ? "s" : ""} d'${trialLabel}. Votre essai se termine le ${formatDateFr(trialEndDate)}.`,
+      title:
+        profileRole === "client"
+          ? "Votre période Client Pro a démarré"
+          : `Votre période d'essai ${roleLabel} a démarré`,
+      message:
+        `Profitez de ${daysTotal} jour${daysTotal > 1 ? "s" : ""} ${profileRole === "client" ? "d'accès Client Pro" : `d'${trialLabel}`}. ` +
+        `Cette période se termine le ${formatDateFr(trialEndDate)}.`,
       read: false,
       link: "/dashboard/pricing",
       createdAt: now,
@@ -526,20 +532,36 @@ export const checkSubscriptionPeriods = internalMutation({
         patch.trialDaysRemaining = 0;
         trialsExpired++;
 
-        // Essai professionnel terminé : aucun abonnement n'est activé et aucun
-        // montant n'est prélevé. L'utilisateur doit souscrire son abonnement
-        // mensuel pour rester visible et conserver ses services.
+        // Période terminée : aucun abonnement n'est activé et aucun montant
+        // n'est prélevé. Deux cas distincts, décidés côté serveur :
+        //   • Client Pro → les droits reviennent à la cotisation (crédits) ;
+        //   • Expert / Fournisseur → abonnement mensuel requis, profil masqué.
         const role = await resolveProfileRole(ctx, user);
-        const roleLabel = role === "expert" ? "Expert" : role === "supplier" ? "Fournisseur" : "professionnel";
+        const roleLabel =
+          role === "expert" ? "Expert" : role === "supplier" ? "Fournisseur" : "professionnel";
+        const trialConfig = await readTrialConfig(ctx);
+        const clientProTrial = isProfileEligibleForTrial(trialConfig, "client");
+        const isProfessional = role === "expert" || role === "supplier";
+
+        const title = isProfessional
+          ? `Votre période d'essai ${roleLabel} est terminée`
+          : clientProTrial
+            ? "Votre essai Client Pro est terminé"
+            : "Votre période d'essai est terminée";
+        const message = isProfessional
+          ? `Votre période d'essai est terminée. Votre profil est temporairement invisible dans l'annuaire. ` +
+            `Souscrivez à l'abonnement mensuel ${roleLabel} pour rétablir immédiatement vos services et votre visibilité. Aucun montant n'a été prélevé.`
+          : clientProTrial
+            ? "Votre période d'essai Client Pro est terminée : vos projets restent accessibles, mais la création d'un nouveau projet nécessite une cotisation. " +
+              "La cotisation remplace l'ancien forfait Client Pro mensuel : payez uniquement le nombre de projets dont vous avez besoin, sans renouvellement automatique."
+            : "Votre période d'essai gratuit est terminée. Veuillez choisir une offre pour continuer à utiliser la plateforme.";
 
         try {
           await ctx.db.insert("notifications", {
             userId: user._id,
             type: "subscription",
-            title: `Votre période d'essai ${roleLabel} est terminée`,
-            message:
-              `Votre période d'essai est terminée. Votre profil est temporairement invisible dans l'annuaire. ` +
-              `Souscrivez à l'abonnement mensuel ${roleLabel} pour rétablir immédiatement vos services et votre visibilité. Aucun montant n'a été prélevé.`,
+            title,
+            message,
             read: false,
             link: "/dashboard/pricing",
             createdAt: now,
@@ -555,7 +577,11 @@ export const checkSubscriptionPeriods = internalMutation({
             templateKey: "subscription_expired",
             vars: {
               ...splitName(user.name),
-              typeAbonnement: `Essai ${roleLabel}`,
+              typeAbonnement: isProfessional
+                ? `Essai ${roleLabel}`
+                : clientProTrial
+                  ? "Essai Client Pro"
+                  : "Essai gratuit",
               dateActivation: formatDateFr(user.trialStartDate),
               dateExpiration: formatDateFr(user.trialEndDate),
             },
@@ -588,7 +614,6 @@ export const checkSubscriptionPeriods = internalMutation({
     // recommandations, mise en relation) sans supprimer aucune donnée. Le
     // retour du paiement le rétablit automatiquement.
     let profilesSuspended = 0;
-    const professionalTrialReminders: number[] = [3, 1];
 
     for (const [role, table] of [
       ["expert", "expertProfiles"],
@@ -630,7 +655,14 @@ export const checkSubscriptionPeriods = internalMutation({
 
         if ((status === "trial" || status === "active") && end != null) {
           const daysLeft = Math.ceil((end - now) / (24 * 60 * 60 * 1000));
-          if (professionalTrialReminders.includes(daysLeft)) {
+          // Délai de rappel RÉGLÉ par l'administrateur (1 à 30 jours), plus un
+          // rappel la veille de l'échéance.
+          const reminderDays =
+            role === "expert"
+              ? (pricingConfig?.expertReminderDays ?? 3)
+              : (pricingConfig?.supplierReminderDays ?? 3);
+          const reminders = reminderDays === 1 ? [1] : [reminderDays, 1];
+          if (reminders.includes(daysLeft)) {
             try {
               await ctx.db.insert("notifications", {
                 userId: profile.userId,

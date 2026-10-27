@@ -5022,7 +5022,11 @@ function TrialSettings() {
       });
       toast.success(
         form.enabled
-          ? `Période d'essai enregistrée : ${trialDurationLabel(form.durationDays)} pour les nouveaux comptes Expert / Fournisseur éligibles.`
+          ? `Période d'essai enregistrée : ${trialDurationLabel(form.durationDays)} pour les profils éligibles (Client Pro : ${
+              form.clientProDurationDays == null
+                ? trialDurationLabel(form.durationDays)
+                : trialDurationLabel(form.clientProDurationDays)
+            }).`
           : "Période d'essai désactivée : les paramètres sont conservés.",
       );
     } catch (err: any) {
@@ -5317,11 +5321,12 @@ function TrialSettings() {
           })}
         </div>
         <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/[0.05] p-2.5 text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300">
-          <strong>Essai Client Pro.</strong> Coché, Client Pro reçoit l'essai pour la durée indiquée
-          ci-dessus (ou sa durée dédiée). À l'expiration, l'accès Client Pro est retiré et
-          l'utilisateur est invité à souscrire au forfait Client Pro mensuel au tarif configuré :
-          l'abonnement payant n'est activé qu'après confirmation effective du paiement. Le plafond
-          de projets de l'essai se règle juste en dessous.
+          <strong>Période Client Pro.</strong> Coché, Client Pro reçoit la période d'accès pour la
+          durée indiquée ci-dessus (ou sa durée dédiée). À l'expiration, l'accès est retiré et
+          l'utilisateur est invité à payer une cotisation (nombre de projets, tarif configuré dans
+          la section « Cotisation Client Pro ») : aucun abonnement mensuel n'est créé et aucun
+          montant n'est prélevé automatiquement. Le plafond de projets de la période se règle juste
+          en dessous.
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-border/20 pt-2">
           <p className="text-[11px] text-muted-foreground">
