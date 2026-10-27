@@ -56,6 +56,19 @@
 // `vite build` garde son plafond nominal à 900 Mo (mesuré suffisant du premier
 // coup) et un repli unique à 1 024 Mo uniquement sur abandon de V8 (134).
 //
+// ── Annulation : l'enfant ne doit jamais survivre à l'enveloppe ────────────
+// L'enveloppe est le processus DIRECT lancé par le runner de déploiement ; le
+// binaire réel (`tsc`, `vite`) est son ENFANT. Un shell tué par SIGTERM sans
+// transférer le signal laissait cet enfant ORPHELIN — mesuré : après arrêt de
+// l'enveloppe, `vite build` continuait ses transformations (PID repris par
+// init, plafond de 900 Mo toujours alloué). Le runner, lui, voyait son
+// processus direct sortir : le build paraissait arrêté alors qu'il tournait
+// toujours, et l'annulation ne se terminait jamais (« Cancelling
+// deployment… »). Les quatre signaux d'arrêt sont donc transmis à l'enfant, et
+// l'attente est reprise tant qu'il vit : `wait` revient en 128+signal quand
+// c'est l'ENVELOPPE qui est signalée, et rendre ce code pendant que le
+// compilateur travaille reproduirait exactement le même diagnostic erroné.
+//
 // ── Journalisation ─────────────────────────────────────────────────────────
 // Chaque enveloppe annonce le budget, puis, en cas d'échec, la durée et l'état
 // du cgroup (`memory.max` / `memory.peak` / libres). Le prochain journal de
@@ -150,6 +163,59 @@ const cgroupHelpers = [
 ].join("\n");
 
 /**
+ * Transfert des signaux, côté shell — voir la section « Annulation » de
+ * l'en-tête. L'enveloppe est le processus DIRECT que lance le runner ; le
+ * binaire réel (`tsc`, `vite`) est son enfant. Sans transfert, l'enfant
+ * survit à l'annulation : le build continue de tourner et le déploiement reste
+ * bloqué sur « Cancelling deployment… ».
+ *
+ * `await_child` existe pour la même raison : `wait` revient en 128+signal
+ * lorsque c'est l'ENVELOPPE qui est signalée. Rendre ce code pendant que le
+ * compilateur travaille encore ferait croire au runner que le build s'est
+ * arrêté — exactement le diagnostic erroné qui bloque l'annulation.
+ */
+export const SIGNAL_HELPERS = [
+  `forward_signal() {`,
+  `  [ -n "\${child:-}" ] || return 0`,
+  `  kill -s "$1" "$child" 2>/dev/null || true`,
+  `  # Si l'enfant est chef de son propre groupe de processus, signaler aussi le`,
+  `  # groupe (services lancés par le compilateur, ex. esbuild). Le test évite`,
+  `  # de viser le groupe du runner lui-même.`,
+  `  group=$(ps -o pgid= -p "$child" 2>/dev/null | tr -d ' ')`,
+  `  case "$group" in`,
+  `    ''|*[!0-9]*) ;;`,
+  `    *)`,
+  `      if [ "$group" = "$child" ] && [ "$group" != "$$" ]; then`,
+  `        kill -s "$1" "-$group" 2>/dev/null || true`,
+  `      fi`,
+  `      ;;`,
+  `  esac`,
+  `  return 0`,
+  `}`,
+  ``,
+  `# Attend la sortie RÉELLE de l'enfant, puis rend son code de sortie.`,
+  `await_child() {`,
+  `  status=0`,
+  `  tries=0`,
+  `  while :; do`,
+  `    if wait "$child"; then`,
+  `      status=0`,
+  `    else`,
+  `      status=$?`,
+  `    fi`,
+  `    if [ "$status" -gt 128 ] && [ "$tries" -lt 20 ]; then`,
+  `      kill -0 "$child" 2>/dev/null || break`,
+  `      tries=$((tries + 1))`,
+  `      continue`,
+  `    fi`,
+  `    break`,
+  `  done`,
+  `  child=`,
+  `  return "$status"`,
+  `}`,
+].join("\n");
+
+/**
  * Enveloppe `sh` : retrouve le vrai binaire, rappelle `node` plafonné, rapporte
  * le code de sortie (V8 a abandonné vs. tué par le noyau) ET LE PROPAGE.
  */
@@ -168,7 +234,23 @@ export function wrapperSource({
     `target="$here/${relTarget}"`,
     `[ -f "$target" ] || target="${absTarget}"`,
   ].join("\n");
-  const node = (flags) => `node${flags ? ` ${flags}` : ""} "$target" "$@"`;
+  // Le binaire n'est plus lancé en avant-plan : chaque lanceur le démarre en
+  // tâche de fond, installe le transfert des signaux, puis attend sa sortie
+  // RÉELLE (voir SIGNAL_HELPERS). Le plafond reste un argument LITTÉRAL de
+  // `node`, pour qu'il l'emporte sur NODE_OPTIONS (comportement attendu par
+  // src/lib/clientBundleGuards.test.ts) ; seul l'appel change, pas la commande.
+  const launcher = (fnName, flags) =>
+    [
+      `${fnName}() {`,
+      `  node${flags ? ` ${flags}` : ""} "$target" "$@" &`,
+      `  child=$!`,
+      `  trap 'forward_signal TERM' TERM`,
+      `  trap 'forward_signal INT' INT`,
+      `  trap 'forward_signal HUP' HUP`,
+      `  trap 'forward_signal QUIT' QUIT`,
+      `  await_child`,
+      `}`,
+    ].join("\n");
   const FAST = `--max-old-space-size=${heapMb}`;
   const report = (withCap) =>
     [
@@ -176,6 +258,7 @@ export function wrapperSource({
       `  case "$status" in`,
       `    134) reason="abandon de V8 (plafond épuisé)";;`,
       `    137) reason="SIGKILL — processus tué par le noyau (mémoire du sandbox)";;`,
+      `    143) reason="SIGTERM — build annulé (annulation de déploiement)";;`,
       `    *) reason="échec";;`,
       `  esac`,
       `  echo "[heap-guard] ${name} : $reason après \${elapsed} s${withCap ? "" : " — non plafonné"} — $(cgroup_state)" >&2`,
@@ -191,7 +274,7 @@ export function wrapperSource({
         `if [ "$status" -eq 134 ]; then`,
         `  echo "[heap-guard] ${name} : abandon de V8 après \${elapsed} s — nouvelle tentative (plafond ${retryAbortMb} Mo)" >&2`,
         `  started=$(date +%s)`,
-        `  ${node(`--max-old-space-size=${retryAbortMb}`)}`,
+        `  run_node_retry "$@"`,
         `  status=$?`,
         `  ${timings}`,
         `fi`,
@@ -206,7 +289,7 @@ export function wrapperSource({
     `free=$(budget_mb)`,
     `echo "[heap-guard] ${name} : \${free} Mo libres — plafond ${heapMb} Mo" >&2`,
     `started=$(date +%s)`,
-    node(FAST),
+    `run_node "$@"`,
     `status=$?`,
     timings,
     retryOnAbort,
@@ -217,9 +300,20 @@ export function wrapperSource({
     .join("\n");
 
   const body = buildOnly
-    ? `# Plafonné pour « build » seulement : l'aperçu (serveur de développement) garde tout son tas.\ncase "$1" in\n  build)\n${guarded}\n    ;;\n  *)\nstarted=$(date +%s)\n${node("")}\nstatus=$?\n${timings}\n${report(false)}\nexit "$status"\n    ;;\nesac`
+    ? `# Plafonné pour « build » seulement : l'aperçu (serveur de développement) garde tout son tas.\ncase "$1" in\n  build)\n${guarded}\n    ;;\n  *)\nstarted=$(date +%s)\nrun_node_uncapped "$@"\nstatus=$?\n${timings}\n${report(false)}\nexit "$status"\n    ;;\nesac`
     : guarded;
-  return `#!/bin/sh\n# ${MARKER} — voir scripts/harden-build-bins.mjs\n${resolveTarget}\n${cgroupHelpers}\n${body}\n`;
+
+  // Un lanceur par plafond réellement utilisé : nominal, repli (élargi) et —
+  // pour `vite` — chemin non plafonné de l'aperçu.
+  const launchers = [
+    launcher("run_node", FAST),
+    retryAbortMb ? launcher("run_node_retry", `--max-old-space-size=${retryAbortMb}`) : "",
+    buildOnly ? launcher("run_node_uncapped", "") : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  return `#!/bin/sh\n# ${MARKER} — voir scripts/harden-build-bins.mjs\n${resolveTarget}\n${cgroupHelpers}\n${SIGNAL_HELPERS}\n\n${launchers}\n\n${body}\n`;
 }
 
 /**

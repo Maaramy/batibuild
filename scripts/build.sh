@@ -66,6 +66,14 @@
 # rappelle la solution sans secret : générer en développement puis versionner.
 # `convex dev` n'est JAMAIS lancé ici (il configurerait un environnement de
 # développement en production) et aucun `|| true` ne masque un échec.
+#
+# ── Annulation : le build doit pouvoir être interrompu ────────────────────
+# Le runner de déploiement arrête le processus qu'il a lancé (`bun run build`
+# → `sh scripts/build.sh`). Un shell tué par SIGTERM sans transférer le signal
+# laisse la phase en cours ORPHELINE : le compilateur continue de tourner après
+# l'annulation et le déploiement reste bloqué sur « Cancelling deployment… ».
+# Chaque phase passe donc par `run_phase`, qui transfère les signaux d'arrêt à
+# la phase et attend sa sortie RÉELLE (voir la définition plus bas).
 # ============================================================================
 
 set -eu
@@ -81,6 +89,64 @@ log() {
 fail() {
   printf '[build] ÉCHEC : %s\n' "$*" >&2
   exit 1
+}
+
+# ---------------------------------------------------------------------------
+# Transfert des signaux : le build doit pouvoir être ANNULÉ proprement
+# ---------------------------------------------------------------------------
+# `run_phase` lance une phase en tâche de fond, de sorte que ce shell — le
+# processus DIRECT du runner de déploiement — puisse réagir à un signal au lieu
+# de mourir en laissant le compilateur tourner. Deux points comptent :
+#   · le signal reçu est TRANSFÉRÉ à la phase (sinon elle survit à l'annulation,
+#     et le runner attend indéfiniment une arborescence qui ne meurt pas) ;
+#   · l'attente est reprise tant que la phase vit : `wait` revient en 128+signal
+#     quand c'est CE shell qui est signalé, et rendre ce code pendant que la
+#     phase travaille encore ferait croire au runner que le build s'est arrêté.
+# Le code de sortie rendu reste celui de la phase : un échec arrête toujours le
+# build (comportement inchangé, ainsi que le plafond de heap posé plus bas).
+phase_child=
+forward_signal() {
+  [ -n "$phase_child" ] || return 0
+  kill -s "$1" "$phase_child" 2>/dev/null || true
+  # Si la phase est chef de son propre groupe de processus, signaler aussi le
+  # groupe (services lancés par le compilateur, ex. esbuild). Le test évite de
+  # viser le groupe du runner lui-même.
+  group=$(ps -o pgid= -p "$phase_child" 2>/dev/null | tr -d ' ')
+  case "$group" in
+    ''|*[!0-9]*) ;;
+    *)
+      if [ "$group" = "$phase_child" ] && [ "$group" != "$$" ]; then
+        kill -s "$1" "-$group" 2>/dev/null || true
+      fi
+      ;;
+  esac
+  return 0
+}
+
+run_phase() {
+  "$@" &
+  phase_child=$!
+  trap 'forward_signal TERM' TERM
+  trap 'forward_signal INT' INT
+  trap 'forward_signal HUP' HUP
+  trap 'forward_signal QUIT' QUIT
+  phase_status=0
+  phase_tries=0
+  while :; do
+    if wait "$phase_child"; then
+      phase_status=0
+    else
+      phase_status=$?
+    fi
+    if [ "$phase_status" -gt 128 ] && [ "$phase_tries" -lt 20 ]; then
+      kill -0 "$phase_child" 2>/dev/null || break
+      phase_tries=$((phase_tries + 1))
+      continue
+    fi
+    break
+  done
+  phase_child=
+  return "$phase_status"
 }
 
 # Binaires locaux : `bun run build` met déjà `node_modules/.bin` dans le PATH,
@@ -211,7 +277,7 @@ fi
 # 2. Typecheck des projets TypeScript (frontend + config Vite)
 # ---------------------------------------------------------------------------
 phase_started=$(date +%s)
-tsc -b
+run_phase tsc -b
 log "tsc -b : $(( $(date +%s) - phase_started )) s"
 
 # ---------------------------------------------------------------------------
@@ -234,12 +300,12 @@ done
 
 phase_started=$(date +%s)
 # shellcheck disable=SC2086 # la liste est volontairement éclatée en arguments
-vitest run $BUILD_TEST_FILES
+run_phase vitest run $BUILD_TEST_FILES
 log "tests abonnements / limites de projets : $(( $(date +%s) - phase_started )) s"
 
 # ---------------------------------------------------------------------------
 # 4. Bundling de production
 # ---------------------------------------------------------------------------
 phase_started=$(date +%s)
-vite build
+run_phase vite build
 log "vite build : $(( $(date +%s) - phase_started )) s"
