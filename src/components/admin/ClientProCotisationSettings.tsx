@@ -381,7 +381,7 @@ export function ClientProCotisationSettings() {
         >
           <X className="h-3.5 w-3.5" /> Rétablir les valeurs initiales
         </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col items-stretch gap-2">
           <Button variant="outline" size="sm" className="gap-1.5 text-[11px]" onClick={handleMigration} disabled={migrating}>
             {migrating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
             Initialiser les comptes existants
