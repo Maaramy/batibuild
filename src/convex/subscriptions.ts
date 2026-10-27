@@ -210,8 +210,29 @@ export const createSubscription = mutation({
       }
     }
 
-    // Forfait gratuit (montant null ou 0) : activation immédiate, sans paiement.
-    const isFreePlan = args.amount === null || args.amount === 0 || args.amount === undefined;
+    // ── Client Pro : TOUJOURS payant ──────────────────────────────────────
+    // L'« Offre gratuite » Client Pro (accès permanent sans échéance ni
+    // paiement) a été supprimée. Un montant nul ou absent n'active donc JAMAIS
+    // un abonnement Client Pro : la demande reste « en attente » jusqu'à la
+    // validation effective du paiement par l'administrateur. Le montant n'est
+    // jamais déduit d'une valeur transmise par le client pour décider d'une
+    // activation gratuite.
+    const isClientPro = args.plan === "pro";
+    if (
+      isClientPro &&
+      (args.amount === null || args.amount === 0 || args.amount === undefined)
+    ) {
+      throw new Error(
+        "Le forfait Client Pro est payant : sélectionnez un moyen de paiement et le montant de votre abonnement.",
+      );
+    }
+
+    // Forfait gratuit (montant null ou 0) des forfaits Fournisseur / Expert :
+    // l'administrateur peut activer une « offre gratuite » sur ces forfaits,
+    // qui est alors ouverte immédiatement, sans paiement.
+    const isFreePlan =
+      !isClientPro &&
+      (args.amount === null || args.amount === 0 || args.amount === undefined);
 
     // ── Contrôle serveur : une méthode désactivée par l'admin est refusée,
     // même si le frontend tente de la forcer. ──

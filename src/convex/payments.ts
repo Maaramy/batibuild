@@ -9,15 +9,19 @@ import {
 } from "../lib/paymentMethods";
 import { getEnabledPaymentMethodSlugs, getPaymentMethodStates } from "./paymentMethodStates";
 import { isTrialCampaignOpen, readTrialConfig } from "./trialConfig";
-import { DEFAULT_PLAN_PRICES, resolvePlanPrice } from "../lib/planPricing";
+import {
+  DEFAULT_PLAN_PRICES,
+  resolveClientProPrice,
+  resolvePlanPrice,
+} from "../lib/planPricing";
 // ============================================================================
 // Payment Configuration
 // ============================================================================
 
 // Abonnements mensuels (30 jours) — trois catégories d'offres :
-//   Client Pro  80 TND/mois (par défaut payant — null = gratuit)
-//   Fournisseur 120 TND/mois (null = gratuit)
-//   Expert      120 TND/mois (null = gratuit)
+//   Client Pro  80 TND/mois — TOUJOURS payant (aucune offre gratuite)
+//   Fournisseur 120 TND/mois (null = offre gratuite administrable)
+//   Expert      120 TND/mois (null = offre gratuite administrable)
 // Le forfait « Free » a été supprimé : il est remplacé par la période d'essai
 // gratuite administrable (`convex/trialConfig.ts`), puis par les offres payantes.
 //
@@ -75,12 +79,10 @@ export const getPlanPricing = query({
       trialDurationDays: config.trialDurationDays ?? null,
       trialEligibleProfiles: config.trialEligibleProfiles ?? null,
       trialModules: config.trialModules ?? null,
-      // Prix enregistré par l'administrateur. Un champ ABSENT (document créé par
-      // un autre réglage, ex. période d'essai) applique la valeur initiale — il
-      // n'est jamais interprété comme « gratuit », sinon la prochaine
-      // sauvegarde de l'administration écrasait le prix par null.
-      // `null` = « Offre gratuite » explicitement activée par l'administrateur.
-      proPrice: resolvePlanPrice(config.proPrice, DEFAULT_PLAN_PRICES.pro),
+      // Client Pro est TOUJOURS payant : l'« Offre gratuite » Client Pro a été
+      // supprimée. Un prix absent, `null` ou `0` (document historique) est lu
+      // comme la valeur initiale — jamais comme un accès gratuit.
+      proPrice: resolveClientProPrice(config.proPrice),
       expertPrice: resolvePlanPrice(config.expertPrice, DEFAULT_PLAN_PRICES.expert),
       supplierPrice: resolvePlanPrice(config.supplierPrice, DEFAULT_PLAN_PRICES.supplier),
       freeProjectLimit: 0,
@@ -97,7 +99,8 @@ export const getPlanPricing = query({
 export const updatePlanPricing = mutation({
   args: {
     plan: v.string(),
-    // null = forfait gratuit (switch « Offre gratuite »)
+    // `null` = forfait gratuit — uniquement pour Fournisseur / Expert. Client
+    // Pro est toujours payant : un prix null/0 y est refusé.
     price: v.optional(v.union(v.number(), v.null())),
     projectLimit: v.optional(v.number()),
     downloadLimit: v.optional(v.number()),
@@ -108,10 +111,27 @@ export const updatePlanPricing = mutation({
       throw new Error("Unauthorized: Admin access required");
     }
 
-    // Validation serveur : un prix enregistré est un montant positif, ou
-    // explicitement `null` pour l'« Offre gratuite ». Un montant invalide
-    // (champ vidé, NaN, négatif) est REFUSÉ — il n'écrase jamais le prix
-    // enregistré et ne retombe pas silencieusement sur une valeur par défaut.
+    // ── Client Pro : TOUJOURS payant ─────────────────────────────────────
+    // L'« Offre gratuite » Client Pro (accès permanent sans échéance ni
+    // paiement) a été supprimée : un prix nul ou absent est REFUSÉ, sinon un
+    // simple enregistrement réactiverait un accès gratuit illimité.
+    if (args.plan === "pro") {
+      if (
+        args.price === undefined ||
+        args.price === null ||
+        !Number.isFinite(args.price) ||
+        args.price <= 0
+      ) {
+        throw new Error(
+          "Le forfait Client Pro est payant : saisissez un prix mensuel en TND strictement positif.",
+        );
+      }
+    }
+
+    // Validation serveur (Fournisseur / Expert) : un prix enregistré est un
+    // montant positif, ou explicitement `null` pour l'« Offre gratuite ». Un
+    // montant invalide (champ vidé, NaN, négatif) est REFUSÉ — il n'écrase
+    // jamais le prix enregistré et ne retombe pas sur une valeur par défaut.
     if (args.price !== undefined && args.price !== null) {
       if (!Number.isFinite(args.price) || args.price < 0) {
         throw new Error(
@@ -194,9 +214,9 @@ export const updateClientProEnabled = mutation({
  * Définit le FORFAIT PAR DÉFAUT attribué aux nouveaux utilisateurs
  * (admin uniquement).
  *
- *   - `"trial"` : aucun forfait payé — l'offre gratuite ou la souscription
- *                   s'appliquent (la période d'essai ne concerne que les
- *                   profils Fournisseur / Expert, jamais Client Pro) ;
+ *   - `"trial"` : aucun forfait payé — la souscription Client Pro s'applique
+ *                   (la période d'essai ne concerne que les profils
+ *                   Fournisseur / Expert, jamais Client Pro) ;
  *   - `"client_pro"` : abonnement Client Pro attribué d'office.
  *
  * Contrôle serveur : un forfait désactivé ne peut jamais être enregistré comme
@@ -265,8 +285,9 @@ export const getPublicPricing = query({
       trialModules: trial.modules,
       trialEligibleProfiles: trial.eligibleProfiles,
       // Prix réellement enregistré (voir `updatePlanPricing` et `lib/planPricing.ts`).
-      // Champ absent → valeur initiale ; `null` → « Offre gratuite » explicite.
-      proPrice: resolvePlanPrice(config.proPrice, DEFAULT_PLAN_PRICES.pro),
+      // Client Pro est toujours payant ; Fournisseur / Expert : `null` =
+      // « Offre gratuite » explicitement activée par l'administrateur.
+      proPrice: resolveClientProPrice(config.proPrice),
       expertPrice: resolvePlanPrice(config.expertPrice, DEFAULT_PLAN_PRICES.expert),
       supplierPrice: resolvePlanPrice(config.supplierPrice, DEFAULT_PLAN_PRICES.supplier),
       freeProjectLimit: 0,

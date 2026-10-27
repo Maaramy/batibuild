@@ -74,8 +74,6 @@ export interface SubscriptionSnapshot {
   trialEnabled: boolean;
   /** Ce profil est-il éligible à l'essai ? (Client Pro : toujours faux.) */
   trialEligible: boolean;
-  /** Accès accordé par l'« Offre gratuite » Client Pro (sans essai ni échéance). */
-  freeOffer: boolean;
   /** Les rapports PDF sont-ils ouverts pendant l'essai (module configuré) ? */
   trialPdfAllowed: boolean;
   /** ── Compatibilité profil ↔ abonnement (règle obligatoire) ── */
@@ -102,7 +100,13 @@ export function daysRemainingUntil(endDate: number | null | undefined, now: numb
   return Math.ceil((endDate - now) / DAY_MS);
 }
 
-/** Vrai si « Offre gratuite » est activée (prix null ou 0 dans la config). */
+/**
+ * Vrai si la période active est facturée 0 (prix null/0 dans la config).
+ *
+ * Sert uniquement à rattacher l'utilisateur au palier de limite de projets
+ * « offre gratuite » (accès temporaire à 0 TND). Cela n'accorde AUCUN droit :
+ * la décision d'accès est prise par `computeSubscriptionSnapshot`.
+ */
 export function isFreeOffer(price: number | null | undefined): boolean {
   return price === null || price === 0;
 }
@@ -163,8 +167,6 @@ export interface SnapshotInput {
   trialEnabled: boolean;
   /** Le profil du compte est-il éligible à l'essai ? (défaut : oui). */
   trialEligible?: boolean;
-  /** L'« Offre gratuite » Client Pro est-elle activée pour ce profil ? */
-  freeOffer?: boolean;
   planPrice: number | null;
   currency?: string;
   /** Plan enregistré sur le compte (user.subscriptionPlan). */
@@ -204,7 +206,6 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     isAdmin,
     trialEnabled,
     trialEligible = true,
-    freeOffer = false,
     planPrice,
     currency = "TND",
     plan,
@@ -244,7 +245,6 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     trialShouldStart: false,
     trialEnabled,
     trialEligible,
-    freeOffer,
     trialPdfAllowed: trialActive && trialPdfAllowed,
     // ── Compatibilité profil ↔ abonnement ──
     profileRole: profileCompatibility?.profileRole ?? null,
@@ -316,26 +316,12 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     };
   }
 
-  // 4. « Offre gratuite » Client Pro activée par l'administrateur (prix
-  //    null/0) → accès accordé sans paiement. Ce n'est PAS une période
-  //    d'essai : aucune date d'échéance, aucun décompte de jours, aucun
-  //    marqueur `trialClaimedAt`. Elle s'applique aussi après un ancien essai
-  //    ou un abonnement expiré, tant que l'administrateur la maintient.
-  if (freeOffer) {
-    return {
-      ...base,
-      status: "active",
-      type: "monthly",
-      isActive: true,
-      requiresPayment: false,
-      planName: "Client Pro",
-      price: 0,
-      startDate: null,
-      endDate: null,
-    };
-  }
-
-  // 5. Abonnement mensuel expiré → renouvellement obligatoire.
+  // 4. Abonnement mensuel expiré → renouvellement obligatoire.
+  //
+  //    L'ancienne « Offre gratuite » Client Pro (prix null/0) a été SUPPRIMÉE :
+  //    elle accordait l'accès sans échéance ni paiement. Aucun statut
+  //    « actif sans échéance » n'existe plus — seul un abonnement payant valide
+  //    (ou une période temporaire avec date de fin) ouvre les droits Client Pro.
   if (subscriptionLapsed) {
     return {
       ...base,
@@ -350,7 +336,7 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     };
   }
 
-  // 6. Essai déjà utilisé (et terminé) → paiement obligatoire, jamais renouvelé.
+  // 5. Essai déjà utilisé (et terminé) → paiement obligatoire, jamais renouvelé.
   if (trialUsed) {
     return {
       ...base,
@@ -365,10 +351,9 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     };
   }
 
-  // 7. Essai activé par l'administrateur + profil éligible + jamais utilisé
+  // 6. Essai activé par l'administrateur + profil éligible + jamais utilisé
   //    → essai à démarrer. Le profil Client Pro n'est jamais éligible : il
-  //    tombe dans « aucun accès » et doit souscrire (ou utiliser l'offre
-  //    gratuite Client Pro configurée par l'administrateur).
+  //    tombe dans « aucun accès » et doit souscrire à l'abonnement payant.
   if (trialEnabled && trialEligible) {
     return {
       ...base,
@@ -384,7 +369,7 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     };
   }
 
-  // 7. Aucun accès : essai désactivé et jamais accordé, aucun abonnement.
+  // 7. Aucun accès : essai désactivé et jamais accordé, aucun abonnement payant.
   return {
     ...base,
     status: "none",

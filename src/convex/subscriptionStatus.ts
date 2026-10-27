@@ -27,7 +27,7 @@ import {
   trialIncludes,
   type TrialConfig,
 } from "./trialConfig";
-import { DEFAULT_PLAN_PRICES, resolvePlanPrice } from "../lib/planPricing";
+import { resolveClientProPrice } from "../lib/planPricing";
 
 // ============================================================================
 // GESTION CENTRALE DE LA PÉRIODE D'ESSAI ET DE L'ABONNEMENT MENSUEL
@@ -66,8 +66,6 @@ interface PricingInfo {
   trialDays: number;
   trialPdfAllowed: boolean;
   planPrice: number | null;
-  /** « Offre gratuite » Client Pro activée (prix null/0, forfait disponible). */
-  clientProFreeOffer: boolean;
   currency: string;
 }
 
@@ -82,18 +80,12 @@ async function readPricing(ctx: DbCtx, now = Date.now()): Promise<PricingInfo> {
     trialEnabled: isTrialCampaignOpen(trial, now),
     trialDays: trial.durationDays,
     trialPdfAllowed: trialIncludes(trial, "pdf"),
-    // Prix Client Pro RÉELLEMENT enregistré : un champ absent (document créé par
-    // un autre réglage) vaut la valeur initiale, jamais « gratuit » — même règle
-    // que `payments.getPlanPricing` / `getPublicPricing` (`lib/planPricing.ts`).
-    planPrice: resolvePlanPrice(config?.proPrice, DEFAULT_PLAN_PRICES.pro),
-    // Le switch « Offre gratuite » Client Pro est actif quand le prix a été
-    // EXPLICITEMENT enregistré à null/0 et que le forfait n'est pas désactivé.
-    // Un prix absent (document partiel) ne rend jamais le forfait gratuit.
-    // Il accorde l'accès Client Pro sans période d'essai.
-    clientProFreeOffer:
-      config != null &&
-      config.clientProEnabled !== false &&
-      (config.proPrice === null || config.proPrice === 0),
+    // Prix Client Pro RÉELLEMENT enregistré : un champ absent ou nul vaut la
+    // valeur initiale, jamais « gratuit » — même règle que
+    // `payments.getPlanPricing` / `getPublicPricing` (`lib/planPricing.ts`).
+    // L'« Offre gratuite » Client Pro n'existe plus : ce prix n'accorde jamais
+    // d'accès, il sert uniquement à l'affichage du montant à payer.
+    planPrice: resolveClientProPrice(config?.proPrice),
     currency: config?.currency ?? "TND",
   };
 }
@@ -158,18 +150,15 @@ export async function getUserSubscriptionStatus(
     profileCompatibility?.profileRole,
   );
 
-  // L'« Offre gratuite » Client Pro ne s'applique qu'aux profils Client Pro
-  // (ou non résolus, traités comme tels) — jamais aux Fournisseurs/Experts.
-  const profileRole = profileCompatibility?.profileRole ?? null;
-  const freeOffer =
-    pricing.clientProFreeOffer && (profileRole == null || profileRole === "client");
-
+  // L'ancienne « Offre gratuite » Client Pro (accès permanent sans échéance ni
+  // paiement) a été SUPPRIMÉE : plus aucun statut « actif sans échéance » n'est
+  // accordé. Seules une période temporaire (essai, avec date de fin) ou un
+  // abonnement payant validé ouvrent les droits Client Pro.
   const snapshot = computeSubscriptionSnapshot({
     now,
     isAdmin: user.role === "admin" || user.role === "moderator",
     trialEnabled: pricing.trialEnabled,
     trialEligible,
-    freeOffer,
     planPrice: pricing.planPrice,
     currency: pricing.currency,
     profileCompatibility,

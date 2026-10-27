@@ -13,8 +13,13 @@
 //     l'absence comme « Offre gratuite », réécrivait `null` et le prix saisi
 //     (95 TND) n'était jamais conservé.
 //   • `null` ou `0` EXPLICITE → « Offre gratuite » activée par l'administrateur
-//     (accès sans paiement).
+//     (accès sans paiement) pour les forfaits Fournisseur / Expert.
 //   • nombre → prix enregistré par l'administrateur, utilisé tel quel.
+//
+// CLIENT PRO EST TOUJOURS PAYANT : l'« Offre gratuite » Client Pro (accès
+// permanent sans échéance ni paiement) a été supprimée. Un prix absent, `null`
+// ou `0` est donc lu comme la valeur initiale (voir `resolveClientProPrice`) —
+// jamais comme un accès gratuit.
 //
 // AUCUN prix ne doit être codé en dur ailleurs : ni dans l'interface, ni dans
 // un repli de chargement. Les valeurs initiales ci-dessous ne servent qu'à la
@@ -51,6 +56,22 @@ export function isFreePlanPrice(stored: number | null | undefined): boolean {
   return stored === null || stored === 0;
 }
 
+/**
+ * Prix effectif du forfait CLIENT PRO.
+ *
+ * Client Pro est TOUJOURS payant : l'« Offre gratuite » Client Pro (accès
+ * permanent, sans échéance ni paiement) a été supprimée. Un prix absent,
+ * `null` ou `0` — document historique ou configuration incomplète — est donc
+ * lu comme la valeur INITIALE, jamais comme un accès gratuit. L'administrateur
+ * peut toujours modifier ce prix depuis « Abonnements mensuels ».
+ */
+export function resolveClientProPrice(stored: number | null | undefined): number {
+  if (stored === undefined || stored === null || stored === 0) {
+    return DEFAULT_PLAN_PRICES.pro;
+  }
+  return stored;
+}
+
 /** Champs de prix à écrire à la CRÉATION d'un document `paymentConfig`. */
 export function defaultPlanPriceFields(): {
   proPrice: number;
@@ -73,7 +94,6 @@ export interface PlanPricingSource {
 
 export interface PlanPriceFormValues {
   clientProPrice: number;
-  clientProFree: boolean;
   supplierPrice: number;
   supplierFree: boolean;
   expertPrice: number;
@@ -98,8 +118,8 @@ export function planPricingFormValues(
     isFreePlanPrice(stored) ? fallback : (resolvePlanPrice(stored, fallback) as number);
 
   return {
-    clientProPrice: fieldValue(config.proPrice, DEFAULT_PLAN_PRICES.pro),
-    clientProFree: isFreePlanPrice(config.proPrice),
+    // Client Pro est toujours payant : aucune bascule « Offre gratuite ».
+    clientProPrice: resolveClientProPrice(config.proPrice),
     supplierPrice: fieldValue(config.supplierPrice, DEFAULT_PLAN_PRICES.supplier),
     supplierFree: isFreePlanPrice(config.supplierPrice),
     expertPrice: fieldValue(config.expertPrice, DEFAULT_PLAN_PRICES.expert),

@@ -5,6 +5,7 @@ import {
   isFreePlanPrice,
   planPriceLabel,
   planPricingFormValues,
+  resolveClientProPrice,
   resolvePlanPrice,
 } from "./planPricing";
 
@@ -33,6 +34,21 @@ describe("resolvePlanPrice", () => {
   });
 });
 
+describe("resolveClientProPrice", () => {
+  it("Client Pro est toujours payant : null/0/absent → valeur initiale", () => {
+    // L'« Offre gratuite » Client Pro (accès permanent sans échéance ni
+    // paiement) est supprimée : aucun prix ne doit accorder l'accès gratuit.
+    expect(resolveClientProPrice(undefined)).toBe(80);
+    expect(resolveClientProPrice(null)).toBe(80);
+    expect(resolveClientProPrice(0)).toBe(80);
+  });
+
+  it("un prix enregistré est conservé tel quel", () => {
+    expect(resolveClientProPrice(95)).toBe(95);
+    expect(resolveClientProPrice(130)).toBe(130);
+  });
+});
+
 describe("isFreePlanPrice", () => {
   it("seul un prix explicite null/0 est gratuit", () => {
     expect(isFreePlanPrice(null)).toBe(true);
@@ -57,7 +73,6 @@ describe("planPricingFormValues — formulaire d'administration", () => {
     });
     expect(values).toEqual({
       clientProPrice: 95,
-      clientProFree: false,
       supplierPrice: 130,
       supplierFree: false,
       expertPrice: 140,
@@ -75,7 +90,6 @@ describe("planPricingFormValues — formulaire d'administration", () => {
     // marquait « gratuit », ce qui réécrivait `null` et perdait le prix saisi.
     expect(values).toEqual({
       clientProPrice: 80,
-      clientProFree: false,
       supplierPrice: 120,
       supplierFree: false,
       expertPrice: 120,
@@ -83,17 +97,19 @@ describe("planPricingFormValues — formulaire d'administration", () => {
     });
   });
 
-  it("un forfait explicitement gratuit est signalé comme tel", () => {
+  it("Client Pro n'est jamais gratuit : un prix null/0 est lu comme la valeur initiale", () => {
+    // Ancien réglage « Offre gratuite » Client Pro : l'accès gratuit permanent
+    // a été supprimé, le forfait redevient payant à sa valeur initiale.
     const values = planPricingFormValues({
       proPrice: null,
       supplierPrice: 0,
       expertPrice: 120,
     });
-    expect(values!.clientProFree).toBe(true);
+    expect(values!.clientProPrice).toBe(80);
+    expect("clientProFree" in values!).toBe(false);
+    // Les forfaits Fournisseur / Expert conservent l'offre gratuite.
     expect(values!.supplierFree).toBe(true);
     expect(values!.expertFree).toBe(false);
-    // Champ désactivé : il réaffiche la valeur initiale du forfait.
-    expect(values!.clientProPrice).toBe(80);
     expect(values!.supplierPrice).toBe(120);
   });
 });

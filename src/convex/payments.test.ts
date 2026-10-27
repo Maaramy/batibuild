@@ -542,43 +542,42 @@ describe("checkClientProAccess — Offre gratuite (switch admin)", () => {
     expect(access.reason).toBe("ok");
   });
 
-  it("switch « Offre gratuite » activé par l'admin : accès accordé sans paiement", async () => {
+  it("l'« Offre gratuite » Client Pro ne peut plus être activée (prix null/0 refusé)", async () => {
     const adminId = await createTestUser(t, { role: "admin" });
     const adminT = asAdmin(t, adminId);
 
-    // L'admin active l'offre gratuite sur Client Pro (prix null)
-    await adminT.mutation(api.payments.updatePlanPricing, {
-      plan: "pro",
-      price: null,
-    });
+    // L'accès permanent sans échéance ni paiement a été supprimé : l'admin ne
+    // peut plus rendre Client Pro gratuit.
+    await expect(
+      adminT.mutation(api.payments.updatePlanPricing, {
+        plan: "pro",
+        price: null,
+      }),
+    ).rejects.toThrow(/Client Pro est payant/);
 
-    // Prix bien null en base (lu par getPublicPricing → helper d'accès)
+    // Le prix Client Pro reste payant (valeur initiale ou prix enregistré).
     const pricing = await adminT.query(api.payments.getPublicPricing);
-    expect(pricing.proPrice).toBeNull();
-
-    // Client Pro SANS abonnement payant → accès accordé automatiquement
-    const userId = await createProUser("freeclient@test.com");
-    const userT = t.withIdentity({ subject: userId });
-    const access = await userT.query(api.access.checkClientProAccess);
-    expect(access.allowed).toBe(true);
-    expect(access.reason).toBe("ok");
+    expect(pricing.proPrice).toBeGreaterThan(0);
   });
 
-  it("switch gratuit : activation automatique SANS choisir de forfait (compte sans plan)", async () => {
+  it("un compte sans forfait payé n'obtient aucun accès Client Pro automatique", async () => {
     const adminId = await createTestUser(t, { role: "admin" });
     const adminT = asAdmin(t, adminId);
 
-    await adminT.mutation(api.payments.updatePlanPricing, {
-      plan: "pro",
-      price: null,
-    });
+    // Impossible d'activer une offre gratuite Client Pro (prix 0 refusé).
+    await expect(
+      adminT.mutation(api.payments.updatePlanPricing, {
+        plan: "pro",
+        price: 0,
+      }),
+    ).rejects.toThrow(/Client Pro est payant/);
 
-    // Compte créé via l'inscription : aucun forfait attribué (subscriptionPlan "free")
+    // Compte créé via l'inscription : aucun forfait payé → aucun accès.
     const userId = await createTestUser(t, { role: "user", email: "fresh@test.com" });
     const userT = t.withIdentity({ subject: userId });
     const access = await userT.query(api.access.checkClientProAccess);
-    expect(access.allowed).toBe(true);
-    expect(access.reason).toBe("ok");
+    expect(access.allowed).toBe(false);
+    expect(access.reason).not.toBe("ok");
   });
 
   it("switch désactivé (prix payant) : l'accès redevient payant", async () => {

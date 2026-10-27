@@ -187,10 +187,13 @@ describe("facturation — génération automatique", () => {
     expect(invoice.transactionId).toBe("TRX-2026-0009");
   });
 
-  it("n'émet aucune facture pour un forfait gratuit", async () => {
+  it("Client Pro n'est jamais gratuit : souscription sans paiement refusée, aucune facture émise", async () => {
     const userId = await createUser(t);
-    // Aucun montant réglé → aucun document comptable.
-    await asUser(t, userId).mutation(api.subscriptions.createSubscription, { plan: "pro" });
+    // L'« Offre gratuite » Client Pro a été supprimée : un montant nul / absent
+    // n'active plus l'abonnement, il est refusé. Aucun document comptable.
+    await expect(
+      asUser(t, userId).mutation(api.subscriptions.createSubscription, { plan: "pro" }),
+    ).rejects.toThrow(/Client Pro est payant/);
     expect(await myInvoices(t, userId)).toHaveLength(0);
   });
 

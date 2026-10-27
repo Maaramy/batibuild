@@ -1268,8 +1268,11 @@ const schema = defineSchema(
       d17Phone: v.string(),
       d17Email: v.string(),
       d17Notice: v.string(),
-      // Prix par forfait — null signifie que le forfait est gratuit.
-      // Client Pro = proPrice (par défaut payant), Fournisseur = supplierPrice, Expert = expertPrice.
+      // Prix par forfait. Client Pro (proPrice) est TOUJOURS payant : l'« Offre
+      // gratuite » Client Pro (accès permanent sans paiement) a été supprimée,
+      // un prix null/0 y est lu comme la valeur initiale. Fournisseur
+      // (supplierPrice) et Expert (expertPrice) : null/0 = « Offre gratuite »
+      // administrable.
       proPrice: v.optional(v.number()),
       supplierPrice: v.optional(v.number()),
       expertPrice: v.optional(v.number()),

@@ -4,8 +4,9 @@
 // L'administrateur règle, depuis « Abonnements mensuels — Prix et
 // configuration », le nombre maximal de projets créables pour :
 //   • la PÉRIODE D'ESSAI gratuite ;
-//   • l'OFFRE GRATUITE (forfait mensuel dont le prix est null/0 — switch
-//     « Offre gratuite » de l'administration) ;
+//   • les ACCÈS TEMPORAIRES facturés 0 TND (forfait par défaut, « Offre
+//     gratuite » Fournisseur / Expert — l'offre gratuite permanente Client Pro
+//     a été supprimée) ;
 //   • le forfait CLIENT PRO PAYANT (limite facultative, désactivée par défaut :
 //     ses fonctionnalités et conditions restent inchangées).
 //

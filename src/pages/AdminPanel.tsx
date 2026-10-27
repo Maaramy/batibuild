@@ -282,8 +282,7 @@ export default function AdminPanel() {
   // Revenus estimés : abonnements actifs × prix Client Pro ENREGISTRÉ.
   // `null` = configuration non chargée : aucun montant n'est deviné.
   const activeSubsCount = allSubsWithUsers.filter((s: any) => s.status === "active").length;
-  const clientProMonthlyPrice =
-    limitForm === null ? null : limitForm.clientProFree ? 0 : limitForm.clientProPrice;
+  const clientProMonthlyPrice = limitForm === null ? null : limitForm.clientProPrice;
   const estimatedMonthlyRevenue =
     clientProMonthlyPrice === null ? null : activeSubsCount * clientProMonthlyPrice;
 
@@ -4028,7 +4027,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <CardHeader>
                 <CardTitle className="text-base">Abonnements mensuels — prix et configuration</CardTitle>
                 <CardDescription className="text-xs">
-                  Forfaits mensuels (30 jours). Renouvellement requis à l'échéance. Le forfait « Free » n'est plus proposé : il est remplacé par la période d'essai gratuite ci-dessous, puis par une offre payante. Un forfait dont l'« Offre gratuite » est activée est accessible sans paiement.
+                  Forfaits mensuels (30 jours). Renouvellement requis à l'échéance. Le forfait « Free » n'est plus proposé : il est remplacé par la période d'essai gratuite ci-dessous, puis par une offre payante. Client Pro est toujours payant (aucune offre gratuite permanente) ; les forfaits Fournisseur et Expert peuvent, eux, être proposés sans paiement.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -4056,15 +4055,11 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         Forfait Client Pro
                       </h3>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {limitForm.clientProFree ? "Gratuit" : `${limitForm.clientProPrice} TND/mois`} — Estimation complète de vos projets de construction
+                        {limitForm.clientProPrice} TND/mois — Estimation complète de vos projets de construction
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      {limitForm.clientProFree ? (
-                        <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Gratuit</Badge>
-                      ) : (
-                        <Badge className="text-[10px] bg-blue-500/10 text-blue-600 border-blue-200/30">Payant</Badge>
-                      )}
+                      <Badge className="text-[10px] bg-blue-500/10 text-blue-600 border-blue-200/30">Payant</Badge>
                       <Badge variant="outline" className="text-[10px] bg-blue-500/5">Client Pro</Badge>
                       {defaultPlan === "client_pro" && (
                         <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20">✓ Forfait par défaut</Badge>
@@ -4079,8 +4074,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                   <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
                     <p><strong className="text-foreground">Fonctionnalités :</strong> Projets de construction illimités, estimation IA aux prix tunisiens, rapports PDF/Excel/CSV, assistant matériaux IA, plans architecturaux et suivi de A à Z.</p>
                     <p><strong className="text-foreground">Dashboard :</strong> Suivi de la date de début et de fin de validité. Renouvellement mensuel requis à l'échéance.</p>
-                    <p><strong className="text-foreground">Règle :</strong> Le client passe au paiement dès la création de compte — aucune période d'essai automatique.</p>
-                    <p><strong className="text-foreground">Offre gratuite :</strong> durée mensuelle de 30 jours sans paiement, avec un plafond de projets réglable dans « Limite du nombre de projets par offre » → « Offre gratuite ».</p>
+                    <p><strong className="text-foreground">Règle :</strong> Le client passe au paiement dès la création de compte — aucune période d'essai automatique et aucune offre gratuite permanente. L'accès n'est ouvert qu'après validation effective du paiement.</p>
                   </div>
                   <div className="flex flex-wrap items-end gap-4">
                     <div className="w-40">
@@ -4088,30 +4082,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                       <Input
                         type="number"
                         value={limitForm.clientProPrice}
-                        disabled={limitForm.clientProFree}
                         onChange={(e) => setLimitForm({ ...limitForm, clientProPrice: parseFloat(e.target.value) })}
                         className="h-8 w-full text-sm mt-1"
                       />
-                    </div>
-                    <div className="flex items-center gap-2 pb-0.5">
-                      <Switch
-                        checked={limitForm.clientProFree}
-                        onCheckedChange={(checked) =>
-                          setLimitForm((prev) =>
-                            prev === null
-                              ? prev
-                              : {
-                                  ...prev,
-                                  clientProFree: checked,
-                                  // Un forfait gratuit n'a pas de montant : on réaffiche la valeur initiale (désactivée).
-                                  clientProPrice: checked
-                                    ? prev.clientProPrice
-                                    : prev.clientProPrice || DEFAULT_PLAN_PRICES.pro,
-                                },
-                          )
-                        }
-                      />
-                      <span className="text-[11px] text-muted-foreground">Offre gratuite</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -4253,7 +4226,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {([
-                      { id: "trial" as const, label: "Aucun forfait payé — offre gratuite ou souscription", available: true, hint: "" },
+                      { id: "trial" as const, label: "Aucun forfait payé — souscription obligatoire", available: true, hint: "" },
                       { id: "client_pro" as const, label: "Client Pro — Abonnement mensuel", available: clientProEnabled, hint: "Client Pro désactivé" },
                     ]).map((opt) => {
                       const selected = defaultPlan === opt.id;
@@ -4290,12 +4263,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                   {!clientProEnabled && (
                     <p className="text-[11px] text-muted-foreground">
                       Client Pro est désactivé : les nouveaux comptes ne reçoivent aucun forfait payé
-                      (offre gratuite ou souscription ; aucune période d'essai Client Pro).
+                      (souscription obligatoire ; aucune période d'essai Client Pro).
                     </p>
                   )}
                   <p className="text-[11px] text-muted-foreground">
                     « Aucun forfait payé » n'accorde <strong className="text-foreground">aucune période d'essai Client Pro</strong> :
-                    le compte relève de l'offre gratuite ou de la souscription. Une modification ne
+                    le compte doit souscrire à l'abonnement Client Pro payant. Une modification ne
                     s'applique qu'aux <strong className="text-foreground">nouvelles inscriptions</strong> :
                     le forfait des utilisateurs existants reste inchangé.
                   </p>
@@ -4322,9 +4295,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                         toast.error("Client Pro est désactivé : sélectionnez un autre forfait par défaut.");
                         return;
                       }
-                      // Prix réellement envoyés : `null` = « Offre gratuite » choisie
-                      // explicitement par l'administrateur, sinon le montant saisi.
-                      const proPrice = limitForm.clientProFree ? null : limitForm.clientProPrice;
+                      // Client Pro est toujours payant ; Fournisseur / Expert :
+                      // `null` = « Offre gratuite » choisie explicitement.
+                      const proPrice = limitForm.clientProPrice;
                       const supplierPrice = limitForm.supplierFree ? null : limitForm.supplierPrice;
                       const expertPrice = limitForm.expertFree ? null : limitForm.expertPrice;
                       // Un montant invalide (champ vidé) est REFUSÉ : il n'écrase pas

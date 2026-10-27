@@ -14,8 +14,9 @@
 //
 // La période d'essai est réservée aux profils Fournisseur et Expert : le profil
 // Client Pro n'y est JAMAIS éligible (aucune attribution automatique).
-// L'administrateur conserve le contrôle de l'offre gratuite Client Pro et de
-// l'abonnement Client Pro payant.
+// L'« Offre gratuite » Client Pro (accès permanent sans échéance ni paiement) a
+// été supprimée : l'administrateur conserve le contrôle du TARIF mensuel Client
+// Pro, dont l'accès n'est ouvert qu'après paiement confirmé.
 
 export const CLIENT_PRO_PLAN_LABEL = "Client Pro";
 export const TRIAL_PLAN_LABEL = "Période d'essai";

@@ -19,7 +19,8 @@ import { DEFAULT_PLAN_PRICES } from "../lib/planPricing";
 //
 // Règle verrouillée ici (voir `lib/planPricing.ts`) :
 //   • champ ABSENT  → valeur INITIALE du forfait, jamais « gratuit » ;
-//   • `null` / 0    → « Offre gratuite » choisie explicitement par l'admin ;
+//   • `null` / 0    → « Offre gratuite » choisie explicitement par l'admin
+//                     (Fournisseur / Expert uniquement — Client Pro refuse) ;
 //   • nombre        → prix enregistré, conservé à l'identique et utilisé
 //                     partout (administration, page tarifs, contrôles d'accès).
 
@@ -193,19 +194,23 @@ describe("prix Client Pro — persistance après enregistrement", () => {
     expect((await storedConfig(t)).proPrice).toBe(95);
   });
 
-  it("« Offre gratuite » (null) reste prise en charge et réversible", async () => {
+  it("Client Pro : l'« Offre gratuite » (null/0) est refusée et n'écrase pas le prix", async () => {
     await setup();
     await adminT.mutation(api.payments.updatePlanPricing, { plan: "pro", price: 95 });
 
-    // Activation explicite de l'offre gratuite : prix null enregistré.
-    await adminT.mutation(api.payments.updatePlanPricing, { plan: "pro", price: null });
-    expect(await adminProPrice(adminT)).toBeNull();
-    expect(await publicProPrice(t)).toBeNull();
+    // L'accès permanent sans échéance ni paiement est supprimé : le prix ne
+    // peut plus être rendu gratuit (null ou 0). La tentative est REFUSÉE et le
+    // prix enregistré reste inchangé.
+    await expect(
+      adminT.mutation(api.payments.updatePlanPricing, { plan: "pro", price: null }),
+    ).rejects.toThrow(/Client Pro est payant/);
+    await expect(
+      adminT.mutation(api.payments.updatePlanPricing, { plan: "pro", price: 0 }),
+    ).rejects.toThrow(/Client Pro est payant/);
 
-    // Retour à un forfait payant : la valeur reprend un montant réel.
-    await adminT.mutation(api.payments.updatePlanPricing, { plan: "pro", price: 95 });
     expect(await adminProPrice(adminT)).toBe(95);
     expect(await publicProPrice(t)).toBe(95);
+    expect((await storedConfig(t)).proPrice).toBe(95);
   });
 
   it("un prix invalide est refusé et n'écrase pas le prix enregistré", async () => {

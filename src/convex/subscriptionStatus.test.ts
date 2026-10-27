@@ -60,12 +60,22 @@ function asUser(t: ReturnType<typeof convexTest>, userId: string) {
   return t.withIdentity({ subject: userId });
 }
 
-/** Active ou désactive l'« Offre gratuite » sur le forfait Client Pro. */
-async function setFreeOffer(t: ReturnType<typeof convexTest>, enabled: boolean) {
+/**
+ * Active ou désactive la PÉRIODE D'ESSAI gratuite (source de vérité serveur).
+ *
+ * L'ancienne « Offre gratuite » Client Pro (prix null/0) a été supprimée :
+ * le prix Client Pro n'active plus ni l'essai ni un accès gratuit.
+ */
+async function setTrialEnabled(t: ReturnType<typeof convexTest>, enabled: boolean) {
   const adminId = await createUser(t, { role: "admin", email: "admin@test.com" });
-  await asUser(t, adminId).mutation(api.payments.updatePlanPricing, {
-    plan: "pro",
-    price: enabled ? null : 80,
+  await asUser(t, adminId).mutation(api.trialConfig.updateTrialConfig, {
+    enabled,
+    durationDays: TRIAL_DURATION_DAYS,
+    validFrom: null,
+    validUntil: null,
+    eligibleProfiles: ["expert", "supplier"],
+    modules: ["estimation", "pdf"],
+    newAccountsOnly: false,
   });
   return adminId;
 }
@@ -283,7 +293,7 @@ describe("subscriptionStatus.startMyTrial", () => {
   });
 
   it("démarre 7 jours exactement et refuse un second essai (profil éligible)", async () => {
-    await setFreeOffer(t, true);
+    await setTrialEnabled(t, true);
     const userId = await createUser(t, { userRole: "expert" });
 
     const first = await asUser(t, userId).mutation(api.subscriptionStatus.startMyTrial, {});
@@ -306,7 +316,7 @@ describe("subscriptionStatus.startMyTrial", () => {
   });
 
   it("ne démarre rien quand la période d'essai est désactivée", async () => {
-    await setFreeOffer(t, false);
+    await setTrialEnabled(t, false);
     const userId = await createUser(t, { userRole: "expert" });
 
     const res = await asUser(t, userId).mutation(api.subscriptionStatus.startMyTrial, {});
@@ -318,7 +328,7 @@ describe("subscriptionStatus.startMyTrial", () => {
   });
 
   it("ne démarre jamais d'essai pour un profil Client Pro", async () => {
-    await setFreeOffer(t, true);
+    await setTrialEnabled(t, true);
     const userId = await createUser(t, { userRole: "client" });
 
     const res = await asUser(t, userId).mutation(api.subscriptionStatus.startMyTrial, {});
@@ -579,7 +589,7 @@ describe("createSubscription — période mensuelle de 30 jours", () => {
   });
 
   it("désactive l'essai et ouvre 30 jours d'abonnement", async () => {
-    await setFreeOffer(t, true);
+    await setTrialEnabled(t, true);
     const now = Date.now();
     const userId = await createUser(t, {
       trialClaimedAt: now - DAY_MS,
