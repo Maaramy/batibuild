@@ -27,6 +27,7 @@ import {
   initialFreeUsage,
   normalizeClientProCreditConfig,
   projectsLabel,
+  syncUsageWithProjects,
   validateClientProCreditConfig,
   type ClientProCreditBalance,
   type ClientProCreditConfig,
@@ -134,12 +135,12 @@ export async function buildClientProCreditSnapshot(
   // (les projets déjà existants consomment le quota) sans écrire — la query
   // reste pure. La matérialisation a lieu à la connexion / à la création d'un
   // projet, une seule fois (`clientProFreeGrantedAt`).
+  const projects = await ctx.db
+    .query("projects")
+    .withIndex("by_user", (q) => q.eq("userId", user._id))
+    .collect();
   let balance = balanceFromUser(user);
   if (user.clientProFreeGrantedAt == null && config.freeGrantEnabled) {
-    const projects = await ctx.db
-      .query("projects")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect();
     balance = computeClientProBalance({
       freeGranted: config.freeProjects,
       freeUsed: initialFreeUsage(projects.length, config.freeProjects),
@@ -147,11 +148,15 @@ export async function buildClientProCreditSnapshot(
       paidUsed: user.clientProPaidProjectsUsed,
     });
   }
-  const legacy = await readLegacyMonthlyPro(ctx, user._id, now);
+  // Le compteur est TOUJOURS aligné sur les projets réellement enregistrés :
+  // un projet créé pendant une période d'accès (essai) ou par une ancienne
+  // version ne doit jamais laisser un crédit « disponible » en trop.
+  balance = syncUsageWithProjects(balance, projects.length);
+  const coverage = await readCreationCoverage(ctx, user, now);
   const entitled =
     user.role === "admin" ||
     user.role === "moderator" ||
-    legacy.active ||
+    coverage.covered ||
     balance.granted > 0;
 
   return {
@@ -160,13 +165,16 @@ export async function buildClientProCreditSnapshot(
     packages: clientProPackages(config),
     freeGranted: user.clientProFreeGrantedAt != null,
     freeGrantedAt: user.clientProFreeGrantedAt ?? null,
-    legacyMonthlyActive: legacy.active,
-    legacyEndDate: legacy.endDate,
+    legacyMonthlyActive: coverage.paidActive,
+    legacyEndDate: coverage.paidEndDate,
     entitled,
+    // La création est ouverte si une période d'accès (essai / abonnement payé)
+    // la couvre OU s'il reste un crédit de cotisation. L'interface et le
+    // serveur appliquent donc exactement la même règle.
     canCreateProject:
       user.role === "admin" ||
       user.role === "moderator" ||
-      legacy.active ||
+      coverage.covered ||
       canCreateProjectWithCredits(balance),
   };
 }
@@ -225,45 +233,64 @@ export async function ensureClientProFreeGrant(
 }
 
 /**
- * Une PÉRIODE D'ACCÈS déjà accordée couvre-t-elle la création d'un projet ?
+ * Abonnement Client Pro PAYÉ encore valide (aucune révocation rétroactive).
  *
- *   • période d'essai en cours (quelle que soit sa durée) → l'essai a son
- *     propre plafond, réglé par l'administrateur ;
- *   • abonnement mensuel Client Pro historique encore valide → le paiement de
- *     la période est respecté (aucune révocation rétroactive).
+ *   • abonnement mensuel Client Pro HISTORIQUE encore valide ;
+ *   • période payée enregistrée sur le compte (`subscriptionPlan` « pro » avec
+ *     échéance future).
  *
- * Les abonnements mensuels Expert / Fournisseur ne couvrent PAS les crédits
- * Client Pro : les droits sont indépendants (un professionnel achète sa
- * cotisation Client Pro séparément).
+ * Un abonnement Expert / Fournisseur ne couvre pas les crédits Client Pro : les
+ * droits sont indépendants (un professionnel achète sa cotisation séparément).
  */
-async function isCreationCoveredByPeriod(
-  ctx: MutationCtx,
+async function readPaidCreationPeriod(
+  ctx: DbCtx,
   user: Doc<"users">,
-): Promise<boolean> {
-  const now = Date.now();
-
-  // Période d'essai en cours (essai daté et non expiré).
-  if (user.trialClaimedAt != null && user.trialEndDate != null && user.trialEndDate > now) {
-    return true;
-  }
-
-  // Abonnement mensuel Client Pro encore valide : ligne d'abonnement (historique)
-  // ou période payée enregistrée sur le compte.
+  now = Date.now(),
+): Promise<{ active: boolean; endDate: number | null }> {
   const legacy = await readLegacyMonthlyPro(ctx, user._id, now);
-  if (legacy.active) return true;
-  if (user.subscriptionPlan === "pro" && (user.subscriptionEndDate ?? 0) > now) return true;
+  if (legacy.active) return legacy;
+  if (user.subscriptionPlan === "pro" && (user.subscriptionEndDate ?? 0) > now) {
+    return { active: true, endDate: user.subscriptionEndDate ?? null };
+  }
+  return { active: false, endDate: null };
+}
 
-  return false;
+/**
+ * Une période accordée couvre-t-elle la création d'un projet ?
+ *
+ *   • période d'essai en cours → l'essai a son propre plafond de projets,
+ *     réglé par l'administrateur (aucun crédit ne peut être exigé) ;
+ *   • abonnement Client Pro déjà payé → création couverte.
+ *
+ * Cette couverture n'empêche PAS la consommation du crédit : un projet créé
+ * pendant l'essai compte dans le compteur de la cotisation (voir
+ * `consumeClientProCredit`), pour qu'aucun projet ne reste « hors quota ».
+ */
+async function readCreationCoverage(
+  ctx: DbCtx,
+  user: Doc<"users">,
+  now = Date.now(),
+): Promise<{ covered: boolean; paidActive: boolean; paidEndDate: number | null }> {
+  const trialActive =
+    user.trialClaimedAt != null && user.trialEndDate != null && user.trialEndDate > now;
+  const paid = await readPaidCreationPeriod(ctx, user, now);
+  return {
+    covered: trialActive || paid.active,
+    paidActive: paid.active,
+    paidEndDate: paid.endDate,
+  };
 }
 
 /**
  * Contrôle AVANT insertion d'un projet :
- *   1. période d'essai / abonnement Client Pro déjà payé → création couverte ;
- *   2. période terminée (essai expiré, abonnement expiré, paiement en attente)
- *      → accès Client Pro refusé avec la raison exacte (`CLIENT_PRO_ACCESS:`) ;
- *   3. sinon → crédits de projets : le premier projet est accordé immédiatement
- *      avec la gratuité initiale, la création SUIVANTE sans crédit déclenche la
- *      cotisation (`CLIENT_PRO_CREDITS_REQUIRED:`).
+ *   1. période d'accès en cours (essai Client Pro) ou abonnement Client Pro
+ *      déjà PAYÉ → création couverte (le crédit est tout de même décompté
+ *      lorsqu'il en reste un) ;
+ *   2. sinon → crédits de projets : le premier projet est accordé immédiatement
+ *      avec la gratuité initiale ; la création SUIVANTE sans crédit déclenche
+ *      la cotisation (`CLIENT_PRO_CREDITS_REQUIRED:`) ;
+ *   3. période terminée (essai expiré, abonnement expiré, paiement en attente)
+ *      → accès Client Pro refusé avec la raison exacte (`CLIENT_PRO_ACCESS:`).
  */
 export async function assertClientProProjectCredit(
   ctx: MutationCtx,
@@ -271,7 +298,7 @@ export async function assertClientProProjectCredit(
 ): Promise<void> {
   if (user.role === "admin" || user.role === "moderator") return;
 
-  if (await isCreationCoveredByPeriod(ctx, user)) {
+  if ((await readCreationCoverage(ctx, user)).covered) {
     // La gratuité initiale est tout de même matérialisée une seule fois : aucun
     // compte ne peut la réclamer plus tard en plus de ses projets existants.
     await ensureClientProFreeGrant(ctx, user._id);
@@ -301,8 +328,17 @@ export async function assertClientProProjectCredit(
 }
 
 /**
- * Consomme un crédit pour un projet qui vient d'être créé. Appelée dans la
- * transaction de création : le solde et l'historique sont écrits ensemble.
+ * Consomme le crédit du projet qui vient d'être créé. Appelée DANS la
+ * transaction de création : l'insertion du projet, le solde et l'historique
+ * sont écrits ensemble (rollback complet si la création échoue).
+ *
+ * • un projet = exactement un crédit, y compris pendant la période d'essai
+ *   Client Pro : le compteur reste aligné sur les projets réellement créés,
+ *   aucun crédit n'est « oublié » ;
+ * • idempotent : un projet déjà enregistré dans le journal ne consomme jamais
+ *   une seconde fois (relance, nouvel appareil, requête rejouée) ;
+ * • un abonnement Client Pro historique déjà payé ne consomme aucun crédit ;
+ *   il autorise la création même quota épuisé, sans jamais créditer de projets.
  */
 export async function consumeClientProCredit(
   ctx: MutationCtx,
@@ -313,29 +349,42 @@ export async function consumeClientProCredit(
   if (!user) return;
   if (user.role === "admin" || user.role === "moderator") return;
 
-  // Une période déjà accordée (essai en cours, abonnement Client Pro payé)
-  // couvre la création : aucune consommation de crédits.
-  if (await isCreationCoveredByPeriod(ctx, user)) return;
+  // Idempotence : un même projet ne consomme qu'un seul crédit.
+  const events = await ctx.db
+    .query("clientProCreditEvents")
+    .withIndex("by_project", (q) => q.eq("projectId", projectId))
+    .collect();
+  if (events.some((event) => event.type === "consume")) return;
+
+  // Abonnement Client Pro mensuel HISTORIQUE encore valide : les paiements déjà
+  // confirmés ne sont jamais révoqués, aucun crédit n'est prélevé.
+  const coverage = await readCreationCoverage(ctx, user);
+  if (coverage.paidActive) return;
 
   const balance = balanceFromUser(user);
   if (balance.remaining <= 0) {
     // Le contrôle a lieu AVANT l'insertion ; cette garde couvre une
-    // configuration modifiée entre-temps. On refuse plutôt que d'écrire un
+    // configuration modifiée entre-temps. Une période d'accès en cours (essai)
+    // couvre la création sans crédit ; sinon on refuse plutôt que d'écrire un
     // solde négatif.
+    if (coverage.covered) return;
     throw new Error(
-      `${CLIENT_PRO_CREDITS_MARKER}Crédits Client Pro épuisés : le projet ne peut pas être créé.`,
+      `${CLIENT_PRO_CREDITS_MARKER}Votre quota de projets est épuisé. Achetez des projets supplémentaires pour continuer.`,
     );
   }
 
-  const useFree = balance.freeRemaining > 0;
+  // Recalage sur les projets réellement présents + ce projet (un seul crédit),
+  // les crédits gratuits étant consommés en premier.
+  const projects = await ctx.db
+    .query("projects")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  const next = syncUsageWithProjects(balance, projects.length, { chargeCurrentProject: true });
+
   const now = Date.now();
   await ctx.db.patch(userId, {
-    clientProFreeProjectsUsed: useFree
-      ? (user.clientProFreeProjectsUsed ?? 0) + 1
-      : user.clientProFreeProjectsUsed,
-    clientProPaidProjectsUsed: useFree
-      ? user.clientProPaidProjectsUsed
-      : (user.clientProPaidProjectsUsed ?? 0) + 1,
+    clientProFreeProjectsUsed: next.freeUsed,
+    clientProPaidProjectsUsed: next.paidUsed,
     updatedAt: now,
   });
 
@@ -343,7 +392,7 @@ export async function consumeClientProCredit(
     userId,
     type: "consume",
     projects: -1,
-    bucket: useFree ? "free" : "paid",
+    bucket: next.freeUsed > balance.freeUsed ? "free" : "paid",
     projectId,
     createdAt: now,
   });
@@ -465,7 +514,14 @@ export const requestClientProCotisation = mutation({
       );
     }
 
-    const balance = balanceFromUser(user);
+    // Solde recalé sur les projets réellement créés (même vérité que le
+    // Dashboard) : un achat anticipé n'est refusé que si des crédits restent
+    // réellement disponibles.
+    const ownProjects = await ctx.db
+      .query("projects")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    const balance = syncUsageWithProjects(balanceFromUser(user), ownProjects.length);
     if (!canPurchaseCotisation(config, balance)) {
       throw new Error(
         "Vous disposez encore de crédits de projets. Utilisez-les avant de payer une nouvelle cotisation.",
@@ -1031,7 +1087,7 @@ export const getSubscriptionFollowUp = query({
     const rows = await Promise.all(
       users.map(async (user) => {
         const profileRole = await resolveProfileRole(ctx, user);
-        const [supplier, expert, proSubs] = await Promise.all([
+        const [supplier, expert, proSubs, projects] = await Promise.all([
           ctx.db
             .query("supplierProfiles")
             .withIndex("by_user", (q) => q.eq("userId", user._id))
@@ -1042,6 +1098,10 @@ export const getSubscriptionFollowUp = query({
             .first(),
           ctx.db
             .query("subscriptions")
+            .withIndex("by_user", (q) => q.eq("userId", user._id))
+            .collect(),
+          ctx.db
+            .query("projects")
             .withIndex("by_user", (q) => q.eq("userId", user._id))
             .collect(),
         ]);
@@ -1062,7 +1122,9 @@ export const getSubscriptionFollowUp = query({
             sub.endDate != null &&
             sub.endDate > now,
         );
-        const balance = balanceFromUser(user);
+        // Même recalage que le Dashboard : le solde administrateur reflète les
+        // projets réellement créés, jamais un crédit resté « disponible ».
+        const balance = syncUsageWithProjects(balanceFromUser(user), projects.length);
 
         return {
           userId: user._id,

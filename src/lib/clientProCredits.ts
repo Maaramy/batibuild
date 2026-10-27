@@ -278,6 +278,41 @@ export function computeClientProBalance(input: {
 }
 
 /**
+ * Recale la consommation sur les projets RÉELLEMENT présents dans le compte.
+ *
+ * Un crédit peut avoir été « oublié » (projet créé pendant une période d'accès,
+ * avant la mise en place du système, ou par une ancienne version) : le solde
+ * affiché ne doit jamais prétendre qu'un projet existe sans consommer de
+ * crédit. Le recalage est MONOTONE (la consommation ne diminue jamais, hors
+ * remboursement explicite) et borné au quota accordé :
+ *
+ *   utilisé = min(accordé, max(utilisé, nombre de projets du compte))
+ *
+ * Les crédits gratuits sont consommés en premier, comme lors d'une création.
+ *
+ * `chargeCurrentProject` garantit qu'un projet qui vient d'être créé consomme
+ * au moins un crédit, même si les compteurs étaient déjà cohérents.
+ */
+export function syncUsageWithProjects(
+  balance: ClientProCreditBalance,
+  projectCount: number,
+  options: { chargeCurrentProject?: boolean } = {},
+): ClientProCreditBalance {
+  const count = Math.max(0, Math.round(projectCount));
+  const floor = options.chargeCurrentProject === true ? balance.used + 1 : balance.used;
+  const target = Math.min(balance.granted, Math.max(floor, count));
+  if (target === balance.used) return balance;
+
+  const freeUsed = Math.min(balance.freeGranted, Math.max(balance.freeUsed, target));
+  return computeClientProBalance({
+    freeGranted: balance.freeGranted,
+    freeUsed,
+    paidGranted: balance.paidGranted,
+    paidUsed: target - freeUsed,
+  });
+}
+
+/**
  * Nombre de crédits gratuits déjà consommés par les projets existants au moment
  * de l'attribution initiale. Les projets créés AVANT la mise en place du
  * système comptent : un ancien compte ne reçoit pas de crédits supplémentaires
@@ -309,8 +344,8 @@ export function projectsLabel(projects: number): string {
 /** Message présenté lorsque les crédits Client Pro sont épuisés. */
 export function clientProCreditsExhaustedMessage(balance: ClientProCreditBalance): string {
   return (
-    `Vous avez utilisé ${projectsLabel(balance.used)} sur ${projectsLabel(balance.granted)} ` +
-    "de votre forfait Client Pro. Payez une cotisation pour obtenir de nouveaux projets : " +
+    "Votre quota de projets est épuisé. Achetez des projets supplémentaires pour continuer. " +
+    `Vous avez utilisé ${projectsLabel(balance.used)} sur ${projectsLabel(balance.granted)} ; ` +
     "vos projets existants restent accessibles et modifiables."
   );
 }

@@ -406,3 +406,162 @@ describe("Client Pro — suppression de l'offre gratuite permanente", () => {
     expect(subs).toHaveLength(0);
   });
 });
+
+describe("Cotisation Client Pro — consommation par projet créé", () => {
+  let t: ReturnType<typeof convexTest>;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  it("quota de 1 : le premier projet passe immédiatement, 1 utilisé / 0 restant", async () => {
+    await configureCotisation(t, { freeProjects: 1 });
+    const userId = await createUser(t, { userRole: "client", email: "q1@test.com" });
+    const userT = asUser(t, userId);
+
+    const before = await userT.query(api.clientProCredits.getMyClientProCredits);
+    expect(before?.balance).toMatchObject({ granted: 1, used: 0, remaining: 1 });
+
+    await createProject(userT, "Premier projet");
+
+    const after = await userT.query(api.clientProCredits.getMyClientProCredits);
+    expect(after?.balance).toMatchObject({ granted: 1, used: 1, remaining: 0 });
+    expect(after?.canCreateProject).toBe(false);
+    expect(after?.entitled).toBe(true);
+  });
+
+  it("quota de 3 : chaque création décrémente exactement un crédit", async () => {
+    await configureCotisation(t, { freeProjects: 3 });
+    const userId = await createUser(t, { userRole: "client", email: "q3@test.com" });
+    const userT = asUser(t, userId);
+
+    for (let created = 1; created <= 3; created += 1) {
+      await createProject(userT, `Projet ${created}`);
+      const credits = await userT.query(api.clientProCredits.getMyClientProCredits);
+      expect(credits?.balance).toMatchObject({
+        granted: 3,
+        used: created,
+        remaining: 3 - created,
+      });
+    }
+
+    const exhausted = await userT.query(api.clientProCredits.getMyClientProCredits);
+    expect(exhausted?.canCreateProject).toBe(false);
+    await expect(createProject(userT, "Projet interdit")).rejects.toThrow(
+      /CLIENT_PRO_CREDITS_REQUIRED:/,
+    );
+  });
+
+  it("quota épuisé : aucune création possible, aucun crédit négatif", async () => {
+    await configureCotisation(t, { freeProjects: 1 });
+    const userId = await createUser(t, { userRole: "client", email: "exhausted@test.com" });
+    const userT = asUser(t, userId);
+    await createProject(userT);
+
+    await expect(createProject(userT)).rejects.toThrow(/CLIENT_PRO_CREDITS_REQUIRED:/);
+    const credits = await userT.query(api.clientProCredits.getMyClientProCredits);
+    expect(credits?.balance.used).toBe(1);
+    expect(credits?.balance.remaining).toBe(0);
+  });
+
+  it("actualisation et reconnexion : les compteurs restent identiques", async () => {
+    await configureCotisation(t, { freeProjects: 2 });
+    const userId = await createUser(t, { userRole: "client", email: "reload@test.com" });
+    await createProject(asUser(t, userId));
+
+    const first = await asUser(t, userId).query(api.clientProCredits.getMyClientProCredits);
+    const refreshed = await asUser(t, userId).query(api.clientProCredits.getMyClientProCredits);
+    const reconnected = await asUser(t, userId).query(api.clientProCredits.getMyClientProCredits);
+
+    expect(refreshed?.balance).toEqual(first?.balance);
+    expect(reconnected?.balance).toMatchObject({ granted: 2, used: 1, remaining: 1 });
+  });
+
+  it("créations simultanées : le quota n'est jamais dépassé", async () => {
+    await configureCotisation(t, { freeProjects: 1 });
+    const userId = await createUser(t, { userRole: "client", email: "race@test.com" });
+    const userT = asUser(t, userId);
+
+    const results = await Promise.allSettled([createProject(userT, "A"), createProject(userT, "B")]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+
+    const credits = await userT.query(api.clientProCredits.getMyClientProCredits);
+    expect(credits?.balance.used).toBe(1);
+    expect(credits?.balance.remaining).toBe(0);
+    expect(await t.run(async (ctx) => ctx.db.query("projects").collect())).toHaveLength(1);
+  });
+
+  it("deux comptes : les quotas sont indépendants", async () => {
+    await configureCotisation(t, { freeProjects: 1 });
+    const firstId = await createUser(t, { userRole: "client", email: "a@test.com" });
+    const secondId = await createUser(t, { userRole: "client", email: "b@test.com" });
+
+    await createProject(asUser(t, firstId));
+
+    const first = await asUser(t, firstId).query(api.clientProCredits.getMyClientProCredits);
+    const second = await asUser(t, secondId).query(api.clientProCredits.getMyClientProCredits);
+    expect(first?.balance).toMatchObject({ used: 1, remaining: 0 });
+    expect(second?.balance).toMatchObject({ used: 0, remaining: 1 });
+
+    // Le second compte peut créer son propre projet.
+    await createProject(asUser(t, secondId));
+    const secondAfter = await asUser(t, secondId).query(api.clientProCredits.getMyClientProCredits);
+    expect(secondAfter?.balance).toMatchObject({ used: 1, remaining: 0 });
+  });
+
+  it("un projet créé pendant une période d'accès Client Pro consomme quand même son crédit", async () => {
+    await configureCotisation(t, { freeProjects: 1 });
+    const userId = await createUser(t, { userRole: "client", email: "trial-credit@test.com" });
+    // Période d'accès temporaire en cours (essai Client Pro).
+    await t.run(async (ctx) => {
+      const now = Date.now();
+      await ctx.db.patch(userId, {
+        trialClaimedAt: now,
+        trialStartDate: now,
+        trialEndDate: now + 10 * DAY_MS,
+        subscriptionStatus: "trialing",
+      });
+    });
+    const userT = asUser(t, userId);
+
+    await createProject(userT, "Projet pendant l'essai");
+
+    const credits = await userT.query(api.clientProCredits.getMyClientProCredits);
+    expect(credits?.balance).toMatchObject({ granted: 1, used: 1, remaining: 0 });
+
+    // Un crédit acheté après la période d'accès reste entièrement disponible.
+    const adminId = await createUser(t, { role: "admin", email: "admin-trial@test.com" });
+    const order = await userT.mutation(api.clientProCredits.requestClientProCotisation, {
+      projects: 1,
+      paymentMethod: "d17",
+    });
+    await asUser(t, adminId).mutation(api.clientProCredits.adminApproveClientProOrder, {
+      orderId: order.orderId,
+    });
+    const paid = await userT.query(api.clientProCredits.getMyClientProCredits);
+    expect(paid?.balance).toMatchObject({ granted: 2, used: 1, remaining: 1 });
+  });
+
+  it("un projet existant créé hors système est comptabilisé une seule fois", async () => {
+    await configureCotisation(t, { freeProjects: 2 });
+    const userId = await createUser(t, { userRole: "client", email: "legacy-projects@test.com" });
+    await t.run(async (ctx) => {
+      const now = Date.now();
+      await ctx.db.insert("projects", {
+        userId,
+        name: "Projet historique",
+        category: "villa",
+        status: "completed",
+        createdAt: now,
+        updatedAt: now,
+      } as any);
+    });
+
+    const first = await asUser(t, userId).query(api.clientProCredits.getMyClientProCredits);
+    expect(first?.balance).toMatchObject({ granted: 2, used: 1, remaining: 1 });
+
+    // Relecture (actualisation) : le projet n'est jamais décompté deux fois.
+    const second = await asUser(t, userId).query(api.clientProCredits.getMyClientProCredits);
+    expect(second?.balance).toMatchObject({ granted: 2, used: 1, remaining: 1 });
+  });
+});

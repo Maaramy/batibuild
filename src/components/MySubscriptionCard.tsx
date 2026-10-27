@@ -171,15 +171,27 @@ export function MySubscriptionCard() {
             <Progress value={creditProgress} className="h-2" />
           </div>
 
-          {creditsExhausted && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200/40 bg-amber-500/5 p-2.5 text-[10px] text-amber-700 dark:text-amber-400 sm:text-xs">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>
-                Tous les crédits sont utilisés. Payez une cotisation pour créer de nouveaux projets.
-                Les projets existants restent accessibles et modifiables.
-              </span>
-            </div>
-          )}
+          {creditsExhausted &&
+            (credits.canCreateProject ? (
+              // Période d'accès en cours (essai / abonnement payé) : la création
+              // reste ouverte, mais le quota de cotisation est bien épuisé.
+              <div className="flex items-start gap-2 rounded-lg border border-blue-200/40 bg-blue-500/5 p-2.5 text-[10px] text-blue-700 dark:text-blue-400 sm:text-xs">
+                <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Votre quota de projets est épuisé. Votre période d'accès en cours couvre encore
+                  la création de projets ; achetez des projets supplémentaires pour continuer
+                  après son terme.
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200/40 bg-amber-500/5 p-2.5 text-[10px] text-amber-700 dark:text-amber-400 sm:text-xs">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Votre quota de projets est épuisé. Achetez des projets supplémentaires pour
+                  continuer. Les projets existants restent accessibles et modifiables.
+                </span>
+              </div>
+            ))}
         </div>
 
         {/* ── 2. Abonnement professionnel (Expert / Fournisseur) ───────── */}
@@ -282,8 +294,8 @@ export function MySubscriptionCard() {
   );
 }
 
-function creditPackageCta(exhausted: boolean): string {
-  return exhausted ? "Payer une cotisation" : "Acheter des projets";
+function creditPackageCta(_exhausted: boolean): string {
+  return "Acheter des projets";
 }
 
 export default MySubscriptionCard;
