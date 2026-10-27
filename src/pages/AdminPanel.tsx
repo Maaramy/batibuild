@@ -4870,8 +4870,10 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
 // Activation, durée (1 à 365 jours), fenêtre de validité, profils éligibles et
 // modules ouverts : tout est enregistré dans Convex (`convex/trialConfig.ts`)
 // et vérifié côté serveur. L'interface ne fait que présenter les paramètres.
-// Le profil Client Pro est exclu de l'essai (côté interface ET côté serveur) :
-// il relève uniquement de l'abonnement Client Pro payant.
+// Le profil Client Pro peut en bénéficier s'il est coché (côté interface ET
+// côté serveur) : sa période est TEMPORAIRE, avec échéance ; à son terme, la
+// cotisation par crédits de projets prend le relais (jamais d'abonnement
+// mensuel Client Pro, jamais de prélèvement automatique).
 // Aucune donnée n'est supprimée : désactiver l'essai conserve les comptes, les
 // projets et les abonnements payants.
 

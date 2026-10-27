@@ -696,8 +696,9 @@ export const checkSubscriptionPeriods = internalMutation({
 // convertis SANS AUCUNE PERTE : projets, devis, DQE, matériaux, abonnements
 // payants, factures et historiques restent intacts. Seul le libellé de forfait
 // « free » est retiré ; l'essai gratuit n'est appliqué qu'aux profils éligibles
-// (Fournisseur / Expert) qui n'en ont jamais bénéficié — les comptes Client Pro
-// n'en reçoivent JAMAIS (une seule fois — `trialClaimedAt` reste immuable).
+// (Client Pro, Fournisseur, Expert — selon la sélection de l'administrateur) qui
+// n'en ont jamais bénéficié, et une seule fois : `trialClaimedAt` reste
+// immuable, aucun essai n'est reconstitué par un changement de profil.
 //
 // La migration est :
 //   - réservée aux administrateurs ;

@@ -146,7 +146,9 @@ export function evaluateDecisionSupportAccess(
   if (sub.status === "pending") return deny("pending", group, { renewalRequired: true });
   if (sub.status === "trial_expired") return deny("trial_expired", group, { upgradeRequired: true });
 
-  // Client Pro mensuel actif ET compatible avec le profil → accès autorisé.
+  // Abonnement Client Pro HISTORIQUE encore valide (paiement déjà encaissé) →
+  // accès autorisé. Le modèle courant est la cotisation (crédits de projets),
+  // lue séparément par `decisionSupportAccess.resolveDecisionSupport`.
   if (sub.type === "monthly" && sub.isActive && sub.planCompatible) {
     return { allowed: true, reason: "ok", group, upgradeRequired: false, renewalRequired: false };
   }
@@ -180,31 +182,31 @@ export const DECISION_SUPPORT_DENY_COPY: Record<
   trial_no_module: {
     title: "Passez à Client Pro pour utiliser l'aide à la décision",
     description:
-      "Votre période d'essai n'inclut pas « Aide à la décision ». Souscrivez à l'abonnement Client Pro pour anticiper vos achats et maîtriser votre budget.",
+      "Votre période d'accès n'inclut pas « Aide à la décision ». Réglez une cotisation Client Pro (un nombre de projets, sans renouvellement automatique) pour anticiper vos achats et maîtriser votre budget.",
     cta: "Passer à Client Pro",
   },
   expired: {
-    title: "Abonnement Client Pro expiré",
+    title: "Crédits Client Pro épuisés",
     description:
-      "L'accès à « Aide à la décision » est suspendu jusqu'à la réactivation de votre abonnement Client Pro. Vos données et vos autres étapes sont conservées.",
-    cta: "Renouveler mon abonnement",
+      "L'accès à « Aide à la décision » est suspendu jusqu'à une nouvelle cotisation Client Pro. Vos données et vos autres étapes sont conservées.",
+    cta: "Payer ma cotisation",
   },
   pending: {
-    title: "Abonnement Client Pro en attente de validation",
+    title: "Cotisation Client Pro en attente de validation",
     description:
-      "Votre paiement est en cours de validation. « Aide à la décision » sera accessible dès l'activation de votre abonnement Client Pro.",
+      "Votre paiement est en cours de validation. « Aide à la décision » sera accessible dès la confirmation de la cotisation.",
     cta: "Suivre mon paiement",
   },
   trial_expired: {
-    title: "Votre période d'essai est terminée",
+    title: "Votre période d'accès Client Pro est terminée",
     description:
-      "« Aide à la décision » nécessite un abonnement Client Pro actif. Choisissez une offre pour retrouver l'accès.",
-    cta: "Choisir une offre",
+      "« Aide à la décision » nécessite des crédits Client Pro. Choisissez la quantité de projets à débloquer pour retrouver l'accès.",
+    cta: "Voir les cotisations",
   },
   not_client_pro: {
-    title: "Offre Client Pro requise",
+    title: "Cotisation Client Pro requise",
     description:
-      "« Aide à la décision » est réservée aux clients disposant d'un abonnement Client Pro actif et non expiré.",
-    cta: "Voir les offres",
+      "« Aide à la décision » est réservée aux comptes disposant de crédits Client Pro disponibles.",
+    cta: "Payer ma cotisation",
   },
 };

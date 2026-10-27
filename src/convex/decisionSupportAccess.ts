@@ -42,16 +42,29 @@ const DENY_MESSAGES: Record<DecisionSupportAccessReason, string> = {
   group_not_eligible:
     "« Aide à la décision » n'est pas incluse dans le parcours de ce type de projet (coût estimatif puis mise en relation).",
   trial_no_module:
-    "« Aide à la décision » n'est pas inclus dans votre période d'essai : passez à Client Pro pour y accéder.",
+    "« Aide à la décision » n'est pas inclus dans votre période d'accès : réglez une cotisation Client Pro pour y accéder.",
   expired:
-    "Votre abonnement Client Pro a expiré : l'accès à « Aide à la décision » est bloqué jusqu'à sa réactivation.",
+    "Vos crédits Client Pro sont épuisés : l'accès à « Aide à la décision » est bloqué jusqu'à une nouvelle cotisation.",
   pending:
     "Votre paiement Client Pro est en attente de validation : l'accès sera ouvert dès l'activation.",
   trial_expired:
-    "Votre période d'essai est terminée : un abonnement Client Pro actif est requis.",
+    "Votre période d'accès Client Pro est terminée : une cotisation (crédits de projets) est requise.",
   not_client_pro:
-    "« Aide à la décision » nécessite un abonnement Client Pro actif et non expiré.",
+    "« Aide à la décision » nécessite des crédits Client Pro disponibles.",
 };
+
+/**
+ * Refus qui relèvent UNIQUEMENT de l'abonnement / de la cotisation : eux seuls
+ * peuvent être levés par un droit Client Pro. Les refus structurels (non
+ * connecté, projet d'autrui, parcours incomplet) restent définitifs.
+ */
+const SUBSCRIPTION_DENY_REASONS: ReadonlySet<DecisionSupportAccessReason> = new Set([
+  "trial_no_module",
+  "expired",
+  "pending",
+  "trial_expired",
+  "not_client_pro",
+]);
 
 /** Erreur standard levée par les mutations protégées. */
 export function decisionSupportAccessError(reason: DecisionSupportAccessReason): Error {
@@ -107,7 +120,7 @@ export async function resolveDecisionSupport(
   // rapports PDF — `access.ts`). Les refus qui ne relèvent PAS de l'abonnement
   // (non connecté, projet d'autrui, parcours incomplet) ne sont jamais
   // contournés : la cotisation n'est lue que lorsqu'ils sont déjà écartés.
-  if (!access.allowed && access.reason !== "group_not_eligible") {
+  if (!access.allowed && SUBSCRIPTION_DENY_REASONS.has(access.reason)) {
     const clientPro = await getClientProAccess(ctx, user, "decision");
     if (clientPro.allowed) {
       access = {

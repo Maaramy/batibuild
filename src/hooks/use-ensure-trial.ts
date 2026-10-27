@@ -16,8 +16,9 @@ import { api } from "@/convex/_generated/api";
 // l'essai accordé, la query réactive renvoie le marqueur et plus aucun appel
 // n'est effectué.
 //
-// Client Pro (ou profil non résolu) : aucun appel, aucun essai. Le backend le
-// refuserait de toute façon.
+// Client Pro peut également en bénéficier quand l'administrateur l'a coché :
+// la durée dédiée et l'échéance sont calculées côté serveur, et un profil non
+// éligible reçoit simplement un refus (aucun droit accordé).
 
 export function useEnsureTrialStarted() {
   const { isAuthenticated } = useConvexAuth();
@@ -29,8 +30,8 @@ export function useEnsureTrialStarted() {
     if (!isAuthenticated || !user) return;
     // Essai déjà accordé (ou compte administrateur) : rien à faire.
     if (user.trialClaimedAt != null) return;
-    // Client Pro : jamais de période d'essai automatique.
-    if (!user.userRole || user.userRole === "client") return;
+    // Profil pas encore choisi : l'essai démarrera depuis `setUserRole`.
+    if (!user.userRole) return;
     if (requested.current) return;
 
     requested.current = true;

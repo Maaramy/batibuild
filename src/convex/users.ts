@@ -462,11 +462,13 @@ export const setUserRole = mutation({
       });
     }
 
-    // ── Démarrage de l'essai (profils Fournisseur / Expert uniquement) ──
+    // ── Démarrage de l'essai (profils cochés par l'administrateur) ──
     // À l'inscription, le profil n'est pas encore connu : l'essai est donc
-    // différé jusqu'à ce choix (Client Pro n'y a jamais droit). Le backend
-    // revérifie l'éligibilité, l'activation, la fenêtre et l'unicité.
-    if (isNewRegistration && args.userRole !== "client") {
+    // différé jusqu'à ce choix. Client Pro peut en bénéficier si l'admin l'a
+    // coché ; sa période est TEMPORAIRE (échéance), jamais un abonnement. Le
+    // backend revérifie l'éligibilité, l'activation, la fenêtre et l'unicité —
+    // il renvoie simplement « profil non éligible » sinon.
+    if (isNewRegistration) {
       try {
         await ctx.runMutation(internal.subscriptionStatus.startTrialOnSignup, {
           userId: user._id,

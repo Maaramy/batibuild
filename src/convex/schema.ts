@@ -1390,9 +1390,10 @@ const schema = defineSchema(
       // recalculée depuis ces champs côté serveur.
       trialEnabled: v.optional(v.boolean()),
       trialDurationDays: v.optional(v.number()),
-      // Legacy : durée dédiée au forfait Client Pro. Client Pro n'est plus un
-      // abonnement mensuel et ne bénéficie plus d'une période d'essai ; le
-      // champ reste déclaré pour que les documents existants restent lisibles.
+      // Durée dédiée à la période d'accès Client Pro (absente = durée commune).
+      // Client Pro n'est plus un abonnement mensuel : sa période est TEMPORAIRE
+      // et se termine par une cotisation (crédits de projets), jamais par un
+      // abonnement ou un prélèvement automatique.
       trialClientProDurationDays: v.optional(v.number()),
       trialValidFrom: v.optional(v.number()),
       trialValidUntil: v.optional(v.number()),

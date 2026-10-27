@@ -18,8 +18,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     // UNIQUEMENT pour les nouveaux comptes (`existingUserId === null`), jamais
     // pour les utilisateurs existants. Puis tente l'éventuel essai gratuit.
     // Le profil n'étant pas encore connu à ce stade, le backend refuse
-    // l'essai (Client Pro par défaut) : il est démarré depuis `setUserRole`
-    // pour les profils éligibles Fournisseur / Expert.
+    // l'essai : il est démarré depuis `setUserRole`, pour les profils cochés
+    // par l'administrateur (Client Pro, Fournisseur, Expert).
     // Idempotents : aucun second essai, aucun remplacement de forfait choisi.
     async afterUserCreatedOrUpdated(ctx, { userId, existingUserId }) {
       if (existingUserId === null) {

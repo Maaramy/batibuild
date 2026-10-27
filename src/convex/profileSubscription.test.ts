@@ -407,4 +407,48 @@ describe("setUserRole — information de compatibilité", () => {
     });
     expect(result.compatibility.compatible).toBe(true);
   });
+
+  it("Client Pro coché par l'admin : la période d'essai démarre à l'inscription, avec sa durée dédiée", async () => {
+    const adminId = await createUser(t, { role: "admin", email: "admin-trial-pro@test.com" });
+    await asUser(t, adminId).mutation(api.trialConfig.updateTrialConfig, {
+      enabled: true,
+      durationDays: 7,
+      clientProDurationDays: 21,
+      validFrom: null,
+      validUntil: null,
+      eligibleProfiles: ["client"],
+      modules: ["estimation"],
+      newAccountsOnly: false,
+    });
+
+    // Profil choisi après l'inscription : c'est le point où l'essai démarre.
+    const userId = await createUser(t, { email: "nouveau-pro@test.com" });
+    await asUser(t, userId).mutation(api.users.setUserRole, { userRole: "client" });
+
+    const user = await t.run(async (ctx) => ctx.db.get(userId as any));
+    expect(user?.userRole).toBe("client");
+    expect(user?.trialClaimedAt).toBeTruthy();
+    expect(user?.trialDaysTotal).toBe(21);
+    expect(user?.trialEndDate! - user?.trialStartDate!).toBe(21 * DAY_MS);
+  });
+
+  it("Client Pro non coché : aucune période d'essai n'est accordée à l'inscription", async () => {
+    const adminId = await createUser(t, { role: "admin", email: "admin-trial-off@test.com" });
+    await asUser(t, adminId).mutation(api.trialConfig.updateTrialConfig, {
+      enabled: true,
+      durationDays: 7,
+      validFrom: null,
+      validUntil: null,
+      eligibleProfiles: ["expert"],
+      modules: ["estimation"],
+      newAccountsOnly: false,
+    });
+
+    const userId = await createUser(t, { email: "nouveau-pro-off@test.com" });
+    await asUser(t, userId).mutation(api.users.setUserRole, { userRole: "client" });
+
+    const user = await t.run(async (ctx) => ctx.db.get(userId as any));
+    expect(user?.trialClaimedAt).toBeUndefined();
+    expect(user?.trialEndDate).toBeUndefined();
+  });
 });
