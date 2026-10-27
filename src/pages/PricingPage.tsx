@@ -370,7 +370,14 @@ export default function PricingPage() {
 
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <div className="mb-8 text-center">
-          <Badge variant="outline" className="mb-3 px-3 py-1 text-xs font-medium">
+          {/* Libellé long : sur mobile il occupe toute la largeur disponible,
+              passe à la ligne et reste centré (zone tactile ≥ 44 px) ; à partir
+              de `sm` il reprend exactement l'aspect d'origine (une seule ligne,
+              largeur ajustée au contenu). */}
+          <Badge
+            variant="outline"
+            className="mx-auto mb-3 flex min-h-11 w-full max-w-full flex-wrap items-center justify-center gap-1.5 whitespace-normal px-3 py-2.5 text-center text-xs leading-snug font-medium sm:inline-flex sm:min-h-0 sm:w-fit sm:flex-nowrap sm:gap-1 sm:px-3 sm:py-1 sm:whitespace-nowrap"
+          >
             Cotisation Client Pro · abonnements mensuels Expert / Fournisseur
           </Badge>
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Vos droits, séparés et maîtrisés</h1>
