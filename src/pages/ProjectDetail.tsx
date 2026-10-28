@@ -2396,65 +2396,6 @@ export default function ProjectDetail() {
                 </div>
               </motion.div>
             </div>
-            {/* ═══ Barème d'évolution annuelle — empreinte de CE calcul ═══ */}
-            {(() => {
-              const fp = (project as any)?.costEstimate?.costEvolution ?? null;
-              // Projet déjà chiffré avant le module (sans empreinte) : rien
-              // n'est affiché, son estimation et ses rapports restent intactes.
-              if (!fp) return null;
-              const statusStyles: Record<string, string> = {
-                active: "border-emerald-500/25 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400",
-                inactive: "border-border/40 bg-muted/20 text-muted-foreground",
-                validated: "border-sky-500/25 bg-sky-500/5 text-sky-600 dark:text-sky-400",
-              };
-              const statusLabel: Record<string, string> = {
-                active: "Actif — taux appliqués",
-                inactive: "Inactif — aucun taux appliqué",
-                validated: "Chiffrage validé — barème non appliqué",
-              };
-              const dateFmt = (ts: number) =>
-                new Date(ts).toLocaleDateString("fr-FR", {
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                });
-              return (
-                <motion.div variants={fadeUp} custom={4} className="rounded-xl border bg-card shadow-sm p-4">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <h3 className="text-sm font-semibold">Barème d'évolution annuelle des coûts</h3>
-                    <Badge
-                      variant="outline"
-                      className={cn("text-[9px] h-4 px-1.5", statusStyles[fp.status] ?? "text-muted-foreground")}
-                    >
-                      {statusLabel[fp.status] ?? fp.status}
-                    </Badge>
-                    <span className="text-[10px] text-muted-foreground">
-                      Version v{fp.version} · calculé le {dateFmt(fp.appliedAt)}
-                    </span>
-                  </div>
-                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[10.5px] text-muted-foreground">
-                    <span>
-                      Barème de référence : {fp.referenceYear} · appliqué le {dateFmt(fp.effectiveFrom)}
-                    </span>
-                    <span>
-                      Scénario : {fp.scenarioLabel} · {fp.globalRate} %/an · horizon {fp.years} an(s)
-                    </span>
-                    {fp.status === "active" && (
-                      <>
-                        <span>Coût de référence : {fmt(fp.referenceCost)}</span>
-                        <span className="font-semibold text-foreground">
-                          Coût après évolution : {fmt(fp.projectedCost)} (+{fmt(fp.increase)} · +{fp.increasePct} %)
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  <p className="mt-2 text-[9px] text-muted-foreground/70 italic">
-                    Projection indicative fondée sur des hypothèses de variation des prix — les montants futurs ne constituent pas un devis garanti.
-                  </p>
-                </motion.div>
-              );
-            })()}
-
             {/* ═══ Confidence + Anomalies ═══ */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <motion.div variants={fadeUp} custom={5} className="rounded-xl border bg-card shadow-sm p-4">
