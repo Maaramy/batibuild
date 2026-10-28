@@ -4,6 +4,7 @@ import { api } from "./_generated/api";
 import { getUserSubscriptionStatus, startTrialFor } from "./subscriptionStatus";
 import {
   NEW_ACCOUNT_WINDOW_MS,
+  isProfileVisibilityLockedByAdmin,
   syncProfessionalProfileForUser,
 } from "./professionalProfileSync";
 import { resolveProfileRole, type UserRole } from "./profileSubscription";
@@ -89,9 +90,15 @@ export async function getFreePlanStatus(ctx: any): Promise<FreePlanStatus> {
  * - « Offre gratuite » (switch admin, prix null/0) : tous les profils sont
  *   actifs sans paiement.
  * - Sinon : l'abonnement doit être actif (ou essai legacy) ET non expiré.
+ *
+ * Seul le masquage VOLONTAIRE de l'administrateur est absolu. Un masquage
+ * automatique (essai / abonnement échu) ne l'est pas : c'est l'absence de droit
+ * qui le justifie, pas `isVisible` — l'« Offre gratuite » réaffiche donc ces
+ * profils (`isProfileVisibilityLockedByAdmin` distingue les deux origines).
  */
 export interface PaymentGatedProfile {
   isVisible?: boolean | null;
+  visibilitySuspendedBy?: string | null;
   subscriptionStatus?: string | null;
   subscriptionEndDate?: number | null;
 }
@@ -102,7 +109,9 @@ export interface PaymentGatedProfile {
  * Règle centralisée (utilisée par l'annuaire, les recommandations, les devis,
  * la messagerie et l'administration) :
  *   • compte désactivé → invisible ;
- *   • profil masqué par l'administrateur (`isVisible === false`) → invisible ;
+ *   • profil masqué VOLONTAIREMENT par l'administrateur → invisible ;
+ *   • profil suspendu automatiquement (droit échu) → dépend du droit : réaffiché
+ *     dès que l'« Offre gratuite » ou un paiement valide existe ;
  *   • profil incomplet (nom, téléphone, e-mail, spécialités, régions) → invisible ;
  *   • « Offre gratuite » administrable → actif ;
  *   • essai en cours (date de fin future) → actif ;
@@ -123,8 +132,10 @@ export async function isProfilePaymentActive(
   },
   now = Date.now(),
 ): Promise<boolean> {
-  // Profil explicitement masqué : aucune exception, même en offre gratuite.
-  if (profile.isVisible === false) return false;
+  // Masquage volontaire de l'administrateur : aucune exception, même en offre
+  // gratuite. Une suspension AUTOMATIQUE (droit échu) suit en revanche le droit
+  // réel : sans cela, activer l'offre gratuite laissait ces profils invisibles.
+  if (isProfileVisibilityLockedByAdmin(profile, now)) return false;
 
   if (profile.userId && ctx?.db) {
     const user = await ctx.db.get(profile.userId);

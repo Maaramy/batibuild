@@ -703,6 +703,10 @@ export const checkExpiredSubscriptions = internalMutation({
         await ctx.db.patch(profile._id, {
           subscriptionStatus: "inactive",
           isVisible: false,
+          // Suspension AUTOMATIQUE marquée : un masquage volontaire de
+          // l'administrateur conserve son marqueur et sa décision.
+          visibilitySuspendedBy:
+            profile.visibilitySuspendedBy === "admin" ? "admin" : "entitlement",
           updatedAt: now,
         });
 
@@ -749,6 +753,9 @@ export const checkExpiredSubscriptions = internalMutation({
           await ctx.db.patch(profile._id, {
             subscriptionStatus: "inactive",
             isVisible: false,
+            // Suspension AUTOMATIQUE marquée (cf. fournisseurs ci-dessus).
+            visibilitySuspendedBy:
+              profile.visibilitySuspendedBy === "admin" ? "admin" : "entitlement",
             updatedAt: now,
           });
 

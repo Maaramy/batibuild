@@ -673,12 +673,17 @@ export const adminToggleExpertVisibility = mutation({
     const profile = await ctx.db.get(args.profileId);
     if (!profile) throw new Error("Profil expert introuvable");
 
+    // Masquage VOLONTAIRE : il est marqué comme tel pour ne jamais être annulé
+    // par la synchronisation automatique ni par l'« Offre gratuite ». À
+    // l'inverse, réafficher lève le marqueur.
+    const isVisible = !profile.isVisible;
     await ctx.db.patch(args.profileId, {
-      isVisible: !profile.isVisible,
+      isVisible,
+      visibilitySuspendedBy: isVisible ? undefined : "admin",
       updatedAt: Date.now(),
     });
 
-    return { success: true, isVisible: !profile.isVisible };
+    return { success: true, isVisible };
   },
 });
 
@@ -791,6 +796,8 @@ export const adminApproveExpertSubscription = mutation({
       subscriptionEndDate: endDate,
       paymentProofVerified: true,
       isVisible: true,
+      // Paiement confirmé : le profil n'est plus suspendu (marqueur levé).
+      visibilitySuspendedBy: undefined,
       updatedAt: now,
     });
 
@@ -931,6 +938,9 @@ export const adminRejectExpertSubscription = mutation({
       subscriptionStatus: "inactive",
       paymentProofVerified: false,
       isVisible: false,
+      // Refus de l'administrateur : masquage volontaire, jamais rétabli par
+      // l'« Offre gratuite » ni par la synchronisation.
+      visibilitySuspendedBy: "admin",
       updatedAt: Date.now(),
     });
 

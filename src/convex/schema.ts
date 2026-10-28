@@ -1307,6 +1307,14 @@ const schema = defineSchema(
       paymentProofUploadedAt: v.optional(v.number()),
       paymentProofVerified: v.optional(v.boolean()),
       isVisible: v.boolean(),
+      // ORIGINE du masquage — `isVisible: false` seul ne dit pas QUI a masqué :
+      //   • "admin"       : décision humaine, jamais rétablie automatiquement ;
+      //   • "entitlement" : suspension automatique faute de droit (essai ou
+      //                     abonnement échu) — réaffichée dès qu'un droit
+      //                     valide existe, notamment l'« Offre gratuite ».
+      // Absent : profil visible, ou donnée antérieure au marqueur (départagée
+      // par la règle de compatibilité de `professionalProfileSync`).
+      visibilitySuspendedBy: v.optional(v.union(v.literal("admin"), v.literal("entitlement"))),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
@@ -2074,6 +2082,14 @@ const schema = defineSchema(
       paymentProofUploadedAt: v.optional(v.number()),
       paymentProofVerified: v.optional(v.boolean()),
       isVisible: v.boolean(),
+      // ORIGINE du masquage — `isVisible: false` seul ne dit pas QUI a masqué :
+      //   • "admin"       : décision humaine, jamais rétablie automatiquement ;
+      //   • "entitlement" : suspension automatique faute de droit (essai ou
+      //                     abonnement échu) — réaffichée dès qu'un droit
+      //                     valide existe, notamment l'« Offre gratuite ».
+      // Absent : profil visible, ou donnée antérieure au marqueur (départagée
+      // par la règle de compatibilité de `professionalProfileSync`).
+      visibilitySuspendedBy: v.optional(v.union(v.literal("admin"), v.literal("entitlement"))),
       createdAt: v.number(),
       updatedAt: v.number(),
     })

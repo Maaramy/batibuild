@@ -9,6 +9,7 @@ import {
 } from "../lib/paymentMethods";
 import { getEnabledPaymentMethodSlugs, getPaymentMethodStates } from "./paymentMethodStates";
 import { isTrialCampaignOpen, readTrialConfig } from "./trialConfig";
+import { syncAllProfessionalProfiles } from "./professionalProfileSync";
 import { readClientProCreditConfig } from "./clientProCredits";
 import { clientProPackages } from "../lib/clientProCredits";
 import { PROFESSIONAL_SERVICES } from "../lib/subscriptionPlans";
@@ -230,6 +231,17 @@ export const updateProfessionalPlanConfig = mutation({
       // Optionnel
     }
 
+    // Application IMMÉDIATE du nouveau tarif aux profils existants : passer
+    // en « Offre gratuite » réaffiche les profils suspendus automatiquement
+    // (essai / abonnement échu), revenir au tarif payant les suspend à leur
+    // échéance. Un échec est rattrapé par le cron quotidien — il ne bloque
+    // jamais l'enregistrement du paramètre.
+    try {
+      await syncAllProfessionalProfiles(ctx, now);
+    } catch {
+      // Le cron quotidien applique la même règle.
+    }
+
     return { success: true };
   },
 });
@@ -309,6 +321,16 @@ export const updatePlanPricing = mutation({
         updatedAt: Date.now(),
         createdAt: Date.now(),
       } as any);
+    }
+
+    // Même application immédiate que `updateProfessionalPlanConfig` : le prix
+    // enregistré ici peut ouvrir (prix nul) ou fermer l'offre gratuite.
+    if (plan === "expert" || plan === "supplier") {
+      try {
+        await syncAllProfessionalProfiles(ctx, Date.now());
+      } catch {
+        // Le cron quotidien applique la même règle.
+      }
     }
 
     return { success: true };

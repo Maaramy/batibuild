@@ -22,8 +22,11 @@ import { DAY_MS } from "./subscriptionPeriods";
 //   • aux profils Client Pro ni à la cotisation par crédits de projets ;
 //   • au compte, à la table `subscriptions`, aux paiements ni aux factures :
 //     il n'écrit que les champs d'état des profils expert / fournisseur ;
-//   • à un profil masqué volontairement par l'administrateur (`isVisible: false`
-//     avec un statut `active` / `trial` reste tel quel) ;
+//   • à un profil masqué volontairement par l'administrateur : le masquage est
+//     marqué (`visibilitySuspendedBy: "admin"`) et n'est JAMAIS rétabli par la
+//     synchronisation, contrairement à une suspension automatique
+//     (`visibilitySuspendedBy: "entitlement"`) que l'« Offre gratuite » ou un
+//     paiement confirmé réaffichent ;
 //   • aux demandes de paiement en attente de validation (`pending` reste
 //     `pending` : seul l'administrateur valide un reçu) ;
 //   • à un compte désactivé (décision d'administration).
@@ -52,6 +55,46 @@ export const NEW_ACCOUNT_WINDOW_MS = 7 * DAY_MS;
 
 /** Un profil professionnel, quelle que soit sa table. */
 type ProfessionalProfileDoc = Doc<"expertProfiles"> | Doc<"supplierProfiles">;
+
+/** État minimal permettant de départager les deux origines d'un masquage. */
+export interface ProfileVisibilityState {
+  isVisible?: boolean | null;
+  visibilitySuspendedBy?: string | null;
+  subscriptionStatus?: string | null;
+  subscriptionEndDate?: number | null;
+}
+
+/**
+ * Le masquage de ce profil relève-t-il d'une décision de l'administrateur ?
+ *
+ * `isVisible: false` ne dit pas QUI a masqué le profil. La distinction est
+ * indispensable :
+ *   • suspension AUTOMATIQUE (essai / abonnement échu) → le profil doit
+ *     redevenir visible dès qu'un droit valide existe, en particulier
+ *     l'« Offre gratuite » du forfait ;
+ *   • masquage ADMINISTRATEUR → aucune synchronisation ni aucun paiement ne
+ *     doit le réafficher : seul l'administrateur le fait.
+ *
+ * Le marqueur `visibilitySuspendedBy` tranche quand il est présent. Les
+ * documents antérieurs à ce marqueur sont départagés par l'état enregistré :
+ * une suspension automatique écrivait un statut « expired » ou une échéance
+ * dépassée, tandis qu'un masquage administrateur conserve le statut réel du
+ * profil (actif, essai, en attente, ou jamais activé sans échéance).
+ */
+export function isProfileVisibilityLockedByAdmin(
+  profile: ProfileVisibilityState,
+  now = Date.now(),
+): boolean {
+  if (profile.isVisible !== false) return false;
+  if (profile.visibilitySuspendedBy === "admin") return true;
+  if (profile.visibilitySuspendedBy === "entitlement") return false;
+
+  // Données historiques : suspension automatique = échéance réellement dépassée.
+  if (profile.subscriptionStatus === "expired") return false;
+  const end = profile.subscriptionEndDate ?? null;
+  if (end != null && end <= now) return false;
+  return true;
+}
 
 /** Nature du droit qui ouvre l'espace professionnel. */
 export type ProfessionalEntitlementKind = "free_plan" | "trial" | "subscription" | "none";
@@ -209,6 +252,7 @@ async function syncProfileDoc(
 
   const status = profile.subscriptionStatus;
   const entitlement = await resolveProfessionalEntitlement(ctx, role, user, profile, now, freePlans);
+  const lockedByAdmin = isProfileVisibilityLockedByAdmin(profile, now);
 
   // ── Droit terminé → suspension (essai fini ou abonnement échu non renouvelé).
   if (!entitlement.entitled) {
@@ -217,6 +261,10 @@ async function syncProfileDoc(
     await ctx.db.patch(profile._id, {
       subscriptionStatus: "expired",
       isVisible: false,
+      // Suspension MARQUÉE comme automatique : elle sera réaffichée dès qu'un
+      // droit valide existera. Un masquage antérieur de l'administrateur reste
+      // marqué « admin » et conserve donc sa décision.
+      visibilitySuspendedBy: lockedByAdmin ? "admin" : "entitlement",
       updatedAt: now,
     });
 
@@ -242,10 +290,36 @@ async function syncProfileDoc(
     return "suspended";
   }
 
-  // Offre gratuite : le contrôle de visibilité accorde déjà l'accès quel que
-  // soit l'état du profil — aucune écriture n'est nécessaire (et un profil
-  // masqué par l'administrateur reste masqué).
-  if (entitlement.kind === "free_plan" || entitlement.endDate == null) return "unchanged";
+  // « Offre gratuite » : l'espace professionnel est ouvert sans paiement. Un
+  // profil suspendu AUTOMATIQUEMENT (essai ou abonnement échu) doit donc
+  // redevenir visible ; un profil masqué par l'administrateur reste masqué et
+  // une demande de paiement en attente garde son statut (seul
+  // l'administrateur valide un reçu). Sans cette écriture, le profil restait
+  // exclu de l'annuaire par `isVisible: false` malgré l'offre gratuite.
+  if (entitlement.kind === "free_plan") {
+    if (status === "pending" || lockedByAdmin) return "unchanged";
+
+    const alreadyFree =
+      status === "active" &&
+      (profile.subscriptionEndDate ?? null) === null &&
+      profile.isVisible === true &&
+      profile.visibilitySuspendedBy == null;
+    if (alreadyFree) return "unchanged";
+
+    await ctx.db.patch(profile._id, {
+      subscriptionStatus: "active",
+      // Offre gratuite : aucune échéance à faire expirer.
+      subscriptionEndDate: undefined,
+      isVisible: true,
+      visibilitySuspendedBy: undefined,
+      updatedAt: now,
+    });
+    return "activated";
+  }
+
+  // Droit porté par le profil sans échéance (donnée historique) : le contrôle de
+  // visibilité l'affiche déjà, aucune écriture n'est nécessaire.
+  if (entitlement.endDate == null) return "unchanged";
 
   // ── Droit valide → alignement du profil sur ce droit :
   //   • profil resté « inactive » / « expired » (créé après le démarrage de
@@ -263,9 +337,15 @@ async function syncProfileDoc(
   if (status === "pending" && entitlement.kind !== "subscription") return "unchanged";
 
   const targetStatus = entitlement.kind === "trial" ? "trial" : "active";
-  const needsVisibility = status !== "active" && status !== "trial";
+  // (Ré)affichage : suspension automatique à lever, ou profil jamais publié.
+  // Un masquage de l'administrateur n'est jamais annulé ici.
+  const mustPublish =
+    !lockedByAdmin &&
+    (profile.isVisible === false || (status !== "active" && status !== "trial"));
   const alreadyAligned =
-    status === targetStatus && profile.subscriptionEndDate === entitlement.endDate;
+    status === targetStatus &&
+    profile.subscriptionEndDate === entitlement.endDate &&
+    !mustPublish;
   // Déjà aligné : aucune réécriture (la synchronisation est idempotente).
   if (alreadyAligned) return "unchanged";
 
@@ -275,9 +355,9 @@ async function syncProfileDoc(
       subscriptionStatus: "trial",
       trialStartDate: entitlement.startDate ?? now,
       subscriptionEndDate: entitlement.endDate,
-      // Un simple réalignement de dates ne rétablit pas la visibilité à la place
-      // de l'administrateur : seuls l'activation et le paiement confirmé le font.
-      ...(needsVisibility ? { isVisible: true } : {}),
+      ...(mustPublish ? { isVisible: true } : {}),
+      // Marqueur levé : le profil n'est plus suspendu automatiquement.
+      ...(lockedByAdmin ? {} : { visibilitySuspendedBy: undefined }),
       updatedAt: now,
     });
   } else {
@@ -286,7 +366,8 @@ async function syncProfileDoc(
       subscriptionStatus: "active",
       subscriptionStartDate: entitlement.startDate ?? now,
       subscriptionEndDate: entitlement.endDate,
-      ...(needsVisibility ? { isVisible: true } : {}),
+      ...(mustPublish ? { isVisible: true } : {}),
+      ...(lockedByAdmin ? {} : { visibilitySuspendedBy: undefined }),
       updatedAt: now,
     });
   }

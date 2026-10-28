@@ -510,3 +510,124 @@ describe("fin de période d'essai et droits professionnels", () => {
     expect(actives).not.toContain(pendingProfileId);
   });
 });
+
+// ============================================================================
+// 9. Origine du masquage — suspension automatique vs décision de l'administrateur
+// ============================================================================
+// L'« Offre gratuite » (prix nul) doit RÉAFFICHER les profils suspendus
+// automatiquement faute de droit, sans jamais annuler un masquage volontaire de
+// l'administrateur.
+
+describe("offre gratuite et origine du masquage", () => {
+  let t: T;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
+  it("réaffiche un Expert et un Fournisseur suspendus automatiquement", async () => {
+    const { adminT } = await asAdmin(t);
+    const now = Date.now();
+
+    // Expert : essai terminé sans paiement.
+    const expertUserId = await createUser(t, {
+      userRole: "expert",
+      trialClaimedAt: now - 12 * DAY_MS,
+      trialStartDate: now - 12 * DAY_MS,
+      trialEndDate: now - 2 * DAY_MS,
+    });
+    const expertProfileId = await insertExpertProfile(t, expertUserId, {
+      subscriptionStatus: "trial",
+      subscriptionEndDate: now - 2 * DAY_MS,
+    });
+
+    // Fournisseur : abonnement payé échu, non renouvelé.
+    const supplierUserId = await createUser(t, {
+      userRole: "supplier",
+      subscriptionPlan: "supplier",
+      subscriptionStartDate: now - 40 * DAY_MS,
+      subscriptionEndDate: now - 10 * DAY_MS,
+    });
+    const supplierProfileId = await insertSupplierProfile(t, supplierUserId, {
+      subscriptionStatus: "active",
+      subscriptionEndDate: now - 10 * DAY_MS,
+    });
+
+    await t.mutation(internal.subscriptionStatus.checkSubscriptionPeriods, {});
+
+    // Suspension automatique : marquée comme telle.
+    expect((await profileOf(t, expertProfileId))?.visibilitySuspendedBy).toBe("entitlement");
+    expect((await profileOf(t, supplierProfileId))?.visibilitySuspendedBy).toBe("entitlement");
+    expect(await activeExpertIds(t)).not.toContain(expertProfileId);
+    expect(await activeSupplierIds(t)).not.toContain(supplierProfileId);
+
+    // L'administrateur ouvre l'« Offre gratuite » des deux forfaits.
+    await adminT.mutation(api.payments.updatePlanPricing, { plan: "expert", price: null });
+    await adminT.mutation(api.payments.updatePlanPricing, { plan: "supplier", price: null });
+
+    for (const profileId of [expertProfileId, supplierProfileId]) {
+      const profile = await profileOf(t, profileId);
+      expect(profile?.isVisible).toBe(true);
+      expect(profile?.visibilitySuspendedBy).toBeUndefined();
+      expect(profile?.subscriptionStatus).toBe("active");
+      // Offre gratuite : aucune échéance à faire expirer.
+      expect(profile?.subscriptionEndDate).toBeUndefined();
+    }
+    expect(await activeExpertIds(t)).toContain(expertProfileId);
+    expect(await activeSupplierIds(t)).toContain(supplierProfileId);
+  });
+
+  it("n'annule pas un masquage volontaire de l'administrateur", async () => {
+    const { adminT } = await asAdmin(t);
+    const now = Date.now();
+    const userId = await createUser(t, {
+      userRole: "expert",
+      subscriptionPlan: "expert",
+      subscriptionStartDate: now - 5 * DAY_MS,
+      subscriptionEndDate: now + 20 * DAY_MS,
+    });
+    const profileId = await insertExpertProfile(t, userId, {
+      subscriptionStatus: "active",
+      subscriptionEndDate: now + 20 * DAY_MS,
+    });
+    await insertSubscription(t, userId, "expert", now + 20 * DAY_MS);
+    expect(await activeExpertIds(t)).toContain(profileId);
+
+    // Masquage volontaire : marqué « admin ».
+    await adminT.mutation(api.expertProfiles.adminToggleExpertVisibility, { profileId });
+    const hidden = await profileOf(t, profileId);
+    expect(hidden?.isVisible).toBe(false);
+    expect(hidden?.visibilitySuspendedBy).toBe("admin");
+
+    // Offre gratuite : la décision de l'administrateur est conservée.
+    await adminT.mutation(api.payments.updatePlanPricing, { plan: "expert", price: null });
+    expect((await profileOf(t, profileId))?.isVisible).toBe(false);
+    expect(await activeExpertIds(t)).not.toContain(profileId);
+
+    // Seul l'administrateur rétablit la visibilité.
+    await adminT.mutation(api.expertProfiles.adminToggleExpertVisibility, { profileId });
+    const shown = await profileOf(t, profileId);
+    expect(shown?.isVisible).toBe(true);
+    expect(shown?.visibilitySuspendedBy).toBeUndefined();
+    expect(await activeExpertIds(t)).toContain(profileId);
+  });
+
+  it("données antérieures au marqueur : suspension automatique reconnue", async () => {
+    const { adminT } = await asAdmin(t);
+    const now = Date.now();
+    const userId = await createUser(t, { userRole: "expert" });
+    // Profil masqué par l'ancienne logique, sans marqueur : échéance dépassée.
+    const profileId = await insertExpertProfile(t, userId, {
+      subscriptionStatus: "expired",
+      subscriptionEndDate: now - 30 * DAY_MS,
+      isVisible: false,
+    });
+
+    await adminT.mutation(api.payments.updatePlanPricing, { plan: "expert", price: null });
+
+    const profile = await profileOf(t, profileId);
+    expect(profile?.isVisible).toBe(true);
+    expect(profile?.visibilitySuspendedBy).toBeUndefined();
+    expect(await activeExpertIds(t)).toContain(profileId);
+  });
+});

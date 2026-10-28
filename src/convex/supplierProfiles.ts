@@ -532,6 +532,8 @@ export const adminApproveSupplierSubscription = mutation({
       subscriptionEndDate: endDate,
       paymentProofVerified: true,
       isVisible: true,
+      // Paiement confirmé : le profil n'est plus suspendu (marqueur levé).
+      visibilitySuspendedBy: undefined,
       updatedAt: now,
     });
 
@@ -672,6 +674,9 @@ export const adminRejectSupplierSubscription = mutation({
       subscriptionStatus: "inactive",
       paymentProofVerified: false,
       isVisible: false,
+      // Refus de l'administrateur : masquage volontaire, jamais rétabli par
+      // l'« Offre gratuite » ni par la synchronisation.
+      visibilitySuspendedBy: "admin",
       updatedAt: Date.now(),
     });
 
@@ -817,8 +822,13 @@ export const adminToggleVisibility = mutation({
     const profile = await ctx.db.get(args.profileId);
     if (!profile) throw new Error("Profil fournisseur introuvable");
 
+    // Masquage VOLONTAIRE : marqué pour ne jamais être annulé par la
+    // synchronisation automatique ni par l'« Offre gratuite ». Réafficher lève
+    // le marqueur.
+    const isVisible = !profile.isVisible;
     await ctx.db.patch(args.profileId, {
-      isVisible: !profile.isVisible,
+      isVisible,
+      visibilitySuspendedBy: isVisible ? undefined : "admin",
       updatedAt: Date.now(),
     });
   },
@@ -858,9 +868,14 @@ export const checkSupplierNotifications = mutation({
           } catch (e) { /* optional */ }
         }
 
-        // Subscription expired
+        // Subscription expired — masquage AUTOMATIQUE (marqué comme tel :
+        // l'« Offre gratuite » ou un paiement confirmé le rétablissent).
         if (profile.subscriptionEndDate < now && profile.isVisible) {
-          await ctx.db.patch(profile._id, { isVisible: false, updatedAt: now });
+          await ctx.db.patch(profile._id, {
+            isVisible: false,
+            visibilitySuspendedBy: "entitlement",
+            updatedAt: now,
+          });
           try {
             await ctx.db.insert("notifications", {
               userId: profile.userId,
