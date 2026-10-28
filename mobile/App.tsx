@@ -25,11 +25,12 @@ const SPLASH_MAX_MS = CHANGE_MAX_MS;
 /**
  * Parcours mobile (application Android) :
  *
- *   Splash (≤ 1 s, « Chargement… »)
+ *   Splash (≤ 1 s : logo, nom batibuild, message de bienvenue, « Chargement… »)
  *        ↓
- *   Guide — 5 étapes (Coût estimatif → Aide à la décision → Plans
- *   architecturaux IA → Mise en relation → Exécution & suivi), navigation
- *   manuelle (premier lancement uniquement, ou depuis « Voir le guide »)
+ *   Guide — 5 étapes en cartes numérotées (Coûts estimatifs → Plans
+ *   architecturaux IA → Aide à la décision → Mise en relation → Exécution &
+ *   suivi), défilement vertical et bouton final « Commencer » (premier
+ *   lancement uniquement, ou depuis « Voir le guide »)
  *        ↓
  *   WebView batibuild (login si aucune session, dashboard sinon)
  *
@@ -52,10 +53,9 @@ export default function App() {
     SplashScreen.hideAsync().catch(() => {});
 
     // Aucune police d'icônes à charger : toutes les icônes de la coque native
-    // sont des SVG lucide (`src/components/icons.ts`), et les illustrations des
-    // guides sont des scènes vectorielles (`GuideIllustrations.tsx`) : rendues
-    // immédiatement, identiques en mode clair comme en mode sombre, sans aucun
-    // téléchargement d'image.
+    // sont des SVG lucide (`src/components/icons.ts`) : rendues immédiatement,
+    // identiques en mode clair comme en mode sombre, sans aucun téléchargement
+    // d'image.
 
     (async () => {
       // Lecture locale + borne de 1 s, menées en parallèle.

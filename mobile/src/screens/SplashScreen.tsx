@@ -3,19 +3,20 @@ import { ActivityIndicator, Animated, StyleSheet, Text, View } from "react-nativ
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Logo } from "../components/Logo";
-import { LOADING_MESSAGE } from "../config";
+import { BRAND_NAME, BRAND_TAGLINE, LOADING_MESSAGE } from "../config";
 import { COLORS } from "../theme";
 
 /**
- * Splash MINIMAL de l'application mobile batibuild.
+ * Splash de l'application mobile batibuild.
  *
- * Volontairement réduit au strict nécessaire : le logo OFFICIEL batibuild sur
- * fond blanc, un indicateur discret et un seul texte — « Chargement… ».
- * Aucun slogan, aucun écran de présentation, aucune ancienne image : les
- * anciens splash et écrans d'introduction ont été supprimés.
+ * Contenu, dans cet ordre : le logo OFFICIEL batibuild (aucun logo redessiné),
+ * le nom de la plateforme, puis le message de bienvenue
+ * « De votre idée à la réalisation de votre projet ». Un seul texte technique
+ * complète l'écran, « Chargement… », avec son indicateur.
  *
  * Sa durée maximale est décidée dans `App.tsx` (1 seconde, jamais plus) : cet
  * écran ne bloque JAMAIS le démarrage et n'attend ni le réseau ni la WebView.
+ * Aucune page d'accueil supplémentaire n'est ajoutée après le splash.
  *
  * PÉRIMÈTRE : mobile uniquement.
  */
@@ -61,6 +62,10 @@ export default function SplashScreen() {
         ]}
       >
         <Logo size={104} shadow />
+        <Text style={styles.name} accessibilityRole="header">
+          {BRAND_NAME}
+        </Text>
+        <Text style={styles.tagline}>{BRAND_TAGLINE}</Text>
       </Animated.View>
 
       <View style={styles.footer}>
@@ -83,6 +88,22 @@ const styles = StyleSheet.create({
   center: {
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 32,
+  },
+  name: {
+    marginTop: 20,
+    fontSize: 27,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+    color: COLORS.ink,
+  },
+  tagline: {
+    marginTop: 8,
+    maxWidth: 280,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+    color: COLORS.inkSoft,
   },
   footer: {
     position: "absolute",

@@ -12,6 +12,12 @@
 /** Nom officiel de la plateforme (identique au Web — `src/lib/branding.ts`). */
 export const BRAND_NAME = "batibuild";
 
+/**
+ * Message de bienvenue du splash — parcours unique « de l'idée à la
+ * réalisation » (même promesse que le guide de démarrage).
+ */
+export const BRAND_TAGLINE = "De votre idée à la réalisation de votre projet";
+
 const DEFAULT_WEB_APP_URL = "https://batibuild.app/";
 
 /** URL de la plateforme web chargée dans la WebView. */

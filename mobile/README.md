@@ -7,7 +7,7 @@ une **barre de navigation inférieure FIXE** et un **Guide d'onboarding** natifs
 lancement.
 
 ```
-Première installation :  Splash (≤ 1 s)  →  Guide en 5 étapes (Précédent / Suivant / Passer)  →  WebView batibuild
+Première installation :  Splash (≤ 1 s)  →  Guide en 5 étapes (cartes numérotées)  →  WebView batibuild
 Lancements suivants :    Splash (≤ 1 s)  →  WebView batibuild
 ```
 
@@ -16,19 +16,20 @@ Lancements suivants :    Splash (≤ 1 s)  →  WebView batibuild
 ```
 Android Native Shell
 │
-├── Splash  « Chargement… »  (fond BLANC, ≤ 1 s, jamais bloquant)
-│      L'écran de démarrage natif est BLANC et SANS image : le logo sur fond
-│      vert qui s'affichait avant le chargement a été supprimé.
+├── Splash  (fond BLANC, ≤ 1 s, jamais bloquant)
+│      Logo officiel + « batibuild » + « De votre idée à la réalisation de
+│      votre projet », puis « Chargement… ».
+│      L'écran de démarrage natif (avant le JS) est BLANC et SANS image.
 │
-├── Guide en 5 étapes  (1ʳᵉ installation uniquement)
-│      1. Coût estimatif
-│      2. Aide à la décision
-│      3. Plans architecturaux IA
+├── Guide d'utilisation en 5 étapes  (1ʳᵉ installation uniquement)
+│      Cartes verticales numérotées de 1 à 5 :
+│      1. Coûts estimatifs
+│      2. Plans architecturaux IA
+│      3. Aide à la décision
 │      4. Mise en relation
 │      5. Exécution & suivi
-│      Navigation manuelle : « Précédent », « Suivant », « Passer »,
-│      indicateur « n / 5 », barre de progression segmentée et bouton final
-│      « Commencer ».
+│      Défilement vertical fluide, « Passer » dans l'en-tête et bouton final
+│      « Commencer » (ouvre l'écran d'entrée réel de l'application).
 │      Parcours : Idée → Projet → Coût → Plans → Matériaux → Experts → Suivi → Rapports
 │
 ├── Header natif  (fond blanc — AUCUN menu de navigation)
@@ -136,16 +137,16 @@ mobile/
 ├── assets/                        # Logo officiel, icône, icône adaptative ; splash natif transparent
 ├── src/
 │   ├── screens/
-│   │   ├── SplashScreen.tsx       # Splash minimal : logo officiel + « Chargement… »
-│   │   ├── OnboardingScreen.tsx   # Guide 5 étapes (Précédent / Suivant / Passer)
+│   │   ├── SplashScreen.tsx       # Splash : logo officiel + « batibuild » + message de bienvenue
+│   │   ├── OnboardingScreen.tsx   # Guide 5 étapes en cartes numérotées + « Commencer »
 │   │   └── WebViewScreen.tsx      # WebView batibuild (toutes les options)
 │   ├── components/
 │   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : en-tête, guides, erreurs
 │   │   ├── Logo.tsx               # Logo officiel de la plateforme (tuile émeraude + casque blanc)
 │   │   ├── TopNav.tsx             # En-tête natif : logo + nom, Support, Paramètres (aucun menu)
 │   │   ├── BottomNav.tsx          # Barre de navigation inférieure fixe (5 sections)
-│   │   ├── GuideIllustrations.tsx # Illustrations dédiées (scènes vectorielles SVG)
-│   │   ├── GuidePlans.tsx         # Aperçus RÉELS de plans (2D → coté → 3D) de l'étape « Plans AI »
+│   │   ├── GuideIllustrations.tsx # Bibliothèque de scènes SVG (non utilisée par le guide actuel)
+│   │   ├── GuidePlans.tsx         # Aperçus de plans 2D → coté → 3D (bibliothèque)
 │   │   └── guidePlans.ts          # Générateur de plans (portage du moteur de la plateforme)
 │   ├── download.ts                # Téléchargements natifs : URL http(s) ET PDF « blob: »
 │   ├── storage.ts                 # onboardingCompleted (AsyncStorage)
@@ -166,15 +167,14 @@ mobile/
 
 | Fonctionnalité | Comportement |
 |---|---|
-| **Splash** | **Fond BLANC**, logo officiel animé (fondu + léger zoom) et **un seul message : « Chargement… »** (aucun slogan, aucune image de présentation). Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image** — il n'affiche plus le logo sur fond vert. |
+| **Splash** | **Fond BLANC**, logo officiel animé (fondu + léger zoom), le nom **« batibuild »** et le message de bienvenue **« De votre idée à la réalisation de votre projet »**, puis l'indicateur et **« Chargement… »**. Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel, aucune page d'accueil supplémentaire. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image**. |
 | **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
 | **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
 | **Barre de navigation inférieure** | **Barre FIXE en bas de l'écran** (`BottomNav.tsx`) : 5 sections (Profile · **Mes projets** · Home · **Rapport** · Message), icône **lucide 19 pt** + libellé **10,5 pt**, onglets de **largeur égale** (`flex: 1`) donc aucun débordement sur petit ou grand écran. Élément **actif** : icône et libellé en teinte de marque (`brand700`), libellé en gras, **indicateur émeraude** au-dessus de l'icône (emplacement réservé sur tous les onglets → aucun décalage) ; inactifs en gris ; état pressé = légère atténuation. Fond **blanc**, safe area basse gérée (`useSafeAreaInsets`, minimum 6 pt). Rendue **après** la WebView (jamais en position absolue) : elle ne recouvre jamais le contenu. Visible dans tout l'espace connecté — voir `shouldShowBottomNav()` dans `src/config.ts`. |
 | **En-tête (natif)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild ») à gauche, icônes **Support** et **Paramètres** à droite. **Aucun menu de navigation** (et aucun burger : celui de l'en-tête web est masqué dans l'application). **Appui long sur la marque** (ou sur la barre du bas) → réglages natifs. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
-| **Guide de démarrage** | **5 étapes** : **1. Coût estimatif · 2. Aide à la décision · 3. Plans architecturaux IA · 4. Mise en relation · 5. Exécution & suivi**. Chaque étape = **icône dédiée** + **illustration** + **titre** + **texte descriptif**, avec un **fondu + glissement**. Navigation **manuelle** : boutons **Précédent**, **Suivant**, **Passer** (en-tête), indicateur **« n / 5 »**, **barre de progression segmentée**, **fil du parcours** (Coût → Décision → Plans → Experts → Suivi) et bouton final **« Commencer »**. Mémorisé via `onboardingCompleted` (AsyncStorage) : aucune répétition aux lancements suivants. |
-| **Illustrations des étapes** | Aucune image générique, aucun placeholder, aucune icône seule : chaque étape affiche une **scène SVG dédiée** (piliers de la plateforme, formulaire type / région / surface, détection IA sur le plan, comparaison Économique / Équilibré / Premium, 10 phases de chantier, annuaire vérifié + carte des régions, rapport PDF + accès Pro). Elles sont **vectorielles donc nettes sur tous les écrans**, suivent le **thème clair / sombre / système** et n'entraînent **aucun téléchargement**. |
-| **Aperçus réels de plans (étape « Plans AI »)** | L'étape affiche **le même plan réel**, généré par un **portage du moteur de plans de la plateforme** (`guidePlans.ts` : partition BSP, programme résidentiel R+0 de 150 m², portes, fenêtres — déterministe), sous **trois vues qui s'enchaînent toutes les 1,4 s** : **plan 2D**, **plan coté** (emprise + dimensions de chaque pièce), **vue 3D** (extrusion isométrique). Mise à l'échelle **uniforme** (aucune déformation, aucun débordement) et cadre à coins arrondis **qui coupe tout dépassement**. |
+| **Guide d'utilisation** | **5 étapes en cartes verticales numérotées** : **1. Coûts estimatifs · 2. Plans architecturaux IA · 3. Aide à la décision · 4. Mise en relation · 5. Exécution & suivi**. Chaque carte = **numéro**, **icône dédiée** (lucide), **titre** et **description courte**, avec un **fondu + léger glissement** à l'ouverture. Le **défilement vertical** reste fluide sur les petits écrans (320 → 390 px) : aucune largeur fixe, aucun débordement horizontal, texte jamais tronqué. **« Passer »** dans l'en-tête et bouton final **« Commencer »** ouvrent l'écran d'entrée réel de l'application (`https://batibuild.app/dashboard`). Mémorisé via `onboardingCompleted` (AsyncStorage) : aucune répétition aux lancements suivants. |
+| **Périmètre des étapes** | Aucune fonctionnalité n'est présentée comme disponible pour tous les profils : les plans IA (2D / 3D selon le type de projet), la mise en relation et le suivi précisent qu'ils dépendent des fonctionnalités et des **droits d'accès du compte**. |
 | **Réinstallation** | Le stockage local est effacé → les guides réapparaissent (comportement attendu). |
 | **Mise à jour** | `onboardingCompleted` est conservé → pas de guides à chaque mise à jour. |
 | **Revoir le guide** | **Appui long** sur la marque de l'en-tête (ou sur la barre de navigation inférieure) → « Voir le guide » (ne supprime aucune donnée). Aucun bouton supplémentaire n'est ajouté à l'écran. |
@@ -316,7 +316,8 @@ Aucun service cloud de compilation n'est utilisé.
 | Nom de l'application | batibuild |
 | Package Android | `com.batibuild.app` |
 | Bundle ID iOS | `com.batibuild.app` |
-| Version | **1.3.3** — `versionCode 13` (Android), `buildNumber 3` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
+| Version | **1.3.4** — `versionCode 14` (Android), `buildNumber 4` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
+| Contenu de la 1.3.4 | **Splash et Guide d'utilisation** : le splash affiche le logo officiel, le nom **batibuild** et le message **« De votre idée à la réalisation de votre projet »** (toujours ≤ 1 s, `CHANGE_MAX_MS`) ; le guide présente les **5 étapes du parcours en cartes verticales numérotées** — Coûts estimatifs · Plans architecturaux IA · Aide à la décision · Mise en relation · Exécution & suivi — avec défilement vertical, « Passer » et bouton final **« Commencer »**. URL WebView, identifiants, package et données inchangés. |
 | Contenu de la 1.3.3 | **Synchronisation avec la version web de production** : l'application charge **`https://batibuild.app/`** (navigation interne limitée à `batibuild.app` et aux domaines techniques Convex), **Splash** modernisé (logo animé, « Chargement… ») et **guide d'utilisation en 5 étapes** (coût estimatif, aide à la décision, plans architecturaux IA, mise en relation, exécution et suivi) avec **Précédent / Suivant / Passer**, indicateur de progression et bouton final « Commencer ». Package, keystore et identifiants conservés ; `versionCode` 13. |
 | Contenu de la 1.3.2 | **Régénération complète de l'application Android** : le projet natif `android/` est reconstruit depuis `app.json` (`expo prebuild`) — `versionCode 12`, `versionName 1.3.2`, manifest et icônes resynchronisés — puis la clé debug est assurée et la signature Release réappliquée. Une seule commande régénère tout de bout en bout : `PREBUILD=1 npm run android:apk` (projet natif → signature → pré-vérifications → Gradle → vérification de l'artefact). |
 | Contenu de la 1.3.1 | **Menu mobile** : l'onglet « ROI » est remplacé par « **Rapport** » (icône `FileDown`, page existante **Rapports PDF** `/dashboard/reports`) ; « Projets » devient « **Mes projets** » (`/dashboard/projects`, uniquement les projets de l'utilisateur connecté) ; la pastille rouge de « Message » reste alimentée par le serveur (temps réel, « 99+ »). **Build Android renforcé** : pré-vérifications obligatoires (`npm run android:preflight`) et vérification de l'artefact (`npm run android:verify`) — aucune APK vide, tronquée, incomplète ou non signée ne peut plus être publiée (bandeaux `BUILD SUCCESS` / `BUILD FAILED`). |

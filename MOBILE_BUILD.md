@@ -19,7 +19,8 @@ git push origin main → GitHub Actions (ubuntu-latest) → Batibuild-release.ap
 ```
 batibuild MOBILE
    ├── Splash natif          (expo-splash-screen + écran React Native)
-   ├── Onboarding            (4 écrans, 1ʳᵉ installation — « Passer » / « Commencer »)
+   ├── Guide d'utilisation    (5 étapes en cartes numérotées, 1ʳᵉ installation —
+   │                           « Passer » / « Commencer »)
    └── WebView               → https://batibuild.app/
 ```
 
