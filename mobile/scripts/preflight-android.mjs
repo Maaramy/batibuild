@@ -386,6 +386,31 @@ function checkAppShell() {
     ok("navigation du guide : Précédent, Suivant, Passer et bouton final");
   }
 
+  // ── Captures d'écran RÉELLES des 5 étapes (assets/guide) ────────────────
+  // Le guide n'utilise ni illustration générique ni maquette : chaque
+  // diapositive montre une capture de la plateforme, produite par
+  // `scripts/capture-guide-screenshots.mjs`. Quatre écrans sont derrière
+  // l'authentification (plans IA, aide à la décision, mise en relation,
+  // exécution & suivi) : leur capture exige un compte EXISTANT. Une capture
+  // manquante n'empêche pas de compiler (la diapositive affiche alors
+  // l'illustration de l'étape) — c'est donc un AVERTISSEMENT, jamais un échec.
+  const shotFiles = [
+    "step-1-couts-estimatifs.jpg",
+    "step-2-plans-architecturaux-ia.jpg",
+    "step-3-aide-a-la-decision.jpg",
+    "step-4-mise-en-relation.jpg",
+    "step-5-execution-suivi.jpg",
+  ];
+  const missingShots = shotFiles.filter((file) => sizeOf(join(root, "assets", "guide", file)) <= 0);
+  if (missingShots.length) {
+    warn(
+      `captures du guide manquantes : ${missingShots.join(", ")} — ` +
+        "lancez « node scripts/capture-guide-screenshots.mjs --all » avec un compte existant",
+    );
+  } else {
+    ok("5 captures réelles du guide présentes (assets/guide)");
+  }
+
   // ── Zoom DÉSACTIVÉ dans l'application, préservé sur le site Web ──────────
   // `builtInZoomControls = false` supprime le pincement à deux doigts et les
   // commandes de zoom natives ; `displayZoomControls = false` masque les

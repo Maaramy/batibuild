@@ -7,7 +7,7 @@ une **barre de navigation inférieure FIXE** et un **Guide d'onboarding** natifs
 lancement.
 
 ```
-Première installation :  Splash (≤ 1 s)  →  Guide en 5 étapes (cartes numérotées)  →  WebView batibuild
+Première installation :  Splash (≤ 1 s)  →  Guide en 5 étapes (diapositives illustrées)  →  WebView batibuild
 Lancements suivants :    Splash (≤ 1 s)  →  WebView batibuild
 ```
 
@@ -22,14 +22,16 @@ Android Native Shell
 │      L'écran de démarrage natif (avant le JS) est BLANC et SANS image.
 │
 ├── Guide d'utilisation en 5 étapes  (1ʳᵉ installation uniquement)
-│      Cartes verticales numérotées de 1 à 5 :
+│      Carrousel d'une diapositive par étape (numéro « n / 5 ») :
 │      1. Coûts estimatifs
 │      2. Plans architecturaux IA
 │      3. Aide à la décision
 │      4. Mise en relation
 │      5. Exécution & suivi
-│      Défilement vertical fluide, « Passer » dans l'en-tête et bouton final
-│      « Commencer » (ouvre l'écran d'entrée réel de l'application).
+│      Chaque diapositive : titre, explication courte et VÉRITABLE capture
+│      d'écran de la plateforme (assets/guide). « Précédent » / « Suivant »,
+│      « Passer » dans l'en-tête et bouton final « Commencer » (ouvre l'écran
+│      d'entrée réel de l'application).
 │      Parcours : Idée → Projet → Coût → Plans → Matériaux → Experts → Suivi → Rapports
 │
 ├── Header natif  (fond blanc — AUCUN menu de navigation)
@@ -135,10 +137,11 @@ mobile/
 ├── index.ts                       # Entrée (garde le splash natif pendant le boot JS)
 ├── app.json                       # Identifiants, permissions, splash, icônes
 ├── assets/                        # Logo officiel, icône, icône adaptative ; splash natif transparent
+│   └── guide/                     # Captures d'écran RÉELLES du guide (step-1 … step-5, JPEG)
 ├── src/
 │   ├── screens/
 │   │   ├── SplashScreen.tsx       # Splash : logo officiel + « batibuild » + message de bienvenue
-│   │   ├── OnboardingScreen.tsx   # Guide 5 étapes (SLIDES) en cartes numérotées + « Précédent » / « Suivant » / « Commencer »
+│   │   ├── OnboardingScreen.tsx   # Guide 5 étapes (SLIDES) en carrousel, captures réelles + « Précédent » / « Suivant » / « Commencer »
 │   │   └── WebViewScreen.tsx      # WebView batibuild (toutes les options)
 │   ├── components/
 │   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : en-tête, guides, erreurs
@@ -156,6 +159,7 @@ mobile/
 ├── build/                         # APK/AAB générés localement (ignoré par Git)
 └── scripts/
     ├── build-android.mjs          # Build local Gradle (apk / debug / aab / clean)
+    ├── capture-guide-screenshots.mjs # Génère les captures réelles du guide depuis batibuild.app
     ├── install-android.mjs        # adb install du dernier APK
     ├── generate-keystore.mjs      # Keystore Release local
     ├── ensure-debug-keystore.mjs  # Recrée la clé debug Android si elle manque
@@ -173,7 +177,8 @@ mobile/
 | **Barre de navigation inférieure** | **Barre FIXE en bas de l'écran** (`BottomNav.tsx`) : 5 sections (Profile · **Mes projets** · Home · **Rapport** · Message), icône **lucide 19 pt** + libellé **10,5 pt**, onglets de **largeur égale** (`flex: 1`) donc aucun débordement sur petit ou grand écran. Élément **actif** : icône et libellé en teinte de marque (`brand700`), libellé en gras, **indicateur émeraude** au-dessus de l'icône (emplacement réservé sur tous les onglets → aucun décalage) ; inactifs en gris ; état pressé = légère atténuation. Fond **blanc**, safe area basse gérée (`useSafeAreaInsets`, minimum 6 pt). Rendue **après** la WebView (jamais en position absolue) : elle ne recouvre jamais le contenu. Visible dans tout l'espace connecté — voir `shouldShowBottomNav()` dans `src/config.ts`. |
 | **En-tête (natif)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild ») à gauche, icônes **Support** et **Paramètres** à droite. **Aucun menu de navigation** (et aucun burger : celui de l'en-tête web est masqué dans l'application). **Appui long sur la marque** (ou sur la barre du bas) → réglages natifs. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
-| **Guide d'utilisation** | **5 étapes en cartes verticales numérotées** : **1. Coûts estimatifs · 2. Plans architecturaux IA · 3. Aide à la décision · 4. Mise en relation · 5. Exécution & suivi**. Chaque carte = **numéro**, **icône dédiée** (lucide), **titre** et **description courte**, avec un **fondu + léger glissement** à l'ouverture. Le **défilement vertical** reste fluide sur les petits écrans (320 → 390 px) : aucune largeur fixe, aucun débordement horizontal, texte jamais tronqué. Une barre de navigation fixe en pied d'écran propose **« Précédent »** (désactivé sur l'étape 1) et **« Suivant »** (amène à l'étape suivante avec défilement automatique) ; sur l'étape 5, **« Suivant »** laisse place au bouton final **« Commencer »**. **« Passer »** dans l'en-tête et **« Commencer »** ouvrent l'écran d'entrée réel de l'application (`https://batibuild.app/dashboard`). Mémorisé via `onboardingCompleted` (AsyncStorage) : aucune répétition aux lancements suivants. |
+| **Guide d'utilisation** | **Carrousel de 5 diapositives, une par étape** : **1. Coûts estimatifs · 2. Plans architecturaux IA · 3. Aide à la décision · 4. Mise en relation · 5. Exécution & suivi**. Chaque diapositive = **numéro d'étape (« 1 / 5 »)**, **titre**, **explication courte en français** et **VÉRITABLE CAPTURE D'ÉCRAN** de la plateforme (`assets/guide/step-n-….jpg`), avec un **fondu + léger glissement** à l'ouverture. Défilement **horizontal paginé** natif : le changement d'étape ne recharge jamais l'application et ne peut pas dépasser la 5ᵉ étape. Zone de capture en `resizeMode="cover"` dans un cadre arrondi qui occupe la hauteur disponible : aucune déformation, aucun débordement horizontal, aucun cadre blanc (indicateur discret pendant le chargement de l'image). Barre de navigation fixe en pied d'écran : **« Précédent »** (désactivé sur l'étape 1) et **« Suivant »** ; sur l'étape 5, **« Suivant »** laisse place au bouton final **« Commencer »**. **« Passer »** dans l'en-tête et **« Commencer »** ouvrent l'écran d'entrée réel de l'application (`https://batibuild.app/dashboard`). Zones système (encoche, barre de gestes) gérées par `useSafeAreaInsets`. Mémorisé via `onboardingCompleted` (AsyncStorage) : aucune répétition aux lancements suivants. |
+| **Guide — captures** | Les illustrations sont de **véritables captures** de la plateforme, jamais des images génériques ni des maquettes. Elles sont produites par `scripts/capture-guide-screenshots.mjs` au format de la WebView mobile (**390 × 844 à 2×**, JPEG qualité 82 ≈ 100 Ko par écran, donc un poids négligeable dans l'APK). Quatre écrans sont **derrière l'authentification** (plans IA, aide à la décision, mise en relation, exécution & suivi) : leur capture exige un **compte existant** — `BATIBUILD_EMAIL=… BATIBUILD_PASSWORD=… node scripts/capture-guide-screenshots.mjs --all`. Tant qu'une capture n'a pas été produite, la diapositive affiche l'**illustration de l'étape** (icône + contenu réel de l'écran) : aucune fausse capture n'est insérée. L'écran **1/5** (coûts estimatifs) est capturable sans session via la page publique `/construction/demo`. |
 | **Périmètre des étapes** | Aucune fonctionnalité n'est présentée comme disponible pour tous les profils : les plans IA (2D / 3D selon le type de projet), la mise en relation et le suivi précisent qu'ils dépendent des fonctionnalités et des **droits d'accès du compte**. |
 | **Réinstallation** | Le stockage local est effacé → les guides réapparaissent (comportement attendu). |
 | **Mise à jour** | `onboardingCompleted` est conservé → pas de guides à chaque mise à jour. |
@@ -192,6 +197,39 @@ mobile/
 | **PDF « blob: » (Android)** | Les PDF de l'estimation du coût de construction et de l'analyse des matériaux IA sont générés **dans la page** (jsPDF) puis « téléchargés » par une URL `blob:`, que la WebView Android ne sait pas écrire sur le disque (le clic ne produisait donc aucun fichier). Un pont injecté (`DOWNLOAD_BRIDGE_SCRIPT` dans `src/injected.ts`) capture le Blob au clic et l'envoie en **base64 par morceaux de 256 Ko** au code natif (`src/download.ts`), qui reconstitue le fichier, l'écrit dans le cache et ouvre la feuille de partage Android. Mémoire bornée (~32 Mo max, morceaux hors limite rejetés) et transferts interrompus oubliés au bout d'une minute. Aucun fichier Web ni backend n'est modifié. |
 | **Partage natif** | `navigator.share` de la plateforme Web est intercepté et ouvre le menu de partage natif (WhatsApp, e-mail, messages…). |
 | **Safe Area** | Contenu WebView entre l'en-tête natif (qui gère l'inset haut : barre de statut / encoche) et la **barre de navigation inférieure** (qui gère l'inset bas : barre système Android, gestes, encoche). Aucune surface flottante ne recouvre le contenu. |
+
+### Captures d'écran du guide (outil)
+
+Les 5 diapositives montrent l'application réelle. Les fichiers sont dans
+`assets/guide/` et se régénèrent depuis la plateforme en ligne — aucune capture
+n'est fabriquée à la main :
+
+```bash
+# Écran public (coûts estimatifs) — aucune session requise
+node scripts/capture-guide-screenshots.mjs
+
+# Les cinq écrans, avec un compte EXISTANT (le script ne crée aucun compte)
+BATIBUILD_EMAIL="compte@exemple.tn" BATIBUILD_PASSWORD="…" \
+  node scripts/capture-guide-screenshots.mjs --all
+
+# Un seul écran (reprise après retouche)
+BATIBUILD_EMAIL=… BATIBUILD_PASSWORD=… node scripts/capture-guide-screenshots.mjs --step=3
+```
+
+| Étape | Écran réel photographié | Session requise |
+|---|---|---|
+| 1/5 | `/dashboard/project/<id>` (ou `/construction/demo`, page publique) | non |
+| 2/5 | `/dashboard/plans/<id>` | **oui** |
+| 3/5 | `/dashboard/decision/<id>` | **oui** |
+| 4/5 | `/dashboard/professionals-directory` | **oui** |
+| 5/5 | `/dashboard/guide/<id>` | **oui** |
+
+Le projet photographié est celui de l'utilisateur connecté (le premier de
+« Mes projets », ou `--project=<id>`) : **aucun projet ni compte n'est créé ni
+modifié**. Format de sortie : viewport mobile 390 × 844 à 2× → JPEG qualité 82
+(≈ 100 Ko par capture). Une capture absente n'empêche pas la compilation : la
+diapositive affiche l'illustration de l'étape, et les pré-vérifications émettent
+un **avertissement** (jamais un échec) listant les fichiers manquants.
 
 ## 3. Prérequis
 
@@ -317,7 +355,7 @@ Aucun service cloud de compilation n'est utilisé.
 | Package Android | `com.batibuild.app` |
 | Bundle ID iOS | `com.batibuild.app` |
 | Version | **1.3.4** — `versionCode 14` (Android), `buildNumber 4` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
-| Contenu de la 1.3.4 | **Splash et Guide d'utilisation** : le splash affiche le logo officiel, le nom **batibuild** et le message **« De votre idée à la réalisation de votre projet »** (toujours ≤ 1 s, `CHANGE_MAX_MS`) ; le guide présente les **5 étapes du parcours en cartes verticales numérotées** — Coûts estimatifs · Plans architecturaux IA · Aide à la décision · Mise en relation · Exécution & suivi — avec défilement vertical, navigation **« Précédent » / « Suivant »**, « Passer » et bouton final **« Commencer »**. URL WebView, identifiants, package et données inchangés. |
+| Contenu de la 1.3.4 | **Splash et Guide d'utilisation** : le splash affiche le logo officiel, le nom **batibuild** et le message **« De votre idée à la réalisation de votre projet »** (toujours ≤ 1 s, `CHANGE_MAX_MS`) ; le guide présente les **5 étapes du parcours en carrousel illustré** — Coûts estimatifs · Plans architecturaux IA · Aide à la décision · Mise en relation · Exécution & suivi — avec **captures d'écran réelles**, numéro d'étape, navigation **« Précédent » / « Suivant »**, « Passer » et bouton final **« Commencer »**. URL WebView, identifiants, package et données inchangés. |
 | Contenu de la 1.3.3 | **Synchronisation avec la version web de production** : l'application charge **`https://batibuild.app/`** (navigation interne limitée à `batibuild.app` et aux domaines techniques Convex), **Splash** modernisé (logo animé, « Chargement… ») et **guide d'utilisation en 5 étapes** (coût estimatif, aide à la décision, plans architecturaux IA, mise en relation, exécution et suivi) avec **Précédent / Suivant / Passer**, indicateur de progression et bouton final « Commencer ». Package, keystore et identifiants conservés ; `versionCode` 13. |
 | Contenu de la 1.3.2 | **Régénération complète de l'application Android** : le projet natif `android/` est reconstruit depuis `app.json` (`expo prebuild`) — `versionCode 12`, `versionName 1.3.2`, manifest et icônes resynchronisés — puis la clé debug est assurée et la signature Release réappliquée. Une seule commande régénère tout de bout en bout : `PREBUILD=1 npm run android:apk` (projet natif → signature → pré-vérifications → Gradle → vérification de l'artefact). |
 | Contenu de la 1.3.1 | **Menu mobile** : l'onglet « ROI » est remplacé par « **Rapport** » (icône `FileDown`, page existante **Rapports PDF** `/dashboard/reports`) ; « Projets » devient « **Mes projets** » (`/dashboard/projects`, uniquement les projets de l'utilisateur connecté) ; la pastille rouge de « Message » reste alimentée par le serveur (temps réel, « 99+ »). **Build Android renforcé** : pré-vérifications obligatoires (`npm run android:preflight`) et vérification de l'artefact (`npm run android:verify`) — aucune APK vide, tronquée, incomplète ou non signée ne peut plus être publiée (bandeaux `BUILD SUCCESS` / `BUILD FAILED`). |
