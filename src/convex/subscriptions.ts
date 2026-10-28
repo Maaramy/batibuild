@@ -20,6 +20,8 @@ import {
 import { assertPaymentMethodEnabled } from "./paymentMethodStates";
 import { getPdfDownloadAccess, PDF_ACCESS_MARKER } from "./access";
 import { requiresManualValidation } from "../lib/paymentMethods";
+import { DEFAULT_PLAN_PRICES, resolvePlanPrice } from "../lib/planPricing";
+import { syncProfessionalProfileForUser } from "./professionalProfileSync";
 import {
   cancelPendingInvoicesForSubscription,
   invoiceNumberForSubscription,
@@ -217,17 +219,20 @@ export const createSubscription = mutation({
     // Durée mensuelle (30 jours) pour tous les forfaits — essai gratuit supprimé
     const duration = MONTHLY_DURATION;
 
-    for (const sub of existing) {
-      if (sub.status === "active") {
-        await ctx.db.patch(sub._id, { status: "canceled", updatedAt: now });
-      }
-    }
-
-    // Forfait gratuit (montant null ou 0) des forfaits Fournisseur / Expert :
-    // l'administrateur peut activer une « offre gratuite » sur ces forfaits,
-    // qui est alors ouverte immédiatement, sans paiement.
-    const isFreePlan =
-      args.amount === null || args.amount === 0 || args.amount === undefined;
+    // ── PRIX : décidé par le SERVEUR, jamais par l'interface ──────────────
+    // Le tarif appliqué est celui enregistré par l'administrateur. Un client
+    // qui enverrait `amount: 0` (ou aucun montant) pour un forfait payant
+    // obtenait auparavant une activation GRATUITE de 30 jours : c'était une
+    // activation sans paiement, uniquement fondée sur un retour frontend.
+    // Seul un forfait EXPLICITEMENT gratuit (prix `null`/`0`) s'active sans
+    // règlement ; tout autre montant exige un paiement confirmé.
+    const pricingConfig = await ctx.db.query("paymentConfig").order("desc").first();
+    const configuredPrice =
+      args.plan === "expert"
+        ? resolvePlanPrice(pricingConfig?.expertPrice, DEFAULT_PLAN_PRICES.expert)
+        : resolvePlanPrice(pricingConfig?.supplierPrice, DEFAULT_PLAN_PRICES.supplier);
+    const isFreePlan = configuredPrice === null || configuredPrice === 0;
+    const amount = isFreePlan ? 0 : (configuredPrice as number);
 
     // ── Contrôle serveur : une méthode désactivée par l'admin est refusée,
     // même si le frontend tente de la forcer. ──
@@ -244,6 +249,19 @@ export const createSubscription = mutation({
     const status =
       isFreePlan || !requiresManualValidation(args.paymentMethod) ? "active" : "pending";
 
+    // ── Remplacement des abonnements : SEULEMENT une fois le sort de la
+    // demande connu. Une demande en attente ne résilie jamais la période payée
+    // en cours (l'abonné conserve son accès jusqu'à son échéance) ; seule une
+    // activation réelle remplace l'abonnement actif.
+    for (const sub of existing) {
+      if (status === "active" && sub.status === "active") {
+        await ctx.db.patch(sub._id, { status: "canceled", updatedAt: now });
+      } else if (status === "pending" && sub.status === "pending") {
+        // Une nouvelle demande remplace la précédente, jamais un abonnement payé.
+        await ctx.db.patch(sub._id, { status: "canceled", updatedAt: now });
+      }
+    }
+
     if (status === "pending") {
       // Paiement en attente : l'essai éventuel reste actif jusqu'à validation.
       await ctx.db.patch(user._id, { subscriptionStatus: "pending", updatedAt: now });
@@ -257,7 +275,7 @@ export const createSubscription = mutation({
       endDate: now + duration,
       paymentMethod: isFreePlan ? undefined : args.paymentMethod,
       paymentId: args.paymentId,
-      amount: isFreePlan ? 0 : args.amount,
+      amount,
       currency: args.currency || "TND",
       monthlyDownloadCount: 0,
       downloadLimit: Infinity,
@@ -274,7 +292,7 @@ export const createSubscription = mutation({
       userId: user._id,
       user,
       plan: args.plan,
-      amountTTC: isFreePlan ? 0 : args.amount ?? 0,
+      amountTTC: amount,
       currency: args.currency || "TND",
       paymentMethod: isFreePlan ? undefined : args.paymentMethod,
       paymentId: args.paymentId,
@@ -312,7 +330,7 @@ export const createSubscription = mutation({
             typeAbonnement: planLabel(args.plan),
             dateActivation: formatDateFr(now),
             dateExpiration: formatDateFr(now + duration),
-            montant: args.amount ? `${args.amount} ${args.currency || "TND"}` : undefined,
+            montant: amount > 0 ? `${amount} ${args.currency || "TND"}` : undefined,
             // Numéro de facture réel (le client le retrouve dans « Mes factures »).
             numeroFacture: await invoiceNumberForSubscription(ctx, subscriptionId),
           },
@@ -339,7 +357,7 @@ export const createSubscription = mutation({
         email: user.email || "",
         profil: PROFILE_ROLE_LABELS[profileRole ?? user.userRole ?? "client"],
         typeAbonnement: planLabel(args.plan),
-        montant: isFreePlan ? "0 TND" : `${args.amount ?? 0} ${args.currency || "TND"}`,
+        montant: `${amount} ${args.currency || "TND"}`,
         statut:
           status === "pending" ? "En attente de validation du paiement" : "Actif",
         date: formatDateFr(now),
@@ -513,6 +531,18 @@ export const adminApproveSubscription = mutation({
       updatedAt: now,
     });
 
+    // Un seul abonnement actif : la période validée remplace la précédente.
+    const allSubs = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_user", (q) => q.eq("userId", sub.userId))
+      .collect();
+    for (const other of allSubs) {
+      if (other._id === args.subscriptionId) continue;
+      if (other.status === "active" || other.status === "pending") {
+        await ctx.db.patch(other._id, { status: "canceled", updatedAt: now });
+      }
+    }
+
     // Update user's plan (use the plan from the subscription, not hardcoded).
     // L'essai gratuit est désactivé : la période mensuelle prend le relais.
     const planDisplayName = planLabel(sub.plan);
@@ -527,6 +557,13 @@ export const adminApproveSubscription = mutation({
       trialEndDate: undefined,
       trialDaysRemaining: 0,
     });
+
+    // ── Rétablissement IMMÉDIAT du profil professionnel ──
+    // Le paiement validé rouvre les services et la visibilité sans attendre le
+    // cron quotidien : un Expert / Fournisseur dont l'essai était terminé
+    // redevient actif et visible dans l'annuaire dès la confirmation, sans
+    // nouvelle inscription et sans perte de données.
+    await syncProfessionalProfileForUser(ctx, sub.userId, now);
 
     // Notify the user
     try {

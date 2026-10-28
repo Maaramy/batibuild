@@ -163,6 +163,13 @@ export async function isProfilePaymentActive(
     // l'intervention de l'administrateur — aucune donnée n'est cassée.
     return profile.subscriptionEndDate == null || profile.subscriptionEndDate > now;
   }
+  if (status === "pending") {
+    // Demande de paiement en attente de validation : elle ne révoque JAMAIS un
+    // droit encore valide. Sans cette règle, cliquer « Payer » pendant l'essai
+    // masquait immédiatement le profil de l'annuaire et de la mise en relation.
+    // À l'échéance, la demande attend la validation de l'administrateur.
+    return profile.subscriptionEndDate != null && profile.subscriptionEndDate > now;
+  }
   if (status !== "active") return false;
   if (profile.subscriptionEndDate != null && profile.subscriptionEndDate <= now) return false;
   return true;

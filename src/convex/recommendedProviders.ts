@@ -1011,18 +1011,37 @@ function regionLabelFor(r: string): string {
 async function loadEligibleSuppliers(ctx: any): Promise<RecommendationCandidate[]> {
   const now = Date.now();
   const free = await getFreePlanStatus(ctx);
+  // Un profil en PÉRIODE D'ESSAI est éligible au même titre qu'un abonné payé
+  // (l'essai ouvre les services professionnels). Seule une échéance dépassée
+  // l'exclut : auparavant, la recherche ne chargeait que `subscriptionStatus:
+  // "active"` et ignorait donc tous les profils en essai.
   const profiles = free.supplierFree
     ? await ctx.db.query("supplierProfiles").collect()
-    : await ctx.db
-        .query("supplierProfiles")
-        .withIndex("by_subscription", (q: any) => q.eq("subscriptionStatus", "active"))
-        .collect();
+    : [
+        ...(await ctx.db
+          .query("supplierProfiles")
+          .withIndex("by_subscription", (q: any) => q.eq("subscriptionStatus", "active"))
+          .collect()),
+        ...(await ctx.db
+          .query("supplierProfiles")
+          .withIndex("by_subscription", (q: any) => q.eq("subscriptionStatus", "trial"))
+          .collect()),
+        ...(await ctx.db
+          .query("supplierProfiles")
+          .withIndex("by_subscription", (q: any) => q.eq("subscriptionStatus", "pending"))
+          .collect()),
+      ];
   return profiles
     .filter((s: any) => s.isVisible)
     .filter((s: any) => {
       if (free.supplierFree) return true;
-      if (s.subscriptionStatus === "active" && s.subscriptionEndDate && s.subscriptionEndDate < now) return false;
-      return true;
+      // Une demande de paiement en attente ne retire pas un droit encore valide.
+      if (s.subscriptionEndDate && s.subscriptionEndDate <= now) return false;
+      return (
+        s.subscriptionStatus === "active" ||
+        s.subscriptionStatus === "trial" ||
+        s.subscriptionStatus === "pending"
+      );
     })
     .map((s: any) => ({ id: s._id as string, specialties: s.specialties ?? [], regions: s.regions ?? [] }));
 }
@@ -1031,18 +1050,35 @@ async function loadEligibleSuppliers(ctx: any): Promise<RecommendationCandidate[
 async function loadEligibleExperts(ctx: any): Promise<RecommendationCandidate[]> {
   const now = Date.now();
   const free = await getFreePlanStatus(ctx);
+  // Même règle que pour les fournisseurs : l'essai rend le profil éligible
+  // jusqu'à sa date de fin (horloge serveur).
   const profiles = free.expertFree
     ? await ctx.db.query("expertProfiles").collect()
-    : await ctx.db
-        .query("expertProfiles")
-        .withIndex("by_subscription", (q: any) => q.eq("subscriptionStatus", "active"))
-        .collect();
+    : [
+        ...(await ctx.db
+          .query("expertProfiles")
+          .withIndex("by_subscription", (q: any) => q.eq("subscriptionStatus", "active"))
+          .collect()),
+        ...(await ctx.db
+          .query("expertProfiles")
+          .withIndex("by_subscription", (q: any) => q.eq("subscriptionStatus", "trial"))
+          .collect()),
+        ...(await ctx.db
+          .query("expertProfiles")
+          .withIndex("by_subscription", (q: any) => q.eq("subscriptionStatus", "pending"))
+          .collect()),
+      ];
   return profiles
     .filter((e: any) => e.isVisible)
     .filter((e: any) => {
       if (free.expertFree) return true;
-      if (e.subscriptionStatus === "active" && e.subscriptionEndDate && e.subscriptionEndDate < now) return false;
-      return true;
+      // Une demande de paiement en attente ne retire pas un droit encore valide.
+      if (e.subscriptionEndDate && e.subscriptionEndDate <= now) return false;
+      return (
+        e.subscriptionStatus === "active" ||
+        e.subscriptionStatus === "trial" ||
+        e.subscriptionStatus === "pending"
+      );
     })
     .map((e: any) => ({
       id: e._id as string,

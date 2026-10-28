@@ -105,6 +105,21 @@ export function MySubscriptionCard() {
         )
       : 0;
   const professionalLabel = professionalRole === "expert" ? "Expert" : "Fournisseur";
+  // Le paiement devient obligatoire à la fin de l'essai (ou de la période
+  // payée) : la date affichée vient du serveur, jamais de l'horloge du visiteur.
+  const paymentRequiredFrom = professionalEndDate;
+  const professionalStartDate = isProfessionalTrial
+    ? status.trialStartDate
+    : status.subscriptionStartDate;
+  const professionalCta = isProfessionalTrial
+    ? "Gérer mon abonnement"
+    : status.isActive
+      ? "Renouveler mon abonnement"
+      : status.status === "trial_expired"
+        ? "Activer mon abonnement"
+        : status.status === "expired"
+          ? "Renouveler mon abonnement"
+          : "Souscrire";
 
   return (
     <Card className="border border-border/40 bg-background/50 backdrop-blur-sm overflow-hidden">
@@ -252,7 +267,7 @@ export function MySubscriptionCard() {
                 className="h-7 shrink-0 gap-1 px-2.5 text-[10px] sm:text-xs"
               >
                 <CreditCard className="h-3 w-3" />
-                {status.isActive ? "Abonnement" : "Souscrire"}
+                {professionalCta}
               </Button>
             </div>
 
@@ -270,12 +285,38 @@ export function MySubscriptionCard() {
               </div>
             )}
 
-            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
-              <Timer className="h-3.5 w-3.5 shrink-0" />
-              <span>
-                {isProfessionalTrial ? "Fin de l'essai" : "Expiration"} :{" "}
-                <span className="font-medium text-foreground">{formatDate(professionalEndDate)}</span>
-              </span>
+            <div className="grid gap-1 text-[10px] text-muted-foreground sm:text-xs">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Timer className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {isProfessionalTrial ? "Début de l'essai" : "Début de l'abonnement"} :{" "}
+                  <span className="font-medium text-foreground">
+                    {formatDate(professionalStartDate)}
+                  </span>
+                </span>
+              </div>
+              {professionalEndDate != null && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Timer className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    {isProfessionalTrial ? "Fin de l'essai" : "Expiration"} :{" "}
+                    <span className="font-medium text-foreground">
+                      {formatDate(professionalEndDate)}
+                    </span>
+                  </span>
+                </div>
+              )}
+              {paymentRequiredFrom != null && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    Paiement obligatoire à partir du :{" "}
+                    <span className="font-medium text-foreground">
+                      {formatDate(paymentRequiredFrom)}
+                    </span>
+                  </span>
+                </div>
+              )}
             </div>
 
             {status.planCompatible === false && (

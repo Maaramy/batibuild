@@ -416,6 +416,11 @@ export const requestSubscription = mutation({
     const price = await getSupplierPrice(ctx);
     const now = Date.now();
 
+    // La visibilité n'est PAS forcée à `false` ici : une demande de paiement
+    // en attente ne doit pas masquer un profil encore couvert par un essai en
+    // cours (le contrôle central `isProfilePaymentActive` décide selon le
+    // droit réel). Sans droit valide, le statut « pending » suffit à exclure
+    // le profil de l'annuaire et de la mise en relation.
     await ctx.db.patch(profile._id, {
       plan: "monthly",
       subscriptionStatus: "pending",
@@ -423,7 +428,6 @@ export const requestSubscription = mutation({
       paymentAmount: price,
       paymentCurrency: "TND",
       paymentProofVerified: false,
-      isVisible: false,
       updatedAt: now,
     });
 

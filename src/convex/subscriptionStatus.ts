@@ -302,12 +302,16 @@ export async function startTrialFor(
     return { started: false, reason: "profile_not_eligible" };
   }
 
-  // Un abonnement mensuel actif désactive l'essai (l'abonné n'en a pas besoin).
+  // Un abonnement PAYÉ actif désactive l'essai (l'abonné n'en a pas besoin).
+  // Une demande encore en attente de validation ne compte pas : elle a une date
+  // de fin provisoire, et laisser cette demande bloquer l'essai privait de tout
+  // droit un nouvel Expert / Fournisseur qui avait demandé le paiement avant la
+  // confirmation du règlement.
   const subs = await ctx.db
     .query("subscriptions")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
-  if (subs.some((s) => s.endDate != null && s.endDate > now && s.status !== "canceled")) {
+  if (subs.some((s) => s.status === "active" && s.endDate != null && s.endDate > now)) {
     return { started: false, reason: "subscription_active" };
   }
 

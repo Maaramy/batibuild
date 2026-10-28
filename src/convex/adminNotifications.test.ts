@@ -251,7 +251,9 @@ describe("notifications administrateur — événements déclencheurs", () => {
     let rows = await rowsFor(t, "admin_new_subscription");
     expect(rows).toHaveLength(1);
     expect(payloadOf(rows[0]).vars.statut).toMatch(/attente/i);
-    expect(payloadOf(rows[0]).vars.montant).toBe("80 TND");
+    // Le montant notifié est le TARIF ADMINISTRÉ du forfait (120 TND par
+    // défaut), jamais le montant envoyé par l'interface (ici 80).
+    expect(payloadOf(rows[0]).vars.montant).toBe("120 TND");
 
     await asUser(t, adminId).mutation(api.subscriptions.adminApproveSubscription, {
       subscriptionId,

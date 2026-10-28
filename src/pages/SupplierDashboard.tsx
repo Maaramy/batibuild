@@ -424,13 +424,22 @@ export default function SupplierDashboard() {
         ? 0
         : configuredSupplierPrice;
 
-  // Dès que le paiement est validé (abonnement actif), on ferme automatiquement le popup
-  // pour que les coordonnées disparaissent jusqu'à la fin de l'abonnement
+  // Période d'essai : mêmes droits qu'un abonnement actif (profil visible et
+  // services ouverts) jusqu'à la date de fin calculée par le serveur.
+  const isTrial = effStatus === "trial";
+  const hasAccess = effStatus === "active" || isTrial;
+  const trialStartDate = (profile as any)?.trialStartDate as number | undefined;
+  const accessEndDate = (profile as any)?.subscriptionEndDate as number | undefined;
+  const formatDay = (ts?: number) =>
+    ts ? new Date(ts).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : "—";
+
+  // Dès que le paiement est validé (abonnement actif) ou pendant l'essai, on
+  // ferme automatiquement le popup de paiement.
   useEffect(() => {
-    if (effStatus === "active") {
+    if (hasAccess) {
       setShowPaymentChoice(false);
     }
-  }, [effStatus]);
+  }, [hasAccess]);
 
   if (profile === undefined || hasProfile === undefined) {
     return (
@@ -442,9 +451,10 @@ export default function SupplierDashboard() {
 
   const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
     active: { label: "Abonné actif", color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: ShieldCheck },
+    trial: { label: "Période d'essai active", color: "bg-blue-100 text-blue-700 border-blue-200", icon: Clock3 },
     pending: { label: "En attente", color: "bg-amber-100 text-amber-700 border-amber-200", icon: Clock3 },
     inactive: { label: "Inactif", color: "bg-slate-100 text-slate-600 border-slate-200", icon: Store },
-    expired: { label: "Expiré", color: "bg-red-100 text-red-700 border-red-200", icon: AlertTriangle },
+    expired: { label: "Essai expiré", color: "bg-red-100 text-red-700 border-red-200", icon: AlertTriangle },
   };
   const stCfg = statusConfig[effStatus] || statusConfig.inactive;
   const StatusIcon = stCfg.icon;
@@ -530,10 +540,17 @@ export default function SupplierDashboard() {
                             <StatusIcon className="h-2.5 w-2.5 inline mr-1" />
                             {stCfg.label}
                           </Badge>
-                          {effStatus === "active" && (
-                            <Badge variant="secondary" className="text-[9px] gap-1 bg-emerald-50 text-emerald-600">
+                          {hasAccess && (
+                            <Badge
+                              variant="secondary"
+                              className={`text-[9px] gap-1 ${isTrial ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"}`}
+                            >
                               <CheckCircle2 className="h-2.5 w-2.5" />
-                              {(profile as any)?.planFree ? "Offre gratuite · Illimité" : `${remainingDays} jour${remainingDays > 1 ? 's' : ''}`}
+                              {(profile as any)?.planFree
+                                ? "Offre gratuite · Illimité"
+                                : isTrial
+                                  ? `Essai · ${remainingDays} jour${remainingDays > 1 ? "s" : ""} restant${remainingDays > 1 ? "s" : ""}`
+                                  : `${remainingDays} jour${remainingDays > 1 ? 's' : ''}`}
                             </Badge>
                           )}
                           {/* Visibilité gérée automatiquement (verrouillée) — clic → info */}
@@ -542,19 +559,21 @@ export default function SupplierDashboard() {
                             title="La visibilité est gérée automatiquement selon l'état de votre abonnement"
                             onClick={() =>
                               toast.info(
-                                effStatus === "active"
-                                  ? "Votre profil est publié automatiquement tant que votre abonnement est actif."
+                                hasAccess
+                                  ? isTrial
+                                    ? "Votre profil est publié pendant toute la période d'essai."
+                                    : "Votre profil est publié automatiquement tant que votre abonnement est actif."
                                   : "Votre profil n'est pas visible : activez votre abonnement pour être publié. La visibilité est gérée automatiquement.",
                               )
                             }
                             className="flex cursor-help items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
                           >
-                            {profile.isVisible && effStatus === "active" ? (
+                            {profile.isVisible && hasAccess ? (
                               <Eye className="h-3.5 w-3.5" />
                             ) : (
                               <EyeOff className="h-3.5 w-3.5" />
                             )}
-                            {profile.isVisible && effStatus === "active" ? "Visible" : "Masqué"}
+                            {profile.isVisible && hasAccess ? "Visible" : "Masqué"}
                             <Lock className="h-3 w-3 opacity-60" />
                           </button>
                         </div>
@@ -562,6 +581,15 @@ export default function SupplierDashboard() {
                           {profile.specialties?.length || 0} spécialités · {(profile as any).regions?.length || 0} régions
                           {plan === "monthly" && ` · ${MONTHLY_PRICE} TND/mois`}
                         </p>
+                        {isTrial && (
+                          <div className="mt-2 rounded-lg border border-blue-200/50 bg-blue-50/60 px-2.5 py-1.5 text-[10px] leading-relaxed text-blue-700 dark:text-blue-300">
+                            Essai Fournisseur du <strong>{formatDay(trialStartDate)}</strong> au{" "}
+                            <strong>{formatDay(accessEndDate)}</strong> · {" "}
+                            {remainingDays} jour{remainingDays > 1 ? "s" : ""} restant
+                            {remainingDays > 1 ? "s" : ""} · paiement obligatoire à partir du{" "}
+                            <strong>{formatDay(accessEndDate)}</strong>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -576,7 +604,7 @@ export default function SupplierDashboard() {
                         <Button size="sm" className="h-9 text-sm gap-1.5 w-full sm:w-auto"
                           onClick={() => setShowPaymentChoice(true)}>
                           <CreditCard className="h-4 w-4" />
-                          {MONTHLY_PRICE} TND/mois
+                          {effStatus === "expired" ? "Payer pour continuer" : "Activer mon abonnement"}
                         </Button>
                       )}
                     </div>
@@ -616,7 +644,7 @@ export default function SupplierDashboard() {
               )}
 
               {/* ═══ Payment Method Choice Popup ═══ */}
-              {(showPaymentChoice || effStatus === "pending") && effStatus !== "active" && (
+              {(showPaymentChoice || effStatus === "pending") && !hasAccess && (
                 <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.02] to-background">
                   <CardContent className="p-5 space-y-4">
                     <div className="flex items-center justify-between">

@@ -286,27 +286,24 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
     };
   }
 
-  // 2. Paiement en attente de validation → pas encore d'accès, pas de renouvellement à demander.
-  if (pendingPayment) {
-    return {
-      ...base,
-      status: "pending",
-      type: "monthly",
-      isActive: false,
-      requiresPayment: false,
-      planName: planDisplayName(subscriptionPlan ?? plan),
-      price: subscriptionPrice ?? null,
-      startDate: subscriptionStartDate ?? null,
-      endDate: subscriptionEndDate ?? null,
-    };
-  }
-
-  // Libellé de la période d'essai : Client Pro a le sien quand l'administrateur
-  // l'a rendu éligible.
+  // Libellé de la période d'essai : le NOM DU FORFAIT (Expert / Fournisseur /
+  // Client Pro) est affiché, pas un générique « Essai gratuit » — l'utilisateur
+  // doit savoir quel forfait est en essai et jusqu'à quand.
   const trialPlanName =
-    profileCompatibility?.profileRole === "client" ? "Essai Client Pro" : "Essai gratuit";
+    profileCompatibility?.profileRole === "expert"
+      ? "Essai Expert"
+      : profileCompatibility?.profileRole === "supplier"
+        ? "Essai Fournisseur"
+        : profileCompatibility?.profileRole === "client"
+          ? "Essai Client Pro"
+          : "Essai gratuit";
 
-  // 3. Période d'essai active → accès autorisé (modules réglés par l'admin).
+  // 2. Période d'essai active → accès autorisé (modules réglés par l'admin).
+  //
+  //    L'essai passe AVANT le paiement en attente : demander son abonnement ne
+  //    doit jamais couper les droits déjà accordés. L'essai reste actif jusqu'à
+  //    sa date de fin (calculée côté serveur) même si une demande de règlement
+  //    attend la validation de l'administrateur.
   if (trialActive) {
     return {
       ...base,
@@ -318,6 +315,21 @@ export function computeSubscriptionSnapshot(input: SnapshotInput): SubscriptionS
       price: null,
       startDate: trialStartDate ?? null,
       endDate: trialEndDate ?? null,
+    };
+  }
+
+  // 3. Paiement en attente de validation → pas encore d'accès, pas de renouvellement à demander.
+  if (pendingPayment) {
+    return {
+      ...base,
+      status: "pending",
+      type: "monthly",
+      isActive: false,
+      requiresPayment: false,
+      planName: planDisplayName(subscriptionPlan ?? plan),
+      price: subscriptionPrice ?? null,
+      startDate: subscriptionStartDate ?? null,
+      endDate: subscriptionEndDate ?? null,
     };
   }
 

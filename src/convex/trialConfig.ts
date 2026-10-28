@@ -129,13 +129,22 @@ export function normalizeTrialConfig(source: TrialConfigSource | null | undefine
     enabled,
     durationDays: clampTrialDays(source?.trialDurationDays),
     clientProDurationDays: clampClientProTrialDays(source?.trialClientProDurationDays),
+    // `enabled` est l'interrupteur GÉNÉRAL : un forfait ne peut jamais être
+    // considéré « en essai » tant que la campagne est fermée. Sans cette
+    // conjonction, un document historique (interrupteur de forfait à `true`,
+    // campagne à `false`) affichait « Essai activé » dans l'administration alors
+    // qu'aucun essai n'était accordé — la configuration mentait sur son effet.
     expertTrialEnabled:
-      source?.expertTrialEnabled === undefined ? enabled : source.expertTrialEnabled === true,
+      source?.expertTrialEnabled === undefined
+        ? enabled
+        : enabled && source.expertTrialEnabled === true,
     expertTrialDays: clampTrialDays(
       source?.expertTrialDays ?? source?.trialDurationDays ?? TRIAL_EXPERT_DEFAULT_DAYS,
     ),
     supplierTrialEnabled:
-      source?.supplierTrialEnabled === undefined ? enabled : source.supplierTrialEnabled === true,
+      source?.supplierTrialEnabled === undefined
+        ? enabled
+        : enabled && source.supplierTrialEnabled === true,
     supplierTrialDays: clampTrialDays(
       source?.supplierTrialDays ?? source?.trialDurationDays ?? TRIAL_SUPPLIER_DEFAULT_DAYS,
     ),

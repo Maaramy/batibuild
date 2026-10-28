@@ -63,6 +63,25 @@ function asUser(t: ReturnType<typeof convexTest>, userId: string) {
  * n'étant encaissée automatiquement, la souscription reste « en attente »
  * jusqu'à la validation de l'administrateur.
  */
+/**
+ * Fixe le prix ADMINISTRÉ du forfait : c'est la seule source du montant
+ * facturé (le montant envoyé par l'interface n'est jamais utilisé).
+ */
+let priceAdminCount = 0;
+
+async function setConfiguredPrice(
+  t: ReturnType<typeof convexTest>,
+  plan: "expert" | "supplier",
+  price: number,
+) {
+  priceAdminCount += 1;
+  const adminId = await createUser(t, {
+    role: "admin",
+    email: `prix-admin-${priceAdminCount}@test.tn`,
+  });
+  await asUser(t, adminId).mutation(api.payments.updatePlanPricing, { plan, price });
+}
+
 async function subscribe(
   t: ReturnType<typeof convexTest>,
   userId: string,
@@ -74,10 +93,17 @@ async function subscribe(
     userRole?: "client" | "supplier" | "expert";
   } = {},
 ) {
+  const plan = overrides.plan ?? "supplier";
+  const amount = overrides.amount ?? 120;
+  // Le montant facturé vient de la configuration administrateur : le test
+  // aligne le prix enregistré sur le montant qu'il souhaite facturer.
+  if (plan === "expert" || plan === "supplier") {
+    await setConfiguredPrice(t, plan, amount);
+  }
   return asUser(t, userId).mutation(api.subscriptions.createSubscription, {
-    plan: overrides.plan ?? "supplier",
+    plan,
     paymentMethod: overrides.paymentMethod ?? "d17",
-    amount: overrides.amount ?? 120,
+    amount,
     currency: "TND",
     paymentId: overrides.paymentId,
   });

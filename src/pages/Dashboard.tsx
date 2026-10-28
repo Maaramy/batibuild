@@ -532,7 +532,9 @@ export default function Dashboard() {
                     Compléter
                   </Button>
                 </div>
-              ) : supplierProfile && (supplierProfile as any).effectiveStatus !== "active" ? (
+              ) : supplierProfile &&
+                (supplierProfile as any).effectiveStatus !== "active" &&
+                (supplierProfile as any).effectiveStatus !== "trial" ? (
                 <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-800/30 dark:bg-orange-950/30">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/40">
                     <CreditCard className="h-4.5 w-4.5 text-orange-600 dark:text-orange-400" />
@@ -583,7 +585,9 @@ export default function Dashboard() {
                     Compléter
                   </Button>
                 </div>
-              ) : expertProfile && (expertProfile as any).effectiveStatus !== "active" ? (
+              ) : expertProfile &&
+                (expertProfile as any).effectiveStatus !== "active" &&
+                (expertProfile as any).effectiveStatus !== "trial" ? (
                 <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-800/30 dark:bg-orange-950/30">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/40">
                     <CreditCard className="h-4.5 w-4.5 text-orange-600 dark:text-orange-400" />
@@ -688,8 +692,12 @@ export default function Dashboard() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold truncate">{supplierProfile?.companyName}</p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            <Badge variant="outline" className={`text-[9px] ${(supplierProfile as any)?.effectiveStatus === "active" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
-                              {(supplierProfile as any)?.effectiveStatus === "active" ? "Abonné Pro" : "Inactif"}
+                            <Badge variant="outline" className={`text-[9px] ${(supplierProfile as any)?.effectiveStatus === "active" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : (supplierProfile as any)?.effectiveStatus === "trial" ? "bg-blue-100 text-blue-700 border-blue-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                              {(supplierProfile as any)?.effectiveStatus === "active"
+                                ? "Abonné Pro"
+                                : (supplierProfile as any)?.effectiveStatus === "trial"
+                                  ? "Essai actif"
+                                  : "Inactif"}
                             </Badge>
                             <span className="text-[10px] text-muted-foreground">
                               {((supplierProfile as any)?.specialties?.length ?? 0)} spécialités · {((supplierProfile as any)?.regions?.length ?? 0)} régions
@@ -796,8 +804,12 @@ export default function Dashboard() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold truncate">{expertProfile?.displayName}</p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            <Badge variant="outline" className={`text-[9px] ${(expertProfile as any)?.effectiveStatus === "active" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
-                              {(expertProfile as any)?.effectiveStatus === "active" ? "Expert certifié" : "Inactif"}
+                            <Badge variant="outline" className={`text-[9px] ${(expertProfile as any)?.effectiveStatus === "active" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : (expertProfile as any)?.effectiveStatus === "trial" ? "bg-blue-100 text-blue-700 border-blue-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                              {(expertProfile as any)?.effectiveStatus === "active"
+                                ? "Expert certifié"
+                                : (expertProfile as any)?.effectiveStatus === "trial"
+                                  ? "Essai actif"
+                                  : "Inactif"}
                             </Badge>
                             <span className="text-[10px] text-muted-foreground">
                               {expertProfessionLabel(expertProfile?.profession)}

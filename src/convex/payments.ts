@@ -9,10 +9,11 @@ import {
 } from "../lib/paymentMethods";
 import { getEnabledPaymentMethodSlugs, getPaymentMethodStates } from "./paymentMethodStates";
 import { isTrialCampaignOpen, readTrialConfig } from "./trialConfig";
+import { onboardProfessionalTrialsAndSync } from "./subscriptionStatus";
 import { syncAllProfessionalProfiles } from "./professionalProfileSync";
 import { readClientProCreditConfig } from "./clientProCredits";
 import { clientProPackages } from "../lib/clientProCredits";
-import { PROFESSIONAL_SERVICES } from "../lib/subscriptionPlans";
+import { PROFESSIONAL_SERVICES, sanitizeTrialProfiles } from "../lib/subscriptionPlans";
 import {
   DEFAULT_PLAN_PRICES,
   resolveClientProPrice,
@@ -183,11 +184,43 @@ export const updateProfessionalPlanConfig = mutation({
 
     const existing = await ctx.db.query("paymentConfig").order("desc").first();
     const now = Date.now();
+
+    // ── L'essai se pilote ICI, pas seulement dans un panneau caché ──
+    // Cette section est la SEULE interface d'essai montrée à l'administrateur.
+    // Enregistrer « Essai gratuit activé » doit donc réellement ouvrir la
+    // campagne et cocher le profil concerné : sans ces deux écritures,
+    // l'interrupteur enregistré restait sans effet (`isTrialCampaignOpen`
+    // répondait « fermé »), aucun essai n'était accordé et la carte « Mon
+    // abonnement » n'affichait jamais de période d'essai.
+    const currentTrial = await readTrialConfig(ctx);
+    const expertTrialEnabled =
+      args.plan === "expert" ? args.trialEnabled : currentTrial.expertTrialEnabled;
+    const supplierTrialEnabled =
+      args.plan === "supplier" ? args.trialEnabled : currentTrial.supplierTrialEnabled;
+
+    const eligible = new Set(currentTrial.eligibleProfiles);
+    if (expertTrialEnabled) eligible.add("expert");
+    else eligible.delete("expert");
+    if (supplierTrialEnabled) eligible.add("supplier");
+    else eligible.delete("supplier");
+    const trialEligibleProfiles = sanitizeTrialProfiles([...eligible]);
+
+    // Un profil Client Pro éventuellement coché par l'administrateur garde sa
+    // période temporaire : fermer l'essai Expert ne doit jamais la retirer.
+    const trialEnabled =
+      expertTrialEnabled || supplierTrialEnabled || trialEligibleProfiles.includes("client");
+
+    // LES DEUX interrupteurs sont toujours écrits explicitement : un champ
+    // absent héritait de l'interrupteur général, si bien qu'activer l'essai
+    // Expert activait aussi implicitement l'essai Fournisseur (et inversement).
     const patch: Record<string, any> = {
+      trialEnabled,
+      trialEligibleProfiles,
+      expertTrialEnabled,
+      supplierTrialEnabled,
       ...(args.plan === "expert"
         ? {
             expertPrice: args.price,
-            expertTrialEnabled: args.trialEnabled,
             expertTrialDays: args.trialDays,
             expertIncludedServices: args.includedServices,
             expertAutoRenew: args.autoRenew,
@@ -195,7 +228,6 @@ export const updateProfessionalPlanConfig = mutation({
           }
         : {
             supplierPrice: args.price,
-            supplierTrialEnabled: args.trialEnabled,
             supplierTrialDays: args.trialDays,
             supplierIncludedServices: args.includedServices,
             supplierAutoRenew: args.autoRenew,
@@ -231,13 +263,17 @@ export const updateProfessionalPlanConfig = mutation({
       // Optionnel
     }
 
-    // Application IMMÉDIATE du nouveau tarif aux profils existants : passer
-    // en « Offre gratuite » réaffiche les profils suspendus automatiquement
-    // (essai / abonnement échu), revenir au tarif payant les suspend à leur
-    // échéance. Un échec est rattrapé par le cron quotidien — il ne bloque
-    // jamais l'enregistrement du paramètre.
+    // Application IMMÉDIATE aux comptes professionnels :
+    //   • l'essai activé démarre tout de suite pour les profils Experts /
+    //     Fournisseurs déjà inscrits qui n'en ont jamais bénéficié, et leur
+    //     profil devient ACTIF et VISIBLE ;
+    //   • l'essai désactivé n'accorde plus rien aux nouveaux profils ;
+    //   • passer en « Offre gratuite » réaffiche les profils suspendus
+    //     automatiquement, revenir au tarif payant les suspend à leur échéance.
+    // Un échec est rattrapé par le cron quotidien — il ne bloque jamais
+    // l'enregistrement du paramètre.
     try {
-      await syncAllProfessionalProfiles(ctx, now);
+      await onboardProfessionalTrialsAndSync(ctx, now);
     } catch {
       // Le cron quotidien applique la même règle.
     }
