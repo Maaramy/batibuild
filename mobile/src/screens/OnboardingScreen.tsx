@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   BackHandler,
+  type LayoutChangeEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -34,9 +35,13 @@ import { COLORS, useAppTheme } from "../theme";
  * reste de la coque, un titre et une description courte. Le défilement est
  * vertical et fluide : les cinq cartes tiennent sur un grand écran et restent
  * lisibles sur les petits écrans Android (aucun débordement horizontal, texte
- * jamais tronqué). Le bouton final « Commencer » ouvre l'écran d'entrée réel
- * de l'application (WebView batibuild), et « Passer » permet d'y aller
- * directement.
+ * jamais tronqué).
+ *
+ * Navigation : la barre de pied de page propose « Précédent » (désactivé sur
+ * la première étape) et « Suivant », qui amènent à l'étape correspondante avec
+ * un défilement automatique. Sur la cinquième étape, « Suivant » laisse place
+ * au bouton final « Commencer », qui ouvre l'écran d'entrée réel de
+ * l'application (WebView batibuild) ; « Passer » permet d'y aller directement.
  *
  * Aucune fonctionnalité n'est décrite comme disponible pour tous : les étapes
  * dépendant des droits du compte le précisent explicitement.
@@ -45,7 +50,8 @@ import { COLORS, useAppTheme } from "../theme";
  * concernés.
  */
 
-type Step = {
+type Slide = {
+  /** Identifiant stable de l'étape (utilisé comme clé de liste et par les tests). */
   key: string;
   title: string;
   text: string;
@@ -54,7 +60,7 @@ type Step = {
 };
 
 /** Les 5 étapes, dans l'ordre du parcours utilisateur. */
-const STEPS: Step[] = [
+const SLIDES: Slide[] = [
   {
     key: "cost",
     title: "Coûts estimatifs",
@@ -95,6 +101,32 @@ export default function OnboardingScreen({ onDone }: Props) {
   const insets = useSafeAreaInsets();
   const theme = useAppTheme();
 
+  // ── Étape courante + positions mesurées des cartes ──────────────────────
+  const [active, setActive] = useState(0);
+  const isFirst = active <= 0;
+  const isLast = active >= SLIDES.length - 1;
+
+  const scrollRef = useRef<ScrollView>(null);
+  const offsets = useRef<number[]>([]);
+
+  const handleCardLayout = useCallback((index: number, event: LayoutChangeEvent) => {
+    offsets.current[index] = event.nativeEvent.layout.y;
+  }, []);
+
+  const goTo = useCallback((index: number) => {
+    const target = Math.min(Math.max(index, 0), SLIDES.length - 1);
+    setActive(target);
+  }, []);
+
+  // Amène l'étape sélectionnée dans la zone visible (position mesurée au
+  // layout : aucune valeur codée en dur, donc correct sur toutes les tailles).
+  useEffect(() => {
+    const y = offsets.current[active];
+    if (typeof y === "number") {
+      scrollRef.current?.scrollTo({ y: Math.max(y - 8, 0), animated: true });
+    }
+  }, [active]);
+
   // ── Apparition douce du guide (fondu + léger glissement) ─────────────────
   const enter = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -103,15 +135,19 @@ export default function OnboardingScreen({ onDone }: Props) {
     return () => anim.stop();
   }, [enter]);
 
-  // Bouton Retour Android : quitte le guide vers l'application (jamais de
-  // fermeture brutale de l'application pendant la présentation).
+  // Bouton Retour Android : recule d'une étape si possible, sinon quitte le
+  // guide vers l'application (jamais de fermeture brutale de l'application).
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (active > 0) {
+        setActive((current) => Math.max(current - 1, 0));
+        return true;
+      }
       onDone();
       return true;
     });
     return () => sub.remove();
-  }, [onDone]);
+  }, [active, onDone]);
 
   return (
     <View style={[styles.root, { backgroundColor: theme.surface, paddingTop: insets.top }]}>
@@ -147,10 +183,8 @@ export default function OnboardingScreen({ onDone }: Props) {
         ]}
       >
         <ScrollView
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: Math.max(insets.bottom, 20) + 12 },
-          ]}
+          ref={scrollRef}
+          contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
           {/* ── Introduction ── */}
@@ -169,18 +203,20 @@ export default function OnboardingScreen({ onDone }: Props) {
           </View>
 
           {/* ── Les 5 étapes, en cartes numérotées ── */}
-          {STEPS.map((step, index) => {
-            const StepIcon = step.Icon;
+          {SLIDES.map((slide, index) => {
+            const SlideIcon = slide.Icon;
+            const isActive = index === active;
             return (
               <View
-                key={step.key}
+                key={slide.key}
+                onLayout={(event) => handleCardLayout(index, event)}
                 accessible
-                accessibilityLabel={`Étape ${index + 1} sur ${STEPS.length} — ${step.title}. ${step.text}`}
+                accessibilityLabel={`Étape ${index + 1} sur ${SLIDES.length} — ${slide.title}. ${slide.text}`}
                 style={[
                   styles.card,
                   {
-                    backgroundColor: theme.surfaceContainer,
-                    borderColor: theme.outlineVariant,
+                    backgroundColor: isActive ? theme.surfaceContainerHigh : theme.surfaceContainer,
+                    borderColor: isActive ? theme.primary : theme.outlineVariant,
                   },
                 ]}
               >
@@ -189,37 +225,105 @@ export default function OnboardingScreen({ onDone }: Props) {
                     <Text style={[styles.numText, { color: theme.onPrimary }]}>{index + 1}</Text>
                   </View>
                   <View style={[styles.iconTile, { backgroundColor: theme.primaryContainer }]}>
-                    <StepIcon size={17} color={theme.onPrimaryContainer} strokeWidth={2.2} />
+                    <SlideIcon size={17} color={theme.onPrimaryContainer} strokeWidth={2.2} />
                   </View>
                 </View>
 
-                <Text style={[styles.cardTitle, { color: theme.onSurface }]}>{step.title}</Text>
+                <Text style={[styles.cardTitle, { color: theme.onSurface }]}>{slide.title}</Text>
                 <Text style={[styles.cardText, { color: theme.onSurfaceVariant }]}>
-                  {step.text}
+                  {slide.text}
                 </Text>
               </View>
             );
           })}
 
-          {/* ── Fin du guide : entrée réelle de l'application ── */}
-          <Pressable
-            onPress={onDone}
-            accessibilityRole="button"
-            accessibilityLabel="Commencer et accéder à batibuild"
-            style={({ pressed }) => [
-              styles.cta,
-              { backgroundColor: theme.primary },
-              pressed && { opacity: 0.9 },
-            ]}
-          >
-            <Text style={[styles.ctaText, { color: theme.onPrimary }]}>Commencer</Text>
-            <GUIDE_ICONS.arrowRight size={18} color={theme.onPrimary} strokeWidth={2.4} />
-          </Pressable>
           <Text style={[styles.hint, { color: theme.onSurfaceVariant }]}>
             Vous pourrez revoir ce guide depuis les réglages de l'application.
           </Text>
         </ScrollView>
       </Animated.View>
+
+      {/* ── Navigation : Précédent / Suivant, puis bouton final ── */}
+      <View
+        style={[
+          styles.footer,
+          {
+            paddingBottom: Math.max(insets.bottom, 14),
+            backgroundColor: theme.surface,
+            borderTopColor: theme.outlineVariant,
+          },
+        ]}
+      >
+        <View style={styles.progressRow}>
+          <Text style={[styles.progressText, { color: theme.onSurfaceVariant }]}>
+            Étape {active + 1} sur {SLIDES.length}
+          </Text>
+          <View style={styles.dots}>
+            {SLIDES.map((slide, index) => (
+              <View
+                key={slide.key}
+                style={[
+                  styles.dot,
+                  index === active
+                    ? { width: 18, backgroundColor: theme.primary }
+                    : { backgroundColor: theme.outlineVariant },
+                ]}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.navRow}>
+          <Pressable
+            onPress={() => goTo(active - 1)}
+            disabled={isFirst}
+            accessibilityRole="button"
+            accessibilityLabel="Précédent"
+            accessibilityState={{ disabled: isFirst }}
+            style={({ pressed }) => [
+              styles.navButton,
+              styles.navSecondary,
+              { borderColor: theme.outlineVariant },
+              isFirst && styles.navDisabled,
+              pressed && !isFirst && { opacity: 0.7 },
+            ]}
+          >
+            <Text style={[styles.navSecondaryText, { color: theme.onSurface }]}>Précédent</Text>
+          </Pressable>
+
+          {isLast ? (
+            <Pressable
+              onPress={onDone}
+              accessibilityRole="button"
+              accessibilityLabel="Commencer et accéder à batibuild"
+              style={({ pressed }) => [
+                styles.navButton,
+                styles.navPrimary,
+                { backgroundColor: theme.primary },
+                pressed && { opacity: 0.9 },
+              ]}
+            >
+              <Text style={[styles.navPrimaryText, { color: theme.onPrimary }]}>Commencer</Text>
+              <GUIDE_ICONS.arrowRight size={17} color={theme.onPrimary} strokeWidth={2.4} />
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => goTo(active + 1)}
+              accessibilityRole="button"
+              accessibilityLabel="Suivant"
+              style={({ pressed }) => [
+                styles.navButton,
+                styles.navPrimary,
+                { backgroundColor: theme.primary },
+                pressed && { opacity: 0.9 },
+              ]}
+            >
+              <Text style={[styles.navPrimaryText, { color: theme.onPrimary }]}>Suivant</Text>
+              <GUIDE_ICONS.arrowRight size={17} color={theme.onPrimary} strokeWidth={2.4} />
+            </Pressable>
+          )}
+        </View>
+      </View>
     </View>
   );
 }
@@ -266,6 +370,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 8,
+    paddingBottom: 18,
   },
   hero: {
     marginBottom: 18,
@@ -329,34 +434,85 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 19.5,
   },
-  cta: {
-    marginTop: 10,
-    width: "100%",
-    minHeight: 52,
-    borderRadius: 16,
+  hint: {
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: "center",
+  },
+  footer: {
+    borderTopWidth: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    gap: 10,
+  },
+  progressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  progressText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  dots: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flexShrink: 0,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  navRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  navButton: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 48,
+    borderRadius: 14,
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  navPrimary: {
     shadowColor: COLORS.brand,
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.28,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    elevation: 5,
   },
-  ctaText: {
-    fontSize: 16,
+  navPrimaryText: {
+    fontSize: 15,
     lineHeight: 20,
     fontWeight: "800",
     textAlign: "center",
   },
-  hint: {
-    marginTop: 12,
-    fontSize: 12,
-    lineHeight: 17,
+  navSecondary: {
+    borderWidth: 1,
+    backgroundColor: "transparent",
+  },
+  navSecondaryText: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "700",
     textAlign: "center",
+  },
+  navDisabled: {
+    opacity: 0.45,
   },
 });
