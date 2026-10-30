@@ -1595,7 +1595,7 @@ export function IllusInvestment({ width, theme }: IllusProps) {
 /* ------------------------------------------------------------------ */
 
 // L'ORDRE des illustrations n'est pas défini ici : le parcours de première
-// utilisation (5 étapes) assemble ses visuels
+// utilisation (6 étapes) assemble ses visuels
 // dans `OnboardingScreen.tsx`, en combinant ces scènes avec celles de
 // `GuidePlans.tsx` (aperçus RÉELS de plans 2D / cotés / 3D). Chaque illustration
 // reste exportée individuellement ci-dessus et réutilisable telle quelle.

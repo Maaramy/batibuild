@@ -34,7 +34,7 @@ import { COLORS, themes } from "../theme";
  * clair, minimaliste et premium :
  *
  *   ┌───────────────────────────────────────────────┐
- *   │ [logo] batibuild                    1 / 5     │   en-tête
+ *   │ [logo] batibuild                    1 / 6     │   en-tête
  *   │                                               │
  *   │        ╭───────────────────────────╮          │
  *   │        │   ILLUSTRATION VECTORIELLE │          │   illustration
@@ -51,7 +51,7 @@ import { COLORS, themes } from "../theme";
  * référence : le thème sombre du téléphone ne s'applique pas à cet écran
  * d'accueil, qui doit être identique pour tous les utilisateurs.
  *
- * LES 5 ÉTAPES (une diapositive par fonctionnalité, dans l'ordre du parcours) :
+ * LES 6 ÉTAPES (une diapositive par fonctionnalité, dans l'ordre du parcours) :
  *   1. Coûts estimatifs          → « Évitez les surcoûts »
  *   2. Plans architecturaux IA   → « Imaginez votre future maison »
  *   3. Aide à la décision        → « Prenez les bonnes décisions »
@@ -66,9 +66,9 @@ import { COLORS, themes } from "../theme";
  *
  * NAVIGATION : glissement horizontal natif (pagination), « Précédent » (masqué
  * sur la 1ʳᵉ étape), « Passer » à gauche du bouton principal, et « Suivant »
- * qui devient le bouton final « Commencer » sur la 5ᵉ étape. Le bouton Retour
+ * qui devient le bouton final « Commencer » sur la 6ᵉ étape. Le bouton Retour
  * Android recule d'une étape. Aucun rechargement de l'application, aucun
- * dépassement au-delà de la 5ᵉ étape.
+ * dépassement au-delà de la 6ᵉ étape.
  *
  * Mémorisation : gérée par l'appelant (`App.tsx` → `storage.ts`,
  * `onboardingCompleted`), donc le guide ne réapparaît pas aux lancements
@@ -88,7 +88,7 @@ type Slide = {
   Art: (props: IllusProps) => React.ReactElement;
 };
 
-/** Les 5 étapes, dans l'ordre du parcours utilisateur. */
+/** Les 6 étapes, dans l'ordre du parcours utilisateur. */
 const SLIDES: Slide[] = [
   {
     key: "cost",
