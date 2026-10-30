@@ -382,6 +382,42 @@ dans l'environnement de build : la ligne `cgroup …` livre alors la limite exac
 et le pic atteint. Le code de sortie est propagé, donc `tsc -b && vite build`
 s'arrête à la première étape en échec et le journal désigne l'étape responsable.
 
+### Contrôle de type local — `bun run typecheck`
+
+`tsc -b` compile les deux projets dans **un seul processus** : correct pour un
+build, fragile dans une sandbox à 2 Go où l'aperçu Vite (`~160 Mo`), le service
+esbuild (`~310 Mo`), `convex dev` (`~180 Mo`) et le `tsc --listFiles` que la CLI
+Convex lance pour typer le backend (`~500 Mo`) tournent déjà. Mesuré :
+
+| Commande | Durée | Pic du cgroup | Résultat |
+|---|---|---|---|
+| `tsc -b` pendant que Convex type le backend | 40 s | **2 048 Mo** | **SIGKILL (137)** — le noyau tue `tsc`, pas une erreur de code |
+| `tsc -b` seul | 75 à 81 s | 1 782 Mo | OK |
+| frontend seul (`tsc -p tsconfig.app.json`) | 75 s | 1 782 Mo | OK |
+| backend seul (`tsc -p src/convex/tsconfig.json`) | 26 s | 1 358 Mo | OK |
+| config Vite seule | 3,5 s | 821 Mo | OK |
+
+`bun run typecheck` (`scripts/typecheck.mjs`) exécute donc les **trois projets
+l'un après l'autre**, jamais en parallèle : il attend qu'au moins **1 150 Mo**
+soient réellement libres dans le cgroup avant chaque projet, mesure la durée et
+le pic de chacun, puis propage le code de sortie (`134` = plafond V8, `137` =
+SIGKILL mémoire). Un seul projet peut être ciblé :
+
+```bash
+bun run typecheck            # frontend → Convex → config Vite
+bun run typecheck convex     # un seul projet
+```
+
+Aucune vérification n'est retirée par ce script : les trois projets gardent
+`strict`, `skipLibCheck` et l'ensemble de leurs fichiers (`src/convex/**` reste
+hors du programme frontend, voir ci-dessous). Deux pistes ont été mesurées et
+écartées pour le gain réel : exclure les 169 fichiers de test (`-64 Mo`,
+`-13 s` seulement, pour une perte de couverture) et compter sur le cache
+incrémentiel (`tsc -b` en `noEmit` ne produit qu'un `tsbuildinfo` de 15 Ko et
+revérifie tout à chaque passage). `tsc -b --noEmitOnError` est refusé par
+TypeScript lui-même (`TS5094`) : `--noEmitOnError` ne s'applique qu'à une
+compilation simple, pas au mode `--build`.
+
 Si un environnement installe les dépendances avec `--ignore-scripts` (donc sans
 `postinstall`), le plafond peut être posé à la main avec
 `NODE_OPTIONS=--max-old-space-size=900` — à garder proche du passage, car cette

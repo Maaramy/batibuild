@@ -11,7 +11,8 @@
     "postinstall": "node scripts/harden-build-bins.mjs",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "node scripts/typecheck.mjs"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.90",
