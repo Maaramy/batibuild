@@ -14,7 +14,14 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Logo } from "../components/Logo";
-import { IllusDecision, IllusOvercosts, IllusPhases, IllusProviders, type IllusProps } from "../components/GuideIllustrations";
+import {
+  IllusDecision,
+  IllusInvestment,
+  IllusOvercosts,
+  IllusPhases,
+  IllusProviders,
+  type IllusProps,
+} from "../components/GuideIllustrations";
 import { IllusPlanPreview } from "../components/GuidePlans";
 import { GUIDE_ICONS } from "../components/icons";
 import { BRAND_NAME } from "../config";
@@ -49,7 +56,8 @@ import { COLORS, themes } from "../theme";
  *   2. Plans architecturaux IA   → « Imaginez votre future maison »
  *   3. Aide à la décision        → « Prenez les bonnes décisions »
  *   4. Mise en relation          → « Trouvez les bons professionnels »
- *   5. Exécution & suivi         → « Suivez votre chantier en toute sérénité »
+ *   5. Investissement immobilier → « Investissez sans risque »
+ *   6. Exécution & suivi         → « Suivez votre chantier en toute sérénité »
  *
  * Chaque illustration est VECTORIELLE, dessinée pour batibuild et représente
  * réellement la fonctionnalité (plan + détection des surcoûts, plan 2D → coté
@@ -109,6 +117,13 @@ const SLIDES: Slide[] = [
     title: "Trouvez les bons professionnels",
     text: "Accédez à un réseau de professionnels du bâtiment et trouvez les partenaires adaptés à votre projet.",
     Art: IllusProviders,
+  },
+  {
+    key: "investment",
+    tag: "Investissement immobilier",
+    title: "Investissez sans risque",
+    text: "Mesurez le ROI à 1, 5 et 10 ans, le cash-flow, le score IA sur 100 et comparez les scénarios prudent, réaliste et optimiste avant de décider.",
+    Art: IllusInvestment,
   },
   {
     key: "execution",

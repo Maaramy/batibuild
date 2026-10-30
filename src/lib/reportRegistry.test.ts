@@ -14,34 +14,51 @@ const keys = (category: string): ReportModuleKey[] =>
 
 describe("règle du rapport PDF selon le groupe du projet", () => {
   it("Groupe A — rapport complet, dans l'ordre du registre", () => {
-    expect(keys("villa")).toEqual(["cost", "plans", "decision", "execution"]);
+    expect(keys("villa")).toEqual(["cost", "plans", "decision", "investment", "execution"]);
   });
 
   it("Groupe A — le studio, le local et la rénovation complète suivent le parcours complet", () => {
+    // Le module Investissement ne s'applique pas à ces types (bien non
+    // investissable au sens du module : studio, local, rénovation) : la section
+    // « Investissement immobilier » est donc absente, comme avant.
     for (const type of ["studio", "local", "renovation_complete"]) {
-      expect(keys(type), type).toEqual([
-        "cost",
-        "plans",
-        "decision",
-        "execution",
-      ]);
+      expect(keys(type), type).toEqual(["cost", "plans", "decision", "execution"]);
+    }
+  });
+
+  it("Groupe A / D — la section Investissement accompagne les biens éligibles", () => {
+    for (const type of [
+      "villa",
+      "appartement",
+      "maison",
+      "immeuble",
+      "duplex",
+      "local_commercial",
+      "bureau",
+      "entrepot",
+      "residence_touristique",
+      "projet_neuf",
+    ]) {
+      expect(keys(type), type).toContain("investment");
+    }
+    // Types hors du périmètre du module (restaurant, café, studio…)
+    for (const type of ["restaurant", "cafe", "studio"]) {
+      expect(keys(type), type).not.toContain("investment");
     }
   });
 
   it("Groupe D — les locaux professionnels ont le rapport complet", () => {
-    for (const type of [
-      "local_commercial",
-      "bureau",
-      "entrepot",
-      "restaurant",
-      "cafe",
-    ]) {
+    for (const type of ["local_commercial", "bureau", "entrepot"]) {
       expect(keys(type), type).toEqual([
         "cost",
         "plans",
         "decision",
+        "investment",
         "execution",
       ]);
+    }
+    for (const type of ["restaurant", "cafe"]) {
+      expect(keys(type), type).toEqual(["cost", "plans", "decision", "execution"]);
     }
   });
 
@@ -68,14 +85,15 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
   });
 
   it("le groupe est déduit du type, sans sélection manuelle", () => {
-    expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(4);
-    expect(REPORT_MODULE_KEYS_BY_GROUP.D).toHaveLength(4);
+    expect(REPORT_MODULE_KEYS_BY_GROUP.A).toHaveLength(5);
+    expect(REPORT_MODULE_KEYS_BY_GROUP.D).toHaveLength(5);
     expect(REPORT_MODULE_KEYS_BY_GROUP.B).toHaveLength(1);
     expect(REPORT_MODULE_KEYS_BY_GROUP.C).toHaveLength(1);
     expect(reportModuleKeysForGroup("D")).toEqual([
       "cost",
       "plans",
       "decision",
+      "investment",
       "execution",
     ]);
     expect(reportModuleKeysForGroup("B")).toEqual(["cost"]);
@@ -125,11 +143,19 @@ describe("règle du rapport PDF selon le groupe du projet", () => {
     }
   });
 
+  it("Investissement — rapport disponible seulement après une analyse enregistrée", () => {
+    const project = { _id: "p1", category: "villa", surface: 120, costEstimate: {} };
+    expect(reportStatuses(project, {}).investment).toBe("not_executed");
+    expect(
+      reportStatuses(project, { investmentAnalysisId: "i1" }).investment,
+    ).toBe("available");
+  });
+
   it("« Aide à la décision » est pilotable par son propre feature flag", () => {
     expect(
       visibleReportModules((flag) => flag !== "decision_support", "villa").map(
         (m) => m.key,
       ),
-    ).toEqual(["cost", "plans", "execution"]);
+    ).toEqual(["cost", "plans", "investment", "execution"]);
   });
 });

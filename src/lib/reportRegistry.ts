@@ -19,8 +19,10 @@ import {
   Calculator,
   HardHat,
   Ruler,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
+import { INVESTMENT_ELIGIBLE_TYPES, resolveProjectType } from "@/convex/projectTypes";
 import { projectJourneyGroup, type ProjectJourneyGroup } from "./projectJourney";
 
 /** Identifiant d'un module du registre. */
@@ -28,6 +30,7 @@ export type ReportModuleKey =
   | "cost"
   | "plans"
   | "decision"
+  | "investment"
   | "execution";
 
 /**
@@ -53,6 +56,12 @@ export interface ReportModuleDef {
 }
 
 const projectId = (id: string) => encodeURIComponent(id);
+
+/** Un type de projet fait-il partie du parcours « immobilier » (groupe A / D) ? */
+export function isInvestmentEligible(category: string | null | undefined): boolean {
+  const resolved = resolveProjectType((category ?? "").trim());
+  return resolved !== null && INVESTMENT_ELIGIBLE_TYPES.includes(resolved);
+}
 
 /**
  * Registre des modules. L'ordre du tableau est l'ordre d'affichage dans la page.
@@ -87,6 +96,16 @@ export const REPORT_MODULES: readonly ReportModuleDef[] = [
     buildHref: (id) => `/dashboard/decision/${projectId(id)}`,
   },
   {
+    key: "investment",
+    label: "Investissement immobilier",
+    description:
+      "Analyse de rentabilité, cash-flow et retour sur investissement (ROI) du projet.",
+    icon: TrendingUp,
+    flag: "investment_project",
+    buildHref: (id) => `/dashboard/investments?project=${projectId(id)}`,
+    appliesTo: isInvestmentEligible,
+  },
+  {
     key: "execution",
     label: "Exécution & suivi",
     description: "Guide construction A-Z — planning prévisionnel et suivi du chantier.",
@@ -109,6 +128,8 @@ export interface ProjectReportArtifacts {
   roadmapId?: string | null;
   /** Budget réellement analysé dans « Aide à la décision ». */
   budgetAnalysisId?: string | null;
+  /** Analyse d'investissement enregistrée pour ce projet. */
+  investmentAnalysisId?: string | null;
 }
 
 /** État de chaque rapport d'un projet, déduit uniquement de données réelles. */
@@ -125,6 +146,7 @@ export function reportStatuses(
     // Aide à la décision : uniquement après une analyse de budget réellement
     // enregistrée (jamais de rapport sans budget analysé).
     decision: artifacts?.budgetAnalysisId ? "available" : "not_executed",
+    investment: artifacts?.investmentAnalysisId ? "available" : "not_executed",
     execution: artifacts?.roadmapId ? "available" : "not_executed",
   };
 }
@@ -152,8 +174,8 @@ export function reportStatuses(
  * il n'en crée jamais.
  */
 export const REPORT_MODULE_KEYS_BY_GROUP: Record<ProjectJourneyGroup, readonly ReportModuleKey[]> = {
-  A: ["cost", "plans", "decision", "execution"],
-  D: ["cost", "plans", "decision", "execution"],
+  A: ["cost", "plans", "decision", "investment", "execution"],
+  D: ["cost", "plans", "decision", "investment", "execution"],
   B: ["cost"],
   C: ["cost"],
 };

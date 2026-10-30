@@ -67,6 +67,10 @@ const ExpertProfile = lazy(() => import("./pages/ExpertProfile.tsx"));
 const SupplierDashboard = lazy(() => import("./pages/SupplierDashboard.tsx"));
 const SupplierStats = lazy(() => import("./pages/SupplierStats.tsx"));
 const UserMessages = lazy(() => import("./pages/UserMessages.tsx"));
+const InvestmentAnalysis = lazy(() => import("./pages/InvestmentAnalysis.tsx"));
+const InvestmentResults = lazy(() => import("./pages/InvestmentResults.tsx"));
+const ShareInvestment = lazy(() => import("./pages/ShareInvestment.tsx"));
+const DemoInvestment = lazy(() => import("./pages/DemoInvestment.tsx"));
 const SupportPage = lazy(() => import("./pages/SupportPage.tsx"));
 const ExpertDashboard = lazy(() => import("./pages/ExpertDashboard.tsx"));
 const ExpertServices = lazy(() => import("./pages/ExpertServices.tsx"));
@@ -323,6 +327,39 @@ createRoot(document.getElementById("root")!).render(
                     </RequireAuth>
                   }
                 />
+                {/* ── Investissement immobilier ─────────────────────────
+                    Parcours indépendant du parcours construction :
+                    valorisation du bien → rapport d'investissement → mise en
+                    relation. Les pages sont les pages d'origine du module. */}
+                <Route
+                  path="/dashboard/investments"
+                  element={
+                    <RequireAuth>
+                      <FeatureGate flag="investment_project">
+                        <InvestmentAnalysis />
+                      </FeatureGate>
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/investments/result/:analysisId"
+                  element={
+                    <RequireAuth>
+                      <FeatureGate flag="investment_project">
+                        <InvestmentResults />
+                      </FeatureGate>
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/investments/demo"
+                  element={
+                    <FeatureGate flag="investment_project">
+                      <DemoInvestment />
+                    </FeatureGate>
+                  }
+                />
+                <Route path="/share/investment/:token" element={<ShareInvestment />} />
                 <Route
                   path="/dashboard/admin"
                   element={

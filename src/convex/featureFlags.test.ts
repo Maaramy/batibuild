@@ -50,6 +50,7 @@ describe("featureFlags.getFlagsMap", () => {
     expect(map).toEqual({
       construction_cost_estimation: true,
       decision_support: true,
+      investment_project: true,
       ai_materials: true,
       architectural_plans: true,
       construction_guide: true,
@@ -182,15 +183,17 @@ describe("featureFlags.getAllFlags", () => {
       {},
     );
 
-    expect(flags).toHaveLength(5);
+    expect(flags).toHaveLength(6);
     expect(flags!.every((f) => f.enabled === true)).toBe(true);
     expect(flags!.map((f) => f.key)).toEqual([
       "construction_cost_estimation",
       "decision_support",
+      "investment_project",
       "architectural_plans",
       "construction_guide",
       "plans_3d_enhanced",
     ]);
+    expect(flags!.map((f) => f.name)).toContain("Projet d'investissement");
     expect(flags!.map((f) => f.name)).toContain("Aide à la décision");
     expect(flags!.map((f) => f.name)).not.toContain("Matériaux AI");
   });
@@ -220,7 +223,7 @@ describe("featureFlags.ensureFlagDocs", () => {
     const { internal } = await import("./_generated/api.js");
 
     const first = await t.mutation(internal.featureFlags.ensureFlagDocs, {});
-    expect(first.created).toBe(6);
+    expect(first.created).toBe(7);
 
     const second = await t.mutation(internal.featureFlags.ensureFlagDocs, {});
     expect(second.created).toBe(0);

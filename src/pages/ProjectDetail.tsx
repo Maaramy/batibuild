@@ -23,7 +23,12 @@ import { EstimateLoadingScreen } from "@/components/EstimateLoadingScreen";
 import {
   buildProjectJourney,
   costEstimateLoadingSteps,
+  projectJourneyGroup,
 } from "@/lib/projectJourney";
+import {
+  buildInvestmentPrefill,
+  extractProjectInvestmentFields,
+} from "@/lib/investmentPrefill";
 import {
   resolveEstimateResultsPhase,
   shouldShowAnimatedEstimateLoader,
@@ -114,6 +119,7 @@ import {
 
 import {
   inferFloorsFromCategory,
+  investmentTypeForProject,
   isMultiLevelCategory,
   normalizeLegacyCategory,
 } from "@/convex/projectTypes";
@@ -861,7 +867,30 @@ export default function ProjectDetail() {
       setSelectedScenario((s) => (s === PERSONALIZED_SCENARIO_KEY ? baseScenarioKey : s));
   }, [complementaryKeys.length, hasCustomization, hasRemovals, baseScenarioKey]);
 
-  const { flags: journeyFlags } = useFeatureFlags();
+  const { isEnabled: isFeatureEnabled, flags: journeyFlags } = useFeatureFlags();
+
+  // Bouton « Return on Investment » : réservé au groupe A (projets neufs /
+  // immobiliers) — le parcours du groupe B ne comporte pas d'étape
+  // investissement. Raccourci vers le module d'analyse de rentabilité, qui
+  // reste accessible même si le Journey du groupe A s'arrête à « Exécution &
+  // suivi ».
+  const showRoiButton =
+    project && isFeatureEnabled("investment_project")
+      ? projectJourneyGroup(project.category) === "A"
+      : false;
+
+  // ── Données du projet transmises à l'analyse de rentabilité ────────────
+  // Extraction des 4 champs exploités par l'analyse (nom du projet, coût de
+  // construction du scénario retenu, surface construite, région) puis
+  // construction du pré-remplissage : `src/lib/investmentPrefill.ts`.
+  const investmentFields = useMemo(
+    () => extractProjectInvestmentFields(project, ce, effectiveScenario),
+    [project, ce, effectiveScenario],
+  );
+  const investmentPrefill = useMemo(
+    () => buildInvestmentPrefill(investmentFields, project?.category),
+    [investmentFields, project?.category],
+  );
 
   // ── Recalculer le « Quantitatif détaillé » avec le catalogue officiel 2026 ──
   // Le moteur BIM résout chaque poste matériau vers le catalogue (nom, unité,
@@ -1618,6 +1647,24 @@ export default function ProjectDetail() {
                       >
                         <Layers className="h-3 w-3" />
                         Autres scénarios
+                      </button>
+                    )}
+                    {showRoiButton && (
+                      <button
+                        onClick={() => {
+                          const type = investmentTypeForProject(project.category ?? "appartement");
+                          // Le scénario budgétaire affiché est transmis dans l'URL :
+                          // l'analyse de rentabilité peut ainsi retrouver seule le
+                          // même coût de construction (lien direct, actualisation).
+                          navigate(
+                            `/dashboard/investments?type=${type}&project=${project._id}&scenario=${effectiveScenario}`,
+                            { state: { prefill: investmentPrefill, projectId: project._id } },
+                          );
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all border bg-emerald-500/20 text-emerald-100 border-emerald-400/30 hover:bg-emerald-500/30 active:scale-95"
+                      >
+                        <TrendingUp className="h-3 w-3" />
+                        Return on Investment
                       </button>
                     )}
                   </div>

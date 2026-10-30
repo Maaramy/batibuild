@@ -372,10 +372,27 @@ function checkAppShell() {
   const guide = read(join(root, "src", "screens", "OnboardingScreen.tsx"));
   const slidesBlock = guide.split("const SLIDES: Slide[] = [")[1]?.split("];")[0] ?? "";
   const steps = (slidesBlock.match(/\bkey:\s*"/g) ?? []).length;
-  if (steps !== 5) {
-    fail("guide d'utilisation", `${steps} étape(s) détectée(s) — 5 étapes sont attendues`);
+  // 6 étapes : les 5 étapes du parcours construction + l'étape dédiée au
+  // module Investissement immobilier (« Investissez sans risque »).
+  if (steps !== 6) {
+    fail("guide d'utilisation", `${steps} étape(s) détectée(s) — 6 étapes sont attendues`);
   } else {
-    ok("guide d'utilisation : 5 étapes");
+    ok("guide d'utilisation : 6 étapes (dont Investissement immobilier)");
+  }
+
+  // L'étape Investissement doit rester présente, avec ses indicateurs clés.
+  const investmentMarkers = [
+    "Investissez sans risque",
+    "ROI à 1, 5 et 10 ans",
+    "cash-flow",
+    "score IA sur 100",
+    "prudent, réaliste et optimiste",
+  ];
+  const missingInvestment = investmentMarkers.filter((marker) => !guide.includes(marker));
+  if (missingInvestment.length) {
+    fail("étape Investissement du guide", `contenu manquant : ${missingInvestment.join(", ")}`);
+  } else {
+    ok("étape Investissement du guide : ROI 1/5/10 ans, cash-flow, score IA et 3 scénarios");
   }
 
   const labels = ["Précédent", "Suivant", "Passer", "Commencer"];
@@ -502,10 +519,17 @@ function checkNativeBridge() {
   } else {
     ok("aucun libellé « ROI » dans la navigation mobile");
   }
-  if (!/label:\s*"Rapport"/.test(nav)) {
-    fail("onglet « Rapport »", "libellé absent de NAV_DESTINATIONS");
+  if (!/label:\s*"Investissements"/.test(nav)) {
+    fail("onglet « Investissements »", "libellé absent de NAV_DESTINATIONS");
   } else {
-    ok("onglet « Rapport » présent");
+    ok("onglet « Investissements » présent");
+  }
+  // Le module Investissement doit pointer vers la route réelle de la
+  // plateforme : une URL inventée laisserait l'onglet sur une page vide.
+  if (!nav.includes('INVESTMENTS_PATH = "/dashboard/investments"')) {
+    fail("route « Investissements »", "NAV_DESTINATIONS ne pointe pas vers /dashboard/investments");
+  } else {
+    ok("route « Investissements » = /dashboard/investments");
   }
   if (!/label:\s*"Mes projets"/.test(nav)) {
     fail("onglet « Mes projets »", "libellé absent de NAV_DESTINATIONS");
@@ -569,7 +593,8 @@ function checkAssets() {
  * au démarrage — l'erreur est détectée ici, avant le build.
  */
 const REQUIRED_ICONS = [
-  "FileDown", // onglet « Rapport »
+  "FileDown", // rapports PDF (menu de la plateforme)
+  "TrendingUp", // onglet « Investissements »
   "User",
   "HardHat",
   "LayoutDashboard",

@@ -7,7 +7,7 @@ une **barre de navigation inférieure FIXE** et un **Guide d'onboarding** natifs
 lancement.
 
 ```
-Première installation :  Splash (≤ 1 s)  →  Guide en 5 étapes (diapositives illustrées)  →  WebView batibuild
+Première installation :  Splash (≤ 1 s)  →  Guide en 6 étapes (diapositives illustrées)  →  WebView batibuild
 Lancements suivants :    Splash (≤ 1 s)  →  WebView batibuild
 ```
 
@@ -21,15 +21,16 @@ Android Native Shell
 │      votre projet », puis « Chargement… ».
 │      L'écran de démarrage natif (avant le JS) est BLANC et SANS image.
 │
-├── Guide d'utilisation en 5 étapes  (1ʳᵉ installation uniquement)
+├── Guide d'utilisation en 6 étapes  (1ʳᵉ installation uniquement)
 │      Design clair premium : fond blanc, émeraude, minimaliste.
-│      En-tête : logo + « batibuild » à gauche, indicateur « n / 5 » à droite.
+│      En-tête : logo + « batibuild » à gauche, indicateur « n / 6 » à droite.
 │      Carrousel d'une diapositive par étape (glissement horizontal) :
 │      1. Évitez les surcoûts            (coûts estimatifs)
 │      2. Imaginez votre future maison   (plans architecturaux IA)
 │      3. Prenez les bonnes décisions    (aide à la décision)
 │      4. Trouvez les bons professionnels(mise en relation)
-│      5. Suivez votre chantier en toute sérénité (exécution & suivi)
+│      5. Investissez sans risque        (ROI 1/5/10 ans, cash-flow, score IA, scénarios)
+│      6. Suivez votre chantier en toute sérénité (exécution & suivi)
 │      Grande illustration vectorielle centrée (conteneur arrondi), titre gras
 │      centré, description en gris, pagination verte, bouton « Suivant » vert
 │      avec ombre légère, « Passer » à gauche, « Précédent » dès l'étape 2,
@@ -44,11 +45,13 @@ Android Native Shell
 │      Occupe exactement la hauteur restante : jamais recouverte par la barre.
 │
 └── Bottom Nav — BARRE DE NAVIGATION INFÉRIEURE (fond blanc, fixe)
-       Profile · Mes projets · Home · Rapport · Message
+       Profile · Mes projets · Home · Investissements · Message
        → « Mes projets » ouvre la page dédiée /dashboard/projects
          (UNIQUEMENT les projets de l'utilisateur connecté) ;
-       → « Rapport » ouvre la page Rapports PDF /dashboard/reports
-         (consulter / télécharger les rapports PDF de ses projets) ;
+       → « Investissements » ouvre le module d'analyse de rentabilité
+         /dashboard/investments (ROI, cash-flow, score IA, scénarios) ;
+         la page Rapports PDF /dashboard/reports reste accessible depuis le
+         tableau de bord (raccourci « Voir mes résultats » et menu latéral) ;
        → pastille ROUGE sur « Message » dès qu'un message non lu existe
          (compteur du serveur, temps réel, « 99+ » au-delà de 99).
        → visible dans TOUT l'espace connecté (/dashboard et ses sous-pages) ;
@@ -64,7 +67,7 @@ n'entraîne le rechargement de la WebView (donc session, cookies, état et histo
 préservés).
 
 La **barre de navigation inférieure** (`BottomNav.tsx`) aligne les 5 sections
-(`Profile · Mes projets · Home · Rapport · Message`) dans une barre **fixe en bas de l'écran**, à
+(`Profile · Mes projets · Home · Investissements · Message`) dans une barre **fixe en bas de l'écran**, à
 onglets de largeur égale (icône lucide 19 pt + libellé 10,5 pt) : elle s'adapte donc à toutes
 les tailles d'écran (petit téléphone, grand écran, tablette, paysage) sans jamais déborder.
 L'élément **actif** est clairement identifié (icône et libellé en teinte de marque, libellé en
@@ -85,7 +88,7 @@ Toute la coque native (en-tête, barre de navigation inférieure, guide, écran 
 | Profile | `User` |
 | Mes projets | `HardHat` |
 | Home | `LayoutDashboard` |
-| Rapport | `FileDown` (document + téléchargement — celle de l'entrée « Rapports PDF » du menu de la plateforme) |
+| Investissements | `TrendingUp` (courbe de rentabilité — celle de l'entrée « Investissements immobiliers » du menu de la plateforme) |
 | Message | `MessageSquare` |
 | Support (en-tête) | `Headset` |
 | Paramètres (en-tête) | `Settings` |
@@ -143,7 +146,7 @@ mobile/
 ├── src/
 │   ├── screens/
 │   │   ├── SplashScreen.tsx       # Splash : logo officiel + « batibuild » + message de bienvenue
-│   │   ├── OnboardingScreen.tsx   # Guide 5 étapes (SLIDES) : carrousel, illustrations vectorielles, « Passer » / « Précédent » / « Suivant » / « Commencer »
+│   │   ├── OnboardingScreen.tsx   # Guide 6 étapes (SLIDES) : carrousel, illustrations vectorielles, « Passer » / « Précédent » / « Suivant » / « Commencer »
 │   │   └── WebViewScreen.tsx      # WebView batibuild (toutes les options)
 │   ├── components/
 │   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : en-tête, guides, erreurs
@@ -176,7 +179,7 @@ mobile/
 | **Splash** | **Fond BLANC**, logo officiel animé (fondu + léger zoom), le nom **« batibuild »** et le message de bienvenue **« De votre idée à la réalisation de votre projet »**, puis l'indicateur et **« Chargement… »**. Durée **≤ 1 s** (constante `CHANGE_MAX_MS`) : aucune attente du réseau, aucun délai artificiel, aucune page d'accueil supplémentaire. L'écran de démarrage natif (avant le JS) est lui aussi **blanc et sans image**. |
 | **Chargement (pages)** | **Fond BLANC**, borne de **1 seconde maximum** : ouverture et chargement d'une page (masquée dès que le routeur confirme la route). |
 | **Changement de section (barre du bas)** | **Aucun écran de chargement** : le changement est direct, la WebView n'est pas recréée. |
-| **Barre de navigation inférieure** | **Barre FIXE en bas de l'écran** (`BottomNav.tsx`) : 5 sections (Profile · **Mes projets** · Home · **Rapport** · Message), icône **lucide 19 pt** + libellé **10,5 pt**, onglets de **largeur égale** (`flex: 1`) donc aucun débordement sur petit ou grand écran. Élément **actif** : icône et libellé en teinte de marque (`brand700`), libellé en gras, **indicateur émeraude** au-dessus de l'icône (emplacement réservé sur tous les onglets → aucun décalage) ; inactifs en gris ; état pressé = légère atténuation. Fond **blanc**, safe area basse gérée (`useSafeAreaInsets`, minimum 6 pt). Rendue **après** la WebView (jamais en position absolue) : elle ne recouvre jamais le contenu. Visible dans tout l'espace connecté — voir `shouldShowBottomNav()` dans `src/config.ts`. |
+| **Barre de navigation inférieure** | **Barre FIXE en bas de l'écran** (`BottomNav.tsx`) : 5 sections (Profile · **Mes projets** · Home · **Investissements** · Message), icône **lucide 19 pt** + libellé **10,5 pt**, onglets de **largeur égale** (`flex: 1`) donc aucun débordement sur petit ou grand écran. Élément **actif** : icône et libellé en teinte de marque (`brand700`), libellé en gras, **indicateur émeraude** au-dessus de l'icône (emplacement réservé sur tous les onglets → aucun décalage) ; inactifs en gris ; état pressé = légère atténuation. Fond **blanc**, safe area basse gérée (`useSafeAreaInsets`, minimum 6 pt). Rendue **après** la WebView (jamais en position absolue) : elle ne recouvre jamais le contenu. Visible dans tout l'espace connecté — voir `shouldShowBottomNav()` dans `src/config.ts`. |
 | **En-tête (natif)** | Fond **blanc**, logo officiel + wordmark de la plateforme (« batibuild ») à gauche, icônes **Support** et **Paramètres** à droite. **Aucun menu de navigation** (et aucun burger : celui de l'en-tête web est masqué dans l'application). **Appui long sur la marque** (ou sur la barre du bas) → réglages natifs. |
 | **Thème natif** | Material Design 3 clair / sombre / système (`useColorScheme`), sans toucher au thème de la plateforme Web. Les icônes étant des SVG (lucide), elles conservent exactement le même dessin et un contraste correct dans les trois modes. |
 | **Guide d'utilisation** | **Design clair premium** : fond **blanc**, émeraude batibuild, minimaliste. **En-tête** : logo + « batibuild » à gauche, indicateur **« n / 5 »** à droite. **Carrousel** d'une diapositive par étape (glissement horizontal paginé) : **1. Évitez les surcoûts** (coûts estimatifs) · **2. Imaginez votre future maison** (plans architecturaux IA) · **3. Prenez les bonnes décisions** (aide à la décision) · **4. Trouvez les bons professionnels** (mise en relation) · **5. Suivez votre chantier en toute sérénité** (exécution & suivi). Chaque diapositive : **illustration vectorielle** dans un conteneur arrondi, **surtitre** de la fonctionnalité, **titre gras centré (25 pt)**, **description en gris**, **pagination verte** (point actif allongé), puis **bouton « Suivant » vert large et arrondi avec ombre légère**, **« Passer » à sa gauche** et **« Précédent » dès l'étape 2** ; sur la 5ᵉ étape « Suivant » devient **« Commencer »**. Le **bouton Retour Android** recule d'une étape. Fond, marges et proportions de la référence (24 pt latéraux), safe areas haute/basse via `useSafeAreaInsets`, **aucun débordement** (repli vertical sur écran très court), `maxFontSizeMultiplier` pour contenir le redimensionnement système. Mémorisé via `onboardingCompleted` (AsyncStorage) : aucune répétition aux lancements suivants. |
@@ -188,7 +191,7 @@ mobile/
 | **Session** | Cookies, stockage local, cache persistants entre les lancements (`sharedCookiesEnabled`, `thirdPartyCookiesEnabled`, `cacheEnabled`, `domStorageEnabled`). |
 | **Navigation interne** | Toutes les pages `batibuild.app` et `*.batibuild.app` restent dans la WebView, ainsi que les domaines techniques Convex (`*.convex.cloud`, `*.convex.site`). |
 | **Liens externes** | Sites partenaires, réseaux sociaux, documents externes → navigateur système (`Linking`). |
-| **Navigation des 5 sections** | Depuis la **barre inférieure**, routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard/projects`, `/dashboard`, `/dashboard/reports`, `/dashboard/messages`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. « Mes projets » ouvre la **page dédiée `/dashboard/projects`** (tous les projets de l'utilisateur connecté : en cours, terminés, réalisés, archivés) ; l'onglet reste actif pendant la consultation d'un projet ouvert depuis cette liste. « Home » reste l'accueil connecté (`/dashboard`). « **Rapport** » ouvre la page **Rapports PDF `/dashboard/reports`** (consulter / télécharger les PDF des projets) et porte l'icône `FileDown` — la même que l'entrée « Rapports PDF » du menu de la plateforme. Aucun onglet « ROI » dans le menu mobile. |
+| **Navigation des 5 sections** | Depuis la **barre inférieure**, routes **réelles** de la plateforme (`/dashboard/profile`, `/dashboard/projects`, `/dashboard`, `/dashboard/investments`, `/dashboard/messages`) via `history.pushState` + `popstate` : la WebView n'est pas recréée, la session reste active. « Mes projets » ouvre la **page dédiée `/dashboard/projects`** (tous les projets de l'utilisateur connecté : en cours, terminés, réalisés, archivés) ; l'onglet reste actif pendant la consultation d'un projet ouvert depuis cette liste. « Home » reste l'accueil connecté (`/dashboard`). « **Investissements** » ouvre le module d'analyse de rentabilité `/dashboard/investments` et porte l'icône `TrendingUp` — la même que l'entrée « Investissements immobiliers » du menu de la plateforme. La page **Rapports PDF** reste accessible depuis le tableau de bord. Aucun onglet « ROI » dans le menu mobile. |
 | **Pastille de la Messagerie** | Pastille **rouge** (composant réutilisable `NavBadge.tsx`) posée en haut à droite de l'icône « Message » : texte blanc, cerclage blanc (lisible en mode clair comme sombre), **jamais de déplacement des autres icônes** (positionnement absolu), plafond **« 99+ »** et **rien du tout à 0**. Le compteur vient du **serveur** : la plateforme Web, chargée dans la WebView, publie en **temps réel** le nombre de messages non lus de l'utilisateur connecté (`api.messaging.unreadCount` → `src/lib/nativeBridge.ts` → `postMessage`, lue par `WebViewScreen`) — donc **sans rechargement** et sans pastille « 0 » fantôme au démarrage. En cas d'erreur de synchronisation, le dernier compteur fiable reste affiché. Ouvrir la messagerie marque les messages comme lus : la pastille disparaît dès que tout est lu. |
 | **Support / Paramètres** | Barre supérieure → `/dashboard/support` et `/dashboard/settings` (mêmes routes web, aucun écran dupliqué). |
 | **Retour Android** | Historique WebView → page précédente ; sinon confirmation « Voulez-vous quitter batibuild ? » (Annuler / Quitter). |
@@ -357,7 +360,7 @@ Aucun service cloud de compilation n'est utilisé.
 | Package Android | `com.batibuild.app` |
 | Bundle ID iOS | `com.batibuild.app` |
 | Version | **1.3.4** — `versionCode 14` (Android), `buildNumber 4` (iOS). À incrémenter **dans `app.json` ET dans `android/app/build.gradle`** (`versionCode` / `versionName`) avant chaque nouvelle APK destinée à une mise à jour : Android n'accepte pas d'installer par-dessus une APK de `versionCode` inférieur. |
-| Contenu de la 1.3.4 | **Splash et Guide d'utilisation** : le splash affiche le logo officiel, le nom **batibuild** et le message **« De votre idée à la réalisation de votre projet »** (toujours ≤ 1 s, `CHANGE_MAX_MS`) ; le guide présente les **5 étapes du parcours** en carrousel clair (fond blanc, émeraude) — **Évitez les surcoûts · Imaginez votre future maison · Prenez les bonnes décisions · Trouvez les bons professionnels · Suivez votre chantier en toute sérénité** — illustré par des **scènes vectorielles dédiées**, avec indicateur **« n / 5 »**, pagination verte, **« Précédent » / « Suivant »**, « Passer » et bouton final **« Commencer »**. URL WebView, identifiants, package et données inchangés. |
+| Contenu de la 1.3.4 | **Splash et Guide d'utilisation** : le splash affiche le logo officiel, le nom **batibuild** et le message **« De votre idée à la réalisation de votre projet »** (toujours ≤ 1 s, `CHANGE_MAX_MS`) ; le guide présente les **étapes du parcours** en carrousel clair (fond blanc, émeraude) — **Évitez les surcoûts · Imaginez votre future maison · Prenez les bonnes décisions · Trouvez les bons professionnels · Investissez sans risque · Suivez votre chantier en toute sérénité** — illustré par des **scènes vectorielles dédiées**, avec indicateur **« n / 6 »**, pagination verte, **« Précédent » / « Suivant »**, « Passer » et bouton final **« Commencer »**. **Module Investissement** : l'étape « Investissez sans risque » présente le **ROI à 1, 5 et 10 ans**, le **cash-flow**, le **score IA sur 100** et les **trois scénarios** (prudent, réaliste, optimiste) ; l'onglet **Investissements** de la barre du bas ouvre `/dashboard/investments` (la page Rapports PDF reste accessible depuis le tableau de bord). URL WebView, identifiants, package et données inchangés. |
 | Contenu de la 1.3.3 | **Synchronisation avec la version web de production** : l'application charge **`https://batibuild.app/`** (navigation interne limitée à `batibuild.app` et aux domaines techniques Convex), **Splash** modernisé (logo animé, « Chargement… ») et **guide d'utilisation en 5 étapes** (coût estimatif, aide à la décision, plans architecturaux IA, mise en relation, exécution et suivi) avec **Précédent / Suivant / Passer**, indicateur de progression et bouton final « Commencer ». Package, keystore et identifiants conservés ; `versionCode` 13. |
 | Contenu de la 1.3.2 | **Régénération complète de l'application Android** : le projet natif `android/` est reconstruit depuis `app.json` (`expo prebuild`) — `versionCode 12`, `versionName 1.3.2`, manifest et icônes resynchronisés — puis la clé debug est assurée et la signature Release réappliquée. Une seule commande régénère tout de bout en bout : `PREBUILD=1 npm run android:apk` (projet natif → signature → pré-vérifications → Gradle → vérification de l'artefact). |
 | Contenu de la 1.3.1 | **Menu mobile** : l'onglet « ROI » est remplacé par « **Rapport** » (icône `FileDown`, page existante **Rapports PDF** `/dashboard/reports`) ; « Projets » devient « **Mes projets** » (`/dashboard/projects`, uniquement les projets de l'utilisateur connecté) ; la pastille rouge de « Message » reste alimentée par le serveur (temps réel, « 99+ »). **Build Android renforcé** : pré-vérifications obligatoires (`npm run android:preflight`) et vérification de l'artefact (`npm run android:verify`) — aucune APK vide, tronquée, incomplète ou non signée ne peut plus être publiée (bandeaux `BUILD SUCCESS` / `BUILD FAILED`). |
@@ -558,7 +561,7 @@ n'est jamais affiché dans les logs ; aucun `EXPO_TOKEN` n'est utilisé.
   (`src/download.ts`), qui les écrit puis ouvre la feuille de partage Android. Enregistrez le
   fichier depuis cette feuille (Fichiers, Drive…) ou envoyez-le directement.
 - **Le menu de navigation est dans la barre du bas** : les 5 sections (Profile · **Mes projets** ·
-  Home · **Rapport** · Message) sont dans la **barre fixe inférieure**, visible sur toutes les pages de
+  Home · **Investissements** · Message) sont dans la **barre fixe inférieure**, visible sur toutes les pages de
   l'espace connecté et masquée uniquement sur la connexion / inscription et l'accueil public.
 - **Aucune pastille rouge sur « Message »** : elle n'apparaît que si des messages non lus
   existent réellement pour l'utilisateur connecté (compteur du serveur). Ouvrir la messagerie

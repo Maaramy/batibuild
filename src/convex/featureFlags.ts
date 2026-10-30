@@ -37,6 +37,11 @@ export const FEATURE_FLAGS_CATALOG = [
       "Analyse du budget disponible, capacité de construction et recommandations",
   },
   {
+    key: "investment_project",
+    name: "Projet d'investissement",
+    description: "Analyse des projets d'investissement",
+  },
+  {
     key: "ai_materials",
     name: "Matériaux AI",
     description: "Assistant intelligent de choix des matériaux",

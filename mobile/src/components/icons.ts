@@ -72,17 +72,17 @@ import type { NavId } from "../config";
  *   User            → « Profile »
  *   HardHat         → « Mes projets » (construction / logo batibuild)
  *   LayoutDashboard → « Home » (accueil de l'espace connecté)
- *   FileDown        → « Rapport » — MÊME icône que l'entrée « Rapports PDF » du
- *                     menu de la plateforme (`Dashboard.tsx`, lucide `FileDown`) :
- *                     document + flèche de téléchargement, immédiatement
- *                     identifiable comme un rapport PDF à consulter/télécharger
+ *   TrendingUp      → « Investissements » — MÊME icône que l'entrée
+ *                     « Investissements immobiliers » du menu de la plateforme
+ *                     (`Dashboard.tsx`, lucide `TrendingUp`) : courbe de
+ *                     rentabilité, immédiatement identifiable
  *   MessageSquare   → « Message »
  */
 export const NAV_ICONS: Record<NavId, LucideIcon> = {
   profile: User,
   projects: HardHat,
   dashboard: LayoutDashboard,
-  reports: FileDown,
+  investments: TrendingUp,
   messages: MessageSquare,
 };
 

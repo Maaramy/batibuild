@@ -16,6 +16,7 @@ import {
   Sparkles,
   Calculator,
   ClipboardList,
+  Landmark,
   Store,
   Table2,
 } from "lucide-react";
@@ -90,6 +91,14 @@ const FEATURES = [
     gradient: "from-teal-500/20 to-cyan-500/20",
     iconColor: "text-teal-600 dark:text-teal-400",
     to: "/dashboard/materials",
+  },
+  {
+    icon: Landmark,
+    title: "Investissez sans risque",
+    desc: "ROI à 1, 5 et 10 ans, cash-flow, score IA sur 100 et scénarios prudent / réaliste / optimiste pour chaque bien.",
+    gradient: "from-indigo-500/20 to-violet-500/20",
+    iconColor: "text-indigo-600 dark:text-indigo-400",
+    to: "/dashboard/investments",
   },
   {
     icon: FileText,

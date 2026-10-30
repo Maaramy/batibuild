@@ -138,7 +138,7 @@ export default function AdminPanel() {
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const VALID_TABS = [
-    "dashboard", "users", "projects", "materials", "virements",
+    "dashboard", "users", "projects", "investments", "materials", "virements",
     "recus", "recusFournisseurs", "recusExperts", "subscriptions", "invoices",
     "fournisseurs", "experts", "analytics", "support", "journal", "paiement",
     "limites", "seo", "blog", "bim", "bareme", "emails", "modeles", "historique", "features",
@@ -159,6 +159,13 @@ export default function AdminPanel() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const allProjects = useQuery(api.projects.getAllProjects) || [];
+  const allAnalyses = useQuery(api.investments.getAllAnalyses) || [];
+  const [investmentSearch, setInvestmentSearch] = useState("");
+  // Sélection groupée des analyses d'investissement (suppression admin).
+  const [selectedAnalysisIds, setSelectedAnalysisIds] = useState<Set<string>>(new Set());
+  const [batchDeletingAnalyses, setBatchDeletingAnalyses] = useState(false);
+  const batchDeleteAnalyses = useMutation(api.investments.adminDeleteAnalyses);
+  const deleteAnalysisMutation = useMutation(api.investments.adminDeleteAnalysis);
   const materialPrices = useQuery(api.materials.getMaterialPrices, {}) || [];
 
   // New material form
@@ -712,6 +719,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <TabsTrigger value="projects" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Building2 className="h-3.5 w-3.5" />
                 <span>Projets</span>
+              </TabsTrigger>
+              )}
+              {canSee("investments") && (
+              <TabsTrigger value="investments" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Landmark className="h-3.5 w-3.5" />
+                <span>Investissements</span>
               </TabsTrigger>
               )}
               {canSee("materials") && (
@@ -3243,6 +3256,192 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               )}
             </div>
           </TabsContent>
+          {/* Investissements Management */}
+          <TabsContent value="investments">
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold">Gestion des analyses d'investissement</h2>
+                  <p className="text-xs text-muted-foreground">{allAnalyses.length} analyse(s) · les quotas des propriétaires sont libérés à la suppression</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {selectedAnalysisIds.size > 0 && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-8 text-xs shrink-0"
+                      onClick={async () => {
+                        if (!window.confirm("Supprimer " + selectedAnalysisIds.size + " analyse(s) ? Cette action est irréversible.")) return;
+                        setBatchDeletingAnalyses(true);
+                        try {
+                          await batchDeleteAnalyses({ analysisIds: Array.from(selectedAnalysisIds) as any });
+                          toast.success(selectedAnalysisIds.size + " analyse(s) supprimée(s)");
+                          setSelectedAnalysisIds(new Set());
+                        } catch (err: any) {
+                          toast.error(err.message || "Erreur");
+                        } finally {
+                          setBatchDeletingAnalyses(false);
+                        }
+                      }}
+                      disabled={batchDeletingAnalyses}
+                    >
+                      {batchDeletingAnalyses ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-1" />
+                      )}
+                      Supprimer ({selectedAnalysisIds.size})
+                    </Button>
+                  )}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Rechercher une analyse..."
+                      value={investmentSearch}
+                      onChange={(e) => setInvestmentSearch(e.target.value)}
+                      className="h-9 w-40 sm:w-56 pl-9 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
+                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs w-8">
+                        <input
+                          type="checkbox"
+                          checked={allAnalyses.length > 0 && selectedAnalysisIds.size === allAnalyses.filter((a: any) =>
+                            investmentSearch
+                              ? (a.input?.name || "").toLowerCase().includes(investmentSearch.toLowerCase()) ||
+                                (a.input?.investmentType || "").toLowerCase().includes(investmentSearch.toLowerCase())
+                              : true
+                          ).length}
+                          onChange={() => {
+                            const filtered = allAnalyses.filter((a: any) =>
+                              investmentSearch
+                                ? (a.input?.name || "").toLowerCase().includes(investmentSearch.toLowerCase()) ||
+                                  (a.input?.investmentType || "").toLowerCase().includes(investmentSearch.toLowerCase())
+                                : true
+                            );
+                            if (selectedAnalysisIds.size === filtered.length) {
+                              setSelectedAnalysisIds(new Set());
+                            } else {
+                              setSelectedAnalysisIds(new Set(filtered.map((a: any) => a._id)));
+                            }
+                          }}
+                          className="rounded"
+                        />
+                      </th>
+                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Analyse</th>
+                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs hidden sm:table-cell">Utilisateur</th>
+                      <th className="text-left py-2.5 px-2 font-medium text-muted-foreground text-xs">Type</th>
+                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Prix d'achat</th>
+                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Rendement</th>
+                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Date</th>
+                      <th className="text-right py-2.5 px-2 font-medium text-muted-foreground text-xs">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allAnalyses
+                      .filter((a: any) =>
+                        investmentSearch
+                          ? (a.input?.name || "").toLowerCase().includes(investmentSearch.toLowerCase()) ||
+                            (a.input?.investmentType || "").toLowerCase().includes(investmentSearch.toLowerCase())
+                          : true
+                      )
+                      .map((analysis: any) => {
+                        const invType = analysis.input?.investmentType || "—";
+                        const grossYield = analysis.results?.indicators?.grossYieldPct ?? analysis.results?.grossYieldPct;
+                        const netYield = analysis.results?.indicators?.netYieldPct ?? analysis.results?.netYieldPct;
+                        const rendement = grossYield != null ? grossYield : netYield != null ? netYield : null;
+                        return (
+                        <tr key={analysis._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150 group">
+                          <td className="py-2.5 px-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedAnalysisIds.has(analysis._id)}
+                              onChange={() => {
+                                const next = new Set(selectedAnalysisIds);
+                                if (next.has(analysis._id)) next.delete(analysis._id);
+                                else next.add(analysis._id);
+                                setSelectedAnalysisIds(next);
+                              }}
+                              className="rounded"
+                            />
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <p className="font-medium text-xs">{analysis.input?.name || "Analyse sans nom"}</p>
+                            <p className="text-[9px] text-muted-foreground">{(analysis.input?.city || "")} {(analysis.input?.region || "")}</p>
+                          </td>
+                          <td className="py-2.5 px-2 hidden sm:table-cell">
+                            <div className="flex items-center gap-1.5">
+                              <Avatar className="h-6 w-6 shrink-0 border border-border/30">
+                                <AvatarImage src={analysis.user?.image || ""} />
+                                <AvatarFallback className="bg-primary/10 text-primary text-[8px] font-bold">
+                                  {analysis.user?.name?.charAt(0)?.toUpperCase() || "?"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs truncate max-w-[100px]">{analysis.user?.name || "—"}</span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <Badge variant="outline" className="text-[9px] font-normal">{invType}</Badge>
+                          </td>
+                          <td className="py-2.5 px-2 text-right font-mono text-xs font-medium">
+                            {analysis.input?.purchasePrice
+                              ? new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(analysis.input.purchasePrice)
+                              : "—"}
+                          </td>
+                          <td className="py-2.5 px-2 text-right text-xs font-medium">
+                            {rendement != null ? `${Number(rendement).toFixed(1)}%` : "—"}
+                          </td>
+                          <td className="py-2.5 px-2 text-right text-[10px] text-muted-foreground">
+                            {new Date(analysis.createdAt).toLocaleDateString("fr-FR")}
+                          </td>
+                          <td className="py-2.5 px-2 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/dashboard/investments/result/${analysis._id}`)}
+                                className="p-1.5 rounded-md hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
+                                title="Voir l'analyse"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!window.confirm("Supprimer l'analyse \"" + (analysis.input?.name || "Sans nom") + "\" ?")) return;
+                                  try {
+                                    await deleteAnalysisMutation({ analysisId: analysis._id });
+                                    toast.success("Analyse supprimée");
+                                  } catch (err: any) {
+                                    toast.error(err.message || "Erreur");
+                                  }
+                                }}
+                                className="p-1.5 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        );
+                      })}
+                    {allAnalyses.filter((a: any) => investmentSearch ? (a.input?.name || "").toLowerCase().includes(investmentSearch.toLowerCase()) || (a.input?.investmentType || "").toLowerCase().includes(investmentSearch.toLowerCase()) : true).length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="text-center py-8 text-xs text-muted-foreground">Aucune analyse trouvée</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </TabsContent>
+
           {/* Users Management */}
           <TabsContent value="users">
             <div className="space-y-4">

@@ -32,6 +32,7 @@ import {
   downloadCostReport,
   downloadDecisionSupportReport,
   downloadExecutionReport,
+  downloadInvestmentReport,
   downloadPlansReport,
 } from "@/lib/reportDownloads";
 import {
@@ -85,6 +86,7 @@ type ArtifactRow = {
   projectId: string;
   roadmapId: string | null;
   budgetAnalysisId?: string | null;
+  investmentAnalysisId?: string | null;
 };
 
 type PendingModule = { label: string; href: string };
@@ -100,7 +102,7 @@ export default function ReportCenter() {
   usePageSEO({
     title: "Rapports PDF - batibuild",
     description:
-      "Consultez et téléchargez les rapports PDF de vos projets : devis estimatif, plan IA, aide à la décision et guide construction A-Z.",
+      "Consultez et téléchargez les rapports PDF de vos projets : devis estimatif, plan IA, aide à la décision, investissement immobilier et guide construction A-Z.",
   });
 
   // Projets de l'utilisateur connecté (lecture strictement privée, côté serveur).
@@ -117,6 +119,7 @@ export default function ReportCenter() {
       map.set(row.projectId, {
         roadmapId: row.roadmapId,
         budgetAnalysisId: row.budgetAnalysisId ?? null,
+        investmentAnalysisId: row.investmentAnalysisId ?? null,
       });
     }
     return map;
@@ -149,6 +152,12 @@ export default function ReportCenter() {
         case "decision":
           await downloadDecisionSupportReport(convex, project._id);
           break;
+        case "investment": {
+          const artifact = artifactByProject.get(project._id);
+          if (!artifact?.investmentAnalysisId) throw new Error("report-unavailable");
+          await downloadInvestmentReport(convex, artifact.investmentAnalysisId);
+          break;
+        }
         case "execution":
           await downloadExecutionReport(convex, project._id);
           break;

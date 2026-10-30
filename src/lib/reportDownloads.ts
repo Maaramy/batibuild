@@ -41,6 +41,7 @@ import { generateFloorPlans, repairFloorPlan } from "./floorPlanEngine";
 import { downloadFloorPlanPdf } from "./floorPlanPdf";
 import { generateProjectPdf } from "./projectPdf";
 import { exportRoadmapPdf } from "./roadmapReportPdf";
+import { generatePdf } from "@/components/investment/shared";
 
 /** Forme minimale d'un projet utilisée par les générateurs. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -295,6 +296,18 @@ export async function downloadDecisionSupportReport(
     .join(" · ");
 
   exportDecisionSupportPdf({ analysis, projectContext });
+}
+
+/** Investissement immobilier — rapport d'analyse de rentabilité (analyse enregistrée). */
+export async function downloadInvestmentReport(
+  convex: ConvexReactClient,
+  analysisId: string,
+): Promise<void> {
+  const doc = await convex.query(api.investments.getAnalysis, {
+    analysisId: analysisId as never,
+  });
+  if (!doc?.results) throw new Error("report-unavailable");
+  generatePdf(doc as never);
 }
 
 /** Exécution & suivi — guide construction A-Z (feuille de route enregistrée). */

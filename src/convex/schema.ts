@@ -1,6 +1,11 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
+import {
+  analysisInputValidator,
+  analysisResultsValidator,
+  aiInsightsValidator,
+} from "./investmentTypes";
 
 // ============================================================================
 // User Roles & Subscription Plans
@@ -1321,6 +1326,29 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_specialties", ["specialties"])
       .index("by_subscription", ["subscriptionStatus"]),
+
+    // ── Investissement immobilier ──────────────────────────────────────────
+    // Analyses de rentabilité enregistrées par l'utilisateur (module
+    // « Investissement »). Table indépendante des projets de construction :
+    // `projectId` est un simple lien optionnel vers un projet existant.
+    // `input` et `results` sont validés par les validateurs du moteur
+    // (`convex/investmentTypes.ts`) : mêmes formes que les documents
+    // historiques, aucune migration nécessaire.
+    investmentAnalyses: defineTable({
+      userId: v.id("users"),
+      projectId: v.optional(v.id("projects")),
+      input: analysisInputValidator,
+      results: analysisResultsValidator,
+      aiInsights: v.optional(aiInsightsValidator),
+      shareToken: v.optional(v.string()),
+      shareExpiresAt: v.optional(v.number()),
+      isFavorite: v.optional(v.boolean()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_created", ["createdAt"])
+      .index("by_share_token", ["shareToken"]),
 
     // ── Feature flags (système central de gestion des fonctionnalités) ──────
     // Un document par fonctionnalité : l'admin active/désactive des modules

@@ -1439,6 +1439,158 @@ export function IllusDecision({ width, theme }: IllusProps) {
 }
 
 /* ------------------------------------------------------------------ */
+/* 6 / 6 — Investissez sans risque (module Investissement)             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Illustration du module « Investissement immobilier » : rapport de
+ * rentabilité (ROI à 1, 5 et 10 ans), cash-flow, score IA sur 100 et les trois
+ * scénarios (prudent / réaliste / optimiste). Mêmes briques et même palette
+ * que les autres scènes du guide.
+ */
+export function IllusInvestment({ width, theme }: IllusProps) {
+  const p = theme.dark ? DARK : LIGHT;
+  const s = width / VIEW_W;
+
+  return (
+    <Scene
+      width={width}
+      id="ginv"
+      p={p}
+      labels={
+        <>
+          {/* ── Carte gauche : rapport de rentabilité ── */}
+          <Box s={s} x={32} y={40} w={158} h={12} align="flex-start">
+            <Lbl s={s} size={7.5} color={p.muted} weight="700" spacing={0.9}>
+              RAPPORT INVESTISSEMENT
+            </Lbl>
+          </Box>
+
+          <Box s={s} x={32} y={68} w={46} h={12} align="flex-start">
+            <Lbl s={s} size={7.5} color={p.ink} weight="700">
+              1 an
+            </Lbl>
+          </Box>
+          <Box s={s} x={156} y={68} w={40} h={12} align="flex-end">
+            <Lbl s={s} size={7.5} color={p.brandDeep} weight="800">
+              +4,1%
+            </Lbl>
+          </Box>
+
+          <Box s={s} x={32} y={90} w={46} h={12} align="flex-start">
+            <Lbl s={s} size={7.5} color={p.ink} weight="700">
+              5 ans
+            </Lbl>
+          </Box>
+          <Box s={s} x={150} y={90} w={46} h={12} align="flex-end">
+            <Lbl s={s} size={7.5} color={p.brandDeep} weight="800">
+              +24,6%
+            </Lbl>
+          </Box>
+
+          <Box s={s} x={32} y={112} w={46} h={12} align="flex-start">
+            <Lbl s={s} size={7.5} color={p.ink} weight="700">
+              10 ans
+            </Lbl>
+          </Box>
+          <Box s={s} x={144} y={112} w={52} h={12} align="flex-end">
+            <Lbl s={s} size={7.5} color={p.brandDeep} weight="800">
+              +52,3%
+            </Lbl>
+          </Box>
+
+          {/* Cash-flow mensuel */}
+          <Box s={s} x={30} y={146} w={162} h={20} row gap={6} align="flex-start">
+            <Icon s={s} size={12} color={p.brandDeep} name="chartLine" />
+            <Lbl s={s} size={8} color={p.brandDeep} weight="800">
+              Cash-flow +640 TND / mois
+            </Lbl>
+          </Box>
+
+          {/* ── Carte droite : score IA ── */}
+          <Box s={s} x={214} y={52} w={88} h={24}>
+            <Lbl s={s} size={16} color={p.ink} weight="800">
+              82
+            </Lbl>
+          </Box>
+          <Box s={s} x={214} y={78} w={88} h={12}>
+            <Lbl s={s} size={7} color={p.muted} weight="700">
+              / 100
+            </Lbl>
+          </Box>
+          <Box s={s} x={214} y={122} w={88} h={16}>
+            <Lbl s={s} size={8.5} color={p.brandDeep} weight="800">
+              Score IA
+            </Lbl>
+          </Box>
+
+          {/* ── Bandeau : les trois scénarios ── */}
+          <Box s={s} x={30} y={196} w={84} h={22}>
+            <Lbl s={s} size={7.5} color={p.ink} weight="700">
+              Prudent
+            </Lbl>
+            <Lbl s={s} size={7} color={p.muted} weight="600">
+              6,2%
+            </Lbl>
+          </Box>
+          <Box s={s} x={120} y={196} w={84} h={22}>
+            <Lbl s={s} size={7.5} color={p.ink} weight="700">
+              Réaliste
+            </Lbl>
+            <Lbl s={s} size={7} color={p.muted} weight="600">
+              8,4%
+            </Lbl>
+          </Box>
+          <Box s={s} x={210} y={196} w={84} h={22}>
+            <Lbl s={s} size={7.5} color={p.ink} weight="700">
+              Optimiste
+            </Lbl>
+            <Lbl s={s} size={7} color={p.muted} weight="600">
+              11,1%
+            </Lbl>
+          </Box>
+        </>
+      }
+    >
+      <Circle cx={302} cy={210} r={70} fill={p.brandSoft} opacity={0.4} />
+      <Circle cx={20} cy={24} r={52} fill={p.indigoSoft} opacity={0.35} />
+
+      {/* Carte gauche : rapport de rentabilité */}
+      <Rect x={18} y={26} width={186} height={150} rx={16} fill={p.panel} stroke={p.line} />
+      <Rect x={18} y={26} width={186} height={6} rx={3} fill={p.brandSoft} />
+
+      {/* Barres ROI : 1 an / 5 ans / 10 ans */}
+      <Rect x={80} y={70} width={116} height={8} rx={4} fill={p.brandSoft} />
+      <Rect x={80} y={70} width={26} height={8} rx={4} fill={p.brand} />
+      <Rect x={80} y={92} width={116} height={8} rx={4} fill={p.brandSoft} />
+      <Rect x={80} y={92} width={62} height={8} rx={4} fill={p.brand} />
+      <Rect x={80} y={114} width={116} height={8} rx={4} fill={p.brandSoft} />
+      <Rect x={80} y={114} width={104} height={8} rx={4} fill={p.brand} />
+
+      {/* Cash-flow */}
+      <Rect x={24} y={142} width={174} height={26} rx={13} fill={p.brandSoft} stroke={p.brandLine} />
+
+      {/* Carte droite : anneau du score IA */}
+      <Rect x={214} y={26} width={88} height={150} rx={16} fill={p.panelAlt} stroke={p.line} />
+      <Circle cx={258} cy={70} r={28} fill="none" stroke={p.line} strokeWidth={8} />
+      <Path
+        d="M 258 42 A 28 28 0 1 1 233.9 61.5"
+        fill="none"
+        stroke={p.brand}
+        strokeWidth={8}
+        strokeLinecap="round"
+      />
+
+      {/* Bandeau des scénarios */}
+      <Rect x={18} y={186} width={284} height={42} rx={16} fill={p.panel} stroke={p.line} />
+      <Rect x={26} y={194} width={84} height={26} rx={9} fill={p.brandSoft} stroke={p.brandLine} />
+      <Rect x={116} y={194} width={84} height={26} rx={9} fill={p.blueSoft} stroke={p.blueLine} />
+      <Rect x={206} y={194} width={84} height={26} rx={9} fill={p.indigoSoft} stroke={p.violetLine} />
+    </Scene>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Sélection                                                           */
 /* ------------------------------------------------------------------ */
 

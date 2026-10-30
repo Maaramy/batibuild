@@ -30,7 +30,7 @@ export const getMyReportArtifacts = query({
 
     return await Promise.all(
       projects.map(async (project) => {
-        const [roadmap, budget] = await Promise.all([
+        const [roadmap, budget, investment] = await Promise.all([
           ctx.db
             .query("projectRoadmaps")
             .withIndex("by_user_project", (q) =>
@@ -43,12 +43,20 @@ export const getMyReportArtifacts = query({
               q.eq("projectId", project._id).eq("userId", user._id),
             )
             .first(),
+          // Analyse d'investissement liée au projet (module Investissement).
+          ctx.db
+            .query("investmentAnalyses")
+            .withIndex("by_user", (q) => q.eq("userId", user._id))
+            .filter((q) => q.eq(q.field("projectId"), project._id))
+            .order("desc")
+            .first(),
         ]);
 
         return {
           projectId: project._id,
           roadmapId: roadmap?._id ?? null,
           budgetAnalysisId: budget?._id ?? null,
+          investmentAnalysisId: investment?._id ?? null,
         };
       }),
     );

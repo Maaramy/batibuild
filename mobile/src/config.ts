@@ -187,7 +187,7 @@ export type NavId =
   | "profile"
   | "projects"
   | "dashboard"
-  | "reports"
+  | "investments"
   | "messages";
 
 export type NavDestination = {
@@ -200,7 +200,7 @@ export type NavDestination = {
 
 /**
  * Les 5 sections de la barre de navigation inférieure, dans l'ordre imposé :
- * Profile · Mes projets · Home · Rapport · Message.
+ * Profile · Mes projets · Home · Investissements · Message.
  *
  * Les routes sont celles qui existent déjà dans le routeur de la plateforme
  * (`src/main.tsx`) : la navigation ne crée aucune page et ne duplique rien.
@@ -211,17 +211,23 @@ export type NavDestination = {
  * courante) ; « Home » reste l'accueil connecté (`/dashboard`), qui conserve
  * ses raccourcis et statistiques.
  *
- * « Rapport » (ancien « ROI ») ouvre la page existante **Rapports PDF**
- * (`/dashboard/reports`) : l'utilisateur consulte et télécharge les rapports
- * PDF de ses projets. Son icône (`FileDown`, document + téléchargement) est
- * EXACTEMENT celle de l'entrée « Rapports PDF » du menu de la plateforme
- * (voir `icons.ts`). Aucune entrée « ROI » n'existe dans le menu mobile.
+ * « Investissements » ouvre le module d'analyse de rentabilité de la
+ * plateforme (`/dashboard/investments`) : valorisation du bien → rapport
+ * d'investissement (ROI 1/5/10 ans, cash-flow, score IA, scénarios) → mise en
+ * relation. Son icône (`TrendingUp`) est celle du module sur la plateforme.
+ *
+ * La page **Rapports PDF** (`/dashboard/reports`) reste entièrement
+ * accessible : elle s'ouvre depuis le tableau de bord (raccourci « Voir mes
+ * résultats ») et depuis le menu latéral — seul son raccourci de la barre du
+ * bas laisse place à « Investissements », pour conserver exactement 5 onglets.
  */
+export const INVESTMENTS_PATH = "/dashboard/investments";
+
 export const NAV_DESTINATIONS: readonly NavDestination[] = [
   { id: "profile", label: "Profile", path: "/dashboard/profile" },
   { id: "projects", label: "Mes projets", path: PROJECTS_PATH },
   { id: "dashboard", label: "Home", path: DASHBOARD_PATH },
-  { id: "reports", label: "Rapport", path: REPORTS_PATH },
+  { id: "investments", label: "Investissements", path: INVESTMENTS_PATH },
   { id: "messages", label: "Message", path: "/dashboard/messages" },
 ] as const;
 
@@ -260,8 +266,10 @@ function inSection(path: string, base: string): boolean {
 export function activeNavId(path: string): NavId | null {
   const route = routeKey(path);
   if (inSection(route, "/dashboard/profile")) return "profile";
-  // « Rapport » : la page Rapports PDF et ses éventuelles sous-pages.
-  if (inSection(route, REPORTS_PATH)) return "reports";
+  // « Investissements » : le module et ses sous-pages (rapport d'analyse).
+  if (inSection(route, INVESTMENTS_PATH)) return "investments";
+  // La page Rapports PDF n'a plus d'onglet dédié : la barre reste neutre.
+  if (inSection(route, REPORTS_PATH)) return null;
   if (inSection(route, "/dashboard/messages")) return "messages";
   if (inSection(route, "/dashboard/support")) return null;
   // « Mes projets » : la page dédiée ET chaque projet ouvert depuis celle-ci
