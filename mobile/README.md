@@ -22,16 +22,18 @@ Android Native Shell
 │      L'écran de démarrage natif (avant le JS) est BLANC et SANS image.
 │
 ├── Guide d'utilisation en 5 étapes  (1ʳᵉ installation uniquement)
-│      Carrousel d'une diapositive par étape (numéro « n / 5 ») :
-│      1. Coûts estimatifs
-│      2. Plans architecturaux IA
-│      3. Aide à la décision
-│      4. Mise en relation
-│      5. Exécution & suivi
-│      Chaque diapositive : titre, explication courte et VÉRITABLE capture
-│      d'écran de la plateforme (assets/guide). « Précédent » / « Suivant »,
-│      « Passer » dans l'en-tête et bouton final « Commencer » (ouvre l'écran
-│      d'entrée réel de l'application).
+│      Design clair premium : fond blanc, émeraude, minimaliste.
+│      En-tête : logo + « batibuild » à gauche, indicateur « n / 5 » à droite.
+│      Carrousel d'une diapositive par étape (glissement horizontal) :
+│      1. Évitez les surcoûts            (coûts estimatifs)
+│      2. Imaginez votre future maison   (plans architecturaux IA)
+│      3. Prenez les bonnes décisions    (aide à la décision)
+│      4. Trouvez les bons professionnels(mise en relation)
+│      5. Suivez votre chantier en toute sérénité (exécution & suivi)
+│      Grande illustration vectorielle centrée (conteneur arrondi), titre gras
+│      centré, description en gris, pagination verte, bouton « Suivant » vert
+│      avec ombre légère, « Passer » à gauche, « Précédent » dès l'étape 2,
+│      « Commencer » sur la dernière étape (ouvre l'écran d'entrée réel).
 │      Parcours : Idée → Projet → Coût → Plans → Matériaux → Experts → Suivi → Rapports
 │
 ├── Header natif  (fond blanc — AUCUN menu de navigation)
@@ -137,18 +139,18 @@ mobile/
 ├── index.ts                       # Entrée (garde le splash natif pendant le boot JS)
 ├── app.json                       # Identifiants, permissions, splash, icônes
 ├── assets/                        # Logo officiel, icône, icône adaptative ; splash natif transparent
-│   └── guide/                     # Captures d'écran RÉELLES du guide (step-1 … step-5, JPEG)
+│   └── guide/                     # Captures d'écran RÉELLES optionnelles (step-1 … step-5, JPEG)
 ├── src/
 │   ├── screens/
 │   │   ├── SplashScreen.tsx       # Splash : logo officiel + « batibuild » + message de bienvenue
-│   │   ├── OnboardingScreen.tsx   # Guide 5 étapes (SLIDES) en carrousel, captures réelles + « Précédent » / « Suivant » / « Commencer »
+│   │   ├── OnboardingScreen.tsx   # Guide 5 étapes (SLIDES) : carrousel, illustrations vectorielles, « Passer » / « Précédent » / « Suivant » / « Commencer »
 │   │   └── WebViewScreen.tsx      # WebView batibuild (toutes les options)
 │   ├── components/
 │   │   ├── icons.ts               # Jeu d'icônes UNIQUE (lucide) : en-tête, guides, erreurs
 │   │   ├── Logo.tsx               # Logo officiel de la plateforme (tuile émeraude + casque blanc)
 │   │   ├── TopNav.tsx             # En-tête natif : logo + nom, Support, Paramètres (aucun menu)
 │   │   ├── BottomNav.tsx          # Barre de navigation inférieure fixe (5 sections)
-│   │   ├── GuideIllustrations.tsx # Bibliothèque de scènes SVG (non utilisée par le guide actuel)
+│   │   ├── GuideIllustrations.tsx # Scènes SVG dédiées : surcoûts, décision, matériaux, phases, annuaire…
 │   │   ├── GuidePlans.tsx         # Aperçus de plans 2D → coté → 3D (bibliothèque)
 │   │   └── guidePlans.ts          # Générateur de plans (portage du moteur de la plateforme)
 │   ├── download.ts                # Téléchargements natifs : URL http(s) ET PDF « blob: »

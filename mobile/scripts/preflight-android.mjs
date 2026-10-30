@@ -386,29 +386,27 @@ function checkAppShell() {
     ok("navigation du guide : Précédent, Suivant, Passer et bouton final");
   }
 
-  // ── Captures d'écran RÉELLES des 5 étapes (assets/guide) ────────────────
-  // Le guide n'utilise ni illustration générique ni maquette : chaque
-  // diapositive montre une capture de la plateforme, produite par
-  // `scripts/capture-guide-screenshots.mjs`. Quatre écrans sont derrière
-  // l'authentification (plans IA, aide à la décision, mise en relation,
-  // exécution & suivi) : leur capture exige un compte EXISTANT. Une capture
-  // manquante n'empêche pas de compiler (la diapositive affiche alors
-  // l'illustration de l'étape) — c'est donc un AVERTISSEMENT, jamais un échec.
-  const shotFiles = [
-    "step-1-couts-estimatifs.jpg",
-    "step-2-plans-architecturaux-ia.jpg",
-    "step-3-aide-a-la-decision.jpg",
-    "step-4-mise-en-relation.jpg",
-    "step-5-execution-suivi.jpg",
-  ];
-  const missingShots = shotFiles.filter((file) => sizeOf(join(root, "assets", "guide", file)) <= 0);
+  // ── Illustrations / captures d'écran du guide ───────────────────────────
+  // Le guide est illustré par des scènes VECTORIELLES dédiées (dessinées pour
+  // batibuild — aucune image générique). Une véritable capture d'écran ne
+  // s'affiche QUE si elle est explicitement référencée dans le composant via
+  // `require("../../assets/guide/…")` : on ne contrôle donc que les fichiers
+  // DÉJÀ référencés (un fichier présent mais inutilisé n'est pas un problème,
+  // et un fichier manquant casserait le build Metro).
+  const shotRefs = [...guide.matchAll(/require\("\.\.\/\.\.\/assets\/guide\/([^"]+)"\)/g)].map(
+    (match) => match[1],
+  );
+  const missingShots = shotRefs.filter((file) => sizeOf(join(root, "assets", "guide", file)) <= 0);
   if (missingShots.length) {
-    warn(
-      `captures du guide manquantes : ${missingShots.join(", ")} — ` +
-        "lancez « node scripts/capture-guide-screenshots.mjs --all » avec un compte existant",
+    fail(
+      "captures du guide",
+      `capture(s) référencée(s) mais absente(s) de assets/guide : ${missingShots.join(", ")} — ` +
+        "relancez « node scripts/capture-guide-screenshots.mjs » ou retirez le require",
     );
+  } else if (shotRefs.length) {
+    ok(`${shotRefs.length} capture(s) réelle(s) du guide référencée(s) et présente(s)`);
   } else {
-    ok("5 captures réelles du guide présentes (assets/guide)");
+    ok("guide illustré par des scènes vectorielles dédiées (aucune capture référencée)");
   }
 
   // ── Zoom DÉSACTIVÉ dans l'application, préservé sur le site Web ──────────

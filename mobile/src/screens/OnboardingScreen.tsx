@@ -1,10 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Animated,
   BackHandler,
-  Image,
-  type ImageSourcePropType,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -17,109 +14,98 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Logo } from "../components/Logo";
-import { BRAND_NAME, BRAND_TAGLINE } from "../config";
-import { GUIDE_ICONS, type LucideIcon } from "../components/icons";
-import { COLORS, useAppTheme } from "../theme";
+import { BRAND_NAME } from "../config";
+import { GUIDE_ICONS } from "../components/icons";
+import {
+  IllusDecision,
+  IllusOvercosts,
+  IllusPhases,
+  IllusProviders,
+  type IllusProps,
+} from "../components/GuideIllustrations";
+import { IllusPlanPreview } from "../components/GuidePlans";
+import { COLORS, themes } from "../theme";
 
 /**
  * GUIDE D'UTILISATION — les 5 étapes du parcours batibuild.
  *
- * Affiché une seule fois, au premier lancement de l'installation (voir
- * `storage.ts` — `onboardingCompleted`), et consultable ensuite depuis
- * « Voir le guide » dans les réglages natifs.
+ * Affiché une seule fois, au premier lancement (voir `storage.ts` —
+ * `onboardingCompleted`) et consultable depuis « Voir le guide » dans les
+ * réglages natifs.
  *
- * PRÉSENTATION : un vrai CARROUSEL d'une diapositive par écran, et non une
- * liste de cartes. Chaque diapositive affiche :
- *   · le numéro de l'étape (« 1 / 5 »),
- *   · le titre de la fonctionnalité et une explication courte en français,
- *   · une VÉRITABLE CAPTURE D'ÉCRAN de la plateforme (voir `SHOTS`),
- *   · un indicateur de progression sur cinq étapes.
+ * DESIGN : fond blanc, mise en page minimaliste, vert émeraude de marque.
+ *   · en-tête : logo officiel + « batibuild » à gauche, indicateur **n / 5**
+ *     à droite ;
+ *   · grande illustration vectorielle centrale dans un conteneur aux coins
+ *     arrondis (scènes dédiées, aucune image générique) ;
+ *   · titre gras, grande taille, centré ; description en gris, centrée ;
+ *   · pagination en bas (pastilles, l'étape active est verte et élargie) ;
+ *   · bouton **Suivant** vert, large, arrondi, légère ombre ; bouton **Passer**
+ *     à sa gauche, et **Précédent** dès la deuxième étape.
  *
- * Navigation : la barre de pied de page propose « Précédent » (désactivé sur la
- * première étape) et « Suivant » ; sur la cinquième étape, « Suivant » laisse
- * place au bouton final « Commencer », qui ouvre l'écran d'entrée réel de
- * l'application (WebView batibuild). « Passer » permet d'y aller directement.
- * Le changement d'étape ne recharge jamais l'application (défilement horizontal
- * natif, sans WebView).
+ * NAVIGATION : carrousel horizontal (glissement libre) — le changement d'étape
+ * ne recharge jamais l'application et ne peut pas dépasser la 5ᵉ étape. Sur la
+ * dernière étape, « Suivant » devient **« Commencer »** et ouvre l'écran
+ * d'entrée réel de l'application (WebView batibuild). Le bouton Retour Android
+ * revient à l'étape précédente, puis quitte le guide.
  *
- * ── Les captures ──────────────────────────────────────────────────────────
- * Aucune illustration générique ni maquette : ce sont des captures de
- * l'application réelle, produites par `mobile/scripts/capture-guide-screenshots.mjs`
- * au format exact de la WebView mobile (390 × 844 à 2×, JPEG compressé).
- * Quatre écrans (plans IA, aide à la décision, mise en relation, exécution &
- * suivi) sont derrière l'authentification : tant que leur capture n'a pas été
- * produite avec un compte réel, la diapositive affiche l'illustration de
- * l'étape — jamais une fausse capture.
+ * AUCUN ÉLÉMENT EXISTANT N'EST MODIFIÉ : ni routes, ni authentification, ni
+ * Convex, ni autres modules de la plateforme — uniquement le visuel de ce
+ * guide. Les zones système (encoche, barre de gestes) sont gérées par
+ * `useSafeAreaInsets`, et la mise en page est fluide de 320 à 428 px.
  *
- * Aucune fonctionnalité n'est décrite comme disponible pour tous : les étapes
- * dépendant des droits du compte le précisent explicitement.
- *
- * PÉRIMÈTRE : mobile uniquement — la plateforme Web et le backend ne sont pas
- * concernés.
+ * PÉRIMÈTRE : mobile uniquement.
  */
 
 type Slide = {
-  /** Identifiant stable de l'étape (clé de liste, nom de capture, tests). */
+  /** Identifiant stable de l'étape (clé de liste et tests automatisés). */
   key: string;
   title: string;
   text: string;
-  /** Ce que montre réellement l'écran (affiché à défaut de capture). */
-  preview: string;
-  /** Icône de l'étape (même famille lucide que le reste de la coque). */
-  Icon: LucideIcon;
+  /** Illustration vectorielle dédiée de l'étape (dessin de la plateforme). */
+  Illustration: React.ComponentType<IllusProps>;
+  /** Description parlée de l'illustration (lecteur d'écran). */
+  alt: string;
 };
 
 /** Les 5 étapes, dans l'ordre du parcours utilisateur. */
 const SLIDES: Slide[] = [
   {
     key: "cost",
-    title: "Coûts estimatifs",
-    text: "Créez votre projet — construction ou rénovation — avec sa surface et sa région. L'IA calcule les quantités, applique les prix du marché tunisien et affiche le coût total en dinars.",
-    preview: "Type de projet · Surface · Catégories de travaux · Coût total en TND",
-    Icon: GUIDE_ICONS.wallet,
+    title: "Évitez les surcoûts",
+    text: "Estimez précisément votre budget de construction grâce à l'IA et anticipez vos dépenses avant de commencer les travaux.",
+    Illustration: IllusOvercosts,
+    alt: "Plan architectural avec surfaces, matériaux et quantités détectés par l'IA",
   },
   {
     key: "plans",
-    title: "Plans architecturaux IA",
-    text: "Générez des propositions de plans architecturaux assistées par l'intelligence artificielle : pièces, cloisons, portes et fenêtres en 2D, et vues 3D lorsque le type de projet le permet.",
-    preview: "Plans 2D · Vues 3D · Pièces, cloisons et dimensions",
-    Icon: GUIDE_ICONS.building,
+    title: "Imaginez votre future maison",
+    text: "Générez des plans architecturaux intelligents adaptés à vos besoins, à votre terrain et à votre budget.",
+    Illustration: IllusPlanPreview,
+    alt: "Plan architectural en 2D qui se transforme en vue 3D",
   },
   {
     key: "decision",
-    title: "Aide à la décision",
-    text: "Comparez le coût estimé à votre budget disponible, testez le scénario de construction adapté et lisez les résultats de l'analyse avant de vous engager.",
-    preview: "Budget disponible · Scénario de construction · Résultats de l'analyse",
-    Icon: GUIDE_ICONS.chartLine,
+    title: "Prenez les bonnes décisions",
+    text: "L'intelligence artificielle analyse votre projet et vous aide à choisir les meilleures solutions pour maîtriser votre investissement.",
+    Illustration: IllusDecision,
+    alt: "Tableau de bord : budget disponible, coût estimé, écart et analyse IA",
   },
   {
     key: "providers",
-    title: "Mise en relation",
-    text: "Recherchez des experts et des fournisseurs du bâtiment par spécialité et par région, consultez leurs profils et contactez-les, selon les droits d'accès de votre compte.",
-    preview: "Profils · Spécialités · Filtres de recherche · Contact",
-    Icon: GUIDE_ICONS.users,
+    title: "Trouvez les bons professionnels",
+    text: "Accédez à un réseau de professionnels du bâtiment et trouvez les partenaires adaptés à votre projet.",
+    Illustration: IllusProviders,
+    alt: "Réseau de professionnels : architectes, ingénieurs, entrepreneurs et fournisseurs",
   },
   {
     key: "execution",
-    title: "Exécution & suivi",
-    text: "Accompagnez le chantier jusqu'à sa réalisation : avancement des travaux par catégorie, coûts engagés et étapes déjà réalisées.",
-    preview: "Avancement · Catégories de travaux · Suivi des coûts",
-    Icon: GUIDE_ICONS.hardHat,
+    title: "Suivez votre chantier en toute sérénité",
+    text: "Organisez, suivez et contrôlez l'avancement de vos travaux depuis une seule plateforme.",
+    Illustration: IllusPhases,
+    alt: "Chantier avec phases, jalons et indicateurs d'avancement",
   },
 ];
-
-/**
- * CAPTURES RÉELLES des écrans, une par étape.
- *
- * Fichiers produits par `mobile/scripts/capture-guide-screenshots.mjs` dans
- * `assets/guide/` — aucune image générique, aucune maquette. Une étape sans
- * fichier n'affiche pas de fausse capture : elle affiche l'illustration de
- * l'étape (`preview`). Pour activer une capture, il suffit d'ajouter sa ligne
- * ici après avoir lancé le script (`--all` avec un compte existant).
- */
-const SHOTS: Partial<Record<string, ImageSourcePropType>> = {
-  cost: require("../../assets/guide/step-1-couts-estimatifs.jpg"),
-};
 
 type Props = {
   onDone: () => void;
@@ -127,8 +113,17 @@ type Props = {
 
 export default function OnboardingScreen({ onDone }: Props) {
   const insets = useSafeAreaInsets();
-  const theme = useAppTheme();
   const { width } = useWindowDimensions();
+
+  // Guide TOUJOURS en clair (fond blanc), quel que soit le thème système :
+  // c'est l'écran de marque, identique à la charte de référence.
+  const c = themes.light;
+  /** Vert émeraude de marque (accents : compteur, pastilles, bouton). */
+  const brand = COLORS.brand;
+  /** Gris de texte secondaire (descriptions). */
+  const gray = COLORS.muted;
+  /** Filet clair (pastilles inactives, séparateurs). */
+  const line = COLORS.line;
 
   // ── Étape courante ──────────────────────────────────────────────────────
   const [active, setActive] = useState(0);
@@ -137,8 +132,6 @@ export default function OnboardingScreen({ onDone }: Props) {
 
   const pagerRef = useRef<ScrollView>(null);
 
-  // Déplacement demandé par les boutons : on laisse le défilement natif faire
-  // l'animation, puis `onMomentumScrollEnd` confirme l'étape réellement visible.
   const goTo = useCallback(
     (index: number) => {
       const target = Math.min(Math.max(index, 0), SLIDES.length - 1);
@@ -157,15 +150,7 @@ export default function OnboardingScreen({ onDone }: Props) {
     [width],
   );
 
-  // ── Chargement discret des captures (jamais de cadre blanc) ─────────────
-  const [loadedShots, setLoadedShots] = useState<Record<string, boolean>>({});
-  const markShot = useCallback((key: string, done: boolean) => {
-    setLoadedShots((current) =>
-      current[key] === done ? current : { ...current, [key]: done },
-    );
-  }, []);
-
-  // ── Apparition douce du guide (fondu + léger glissement) ─────────────────
+  // ── Apparition douce (fondu + léger glissement) ──────────────────────────
   const enter = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const anim = Animated.timing(enter, { toValue: 1, duration: 360, useNativeDriver: true });
@@ -173,8 +158,7 @@ export default function OnboardingScreen({ onDone }: Props) {
     return () => anim.stop();
   }, [enter]);
 
-  // Bouton Retour Android : recule d'une étape si possible, sinon quitte le
-  // guide vers l'application (jamais de fermeture brutale de l'application).
+  // Bouton Retour Android : recule d'une étape, puis quitte le guide.
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
       if (active > 0) {
@@ -187,24 +171,27 @@ export default function OnboardingScreen({ onDone }: Props) {
     return () => sub.remove();
   }, [active, goTo, onDone]);
 
+  // Largeur de l'illustration : pleine largeur, bornée pour rester lisible
+  // sur tablette, centrée dans la colonne.
+  const illusW = Math.max(240, Math.min(width - 40, 420));
+
   return (
-    <View style={[styles.root, { backgroundColor: theme.surface, paddingTop: insets.top }]}>
-      {/* ── En-tête : identité batibuild + sortie immédiate ── */}
+    <View style={[styles.root, { backgroundColor: c.surface, paddingTop: insets.top }]}>
+      {/* ── En-tête : logo + nom à gauche, indicateur « n / 5 » à droite ── */}
       <View style={styles.topBar}>
         <View style={styles.brandWrap}>
           <Logo size={26} radiusRatio={0.28} />
-          <Text style={[styles.brandName, { color: theme.onSurface }]}>{BRAND_NAME}</Text>
+          <Text style={[styles.brandName, { color: c.onSurface }]}>{BRAND_NAME}</Text>
         </View>
 
-        <Pressable
-          onPress={onDone}
-          accessibilityRole="button"
-          accessibilityLabel="Passer le guide et ouvrir l'application"
-          hitSlop={10}
-          style={({ pressed }) => [styles.skipTop, pressed && { opacity: 0.55 }]}
+        <View
+          style={styles.stepCounter}
+          accessibilityRole="text"
+          accessibilityLabel={`Étape ${active + 1} sur ${SLIDES.length}`}
         >
-          <Text style={[styles.skipTopText, { color: theme.onSurfaceVariant }]}>Passer</Text>
-        </Pressable>
+          <Text style={styles.stepCounterValue}>{active + 1}</Text>
+          <Text style={styles.stepCounterTotal}> / {SLIDES.length}</Text>
+        </View>
       </View>
 
       {/* ── Carrousel : une diapositive par étape ── */}
@@ -228,85 +215,31 @@ export default function OnboardingScreen({ onDone }: Props) {
           keyboardShouldPersistTaps="handled"
         >
           {SLIDES.map((slide, index) => {
-            const SlideIcon = slide.Icon;
-            const shot = SHOTS[slide.key];
-            const shotLoaded = Boolean(loadedShots[slide.key]);
+            const SlideIllus = slide.Illustration;
             return (
               <View key={slide.key} style={{ width }}>
                 <ScrollView
                   contentContainerStyle={styles.slideContent}
                   showsVerticalScrollIndicator={false}
                 >
-                  {/* Numéro de l'étape + icône */}
-                  <View style={styles.slideHead}>
-                    <View style={[styles.stepBadge, { backgroundColor: theme.primaryContainer }]}>
-                      <Text style={[styles.stepBadgeText, { color: theme.onPrimaryContainer }]}>
-                        {index + 1} / {SLIDES.length}
-                      </Text>
-                    </View>
-                    <View style={[styles.iconTile, { backgroundColor: theme.primaryContainer }]}>
-                      <SlideIcon size={16} color={theme.onPrimaryContainer} strokeWidth={2.3} />
-                    </View>
+                  {/* Grande illustration centrale (conteneur arrondi) */}
+                  <View
+                    style={styles.illusWrap}
+                    accessible
+                    accessibilityRole="image"
+                    accessibilityLabel={slide.alt}
+                  >
+                    <SlideIllus width={illusW} theme={c} />
                   </View>
 
+                  {/* Titre + description */}
                   <Text
-                    style={[styles.title, { color: theme.onSurface }]}
+                    style={[styles.title, { color: c.onSurface }]}
                     accessibilityRole="header"
                   >
                     {slide.title}
                   </Text>
-                  <Text style={[styles.text, { color: theme.onSurfaceVariant }]}>{slide.text}</Text>
-
-                  {/* ── Capture réelle de l'écran (ou illustration de l'étape) ── */}
-                  <View
-                    style={[
-                      styles.shotFrame,
-                      {
-                        backgroundColor: theme.surfaceContainer,
-                        borderColor: theme.outlineVariant,
-                      },
-                    ]}
-                    accessible
-                    accessibilityRole="image"
-                    accessibilityLabel={
-                      shot
-                        ? `Capture d'écran de l'application : ${slide.title}`
-                        : `Illustration de l'étape ${slide.title}`
-                    }
-                  >
-                    {shot ? (
-                      <>
-                        <Image
-                          source={shot}
-                          style={styles.shot}
-                          resizeMode="cover"
-                          onLoadStart={() => markShot(slide.key, false)}
-                          onLoadEnd={() => markShot(slide.key, true)}
-                          onError={() => markShot(slide.key, true)}
-                        />
-                        {!shotLoaded && (
-                          <View style={styles.shotLoading} pointerEvents="none">
-                            <ActivityIndicator size="small" color={theme.primary} />
-                          </View>
-                        )}
-                      </>
-                    ) : (
-                      <View style={[styles.shotFallback, { backgroundColor: theme.primaryContainer }]}>
-                        <SlideIcon
-                          size={38}
-                          color={theme.onPrimaryContainer}
-                          strokeWidth={1.7}
-                        />
-                        <Text style={[styles.shotFallbackText, { color: theme.onPrimaryContainer }]}>
-                          {slide.preview}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-
-                  <Text style={[styles.hint, { color: theme.onSurfaceVariant }]}>
-                    Vous pourrez revoir ce guide depuis les réglages de l'application.
-                  </Text>
+                  <Text style={[styles.text, { color: gray }]}>{slide.text}</Text>
                 </ScrollView>
               </View>
             );
@@ -314,85 +247,82 @@ export default function OnboardingScreen({ onDone }: Props) {
         </ScrollView>
       </Animated.View>
 
-      {/* ── Navigation : Précédent / Suivant, puis bouton final ── */}
+      {/* ── Pagination + actions ── */}
       <View
         style={[
           styles.footer,
           {
             paddingBottom: Math.max(insets.bottom, 14),
-            backgroundColor: theme.surface,
-            borderTopColor: theme.outlineVariant,
+            backgroundColor: c.surface,
+            borderTopColor: line,
           },
         ]}
       >
-        <View style={styles.progressRow}>
-          <Text style={[styles.progressText, { color: theme.onSurfaceVariant }]}>
-            Étape {active + 1} sur {SLIDES.length}
-          </Text>
-          <View style={styles.dots}>
-            {SLIDES.map((slide, index) => (
+        {/* Pagination : pastille verte élargie sur l'étape active */}
+        <View
+          style={styles.dots}
+          accessibilityRole="progressbar"
+          accessibilityValue={{ min: 1, max: SLIDES.length, now: active + 1 }}
+        >
+          {SLIDES.map((slide, index) => (
+            <Pressable
+              key={slide.key}
+              onPress={() => goTo(index)}
+              accessibilityRole="button"
+              accessibilityLabel={`Aller à l'étape ${index + 1}`}
+              hitSlop={6}
+              style={styles.dotHit}
+            >
               <View
-                key={slide.key}
                 style={[
                   styles.dot,
                   index === active
-                    ? { width: 18, backgroundColor: theme.primary }
-                    : { backgroundColor: theme.outlineVariant },
+                    ? { width: 22, backgroundColor: brand }
+                    : { backgroundColor: line },
                 ]}
               />
-            ))}
-          </View>
+            </Pressable>
+          ))}
         </View>
 
-        <View style={styles.navRow}>
+        <View style={styles.actions}>
           <Pressable
-            onPress={() => goTo(active - 1)}
-            disabled={isFirst}
+            onPress={onDone}
             accessibilityRole="button"
-            accessibilityLabel="Précédent"
-            accessibilityState={{ disabled: isFirst }}
-            style={({ pressed }) => [
-              styles.navButton,
-              styles.navSecondary,
-              { borderColor: theme.outlineVariant },
-              isFirst && styles.navDisabled,
-              pressed && !isFirst && { opacity: 0.7 },
-            ]}
+            accessibilityLabel="Passer le guide et ouvrir l'application"
+            hitSlop={6}
+            style={({ pressed }) => [styles.ghostText, pressed && { opacity: 0.55 }]}
           >
-            <Text style={[styles.navSecondaryText, { color: theme.onSurface }]}>Précédent</Text>
+            <Text style={[styles.ghostTextValue, { color: gray }]}>Passer</Text>
           </Pressable>
 
-          {isLast ? (
+          {!isFirst && (
             <Pressable
-              onPress={onDone}
+              onPress={() => goTo(active - 1)}
               accessibilityRole="button"
-              accessibilityLabel="Commencer et accéder à batibuild"
+              accessibilityLabel="Précédent"
               style={({ pressed }) => [
-                styles.navButton,
-                styles.navPrimary,
-                { backgroundColor: theme.primary },
-                pressed && { opacity: 0.9 },
+                styles.ghostButton,
+                { borderColor: line },
+                pressed && { opacity: 0.6 },
               ]}
             >
-              <Text style={[styles.navPrimaryText, { color: theme.onPrimary }]}>Commencer</Text>
-              <GUIDE_ICONS.arrowRight size={17} color={theme.onPrimary} strokeWidth={2.4} />
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={() => goTo(active + 1)}
-              accessibilityRole="button"
-              accessibilityLabel="Suivant"
-              style={({ pressed }) => [
-                styles.navButton,
-                styles.navPrimary,
-                { backgroundColor: theme.primary },
-                pressed && { opacity: 0.9 },
-              ]}
-            >
-              <Text style={[styles.navPrimaryText, { color: theme.onPrimary }]}>Suivant</Text>
-              <GUIDE_ICONS.arrowRight size={17} color={theme.onPrimary} strokeWidth={2.4} />
+              <Text style={[styles.ghostButtonValue, { color: c.onSurface }]}>Précédent</Text>
             </Pressable>
           )}
+
+          <Pressable
+            onPress={isLast ? onDone : () => goTo(active + 1)}
+            accessibilityRole="button"
+            accessibilityLabel={isLast ? "Commencer et accéder à batibuild" : "Suivant"}
+            style={({ pressed }) => [
+              styles.primary,
+              pressed && { opacity: 0.92, transform: [{ translateY: 1 }] },
+            ]}
+          >
+            <Text style={styles.primaryValue}>{isLast ? "Commencer" : "Suivant"}</Text>
+            <GUIDE_ICONS.arrowRight size={18} color="#FFFFFF" strokeWidth={2.6} />
+          </Pressable>
         </View>
       </View>
     </View>
@@ -402,7 +332,6 @@ export default function OnboardingScreen({ onDone }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: COLORS.surface,
   },
   topBar: {
     flexDirection: "row",
@@ -410,201 +339,149 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 6,
+    paddingBottom: 4,
     gap: 10,
   },
   brandWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 9,
     flexShrink: 1,
     minWidth: 0,
   },
   brandName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "800",
     letterSpacing: 0.2,
   },
-  skipTop: {
-    paddingVertical: 6,
-    paddingHorizontal: 2,
-    minHeight: 44,
-    justifyContent: "center",
+  stepCounter: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "flex-end",
+    minWidth: 56,
   },
-  skipTopText: {
-    fontSize: 13.5,
+  stepCounterValue: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: COLORS.brand,
+    letterSpacing: 0.4,
+  },
+  stepCounterTotal: {
+    fontSize: 14,
     fontWeight: "700",
+    color: COLORS.muted,
+    letterSpacing: 0.4,
   },
   stage: {
     flex: 1,
   },
   slideContent: {
     flexGrow: 1,
+    alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 6,
-    paddingBottom: 14,
+    paddingTop: 10,
+    paddingBottom: 18,
   },
-  slideHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  stepBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-    flexShrink: 0,
-  },
-  stepBadgeText: {
-    fontSize: 11.5,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-  },
-  iconTile: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
+  illusWrap: {
+    borderRadius: 26,
+    backgroundColor: "#FFFFFF",
+    shadowColor: COLORS.brand,
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
   },
   title: {
-    marginTop: 10,
-    fontSize: 23,
+    marginTop: 26,
+    maxWidth: 330,
+    fontSize: 27,
+    lineHeight: 33,
     fontWeight: "800",
-    lineHeight: 29,
-    letterSpacing: -0.3,
-    flexShrink: 1,
+    textAlign: "center",
+    letterSpacing: -0.4,
   },
   text: {
-    marginTop: 7,
-    fontSize: 13.5,
-    lineHeight: 19.5,
-  },
-  shotFrame: {
-    marginTop: 14,
-    flex: 1,
-    minHeight: 240,
-    borderRadius: 18,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  shot: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: "100%",
-    height: "100%",
-  },
-  shotLoading: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  shotFallback: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    paddingHorizontal: 22,
-  },
-  shotFallbackText: {
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: "600",
-    textAlign: "center",
-    opacity: 0.85,
-  },
-  hint: {
-    marginTop: 10,
-    fontSize: 11.5,
-    lineHeight: 16,
+    marginTop: 12,
+    maxWidth: 340,
+    fontSize: 14.5,
+    lineHeight: 21.5,
     textAlign: "center",
   },
   footer: {
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 20,
-    paddingTop: 10,
-    gap: 10,
-  },
-  progressRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  progressText: {
-    fontSize: 11.5,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-    flexShrink: 1,
-    minWidth: 0,
+    paddingTop: 12,
+    gap: 12,
   },
   dots: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    flexShrink: 0,
+    justifyContent: "center",
+    gap: 7,
+    minHeight: 24,
+  },
+  dotHit: {
+    paddingVertical: 6,
+    paddingHorizontal: 3,
+    justifyContent: "center",
+    alignItems: "center",
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
   },
-  navRow: {
+  actions: {
     flexDirection: "row",
-    alignItems: "stretch",
+    alignItems: "center",
     flexWrap: "wrap",
     gap: 10,
   },
-  navButton: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 48,
-    borderRadius: 14,
+  ghostText: {
+    minHeight: 54,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  ghostTextValue: {
+    fontSize: 15.5,
+    fontWeight: "700",
+  },
+  ghostButton: {
+    minHeight: 54,
+    paddingHorizontal: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  ghostButtonValue: {
+    fontSize: 15.5,
+    fontWeight: "700",
+  },
+  primary: {
+    flexGrow: 1,
+    flexBasis: 132,
+    minHeight: 54,
     flexDirection: "row",
     flexWrap: "wrap",
-    alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  navPrimary: {
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    backgroundColor: COLORS.brand,
     shadowColor: COLORS.brand,
-    shadowOpacity: 0.28,
-    shadowRadius: 10,
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 5,
+    elevation: 6,
   },
-  navPrimaryText: {
-    fontSize: 15,
+  primaryValue: {
+    fontSize: 16,
     lineHeight: 20,
     fontWeight: "800",
+    color: "#FFFFFF",
     textAlign: "center",
-  },
-  navSecondary: {
-    borderWidth: 1,
-    backgroundColor: "transparent",
-  },
-  navSecondaryText: {
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  navDisabled: {
-    opacity: 0.45,
   },
 });

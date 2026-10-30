@@ -30,8 +30,8 @@ import type { AppTheme } from "../theme";
  *   5. 500+ matériaux + courbe des prix        → « Suivez l'évolution des prix »
  *   6. Annuaire vérifié + carte des régions    → « Trouvez les bons prestataires »
  *   7. Marque + piliers de la plateforme       → « Bienvenue sur batibuild »
- *   8. Formulaire type / région / surface      → « Créer un projet »
- *   9. Rapport PDF + accès Pro                 → « Rapports PDF & abonnement Pro »
+ *   8. Formulaire type / région / surface      → « Créer un projet » *   9. Rapport PDF + accès Pro         → « Rapports PDF & abonnement Pro »
+ *  10. Tableau de bord budgétaire      → « Prenez les bonnes décisions »
  *
  * Elles suivent le thème natif (clair / sombre / système) sans jamais toucher
  * au thème de la plateforme Web, et n'effectuent aucun appel réseau.
@@ -1323,6 +1323,117 @@ export function IllusReports({ width, theme }: IllusProps) {
 
       <Circle cx={232} cy={180} r={20} fill={p.brand} />
       <Rect x={204} y={12} width={54} height={24} rx={12} fill={p.amberSoft} stroke={p.amber} />
+    </Scene>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Aide à la décision — tableau de bord budgétaire                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Tableau de bord de l'Aide à la décision : budget disponible vs coût estimé,
+ * anneau d'analyse, écart et scénario retenu — exactement les indicateurs de
+ * la page d'analyse de la plateforme (`/dashboard/decision/<id>`).
+ */
+export function IllusDecision({ width, theme }: IllusProps) {
+  const p = theme.dark ? DARK : LIGHT;
+  const s = width / VIEW_W;
+
+  return (
+    <Scene
+      width={width}
+      id="gdec"
+      p={p}
+      labels={
+        <>
+          {/* ── Carte gauche : budget vs coût estimé ── */}
+          <Box s={s} x={32} y={42} w={158} h={12} align="flex-start">
+            <Lbl s={s} size={7.5} color={p.muted} weight="700" spacing={0.9}>
+              BUDGET DISPONIBLE
+            </Lbl>
+          </Box>
+          <Box s={s} x={32} y={58} w={158} h={22} align="flex-start">
+            <Lbl s={s} size={15} color={p.ink} weight="800">
+              120 000 TND
+            </Lbl>
+          </Box>
+
+          <Box s={s} x={32} y={84} w={50} h={12} align="flex-start">
+            <Lbl s={s} size={7.5} color={p.muted} weight="600">
+              Budget
+            </Lbl>
+          </Box>
+          <Box s={s} x={32} y={106} w={50} h={12} align="flex-start">
+            <Lbl s={s} size={7.5} color={p.muted} weight="600">
+              Estimé
+            </Lbl>
+          </Box>
+
+          <Box s={s} x={44} y={126} w={104} h={22} row gap={5}>
+            <Icon s={s} size={11} color={p.brandDeep} name="circleCheck" />
+            <Lbl s={s} size={7.5} color={p.brandDeep} weight="800">
+              Écart : -5 500 TND
+            </Lbl>
+          </Box>
+
+          {/* ── Carte droite : analyse IA ── */}
+          <Box s={s} x={214} y={64} w={88} h={24}>
+            <Lbl s={s} size={14} color={p.brandDeep} weight="800">
+              78%
+            </Lbl>
+          </Box>
+          <Box s={s} x={214} y={114} w={88} h={16}>
+            <Lbl s={s} size={9.5} color={p.brandDeep} weight="800">
+              Cohérent
+            </Lbl>
+          </Box>
+          <Box s={s} x={214} y={134} w={88} h={14}>
+            <Lbl s={s} size={7.5} color={p.muted} weight="600">
+              Scénario Standard
+            </Lbl>
+          </Box>
+
+          {/* ── Bandeau bas : lecture de l'analyse ── */}
+          <Box s={s} x={34} y={188} w={252} h={40} row gap={7} align="flex-start">
+            <Icon s={s} size={13} color={p.brand} name="chartLine" />
+            <Lbl s={s} size={8.5} color={p.ink} weight="600">
+              IA : budget, coût estimé et écart comparés
+            </Lbl>
+          </Box>
+        </>
+      }
+    >
+      <Circle cx={300} cy={214} r={72} fill={p.indigoSoft} opacity={0.35} />
+      <Circle cx={22} cy={26} r={54} fill={p.brandSoft} opacity={0.45} />
+
+      {/* Carte gauche : budget vs coût */}
+      <Rect x={18} y={28} width={186} height={140} rx={16} fill={p.panel} stroke={p.line} />
+      <Rect x={18} y={28} width={186} height={6} rx={3} fill={p.brandSoft} />
+
+      {/* Barre budgétaire (100 %) */}
+      <Rect x={86} y={86} width={104} height={8} rx={4} fill={p.brandSoft} />
+      <Rect x={86} y={86} width={104} height={8} rx={4} fill={p.brand} />
+      {/* Barre du coût estimé (92 % du budget) */}
+      <Rect x={86} y={108} width={104} height={8} rx={4} fill={p.brandSoft} />
+      <Rect x={86} y={108} width={96} height={8} rx={4} fill={p.brand} />
+
+      {/* Pastille d'écart */}
+      <Rect x={32} y={126} width={116} height={22} rx={11} fill={p.brandSoft} stroke={p.brandLine} />
+
+      {/* Carte droite : anneau d'analyse IA */}
+      <Rect x={214} y={28} width={88} height={140} rx={16} fill={p.panelAlt} stroke={p.line} />
+      <Circle cx={258} cy={76} r={30} fill="none" stroke={p.line} strokeWidth={9} />
+      <Path
+        d="M 258 46 A 30 30 0 1 1 228.5 70.4"
+        fill="none"
+        stroke={p.brand}
+        strokeWidth={9}
+        strokeLinecap="round"
+      />
+
+      {/* Bandeau bas */}
+      <Rect x={18} y={188} width={284} height={40} rx={16} fill={p.brandSoft} opacity={0.55} />
     </Scene>
   );
 }
