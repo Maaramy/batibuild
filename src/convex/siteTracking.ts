@@ -205,6 +205,25 @@ async function accessFor(ctx: QueryCtx | MutationCtx, user: Doc<"users"> | null)
 
   const now = Date.now();
   if (cotisation.status === "pending") {
+    // Renouvellement anticipé : une demande en attente ne ferme JAMAIS un accès
+    // déjà payé jusqu'à son échéance.
+    const history = await ctx.db
+      .query("siteCotisations")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    const current = history.find(
+      (row) => row.status === "active" && row._id !== cotisation._id && (row.endDate ?? 0) > now,
+    );
+    if (current) {
+      return {
+        ...base,
+        allowed: true,
+        reason: "ok",
+        status: "active",
+        endDate: current.endDate ?? null,
+        daysRemaining: Math.max(0, Math.ceil(((current.endDate ?? now) - now) / DAY)),
+      };
+    }
     return { ...base, allowed: false, reason: "pending", status: "pending", endDate: null, daysRemaining: 0 };
   }
   if (cotisation.status === "refused") {
@@ -301,8 +320,12 @@ export const requestSiteCotisation = mutation({
         "Une demande de cotisation est déjà en attente. Joignez votre justificatif ou patientez.",
       );
     }
-    if (existing?.status === "active" && (existing.endDate ?? 0) > now) {
-      throw new Error("Votre cotisation est déjà active : le renouvellement sera possible à l'échéance.");
+    // Le renouvellement est ouvert 7 jours avant l'échéance : la nouvelle
+    // période s'ajoute alors à celle qui court encore.
+    if (existing?.status === "active" && (existing.endDate ?? 0) > now + 7 * DAY) {
+      throw new Error(
+        "Votre cotisation est déjà active : le renouvellement sera possible 7 jours avant l'échéance.",
+      );
     }
 
     const orderId = await ctx.db.insert("siteCotisations", {
@@ -819,12 +842,22 @@ export const listSites = query({
         .query("siteMaterials")
         .withIndex("by_site", (q) => q.eq("siteId", site._id))
         .collect();
+      // Un intervenant ne reçoit les montants que s'il possède la permission
+      // « budget » : la liste ne doit jamais contourner le filtrage de `getSite`.
+      const link = links.find((row) => row.siteId === site._id);
+      const canSeeBudget =
+        site.userId === user._id || (link ? link.permissions.includes("budget") : false);
+      // Sans permission « budget », ni le résumé ni les montants du chantier
+      // ne quittent le serveur.
+      const visibleSite = canSeeBudget
+        ? site
+        : (({ budgetInitial, budgetRevised, ...rest }) => rest)(site);
       rows.push({
-        ...site,
+        ...visibleSite,
         isOwner: site.userId === user._id,
         progress: weightedProgress(tasks),
         taskCount: tasks.length,
-        budget: summarizeBudget(site, expenses, materials),
+        budget: canSeeBudget ? summarizeBudget(site, expenses, materials) : null,
       });
     }
     rows.sort((a, b) => b.createdAt - a.createdAt);
@@ -969,6 +1002,41 @@ export const getSite = query({
       risk,
       moduleAccess: access,
     };
+  },
+});
+
+/**
+ * Porte d'entrée d'un chantier : dit à l'interface si la page peut s'ouvrir.
+ * Un intervenant autorisé entre SANS cotisation (c'est le responsable qui
+ * paie) ; un responsable sans cotisation voit l'écran de souscription.
+ * Aucun identifiant d'un chantier étranger ne fuit : `canOpen` est faux.
+ */
+export const getSiteEntry = query({
+  args: { siteId: v.id("siteProjects") },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user)
+      return { canOpen: false, isOwner: false, needsCotisation: false, moduleDisabled: false };
+    try {
+      const context = await loadSite(ctx, user, args.siteId);
+      const access = await accessFor(ctx, user);
+      if (context.isOwner && !access.allowed) {
+        return {
+          canOpen: false,
+          isOwner: true,
+          needsCotisation: access.reason !== "module_disabled",
+          moduleDisabled: access.reason === "module_disabled",
+        };
+      }
+      return {
+        canOpen: true,
+        isOwner: context.isOwner,
+        needsCotisation: false,
+        moduleDisabled: false,
+      };
+    } catch {
+      return { canOpen: false, isOwner: false, needsCotisation: false, moduleDisabled: false };
+    }
   },
 });
 
@@ -1915,8 +1983,18 @@ export const adminApproveSiteCotisation = mutation({
     }
 
     const now = Date.now();
-    const start = now;
-    const end = now + row.durationDays * DAY;
+    // Renouvellement anticipé : la nouvelle période s'ajoute à celle qui court
+    // encore, elle ne la remplace pas (aucun jour payé n'est perdu). On exclut
+    // la demande en cours de validation de cette recherche.
+    const history = await ctx.db
+      .query("siteCotisations")
+      .withIndex("by_user", (q) => q.eq("userId", row.userId))
+      .collect();
+    const currentEnd = history
+      .filter((item) => item._id !== args.cotisationId && item.status === "active")
+      .reduce((max, item) => Math.max(max, item.endDate ?? 0), 0);
+    const start = currentEnd > now ? currentEnd : now;
+    const end = start + row.durationDays * DAY;
     await ctx.db.patch(args.cotisationId, {
       status: "active",
       startDate: start,

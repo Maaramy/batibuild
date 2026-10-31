@@ -64,15 +64,27 @@ const RENOVATION: PhaseTemplate[] = [
   { key: "reception", label: "Réception finale", weight: 5, dependsOn: "finitions" },
 ];
 
-/** Lots techniques seuls (électricité / plomberie complètes). */
-const TECHNICAL: PhaseTemplate[] = [
-  { key: "installation", label: "Installation du chantier", weight: 8, dependsOn: null },
-  { key: "preparation", label: "Préparation et dépose", weight: 15, dependsOn: "installation" },
-  { key: "reseaux", label: "Réseaux et canalisations", weight: 35, dependsOn: "preparation" },
-  { key: "equipements", label: "Pose des équipements", weight: 27, dependsOn: "reseaux" },
-  { key: "essais", label: "Essais et mise en service", weight: 10, dependsOn: "equipements" },
-  { key: "reception", label: "Réception finale", weight: 5, dependsOn: "essais" },
-];
+/**
+ * Lots techniques seuls (électricité / plomberie complètes). Les clés de phase
+ * restent communes aux deux métiers — seuls les intitulés changent — afin que
+ * les rapports et les dépendances gardent la même structure.
+ */
+function technicalPhases(metier: "electricite" | "plomberie"): PhaseTemplate[] {
+  const reseaux =
+    metier === "electricite" ? "Passage des gaines et câblage" : "Réseaux d'eau et évacuations";
+  const equipements =
+    metier === "electricite"
+      ? "Pose des appareillages et tableaux"
+      : "Pose des sanitaires et robinetterie";
+  return [
+    { key: "installation", label: "Installation du chantier", weight: 8, dependsOn: null },
+    { key: "preparation", label: "Préparation et dépose", weight: 15, dependsOn: "installation" },
+    { key: "reseaux", label: reseaux, weight: 35, dependsOn: "preparation" },
+    { key: "equipements", label: equipements, weight: 27, dependsOn: "reseaux" },
+    { key: "essais", label: "Essais et mise en service", weight: 10, dependsOn: "equipements" },
+    { key: "reception", label: "Réception finale", weight: 5, dependsOn: "essais" },
+  ];
+}
 
 /** Piscine : ouvrage extérieur, pas de gros œuvre de bâtiment. */
 const POOL: PhaseTemplate[] = [
@@ -119,7 +131,8 @@ export function phasesForProjectType(type: string | null | undefined): PhaseTemp
   if (RESIDENTIAL_TYPES.includes(key)) return RESIDENTIAL;
   if (COMMERCIAL_TYPES.includes(key)) return commercialPhases();
   if (RENOVATION_TYPES.includes(key)) return RENOVATION;
-  if (key === "electricite_complete" || key === "plomberie_complete") return TECHNICAL;
+  if (key === "electricite_complete") return technicalPhases("electricite");
+  if (key === "plomberie_complete") return technicalPhases("plomberie");
   if (key === "piscine") return POOL;
   return RESIDENTIAL;
 }
@@ -722,7 +735,10 @@ export function analyzeSiteRisk(input: SiteRiskInput): RiskProjection {
 // ============================================================================
 
 export const formatTND = (value: number | null | undefined): string => {
-  const amount = Math.round(Number(value) || 0);
+  // Une valeur absente n'est PAS un zéro : l'interface affiche « — » plutôt
+  // qu'un montant faux (permission non accordée, donnée non saisie).
+  if (value == null || !Number.isFinite(Number(value))) return "—";
+  const amount = Math.round(Number(value));
   const sign = amount < 0 ? "-" : "";
   const digits = Math.abs(amount).toString();
   let out = "";
@@ -751,7 +767,13 @@ export const addDays = (timestamp: number, days: number): number => timestamp + 
 
 export const phaseLabelFor = (key: string | null | undefined): string => {
   if (!key) return "Phase";
-  const all = [...RESIDENTIAL, ...RENOVATION, ...TECHNICAL, ...POOL];
+  const all = [
+    ...RESIDENTIAL,
+    ...RENOVATION,
+    ...technicalPhases("electricite"),
+    ...technicalPhases("plomberie"),
+    ...POOL,
+  ];
   return all.find((phase) => phase.key === key)?.label ?? key;
 };
 

@@ -49,6 +49,9 @@ const ProjectDetail = lazy(() => import("./pages/ProjectDetail.tsx"));
 const DecisionSupport = lazy(() => import("./pages/DecisionSupport.tsx"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel.tsx"));
 const SubscriptionAdminPage = lazy(() => import("./pages/SubscriptionAdminPage.tsx"));
+const Chantiers = lazy(() => import("./pages/Chantiers.tsx"));
+const Chantier = lazy(() => import("./pages/Chantier.tsx"));
+const AdminSiteModule = lazy(() => import("./pages/AdminSiteModule.tsx"));
 const PricingPage = lazy(() => import("./pages/PricingPage.tsx"));
 const MaterialsPage = lazy(() => import("./pages/MaterialsPage.tsx"));
 const PlanGenerator = lazy(() => import("./pages/PlanGenerator.tsx"));
@@ -381,6 +384,37 @@ createRoot(document.getElementById("root")!).render(
                   element={
                     <RequireAuth>
                       <SubscriptionAdminPage />
+                    </RequireAuth>
+                  }
+                />
+                {/* ── Gestion & Suivi de Chantier ────────────────────────
+                    Module PAYANT intégré : la cotisation et l'accès sont
+                    contrôlés côté serveur (convex/siteTracking.ts). */}
+                <Route
+                  path="/dashboard/chantiers"
+                  element={
+                    <RequireAuth>
+                      <FeatureGate flag="site_tracking">
+                        <Chantiers />
+                      </FeatureGate>
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/chantiers/:siteId"
+                  element={
+                    <RequireAuth>
+                      <FeatureGate flag="site_tracking">
+                        <Chantier />
+                      </FeatureGate>
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/dashboard/admin/chantiers"
+                  element={
+                    <RequireAuth>
+                      <AdminSiteModule />
                     </RequireAuth>
                   }
                 />
