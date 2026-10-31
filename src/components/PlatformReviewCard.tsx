@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Component, useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -37,12 +37,41 @@ const fmtDate = (ts: number) =>
   });
 
 /**
+ * Filet de sécurité local : une erreur de cette carte (chargement de la query,
+ * réseau, données inattendues) ne doit jamais faire tomber tout le dashboard.
+ * La carte disparaît simplement, le reste de la page reste utilisable.
+ */
+class ReviewSectionBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: Error) {
+    console.error("[batibuild] Section « Notez BatiBuild » :", error);
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+/**
  * « Notez BatiBuild » — carte de notation et de satisfaction.
  *
  * L'utilisateur ne voit que SON avis (servi par `getMyReview`) ; la mutation
  * `submitReview` met à jour l'avis existant au lieu d'en créer un second.
  */
 export function PlatformReviewCard() {
+  return (
+    <ReviewSectionBoundary>
+      <PlatformReviewCardContent />
+    </ReviewSectionBoundary>
+  );
+}
+
+function PlatformReviewCardContent() {
   const review = useQuery(api.platformReviews.getMyReview, {});
   const submitReview = useMutation(api.platformReviews.submitReview);
 

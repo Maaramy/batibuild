@@ -149,7 +149,10 @@ export default function AdminPanel() {
   const initialTab =
     isSupportAgentRole
       ? "support"
-      : requestedTab && VALID_TABS.includes(requestedTab)
+      : requestedTab &&
+          VALID_TABS.includes(requestedTab) &&
+          // L'onglet « Avis » est strictement réservé aux administrateurs.
+          (requestedTab !== "avis" || user?.role === ("admin" as any))
         ? requestedTab
         : "dashboard";
   const [activeTab, setActiveTab] = useState(initialTab);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Component, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "convex/react";
 import {
   ArrowDownUp,
@@ -90,7 +90,48 @@ function Stars({ value, className }: { value: number; className?: string }) {
 type RatingFilter = "all" | "1" | "2" | "3" | "4" | "5";
 type SortOrder = "recent" | "oldest";
 
+/**
+ * Filet de sécurité local : une erreur de cet onglet ne doit jamais faire
+ * tomber tout le panneau d'administration.
+ */
+class ReviewsAdminBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: Error) {
+    console.error("[batibuild] Onglet « Avis et évaluations » :", error);
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <Card className="border-border/40">
+        <CardContent className="space-y-1 p-6 text-center">
+          <p className="text-sm font-semibold">
+            Les évaluations n'ont pas pu être chargées
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Rechargez la page pour réessayer. Les autres onglets restent
+            disponibles.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+}
+
 export default function PlatformReviewsAdmin() {
+  return (
+    <ReviewsAdminBoundary>
+      <PlatformReviewsAdminContent />
+    </ReviewsAdminBoundary>
+  );
+}
+
+function PlatformReviewsAdminContent() {
   const [ratingFilter, setRatingFilter] = useState<RatingFilter>("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOrder>("recent");
