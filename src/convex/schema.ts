@@ -2532,6 +2532,176 @@ const schema = defineSchema(
     })
       .index("by_site", ["siteId"]),
 
+    // ── AI SITE INTELLIGENCE ────────────────────────────────────────────────
+    // Les photos restent dans le storage Convex (`_storage`) : aucune image en
+    // base64 dans la base. Seules les métadonnées et les analyses y figurent.
+
+    /** Session d'inspection : un lot de photos prises à une même date. */
+    siteMonitoringSessions: defineTable({
+      siteId: v.id("siteProjects"),
+      title: v.string(),
+      date: v.number(),
+      phaseKey: v.optional(v.string()),
+      location: v.optional(v.string()),
+      notes: v.optional(v.string()),
+      imageCount: v.number(),
+      createdBy: v.id("users"),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_site", ["siteId"])
+      .index("by_site_date", ["siteId", "date"]),
+
+    /** Photo de chantier : métadonnées + référence storage (pas de base64). */
+    siteMonitoringImages: defineTable({
+      siteId: v.id("siteProjects"),
+      sessionId: v.id("siteMonitoringSessions"),
+      storageId: v.id("_storage"),
+      fileName: v.optional(v.string()),
+      contentType: v.optional(v.string()),
+      sizeBytes: v.optional(v.number()),
+      capturedAt: v.number(),
+      phaseKey: v.optional(v.string()),
+      notes: v.optional(v.string()),
+      comparisonOf: v.optional(v.id("siteMonitoringImages")),
+      analysisId: v.optional(v.id("siteAiAnalyses")),
+      uploadedBy: v.id("users"),
+      /** Suppression automatique au-delà de la politique de conservation. */
+      purgeAfter: v.number(),
+      createdAt: v.number(),
+    })
+      .index("by_site", ["siteId"])
+      .index("by_session", ["sessionId"])
+      .index("by_site_captured", ["siteId", "capturedAt"])
+      .index("by_purge", ["purgeAfter"]),
+
+    /** Résultat d'une analyse (fournisseur réel ou mode démonstration). */
+    siteAiAnalyses: defineTable({
+      siteId: v.id("siteProjects"),
+      sessionId: v.optional(v.id("siteMonitoringSessions")),
+      imageIds: v.array(v.id("siteMonitoringImages")),
+      mode: v.union(
+        v.literal("ai"),
+        v.literal("demo"),
+        v.literal("engine"),
+        v.literal("unavailable"),
+      ),
+      provider: v.string(),
+      model: v.optional(v.string()),
+      phaseKey: v.string(),
+      elements: v.array(v.string()),
+      worksObserved: v.array(v.string()),
+      worksRemaining: v.array(v.string()),
+      changes: v.array(v.string()),
+      visualAnomalies: v.array(
+        v.object({
+          label: v.string(),
+          severity: v.string(),
+          evidence: v.string(),
+        }),
+      ),
+      progressEstimate: v.number(),
+      confidence: v.number(),
+      summary: v.string(),
+      isEstimate: v.boolean(),
+      disclaimer: v.string(),
+      tokenInput: v.optional(v.number()),
+      tokenOutput: v.optional(v.number()),
+      costUsd: v.optional(v.number()),
+      errorMessage: v.optional(v.string()),
+      createdBy: v.id("users"),
+      createdAt: v.number(),
+    })
+      .index("by_site", ["siteId"])
+      .index("by_site_created", ["siteId", "createdAt"])
+      .index("by_session", ["sessionId"]),
+
+    /** Pointage d'avancement : estimé IA, déclaré, ou validé par le responsable. */
+    siteProgressRecords: defineTable({
+      siteId: v.id("siteProjects"),
+      phaseKey: v.string(),
+      source: v.union(v.literal("ai"), v.literal("declared"), v.literal("validated")),
+      percent: v.number(),
+      previousPercent: v.optional(v.number()),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("validated"),
+        v.literal("rejected"),
+      ),
+      note: v.optional(v.string()),
+      taskId: v.optional(v.id("siteTasks")),
+      analysisId: v.optional(v.id("siteAiAnalyses")),
+      recordedBy: v.id("users"),
+      date: v.number(),
+      createdAt: v.number(),
+      validatedBy: v.optional(v.id("users")),
+      validatedAt: v.optional(v.number()),
+      rejectionReason: v.optional(v.string()),
+    })
+      .index("by_site", ["siteId"])
+      .index("by_site_date", ["siteId", "date"])
+      .index("by_site_phase", ["siteId", "phaseKey"])
+      .index("by_status", ["status"]),
+
+    /** Anomalie détectée (moteur, IA) ou signalée par un humain. */
+    siteAnomalies: defineTable({
+      siteId: v.id("siteProjects"),
+      type: v.string(),
+      severity: v.union(
+        v.literal("faible"),
+        v.literal("moyen"),
+        v.literal("eleve"),
+        v.literal("critique"),
+      ),
+      title: v.string(),
+      description: v.string(),
+      phaseKey: v.optional(v.string()),
+      evidence: v.array(v.string()),
+      recommendation: v.string(),
+      status: v.union(
+        v.literal("nouveau"),
+        v.literal("en_cours"),
+        v.literal("resolu"),
+        v.literal("ecarte"),
+      ),
+      source: v.union(v.literal("engine"), v.literal("ai"), v.literal("human")),
+      requiresHumanCheck: v.boolean(),
+      dedupeKey: v.string(),
+      analysisId: v.optional(v.id("siteAiAnalyses")),
+      detectedAt: v.number(),
+      createdBy: v.optional(v.id("users")),
+      resolvedBy: v.optional(v.id("users")),
+      resolvedAt: v.optional(v.number()),
+      resolutionNote: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_site", ["siteId"])
+      .index("by_site_status", ["siteId", "status"])
+      .index("by_site_detected", ["siteId", "detectedAt"])
+      .index("by_dedupe", ["siteId", "dedupeKey"]),
+
+    /** Rapport intelligent généré (métadonnées + instantané des indicateurs). */
+    siteMonitoringReports: defineTable({
+      siteId: v.id("siteProjects"),
+      kind: v.union(
+        v.literal("journalier"),
+        v.literal("hebdomadaire"),
+        v.literal("mensuel"),
+        v.literal("progression"),
+        v.literal("anomalies"),
+        v.literal("planning_realisation"),
+      ),
+      periodStart: v.number(),
+      periodEnd: v.number(),
+      snapshot: v.any(),
+      imageIds: v.array(v.id("siteMonitoringImages")),
+      generatedBy: v.id("users"),
+      createdAt: v.number(),
+    })
+      .index("by_site", ["siteId"])
+      .index("by_site_created", ["siteId", "createdAt"]),
+
     /** Journal des modifications du chantier (audit interne). */
     siteAuditLogs: defineTable({
       siteId: v.id("siteProjects"),
