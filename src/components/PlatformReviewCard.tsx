@@ -53,7 +53,20 @@ class ReviewSectionBoundary extends Component<
     console.error("[batibuild] Section « Notez BatiBuild » :", error);
   }
   render() {
-    return this.state.failed ? null : this.props.children;
+    if (!this.state.failed) return this.props.children;
+    // Échec local : on l'annonce clairement plutôt que de faire tomber le
+    // dashboard, et on laisse l'utilisateur recharger.
+    return (
+      <Card className="border-border/40 bg-background/50 shadow-none">
+        <CardContent className="flex flex-col items-start gap-2 p-3 sm:p-4">
+          <p className="text-sm font-semibold">Notez BatiBuild</p>
+          <p className="text-xs text-muted-foreground">
+            Votre avis n'a pas pu être chargé pour le moment. Le reste de votre
+            tableau de bord reste utilisable — rechargez la page pour réessayer.
+          </p>
+        </CardContent>
+      </Card>
+    );
   }
 }
 

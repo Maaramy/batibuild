@@ -1,4 +1,4 @@
-import { Component, useMemo, useState, type ReactNode } from "react";
+import { Component, useState, type ReactNode } from "react";
 import { useQuery } from "convex/react";
 import {
   ArrowDownUp,
@@ -146,11 +146,6 @@ function PlatformReviewsAdminContent() {
     sort,
   });
 
-  const maxCount = useMemo(
-    () => (stats ? Math.max(1, ...stats.distribution) : 1),
-    [stats],
-  );
-
   // Accès refusé côté serveur : la query renvoie null pour un non-admin.
   if (stats === null || reviews === null) {
     return (
@@ -171,7 +166,17 @@ function PlatformReviewsAdminContent() {
     return <LoadingState message="Chargement des évaluations…" />;
   }
 
-  const averageLabel = stats.total ? stats.average.toFixed(2) : "—";
+  // Valeurs de repli : une donnée manquante ne doit jamais faire planter
+  // l'onglet (ni, par ricochet, le reste du panneau d'administration).
+  const distribution = stats.distribution ?? [];
+  const total = stats.total ?? 0;
+  const withComment = stats.withComment ?? 0;
+  const satisfied = stats.satisfied ?? 0;
+  const satisfaction = stats.satisfaction ?? 0;
+  const average = stats.average ?? 0;
+  const lastSubmittedAt = stats.lastSubmittedAt ?? null;
+  const maxCount = Math.max(1, ...distribution);
+  const averageLabel = total ? average.toFixed(2) : "—";
 
   return (
     <div className="space-y-4">
@@ -185,28 +190,26 @@ function PlatformReviewsAdminContent() {
               <span className="text-xs font-normal text-muted-foreground">/ 5</span>
             </span>
           }
-          hint={
-            <Stars value={Math.round(stats.average)} className="align-middle" />
-          }
+          hint={<Stars value={Math.round(average)} className="align-middle" />}
           icon={<Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />}
-          tone={stats.average >= 4 ? "success" : stats.average >= 3 ? "warning" : "default"}
+          tone={average >= 4 ? "success" : average >= 3 ? "warning" : "default"}
         />
         <KPI
           label="Évaluations"
-          value={stats.total}
-          hint={`${stats.withComment} avec commentaire`}
+          value={total}
+          hint={`${withComment} avec commentaire`}
           icon={<MessageSquareHeart className="h-3.5 w-3.5" />}
         />
         <KPI
           label="Satisfaction"
-          value={`${stats.satisfaction} %`}
-          hint={`${stats.satisfied} note${stats.satisfied > 1 ? "s" : ""} 4 et 5 étoiles`}
-          tone={stats.satisfaction >= 70 ? "success" : stats.satisfaction >= 40 ? "warning" : "danger"}
+          value={`${satisfaction} %`}
+          hint={`${satisfied} note${satisfied > 1 ? "s" : ""} 4 et 5 étoiles`}
+          tone={satisfaction >= 70 ? "success" : satisfaction >= 40 ? "warning" : "danger"}
         />
         <KPI
           label="Dernier avis"
-          value={stats.lastSubmittedAt ? fmtDateTime(stats.lastSubmittedAt).slice(0, 10) : "—"}
-          hint={stats.lastSubmittedAt ? fmtDateTime(stats.lastSubmittedAt) : "Aucun avis pour l'instant"}
+          value={lastSubmittedAt ? fmtDateTime(lastSubmittedAt).slice(0, 10) : "—"}
+          hint={lastSubmittedAt ? fmtDateTime(lastSubmittedAt) : "Aucun avis pour l'instant"}
         />
       </KPIGrid>
 
@@ -220,8 +223,8 @@ function PlatformReviewsAdminContent() {
         </CardHeader>
         <CardContent className="space-y-2">
           {[5, 4, 3, 2, 1].map((rating) => {
-            const count = stats.distribution[rating - 1] ?? 0;
-            const percent = stats.total ? Math.round((count / stats.total) * 100) : 0;
+            const count = distribution[rating - 1] ?? 0;
+            const percent = total ? Math.round((count / total) * 100) : 0;
             return (
               <div key={rating} className="flex items-center gap-2">
                 <span className="flex w-14 shrink-0 items-center gap-0.5 text-[11px] font-medium">
@@ -240,7 +243,7 @@ function PlatformReviewsAdminContent() {
               </div>
             );
           })}
-          {stats.total === 0 && (
+          {total === 0 && (
             <p className="pt-1 text-center text-[11px] text-muted-foreground">
               Aucune évaluation enregistrée pour le moment.
             </p>
@@ -317,12 +320,12 @@ function PlatformReviewsAdminContent() {
               className="m-3 border-0"
               icon={<MessageSquareHeart className="h-5 w-5" />}
               title={
-                stats.total === 0
+                total === 0
                   ? "Aucune évaluation pour le moment"
                   : "Aucun avis ne correspond aux filtres"
               }
               description={
-                stats.total === 0
+                total === 0
                   ? "Les utilisateurs peuvent noter BatiBuild depuis le bas de leur tableau de bord."
                   : "Modifiez la note recherchée ou effacez la recherche."
               }
