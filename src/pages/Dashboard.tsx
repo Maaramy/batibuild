@@ -15,7 +15,6 @@ import { LogoMark } from "@/components/Logo";
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
-import { formatSiteDate, formatTND } from "@/lib/siteTracking";
 import { MySubscriptionCard } from "@/components/MySubscriptionCard";
 import { AnnouncementCarousel } from "@/components/announcements/AnnouncementCarousel";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
@@ -154,17 +153,6 @@ export default function Dashboard() {
   // Analyses d'investissement enregistrées (module Investissement, indépendant
   // du parcours construction) — reprises ici pour l'historique du tableau de bord.
   const analyses = useQuery(api.investments.listAnalyses) || [];
-  // Module « Gestion & Suivi de Chantier » : la cotisation et la liste ne sont
-  // interrogées que si la fonctionnalité est ouverte (interrupteur admin).
-  const siteTrackingEnabled = isFeatureEnabled("site_tracking");
-  const siteAccess = useQuery(
-    api.siteTracking.getMySiteAccess,
-    siteTrackingEnabled ? {} : "skip",
-  );
-  const siteRows = useQuery(
-    api.siteTracking.listSites,
-    siteTrackingEnabled ? {} : "skip",
-  );
   const stats = useQuery(api.projects.getProjectStats) || {
     totalProjects: 0, completedProjects: 0, analyzingProjects: 0, draftProjects: 0,
     totalEstimatedCost: 0, averageCostPerProject: 0, recentProjects: [],
@@ -343,9 +331,6 @@ export default function Dashboard() {
               ] : []),
               ...(isFeatureEnabled("investment_project") ? [
                 { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
-              ] : []),
-              ...(siteTrackingEnabled ? [
-                { icon: HardHat, label: "Suivi de chantier", onClick: () => { navigate("/dashboard/chantiers"); setMobileSidebarOpen(false); } },
               ] : []),
             ] : []),
             // Professional features — parent + submenu
@@ -529,12 +514,6 @@ export default function Dashboard() {
                     <DropdownMenuItem onClick={() => navigate("/dashboard/admin/subscriptions")} className="cursor-pointer gap-2 text-xs">
                       <CreditCard className="h-3.5 w-3.5" />
                       Essais & abonnements
-                    </DropdownMenuItem>
-                  )}
-                  {(user?.role === "admin" || user?.role === "moderator") && (
-                    <DropdownMenuItem onClick={() => navigate("/dashboard/admin/chantiers")} className="cursor-pointer gap-2 text-xs">
-                      <HardHat className="h-3.5 w-3.5" />
-                      Cotisations chantier
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
@@ -993,13 +972,6 @@ export default function Dashboard() {
                   to: "/dashboard/ai-materials",
                   enabled: isFeatureEnabled("ai_materials"),
                 },
-                {
-                  icon: HardHat,
-                  label: "Suivre un chantier",
-                  hint: "Planning · budget",
-                  to: "/dashboard/chantiers",
-                  enabled: siteTrackingEnabled,
-                },
               ]
                 .filter((action) => action.enabled)
                 .map((action) => (
@@ -1252,98 +1224,6 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
-          )}
-
-          {/* ── Gestion & Suivi de Chantier ────────────────────────────────
-              Carte d'entrée du module payant : l'indicateur de cotisation
-              vient du serveur (`getMySiteAccess`), jamais d'un état local. */}
-          {siteTrackingEnabled && (
-            <Card className="border border-border/40 bg-background/50 shadow-none backdrop-blur-sm">
-              <CardHeader className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:p-4 lg:p-5">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-                    <HardHat className="h-4 w-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <CardTitle className="flex flex-wrap items-center gap-1.5 text-sm sm:text-base lg:text-lg">
-                      Gestion & Suivi de Chantier
-                      {siteAccess?.allowed ? (
-                        <Badge variant="outline" className="border-emerald-500/40 text-[9px] text-emerald-700 dark:text-emerald-300">
-                          Cotisation active
-                        </Badge>
-                      ) : siteAccess?.reason === "pending" ? (
-                        <Badge variant="outline" className="border-amber-500/40 text-[9px] text-amber-700 dark:text-amber-300">
-                          En attente
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="border-border/60 text-[9px] text-muted-foreground">
-                          Cotisation requise
-                        </Badge>
-                      )}
-                    </CardTitle>
-                    <CardDescription className="text-[10px] sm:text-xs lg:text-sm">
-                      {siteAccess?.allowed
-                        ? `${siteRows?.sites?.length ?? 0} chantier(s) suivi(s) · planning, budget, matériaux, qualité et prévisions`
-                        : `Module payant — ${formatTND(siteAccess?.price ?? 0)} / ${siteAccess?.durationDays ?? 30} jours, activé après validation du paiement.`}
-                    </CardDescription>
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Button
-                    size="sm"
-                    className="h-8 gap-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-xs text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500 sm:text-sm"
-                    onClick={() => navigate("/dashboard/chantiers")}
-                  >
-                    <HardHat className="h-3.5 w-3.5" />
-                    {siteAccess?.allowed ? "Ouvrir" : "Souscrire"}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-3 pt-0 sm:p-4 lg:p-5">
-                {(siteRows?.sites?.length ?? 0) === 0 ? (
-                  <div className="rounded-xl border border-dashed border-emerald-300/40 bg-emerald-50/40 px-4 py-6 text-center dark:border-emerald-800/30 dark:bg-emerald-950/20">
-                    <p className="text-sm font-medium">Aucun chantier suivi</p>
-                    <p className="mx-auto mt-1 max-w-md text-[10px] text-muted-foreground sm:text-xs">
-                      {siteAccess?.allowed
-                        ? "Démarrez depuis une estimation existante (sans la modifier) ou créez un chantier autonome : planning, dépenses, matériaux, intervenants et contrôles qualité au même endroit."
-                        : "Activez la cotisation dédiée pour piloter vos chantiers : avancement réel, dépassements, retards et prévisions de fin de chantier."}
-                    </p>
-                    <Button
-                      size="sm"
-                      className="mt-3 gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-xs text-white"
-                      onClick={() => navigate("/dashboard/chantiers")}
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      {siteAccess?.allowed ? "Créer un chantier" : "Voir la cotisation"}
-                      <ArrowUpRight className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                    {(siteRows?.sites ?? []).slice(0, 3).map((site: any) => (
-                      <button
-                        key={site._id}
-                        type="button"
-                        onClick={() => navigate(`/dashboard/chantiers/${site._id}`)}
-                        className="group rounded-xl border border-border/60 p-3 text-left transition-colors hover:border-emerald-500/40 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="truncate text-xs font-medium">{site.name}</p>
-                          <span className="shrink-0 text-[10px] text-muted-foreground">{Math.round(site.progress ?? 0)} %</span>
-                        </div>
-                        <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted">
-                          <div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, site.progress ?? 0)}%` }} />
-                        </div>
-                        <p className="mt-1.5 truncate text-[10px] text-muted-foreground">
-                          {site.budget ? `Dépensé ${formatTND(site.budget.spent)}` : "Accès budget non accordé"} ·{" "}
-                          {formatSiteDate(site.expectedEndDate)}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           )}
 
               </ClientProPaywall>

@@ -9,14 +9,14 @@
 // typer le backend. Cumulés, ils dépassent `memory.max` et le noyau tue le
 // dernier arrivé.
 //
-// Ce script ne désactive AUCUNE vérification : il exécute les QUATRE projets
+// Ce script ne désactive AUCUNE vérification : il exécute les TROIS projets
 // TypeScript l'un APRÈS l'autre (jamais en parallèle), attend qu'assez de
 // mémoire soit réellement libre avant chaque projet, puis mesure la durée et le
 // pic du cgroup pour chacun. Un projet en échec arrête la suite et son code de
 // sortie est propagé tel quel (134 = plafond V8, 137 = SIGKILL mémoire).
 //
-//   bun run typecheck            # les quatre projets, dans l'ordre
-//   bun run typecheck frontend   # un seul projet (frontend | vite | convex | tests)
+//   bun run typecheck            # les trois projets, dans l'ordre
+//   bun run typecheck frontend   # un seul projet (frontend | vite | convex)
 // ============================================================================
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -29,10 +29,6 @@ const PROJECTS = [
   { id: "frontend", label: "frontend (src)", config: "tsconfig.app.json" },
   { id: "convex", label: "fonctions Convex", config: "src/convex/tsconfig.json" },
   { id: "vite", label: "config Vite", config: "tsconfig.node.json" },
-  // Les tests vivent dans leur propre projet : `tsc -b` (déploiement) ne
-  // charge plus que l'application, mais aucun fichier de test n'échappe au
-  // contrôle de type — il est simplement fait ici.
-  { id: "tests", label: "tests (src)", config: "tsconfig.tests.json" },
 ];
 
 /** Pic mesuré du projet le plus lourd (~1 Go) + marge de sécurité. */

@@ -181,50 +181,6 @@ describe("Suivi de chantier — cotisation obligatoire", () => {
     expect(access.reason).toBe("expired");
   });
 
-  it("le renouvellement anticipé s'ajoute à la période en cours sans fermer l'accès", async () => {
-    const userId = await createUser(t);
-    const firstId = await activateCotisation(t, userId);
-    // Échéance dans 3 jours : la fenêtre de renouvellement est ouverte.
-    await t.run(async (ctx) =>
-      ctx.db.patch(firstId, { endDate: Date.now() + 3 * DAY }),
-    );
-    const first = await t.run(async (ctx) => ctx.db.get(firstId));
-    const asUser = t.withIdentity({ subject: userId });
-
-    // Une nouvelle demande est acceptée pendant les 7 derniers jours.
-    await asUser.mutation(api.siteTracking.requestSiteCotisation, { paymentMethod: "bank_transfer" });
-    const access = await asUser.query(api.siteTracking.getMySiteAccess, {});
-    // L'accès déjà payé reste ouvert malgré la demande en attente.
-    expect(access.allowed).toBe(true);
-    expect(access.daysRemaining).toBeGreaterThan(0);
-
-    const adminId = await createUser(t, { role: "admin", email: "admin2@test.com" });
-    const pending = await t.run(async (ctx) =>
-      ctx.db
-        .query("siteCotisations")
-        .withIndex("by_status", (q) => q.eq("status", "pending"))
-        .first(),
-    );
-    await t.withIdentity({ subject: adminId }).mutation(
-      api.siteTracking.adminApproveSiteCotisation,
-      { cotisationId: pending!._id },
-    );
-
-    const renewed = await t.run(async (ctx) => ctx.db.get(pending!._id));
-    // La nouvelle période démarre à la fin de l'ancienne : aucun jour perdu.
-    expect(renewed!.startDate).toBe(first!.endDate);
-    expect(renewed!.endDate).toBe((first!.endDate ?? 0) + 180 * DAY);
-  });
-
-  it("refuse une seconde demande quand la cotisation court encore", async () => {
-    const userId = await createUser(t);
-    await activateCotisation(t, userId);
-    const asUser = t.withIdentity({ subject: userId });
-    await expect(
-      asUser.mutation(api.siteTracking.requestSiteCotisation, { paymentMethod: "bank_transfer" }),
-    ).rejects.toThrow(/déjà active/i);
-  });
-
   it("un administrateur accède au module sans cotisation (tests internes)", async () => {
     const adminId = await createUser(t, { role: "admin" });
     const asAdmin = t.withIdentity({ subject: adminId });
