@@ -26,6 +26,7 @@ import { AnnouncementList } from "@/components/admin/announcements/AnnouncementL
 import { FeatureFlagsAdmin } from "@/components/admin/FeatureFlagsAdmin";
 import { PaymentMethodsAdmin } from "@/components/admin/PaymentMethodsAdmin";
 import { InvoicesAdmin } from "@/components/admin/InvoicesAdmin";
+import PlatformReviewsAdmin from "@/components/admin/PlatformReviewsAdmin";
 import type { TrialConfig } from "@/convex/trialConfig";
 import { PROJECT_LIMIT_MAX, PROJECT_LIMIT_MIN } from "@/lib/projectLimits";
 import {
@@ -123,6 +124,7 @@ import {
   Megaphone,
   Headset,
   Wrench,
+  Star,
 } from "lucide-react";
 
 // ============================================================================
@@ -142,12 +144,15 @@ export default function AdminPanel() {
     "recus", "recusFournisseurs", "recusExperts", "subscriptions", "invoices",
     "fournisseurs", "experts", "analytics", "support", "journal", "paiement",
     "limites", "seo", "blog", "bim", "bareme", "emails", "modeles", "historique", "features",
-    "stockage",
+    "stockage", "avis",
   ];
   const initialTab =
     isSupportAgentRole
       ? "support"
-      : requestedTab && VALID_TABS.includes(requestedTab)
+      : requestedTab &&
+          VALID_TABS.includes(requestedTab) &&
+          // L'onglet « Avis » est strictement réservé aux administrateurs.
+          (requestedTab !== "avis" || user?.role === ("admin" as any))
         ? requestedTab
         : "dashboard";
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -876,6 +881,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 )}
               </TabsTrigger>
               )}
+              {isAdmin && (
+              <TabsTrigger value="avis" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
+                <Star className="h-3.5 w-3.5" />
+                <span>Avis &amp; évaluations</span>
+              </TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -890,6 +901,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
           {canSee("support") && (
             <TabsContent value="support">
               <SupportAdmin />
+            </TabsContent>
+          )}
+
+          {/* ── Avis et évaluations BatiBuild (administrateurs uniquement) ── */}
+          {isAdmin && (
+            <TabsContent value="avis">
+              <PlatformReviewsAdmin />
             </TabsContent>
           )}
 
