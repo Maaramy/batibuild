@@ -992,6 +992,24 @@ const schema = defineSchema(
       value: v.number(),
     }).index("by_kind", ["kind"]),
 
+    // Avis et évaluations « Notez BatiBuild ».
+    // UN document par utilisateur (`by_user` est unique par construction : la
+    // soumission met à jour l'avis existant au lieu d'en créer un second).
+    // Les commentaires ne sont lisibles QUE par les administrateurs
+    // (cf. `platformReviews.adminList`) ou par leur auteur (`getMyReview`).
+    platformReviews: defineTable({
+      userId: v.id("users"),
+      /** Note de 1 à 5 étoiles. */
+      rating: v.number(),
+      /** Commentaire facultatif (max 1000 caractères, côté serveur). */
+      comment: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_rating", ["rating"])
+      .index("by_created", ["createdAt"]),
+
 
     // Compteur séquentiel de facturation — un compteur par année civile
     // (`kind` = « invoice:2026 »). Lu et incrémenté dans la même mutation que
