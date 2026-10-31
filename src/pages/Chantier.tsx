@@ -62,6 +62,7 @@ import {
 import { SITE_REPORTS, exportSiteReportPdf, type SiteReportKind } from "@/lib/siteReportPdf";
 import { SiteCotisationCard } from "@/components/site/SitePaywall";
 import { SiteIntelligencePanel } from "@/components/site/intelligence/SiteIntelligencePanel";
+import { AiErrorBoundary } from "@/components/site/intelligence/AiErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -563,7 +564,9 @@ function SiteDetailView({ data, siteId }: { data: SiteData; siteId: Id<"siteProj
 
           {/* ═══ AI SITE INTELLIGENCE ═══ */}
           <TabsContent value="intelligence">
-            <SiteIntelligencePanel siteId={data.site._id} />
+            <AiErrorBoundary>
+              <SiteIntelligencePanel siteId={data.site._id} />
+            </AiErrorBoundary>
           </TabsContent>
 
           {/* ═══ RAPPORTS ═══ */}

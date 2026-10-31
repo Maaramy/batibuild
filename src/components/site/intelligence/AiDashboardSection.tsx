@@ -25,6 +25,7 @@ import {
   Cell,
   Pie,
   PieChart,
+  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
@@ -215,7 +216,7 @@ export function AiDashboardSection({
                     fill="none"
                     strokeWidth={1.3}
                   />
-                  <ChartTooltipContent />
+                  <Tooltip content={<ChartTooltipContent />} />
                 </AreaChart>
               </ChartContainer>
             )}
@@ -241,7 +242,7 @@ export function AiDashboardSection({
                       <Cell key={row.severity} fill={severityColors[row.severity] ?? "#64748b"} />
                     ))}
                   </Pie>
-                  <ChartTooltipContent />
+                  <Tooltip content={<ChartTooltipContent />} />
                 </PieChart>
               </ChartContainer>
             )}
@@ -282,7 +283,7 @@ export function AiDashboardSection({
               <YAxis domain={[0, 100]} tickLine={false} axisLine={false} fontSize={9} width={30} />
               <Bar dataKey="planned" fill="#e2e8f0" radius={[3, 3, 0, 0]} />
               <Bar dataKey="validated" fill="#059669" radius={[3, 3, 0, 0]} />
-              <ChartTooltipContent />
+              <Tooltip content={<ChartTooltipContent />} />
             </BarChart>
           </ChartContainer>
         </CardContent>
