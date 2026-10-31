@@ -58,7 +58,6 @@ import type * as messaging from "../messaging.js";
 import type * as notifications from "../notifications.js";
 import type * as paymentMethodStates from "../paymentMethodStates.js";
 import type * as payments from "../payments.js";
-import type * as platformReviews from "../platformReviews.js";
 import type * as priceEngine from "../priceEngine.js";
 import type * as professionalProfileSync from "../professionalProfileSync.js";
 import type * as profileSubscription from "../profileSubscription.js";
@@ -153,7 +152,6 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   paymentMethodStates: typeof paymentMethodStates;
   payments: typeof payments;
-  platformReviews: typeof platformReviews;
   priceEngine: typeof priceEngine;
   professionalProfileSync: typeof professionalProfileSync;
   profileSubscription: typeof profileSubscription;

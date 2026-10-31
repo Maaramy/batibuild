@@ -22,7 +22,6 @@ import EmailTemplates from "./EmailTemplates";
 import EmailHistory from "./EmailHistory";
 import AnalyticsDashboard from "@/components/AnalyticsDashboard";
 import SupportAdmin from "@/components/admin/SupportAdmin";
-import PlatformReviewsAdmin from "@/components/admin/PlatformReviewsAdmin";
 import { AnnouncementList } from "@/components/admin/announcements/AnnouncementList";
 import { FeatureFlagsAdmin } from "@/components/admin/FeatureFlagsAdmin";
 import { PaymentMethodsAdmin } from "@/components/admin/PaymentMethodsAdmin";
@@ -99,7 +98,6 @@ import {
   Crown,
   RotateCcw,
   Sparkles,
-  Star,
   ShieldCheck,
   CalendarClock,
   CreditCard,
@@ -144,15 +142,12 @@ export default function AdminPanel() {
     "recus", "recusFournisseurs", "recusExperts", "subscriptions", "invoices",
     "fournisseurs", "experts", "analytics", "support", "journal", "paiement",
     "limites", "seo", "blog", "bim", "bareme", "emails", "modeles", "historique", "features",
-    "stockage", "avis",
+    "stockage",
   ];
   const initialTab =
     isSupportAgentRole
       ? "support"
-      : requestedTab &&
-          VALID_TABS.includes(requestedTab) &&
-          // L'onglet « Avis » est strictement réservé aux administrateurs.
-          (requestedTab !== "avis" || user?.role === ("admin" as any))
+      : requestedTab && VALID_TABS.includes(requestedTab)
         ? requestedTab
         : "dashboard";
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -398,14 +393,10 @@ export default function AdminPanel() {
                 Vous n'avez pas les droits d'administration nécessaires pour accéder à cette page.
               </p>
               <div className="flex flex-col sm:flex-row gap-2 justify-center pt-2">
-                <Button variant="outline" onClick={() => navigate("/dashboard"          )}
-
->
+                <Button variant="outline" onClick={() => navigate("/dashboard")}>
                   Retour au tableau de bord
                 </Button>
-                <Button onClick={() => navigate("/admin"          )}
-
->
+                <Button onClick={() => navigate("/admin")}>
                   <Shield className="h-4 w-4 mr-2" />
                   Administration
                 </Button>
@@ -477,9 +468,7 @@ export default function AdminPanel() {
 
       if (headerIdx === -1) {
         throw new Error(`En-têtes non trouvés dans les 20 premières lignes de « ${chosenSheet} ».
-Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
-
-`);
+Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
       }
 
       // ── 3. Map columns ──
@@ -503,9 +492,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
 
       if (priceIdx === -1) {
         throw new Error(
-          `Colonne de prix non trouvée. Lignes d'en-tête détectées (row ${headerIdx}) :\n${headers.filter(Boolean).join(" | "          )}
-
-`
+          `Colonne de prix non trouvée. Lignes d'en-tête détectées (row ${headerIdx}) :\n${headers.filter(Boolean).join(" | ")}`
         );
       }
 
@@ -536,9 +523,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
 
       if (parsedRows.length === 0) {
         throw new Error(
-          `Aucune ligne valide trouvée dans « ${chosenSheet} » (row d'en-tête: ${headerIdx}, colonnes: ${headers.filter(Boolean).join(", "          )}
-
-)`
+          `Aucune ligne valide trouvée dans « ${chosenSheet} » (row d'en-tête: ${headerIdx}, colonnes: ${headers.filter(Boolean).join(", ")})`
         );
       }
 
@@ -683,9 +668,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
       <header className="border-b border-border/20 bg-background/60 backdrop-blur-xl shadow-sm shadow-primary/5">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
           <div className="flex items-center gap-3 min-w-0">
-            <Button variant="ghost" size="sm" className="gap-1.5 h-9 shrink-0 hover:bg-muted/40" onClick={() => navigate("/dashboard"          )}
-
->
+            <Button variant="ghost" size="sm" className="gap-1.5 h-9 shrink-0 hover:bg-muted/40" onClick={() => navigate("/dashboard")}>
               <ArrowLeft className="h-4 w-4" />
               <span className="hidden sm:inline text-xs">Retour</span>
             </Button>
@@ -705,9 +688,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
               {allUsers.length} utilisateurs
             </span>
-            <Badge className={cn("text-[10px] px-2.5 py-0.5", isModerator ? "bg-amber-500/10 text-amber-600 border-amber-500/25" : "bg-primary/10 text-primary border-primary/20"          )}
-
->
+            <Badge className={cn("text-[10px] px-2.5 py-0.5", isModerator ? "bg-amber-500/10 text-amber-600 border-amber-500/25" : "bg-primary/10 text-primary border-primary/20")}>
               <Shield className="h-3 w-3 mr-1" />
               {isModerator ? "Modérateur" : "Admin"}
             </Badge>
@@ -733,33 +714,25 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                 <Cpu className="h-3.5 w-3.5" />
                 <span>Fonctionnalités</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("projects") && (
               <TabsTrigger value="projects" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Building2 className="h-3.5 w-3.5" />
                 <span>Projets</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("investments") && (
               <TabsTrigger value="investments" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Landmark className="h-3.5 w-3.5" />
                 <span>Investissements</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("materials") && (
               <TabsTrigger value="materials" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Package className="h-3.5 w-3.5" />
                 <span>Matériaux</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("virements") && (
               <TabsTrigger value="virements" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Banknote className="h-3.5 w-3.5" />
@@ -768,13 +741,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                   <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm">
                     {pendingSubs.length}
                   </span>
-                          )}
-
-
+                )}
               </TabsTrigger>
-                        )}
-
-
+              )}
               <TabsTrigger value="recus" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <FileText className="h-3.5 w-3.5" />
                 <span>Reçus</span>
@@ -786,9 +755,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                   <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white shadow-sm">
                     {allSuppliers.filter((s: any) => s.paymentProofUrl && !s.paymentProofVerified).length}
                   </span>
-                          )}
-
-
+                )}
               </TabsTrigger>
               <TabsTrigger value="recusExperts" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Receipt className="h-3 w-3" />
@@ -806,41 +773,31 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                 <Receipt className="h-3.5 w-3.5" />
                 <span>Factures</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("journal") && (
               <TabsTrigger value="journal" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <NotebookPen className="h-3.5 w-3.5" />
                 <span>Journal</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("paiement") && (
               <TabsTrigger value="paiement" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Settings className="h-3.5 w-3.5" />
                 <span>Paiement</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("limites") && (
               <TabsTrigger value="limites" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <HardHat className="h-3.5 w-3.5" />
                 <span>Abonnements</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("stockage") && (
               <TabsTrigger value="stockage" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <HardDrive className="h-3.5 w-3.5" />
                 <span>Stockage</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               <TabsTrigger value="fournisseurs" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Building2 className="h-3.5 w-3.5" />
                 <span>Fournisseurs</span>
@@ -848,9 +805,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                   <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[8px] font-bold text-white shadow-sm">
                     {allSuppliers.filter((s: any) => s.subscriptionStatus === "pending").length}
                   </span>
-                          )}
-
-
+                )}
               </TabsTrigger>
               <TabsTrigger value="experts" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Briefcase className="h-3.5 w-3.5" />
@@ -861,73 +816,55 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                 <Globe className="h-3.5 w-3.5" />
                 <span>SEO</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("blog") && (
               <TabsTrigger value="blog" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Newspaper className="h-3.5 w-3.5" />
                 <span>Blog</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("bim") && (
               <TabsTrigger value="bim" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Cpu className="h-3.5 w-3.5" />
                 <span>BIM</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("bareme") && (
               <TabsTrigger value="bareme" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <TrendingUp className="h-3.5 w-3.5" />
                 <span>Barème des coûts</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("emails") && (
               <TabsTrigger value="emails" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Mail className="h-3.5 w-3.5" />
                 <span>E-mails</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("modeles") && (
               <TabsTrigger value="modeles" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <FileText className="h-3.5 w-3.5" />
                 <span>Modèles</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("historique") && (
               <TabsTrigger value="historique" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Activity className="h-3.5 w-3.5" />
                 <span>Historique E-mails</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("annonces") && (
               <TabsTrigger value="annonces" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Megaphone className="h-3.5 w-3.5" />
                 <span>Communications</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("analytics") && (
               <TabsTrigger value="analytics" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
                 <Globe className="h-3.5 w-3.5" />
                 <span>Analytics</span>
               </TabsTrigger>
-                        )}
-
-
+              )}
               {canSee("support") && (
               <TabsTrigger value="support" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Headset className="h-3.5 w-3.5" />
@@ -936,21 +873,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                   <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm">
                     {supportUnread}
                   </span>
-                          )}
-
-
+                )}
               </TabsTrigger>
-                        )}
-
-
-              {isAdmin && (
-              <TabsTrigger value="avis" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5">
-                <Star className="h-3.5 w-3.5" />
-                <span>Avis &amp; évaluations</span>
-              </TabsTrigger>
-                        )}
-
-
+              )}
             </TabsList>
           </div>
 
@@ -959,54 +884,35 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
             <TabsContent value="invoices">
               <InvoicesAdmin />
             </TabsContent>
-                    )}
-
-
+          )}
 
           {/* ── Support ── */}
           {canSee("support") && (
             <TabsContent value="support">
               <SupportAdmin />
             </TabsContent>
-                    )}
-
-
-
-          {/* ── Avis et évaluations BatiBuild (administrateurs uniquement) ── */}
-          {isAdmin && (
-            <TabsContent value="avis">
-              <PlatformReviewsAdmin />
-            </TabsContent>
-                    )}
-
-
+          )}
 
           {/* ── Méthodes de paiement (onglet « Paiement ») ──
               Rendues ici, juste après la barre d'onglets, pour apparaître
               au-dessus de la configuration bancaire et D17 du même onglet. */}
           {canSee("paiement") && activeTab === "paiement" && (
             <PaymentMethodsAdmin />
-                    )}
-
-
+          )}
 
           {/* ── Stockage & base de données ── */}
           {canSee("stockage") && (
             <TabsContent value="stockage">
               <StorageReportAdmin />
             </TabsContent>
-                    )}
-
-
+          )}
 
           {/* ── Gestion des fonctionnalités (feature flags) ── */}
           {canSee("features") && (
             <TabsContent value="features">
               <FeatureFlagsAdmin />
             </TabsContent>
-                    )}
-
-
+          )}
 
           {/* ── Fournisseurs ── */}
             <TabsContent value="fournisseurs">
@@ -1025,9 +931,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       <Input
                         placeholder="Rechercher..."
                         value={userSearch}
-                        onChange={(e) => setUserSearch(e.target.value          )}
-
-
+                        onChange={(e) => setUserSearch(e.target.value)}
                         className="h-9 w-36 sm:w-44 pl-9 text-sm"
                       />
                     </div>
@@ -1064,9 +968,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       <Download className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Export CSV</span>
                     </Button>
-                            )}
-
-
+                  )}
                   </div>
                 </div>
 
@@ -1148,9 +1050,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                   <div className="min-w-0">
                                     <p
                                       className="font-medium text-xs truncate max-w-[130px] cursor-pointer hover:text-primary transition-colors"
-                                      onClick={() => setSelectedSupplier(profile          )}
-
-
+                                      onClick={() => setSelectedSupplier(profile)}
                                     >
                                       {profile.companyName || "Sans nom"}
                                     </p>
@@ -1167,17 +1067,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                       <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
                                       <span className="truncate max-w-[140px]">{profile.email}</span>
                                     </p>
-                                            )}
-
-
+                                  )}
                                   {profile.phone && (
                                     <p className="text-xs flex items-center gap-1">
                                       <Phone className="h-3 w-3 text-muted-foreground shrink-0" />
                                       <span>{profile.phone}</span>
                                     </p>
-                                            )}
-
-
+                                  )}
                                 </div>
                               </td>
                               <td className="py-3 px-3 hidden md:table-cell">
@@ -1186,22 +1082,16 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                     <Badge key={s} className="text-[8px] bg-primary/5 text-primary border-primary/10">
                                       {s}
                                     </Badge>
-                                  )          )}
-
-
+                                  ))}
                                   {(profile.specialties?.length || 0) > 3 && (
                                     <Badge className="text-[8px] bg-muted/30 text-muted-foreground">
                                       +{profile.specialties.length - 3}
                                     </Badge>
-                                            )}
-
-
+                                  )}
                                 </div>
                               </td>
                               <td className="py-3 px-3 text-center">
-                                <Badge className={cn("text-[9px]", statusColors[subStatus] || statusColors.inactive          )}
-
->
+                                <Badge className={cn("text-[9px]", statusColors[subStatus] || statusColors.inactive)}>
                                   {statusLabels[subStatus] || subStatus}
                                 </Badge>
                               </td>
@@ -1219,9 +1109,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                     <Badge className="bg-muted/30 text-muted-foreground border-muted-foreground/20 text-[9px] cursor-pointer hover:bg-muted/50">
                                       Masqué
                                     </Badge>
-                                            )}
-
-
+                                  )}
                                 </button>
                               </td>
                               <td className="py-3 px-3 text-center hidden md:table-cell">
@@ -1238,9 +1126,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                   </a>
                                 ) : (
                                   <span className="text-[10px] text-muted-foreground/50">—</span>
-                                          )}
-
-
+                                )}
                               </td>
                               <td className="py-3 px-3 text-right">
                                 <div className="flex items-center justify-end gap-1">
@@ -1279,9 +1165,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                         <ThumbsDown className="h-3.5 w-3.5" />
                                       </button>
                                     </>
-                                            )}
-
-
+                                  )}
                                   <button
                                     type="button"
                                     onClick={handleToggle}
@@ -1302,15 +1186,11 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         </td>
                             </tr>
                           );
-                        }          )}
-
-
+                        })}
                       </tbody>
                     </table>
                   </div>
-                          )}
-
-
+                )}
 
                 {/* Empty search result */}
                 {allSuppliers.length > 0 && allSuppliers.filter((profile: any) =>
@@ -1323,9 +1203,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                   <div className="text-center py-8">
                     <p className="text-xs text-muted-foreground">Aucun fournisseur trouvé pour "{userSearch}"</p>
                   </div>
-                          )}
-
-
+                )}
 
                 {/* Statistiques */}
                 {allSuppliers.length > 0 && (
@@ -1340,17 +1218,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           <span className="h-2 w-2 rounded-full bg-amber-500" />
                           {allSuppliers.filter((s: any) => s.subscriptionStatus === "pending").length} en attente
                         </span>
-                                )}
-
-
+                      )}
                     </div>
                     <p className="text-[10px] text-muted-foreground">
                       {allSuppliers.length} fournisseur(s) au total
                     </p>
                   </div>
-                          )}
-
-
+                )}
               </div>
             </TabsContent>
 
@@ -1393,33 +1267,25 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           <span>{selectedSupplier.email}</span>
                         </div>
-                                )}
-
-
+                      )}
                       {selectedSupplier.phone && (
                         <div className="flex items-center gap-2 text-xs">
                           <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           <span>{selectedSupplier.phone}</span>
                         </div>
-                                )}
-
-
+                      )}
                       {selectedSupplier.address && (
                         <div className="flex items-center gap-2 text-xs">
                           <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           <span>{selectedSupplier.address}</span>
                         </div>
-                                )}
-
-
+                      )}
                       {selectedSupplier.website && (
                         <div className="flex items-center gap-2 text-xs">
                           <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           <span>{selectedSupplier.website}</span>
                         </div>
-                                )}
-
-
+                      )}
                     </div>
 
                     {selectedSupplier.specialties?.length > 0 && (
@@ -1430,14 +1296,10 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <div className="flex flex-wrap gap-1.5">
                           {selectedSupplier.specialties.map((s: string) => (
                             <Badge key={s} className="text-[9px] bg-primary/5 text-primary border-primary/10">{s}</Badge>
-                          )          )}
-
-
+                          ))}
                         </div>
                       </div>
-                              )}
-
-
+                    )}
 
                     {selectedSupplier.regions?.length > 0 && (
                       <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
@@ -1447,29 +1309,21 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <div className="flex flex-wrap gap-1.5">
                           {selectedSupplier.regions.map((r: string) => (
                             <Badge key={r} variant="outline" className="text-[9px]">{r}</Badge>
-                          )          )}
-
-
+                          ))}
                         </div>
                       </div>
-                              )}
-
-
+                    )}
 
                     <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/20 border border-border/30">
                       <div>
                         <p className="text-[9px] text-muted-foreground">Abonnement</p>
-                        <Badge className={cn("text-[9px] mt-0.5", selectedSupplier.subscriptionStatus === "active" ? "bg-emerald-500/10 text-emerald-600" : selectedSupplier.subscriptionStatus === "pending" ? "bg-amber-500/10 text-amber-600" : "bg-muted/30 text-muted-foreground"          )}
-
->
+                        <Badge className={cn("text-[9px] mt-0.5", selectedSupplier.subscriptionStatus === "active" ? "bg-emerald-500/10 text-emerald-600" : selectedSupplier.subscriptionStatus === "pending" ? "bg-amber-500/10 text-amber-600" : "bg-muted/30 text-muted-foreground")}>
                           {({active:"Actif",pending:"En attente",trial:"Inactif",expired:"Expiré",inactive:"Inactif"} as Record<string,string>)[selectedSupplier.subscriptionStatus || "inactive"] || selectedSupplier.subscriptionStatus}
                         </Badge>
                       </div>
                       <div>
                         <p className="text-[9px] text-muted-foreground">Visibilité</p>
-                        <Badge className={cn("text-[9px] mt-0.5", selectedSupplier.isVisible ? "bg-emerald-500/10 text-emerald-600" : "bg-muted/30 text-muted-foreground"          )}
-
->
+                        <Badge className={cn("text-[9px] mt-0.5", selectedSupplier.isVisible ? "bg-emerald-500/10 text-emerald-600" : "bg-muted/30 text-muted-foreground")}>
                           {selectedSupplier.isVisible ? "Visible" : "Masqué"}
                         </Badge>
                       </div>
@@ -1492,9 +1346,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                               </a>
                             ) : (
                               <p className="text-xs text-muted-foreground/70">Non envoyé</p>
-                                      )}
-
-
+                            )}
                           </div>
                           <div className="col-span-2 flex items-center gap-2 pt-1">
                             <Button size="sm" className="h-8 text-xs gap-1" onClick={async () => {
@@ -1517,9 +1369,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             </Button>
                           </div>
                         </>
-                                )}
-
-
+                      )}
                     </div>
 
                     <div className="flex items-center justify-end gap-2 pt-2">
@@ -1529,17 +1379,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             <Mail className="h-3.5 w-3.5" /> Contacter
                           </Button>
                         </a>
-                                )}
-
-
+                      )}
                       <DialogClose asChild>
                         <Button variant="ghost" size="sm">Fermer</Button>
                       </DialogClose>
                     </div>
                   </div>
-                          )}
-
-
+                )}
               </DialogContent>
             </Dialog>
 
@@ -1563,9 +1409,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       <Avatar className="h-16 w-16 shrink-0 border-2 border-primary/20">
                         <AvatarImage src={selectedUser.image || ""} alt="Photo" />
                         <AvatarFallback className="bg-primary/10 text-primary text-lg font-bold">
-                          {(selectedUser.name || selectedUser.email || "?").charAt(0).toUpperCase(          )}
-
-
+                          {(selectedUser.name || selectedUser.email || "?").charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
@@ -1577,9 +1421,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           selectedUser.role === "moderator" ? "bg-amber-500/10 text-amber-600" :
                           selectedUser.status === "disabled" ? "bg-red-500/10 text-red-600" :
                           "bg-emerald-500/10 text-emerald-600"
-                                  )}
-
->
+                        )}>
                           {selectedUser.role === "admin" ? "Admin" : selectedUser.role === "moderator" ? "Modérateur" : selectedUser.status === "disabled" ? "Désactivé" : "Actif"}
                         </Badge>
                       </div>
@@ -1599,17 +1441,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           <span dir="ltr">{selectedUser.phone}</span>
                         </div>
-                                )}
-
-
+                      )}
                       {selectedUser.company && (
                         <div className="flex items-center gap-2 text-xs">
                           <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           <span>{selectedUser.company}</span>
                         </div>
-                                )}
-
-
+                      )}
                     </div>
 
                     {/* Abonnement */}
@@ -1624,18 +1462,14 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           (selectedUser.referencePlan ?? selectedUser.subscriptionPlan) === "supplier" ? "bg-amber-400/10 text-amber-600" :
                           (selectedUser.referencePlan ?? selectedUser.subscriptionPlan) === "expert" ? "bg-emerald-500/10 text-emerald-600" :
                           "bg-slate-500/10 text-slate-600"
-                                  )}
-
->
+                        )}>
                           {(() => {
                             const plan = selectedUser.referencePlan ?? selectedUser.subscriptionPlan;
                             return plan === "supplier" ? "Fournisseur"
                               : plan === "expert" ? "Expert"
                               : plan === "pro" ? "Client Pro"
                               : "Aucun";
-                          })(          )}
-
-
+                          })()}
                         </Badge>
                       </div>
                       <div>
@@ -1661,9 +1495,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           (selectedUser.profileRole ?? selectedUser.userRole) === "supplier" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" :
                           (selectedUser.profileRole ?? selectedUser.userRole) === "expert" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" :
                           "bg-muted/30 text-muted-foreground"
-                                  )}
-
->
+                        )}>
                           {(selectedUser.profileRole ?? selectedUser.userRole) === "supplier" ? "Fournisseur" :
                            (selectedUser.profileRole ?? selectedUser.userRole) === "expert" ? "Expert" : "Client"}
                         </Badge>
@@ -1675,9 +1507,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           selectedUser.role === "admin" ? "bg-purple-500/10 text-purple-600" :
                           selectedUser.role === "moderator" ? "bg-amber-500/10 text-amber-600" :
                           "bg-muted/30 text-muted-foreground"
-                                  )}
-
->
+                        )}>
                           {selectedUser.role === "admin" ? "Admin" :
                            selectedUser.role === "moderator" ? "Modérateur" : "Utilisateur"}
                         </Badge>
@@ -1701,19 +1531,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <div>
                           <p className="text-[9px] text-muted-foreground">Fin abonnement</p>
                           <p className="text-xs font-medium mt-0.5">
-                            {new Date(selectedUser.subscriptionEndDate).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }          )}
-
-
+                            {new Date(selectedUser.subscriptionEndDate).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
                           </p>
                         </div>
-                                )}
-
-
+                      )}
                     </div>
                   </div>
-                          )}
-
-
+                )}
 
                 <DialogClose asChild>
                   <Button variant="outline" className="w-full mt-2">Fermer</Button>
@@ -1741,9 +1565,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                               })
                               .length}
                           </span>
-                                  )}
-
-
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground">Historique des reçus de paiement envoyés par les abonnés</p>
                     </div>
@@ -1772,9 +1594,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                               <Trash2 className="h-3.5 w-3.5" />
                               <span className="hidden sm:inline">{batchDeletingRecus ? "Suppression..." : `Supprimer (${selectedRecuIds.size})`}</span>
                             </Button>
-                                    )}
-
-
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -1832,9 +1652,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       <span className="hidden sm:inline">Export CSV</span>
                     </Button>
                     </>
-                            )}
-
-
+                  )}
                 </div>
 
                 {/* Filtres */}
@@ -1847,37 +1665,27 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                     <button
                       key={f.key}
                       type="button"
-                      onClick={() => setRecusFilter(f.key          )}
-
-
+                      onClick={() => setRecusFilter(f.key)}
                       className={cn(
                         "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                         recusFilter === f.key
                           ? "bg-primary text-primary-foreground shadow-sm"
                           : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
-                                )}
-
-
+                      )}
                     >
                       {f.label}
                       {f.key === "pending" && allSubsWithUsers.filter((s: any) => s.paymentProofUrl && !s.paymentProofVerified).length > 0 && (
                         <span className="ml-1.5 text-[9px] opacity-70">
                           ({allSubsWithUsers.filter((s: any) => s.paymentProofUrl && !s.paymentProofVerified).length})
                         </span>
-                                )}
-
-
+                      )}
                       {f.key === "verified" && allSubsWithUsers.filter((s: any) => s.paymentProofUrl && s.paymentProofVerified).length > 0 && (
                         <span className="ml-1.5 text-[9px] opacity-70">
                           ({allSubsWithUsers.filter((s: any) => s.paymentProofUrl && s.paymentProofVerified).length})
                         </span>
-                                )}
-
-
+                      )}
                     </button>
-                  )          )}
-
-                  </div>
+                  ))}                  </div>
 
                 {purgeResult && (
                   <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border border-emerald-200/40 bg-emerald-50/40">
@@ -1886,9 +1694,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       <div>
                         <p className="text-xs font-semibold text-emerald-700">Purge du stockage terminée</p>
                         <p className="text-[10px] text-emerald-600/70">
-                          {new Date(purgeResult.purgedAt).toLocaleString("fr-FR"          )}
-
-
+                          {new Date(purgeResult.purgedAt).toLocaleString("fr-FR")}
                         </p>
                       </div>
                     </div>
@@ -1898,9 +1704,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       <span>{purgeResult.checkedSubscriptions} abonnements · {purgeResult.checkedSuppliers} fournisseurs · {purgeResult.checkedProjects} projets · {purgeResult.checkedReports} rapports</span>
                     </div>
                   </div>
-                          )}
-
-
+                )}
 
                 {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length === 0 ? (
                   <div className="text-center py-12">
@@ -1953,9 +1757,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             return (
                               <tr key={sub._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
                                 <td className="py-3 px-2 w-8">
-                                  <input type="checkbox" className="rounded border-border/40" checked={selectedRecuIds.has(sub._id          )}
-
- onChange={() => { const next = new Set(selectedRecuIds); if (next.has(sub._id)) next.delete(sub._id); else next.add(sub._id); setSelectedRecuIds(next); }} />
+                                  <input type="checkbox" className="rounded border-border/40" checked={selectedRecuIds.has(sub._id)} onChange={() => { const next = new Set(selectedRecuIds); if (next.has(sub._id)) next.delete(sub._id); else next.add(sub._id); setSelectedRecuIds(next); }} />
                                 </td>
                                 <td className="py-3 px-3">
                                   <div className="flex items-center gap-2">
@@ -1982,9 +1784,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                     sub.plan === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" :
                                     sub.plan === "supplier" ? "bg-amber-400/10 text-amber-600 border-amber-200/30" :
                                     "bg-muted/30 text-muted-foreground"
-                                            )}
-
->
+                                  )}>
                                     {sub.plan === "pro" ? "Client Pro" : sub.plan === "expert" ? "Expert" : sub.plan === "supplier" ? "Fournisseur" : sub.plan}
                                   </Badge>
                                 </td>
@@ -1992,31 +1792,21 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                   <div className="text-[10px] text-muted-foreground space-y-0.5">
                                     {sub.startDate && (
                                       <span className="block">
-                                        {new Date(sub.startDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }          )}
-
-
+                                        {new Date(sub.startDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
                                       </span>
-                                              )}
-
-
+                                    )}
                                     {sub.endDate && (
                                       <span className="block text-[9px]">
                                         <ArrowRight className="h-2.5 w-2.5 inline mr-0.5 text-muted-foreground/50" />
-                                        {new Date(sub.endDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }          )}
-
-
+                                        {new Date(sub.endDate).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
                                       </span>
-                                              )}
-
-
+                                    )}
                                     {!sub.startDate && !sub.endDate && <span className="text-[9px]">—</span>}
                                   </div>
                                 </td>
                                 <td className="py-3 px-3 text-right hidden sm:table-cell">
                                   <span className="font-mono text-xs font-medium">
-                                    {sub.amount ? `${sub.amount.toLocaleString("fr-FR"          )}
-
- TND` : "—"}
+                                    {sub.amount ? `${sub.amount.toLocaleString("fr-FR")} TND` : "—"}
                                   </span>
                                 </td>
                                 <td className="py-3 px-3 text-center">
@@ -2028,9 +1818,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                     <Badge className="bg-amber-500/10 text-amber-600 border-amber-200/30 text-[9px]">
                                       <Clock className="h-3 w-3 mr-0.5" /> En attente
                                     </Badge>
-                                            )}
-
-
+                                  )}
                                 </td>
                                 <td className="py-3 px-3 hidden md:table-cell">
                                   <div className="flex items-center gap-1.5">
@@ -2041,9 +1829,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                 <td className="py-3 px-3 text-center">
                                   <button
                                     type="button"
-                                    onClick={() => setPreviewReceipt(sub          )}
-
-
+                                    onClick={() => setPreviewReceipt(sub)}
                                     className="group relative inline-flex items-center justify-center cursor-pointer"
                                     title="Voir le reçu"
                                   >
@@ -2116,9 +1902,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                         <Check className="h-3 w-3 mr-1" />
                                         <span className="hidden sm:inline">Vérifier</span>
                                       </Button>
-                                              )}
-
-
+                                    )}
                                     <Button
                                       variant="ghost"
                                       size="sm"
@@ -2141,15 +1925,11 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                 </td>
                               </tr>
                             );
-                          }          )}
-
-
+                          })}
                       </tbody>
                     </table>
                   </div>
-                          )}
-
-
+                )}
 
                 {/* Résumé */}
                 {allSubsWithUsers.filter((s: any) => s.paymentProofUrl).length > 0 && (
@@ -2170,9 +1950,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           {allSubsWithUsers
                             .filter((s: any) => s.paymentProofUrl)
                             .reduce((sum: number, s: any) => sum + (s.amount || 0), 0)
-                            .toLocaleString("fr-FR"          )}
-
- TND
+                            .toLocaleString("fr-FR")} TND
                         </span>
                       </span>
                       <span className="text-muted-foreground">•</span>
@@ -2181,9 +1959,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       </span>
                     </div>
                   </div>
-                          )}
-
-
+                )}
               </div>
 
               {/* ── Modale d'aperçu du reçu ── */}
@@ -2216,18 +1992,14 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             previewReceipt.plan === "expert" ? "bg-emerald-500/10 text-emerald-600" :
                             previewReceipt.plan === "supplier" ? "bg-amber-400/10 text-amber-600" :
                             "bg-muted/30 text-muted-foreground"
-                                    )}
-
->
+                          )}>
                             {previewReceipt.plan === "pro" ? "Client Pro" : previewReceipt.plan === "expert" ? "Expert" : previewReceipt.plan === "supplier" ? "Fournisseur" : previewReceipt.plan}
                           </Badge>
                         </div>
                         <div>
                           <p className="text-[9px] text-muted-foreground">Prix reçu</p>
                           <p className="text-sm font-mono font-bold text-primary">
-                            {previewReceipt.amount ? `${previewReceipt.amount.toLocaleString("fr-FR"          )}
-
- TND` : "—"}
+                            {previewReceipt.amount ? `${previewReceipt.amount.toLocaleString("fr-FR")} TND` : "—"}
                           </p>
                         </div>
                         <div>
@@ -2240,9 +2012,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             <Badge className="bg-amber-500/10 text-amber-600 text-[9px] mt-0.5">
                               <Clock className="h-3 w-3 mr-0.5" /> En attente
                             </Badge>
-                                    )}
-
-
+                          )}
                         </div>
                         <div className="col-span-2">
                           <p className="text-[9px] text-muted-foreground">Date d'upload</p>
@@ -2287,9 +2057,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             <FileText className="h-12 w-12 mr-3" />
                             <p className="text-sm">Aucun fichier disponible</p>
                           </div>
-                                  )}
-
-
+                        )}
                       </div>
 
                       {/* Actions */}
@@ -2312,9 +2080,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         </DialogClose>
                       </div>
                     </div>
-                            )}
-
-
+                  )}
                 </DialogContent>
               </Dialog>
             </TabsContent>
@@ -2339,9 +2105,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                               })
                               .length}
                           </span>
-                                  )}
-
-
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground">Historique des reçus de paiement envoyés par les fournisseurs</p>
                     </div>
@@ -2380,9 +2144,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       <Download className="h-3.5 w-3.5" />
                       <span className="hidden sm:inline">Export CSV</span>
                     </Button>
-                            )}
-
-
+                  )}
                 </div>
 
                 {/* Filtres */}
@@ -2395,37 +2157,27 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                     <button
                       key={f.key}
                       type="button"
-                      onClick={() => setSupplierRecusFilter(f.key          )}
-
-
+                      onClick={() => setSupplierRecusFilter(f.key)}
                       className={cn(
                         "px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
                         supplierRecusFilter === f.key
                           ? "bg-primary text-primary-foreground shadow-sm"
                           : "bg-muted/30 text-muted-foreground hover:bg-muted/50"
-                                )}
-
-
+                      )}
                     >
                       {f.label}
                       {f.key === "pending" && allSuppliers.filter((p: any) => p.paymentProofUrl && !p.paymentProofVerified).length > 0 && (
                         <span className="ml-1.5 text-[9px] opacity-70">
                           ({allSuppliers.filter((p: any) => p.paymentProofUrl && !p.paymentProofVerified).length})
                         </span>
-                                )}
-
-
+                      )}
                       {f.key === "verified" && allSuppliers.filter((p: any) => p.paymentProofUrl && p.paymentProofVerified).length > 0 && (
                         <span className="ml-1.5 text-[9px] opacity-70">
                           ({allSuppliers.filter((p: any) => p.paymentProofUrl && p.paymentProofVerified).length})
                         </span>
-                                )}
-
-
+                      )}
                     </button>
-                  )          )}
-
-
+                  ))}
                 </div>
 
                 {allSuppliers.filter((p: any) => p.paymentProofUrl).length === 0 ? (
@@ -2494,23 +2246,17 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                     p.paymentMethod === "d17"
                                       ? "bg-amber-400/10 text-amber-600 border-amber-200/30"
                                       : "bg-blue-500/10 text-blue-600 border-blue-200/30"
-                                            )}
-
->
+                                  )}>
                                     {p.paymentMethod === "d17" ? (
                                       <><Smartphone className="h-3 w-3 mr-0.5" /> D17</>
                                     ) : (
                                       <><Landmark className="h-3 w-3 mr-0.5" /> Virement</>
-                                              )}
-
-
+                                    )}
                                   </Badge>
                                 </td>
                                 <td className="py-3 px-3 text-right hidden sm:table-cell">
                                   <span className="font-mono text-xs font-medium">
-                                    {p.paymentAmount ? `${p.paymentAmount.toLocaleString("fr-FR"          )}
-
- TND` : "—"}
+                                    {p.paymentAmount ? `${p.paymentAmount.toLocaleString("fr-FR")} TND` : "—"}
                                   </span>
                                 </td>
                                 <td className="py-3 px-3 text-center">
@@ -2522,9 +2268,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                     <Badge className="bg-amber-500/10 text-amber-600 border-amber-200/30 text-[9px]">
                                       <Clock className="h-3 w-3 mr-0.5" /> En attente
                                     </Badge>
-                                            )}
-
-
+                                  )}
                                 </td>
                                 <td className="py-3 px-3 hidden md:table-cell">
                                   <div className="flex items-center gap-1.5">
@@ -2535,9 +2279,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                 <td className="py-3 px-3 text-center">
                                   <button
                                     type="button"
-                                    onClick={() => setPreviewSupplierReceipt(p          )}
-
-
+                                    onClick={() => setPreviewSupplierReceipt(p)}
                                     className="group relative inline-flex items-center justify-center cursor-pointer"
                                     title="Voir le reçu"
                                   >
@@ -2610,9 +2352,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                         <Check className="h-3 w-3 mr-1" />
                                         <span className="hidden sm:inline">Vérifier</span>
                                       </Button>
-                                              )}
-
-
+                                    )}
                                     <Button
                                       variant="ghost"
                                       size="sm"
@@ -2635,15 +2375,11 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                 </td>
                               </tr>
                             );
-                          }          )}
-
-
+                          })}
                       </tbody>
                     </table>
                   </div>
-                          )}
-
-
+                )}
 
                 {/* Résumé */}
                 {allSuppliers.filter((p: any) => p.paymentProofUrl).length > 0 && (
@@ -2664,9 +2400,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           {allSuppliers
                             .filter((p: any) => p.paymentProofUrl)
                             .reduce((sum: number, p: any) => sum + (p.paymentAmount || 0), 0)
-                            .toLocaleString("fr-FR"          )}
-
- TND
+                            .toLocaleString("fr-FR")} TND
                         </span>
                       </span>
                       <span className="text-muted-foreground">•</span>
@@ -2675,9 +2409,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       </span>
                     </div>
                   </div>
-                          )}
-
-
+                )}
               </div>
 
               {/* ── Modale d'aperçu du reçu fournisseur ── */}
@@ -2708,18 +2440,14 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             previewSupplierReceipt.paymentMethod === "d17"
                               ? "bg-amber-400/10 text-amber-600"
                               : "bg-blue-500/10 text-blue-600"
-                                    )}
-
->
+                          )}>
                             {previewSupplierReceipt.paymentMethod === "d17" ? "D17" : "Virement bancaire"}
                           </Badge>
                         </div>
                         <div>
                           <p className="text-[9px] text-muted-foreground">Montant</p>
                           <p className="text-sm font-mono font-bold text-primary">
-                            {previewSupplierReceipt.paymentAmount ? `${previewSupplierReceipt.paymentAmount.toLocaleString("fr-FR"          )}
-
- TND` : "—"}
+                            {previewSupplierReceipt.paymentAmount ? `${previewSupplierReceipt.paymentAmount.toLocaleString("fr-FR")} TND` : "—"}
                           </p>
                         </div>
                         <div>
@@ -2732,9 +2460,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             <Badge className="bg-amber-500/10 text-amber-600 text-[9px] mt-0.5">
                               <Clock className="h-3 w-3 mr-0.5" /> En attente
                             </Badge>
-                                    )}
-
-
+                          )}
                         </div>
                         <div className="col-span-2">
                           <p className="text-[9px] text-muted-foreground">Date d'upload</p>
@@ -2778,9 +2504,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             <FileText className="h-12 w-12 mr-3" />
                             <p className="text-sm">Aucun fichier disponible</p>
                           </div>
-                                  )}
-
-
+                        )}
                       </div>
 
                       <div className="flex items-center justify-end gap-2">
@@ -2802,9 +2526,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         </DialogClose>
                       </div>
                     </div>
-                            )}
-
-
+                  )}
                 </DialogContent>
               </Dialog>
             </TabsContent>
@@ -2874,9 +2596,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       <p className="text-xl sm:text-2xl font-bold mt-1">
                         {estimatedMonthlyRevenue === null
                           ? "—"
-                          : new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(estimatedMonthlyRevenue          )}
-
-
+                          : new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(estimatedMonthlyRevenue)}
                       </p>
                     </div>
                     <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 text-emerald-600 ring-1 ring-emerald-500/10 shrink-0">
@@ -2896,22 +2616,16 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">Nouveaux ce mois</p>
-                      <p className="text-xl sm:text-2xl font-bold mt-1">{(() => { const now = Date.now(); const monthAgo = now - 30 * 24 * 60 * 60 * 1000; return allUsers.filter((u: any) => u._creationTime > monthAgo).length; })(          )}
-
-</p>
+                      <p className="text-xl sm:text-2xl font-bold mt-1">{(() => { const now = Date.now(); const monthAgo = now - 30 * 24 * 60 * 60 * 1000; return allUsers.filter((u: any) => u._creationTime > monthAgo).length; })()}</p>
                     </div>
                     <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500/20 to-rose-500/5 text-rose-600 ring-1 ring-rose-500/10 shrink-0">
                       <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" />
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-0.5">{(() => { const now = Date.now(); const weekAgo = now - 7 * 24 * 60 * 60 * 1000; return allUsers.filter((u: any) => u._creationTime > weekAgo).length; })(          )}
-
- cette semaine</span>
+                    <span className="flex items-center gap-0.5">{(() => { const now = Date.now(); const weekAgo = now - 7 * 24 * 60 * 60 * 1000; return allUsers.filter((u: any) => u._creationTime > weekAgo).length; })()} cette semaine</span>
                     <span>•</span>
-                    <span className="flex items-center gap-0.5">{(() => { const now = Date.now(); const dayAgo = now - 24 * 60 * 60 * 1000; return allUsers.filter((u: any) => u._creationTime > dayAgo).length; })(          )}
-
- aujourd'hui</span>
+                    <span className="flex items-center gap-0.5">{(() => { const now = Date.now(); const dayAgo = now - 24 * 60 * 60 * 1000; return allUsers.filter((u: any) => u._creationTime > dayAgo).length; })()} aujourd'hui</span>
                   </div>
                 </CardContent>
               </Card>
@@ -2961,9 +2675,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[10px] sm:text-xs text-muted-foreground">Projets ce mois</p>
-                      <p className="text-xl sm:text-2xl font-bold mt-1">{(() => { const now = Date.now(); const monthAgo = now - 30 * 24 * 60 * 60 * 1000; return allProjects.filter((p: any) => p._creationTime > monthAgo).length; })(          )}
-
-</p>
+                      <p className="text-xl sm:text-2xl font-bold mt-1">{(() => { const now = Date.now(); const monthAgo = now - 30 * 24 * 60 * 60 * 1000; return allProjects.filter((p: any) => p._creationTime > monthAgo).length; })()}</p>
                     </div>
                     <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500/20 to-sky-500/5 text-sky-600 ring-1 ring-sky-500/10 shrink-0">
                       <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -2972,9 +2684,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                   <div className="mt-2 flex items-center gap-2 text-[9px] sm:text-[10px] text-muted-foreground">
                     <span>Total: {allProjects.length} projets</span>
                     <span>•</span>
-                    <span>Coût total: {new Intl.NumberFormat("fr-FR").format(totalCost          )}
-
- TND</span>
+                    <span>Coût total: {new Intl.NumberFormat("fr-FR").format(totalCost)} TND</span>
                   </div>
                 </CardContent>
               </Card>
@@ -2990,9 +2700,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           const active = allSubsWithUsers.filter((s: any) => s.status === "active").length;
                           if (total === 0) return "0%";
                           return Math.round((active / total) * 100) + "%";
-                        })(          )}
-
-
+                        })()}
                       </p>
                     </div>
                     <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500/20 to-orange-500/5 text-orange-600 ring-1 ring-orange-500/10 shrink-0">
@@ -3027,15 +2735,11 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             {p.status === "completed" ? "Terminé" : p.status}
                           </Badge>
                           <span className="text-[10px] text-muted-foreground">
-                            {new Date(p.createdAt).toLocaleDateString("fr-FR"          )}
-
-
+                            {new Date(p.createdAt).toLocaleDateString("fr-FR")}
                           </span>
                         </div>
                       </div>
-                    )          )}
-
-
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -3043,11 +2747,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
               <Card className="border border-border/50 bg-background/50 backdrop-blur-sm">
                 <CardHeader className="p-4 pb-2">
                   <CardTitle className="text-sm">Abonnements & Revenus</CardTitle>
-                  <CardDescription className="text-[10px]">Client Pro: {limitForm ? planPriceLabel(limitForm.clientProPrice) : "—"} | Fournisseur: {planPriceLabel(planForm?.supplierPrice          )}
-
- | Expert: {planPriceLabel(planForm?.expertPrice          )}
-
-</CardDescription>
+                  <CardDescription className="text-[10px]">Client Pro: {limitForm ? planPriceLabel(limitForm.clientProPrice) : "—"} | Fournisseur: {planPriceLabel(planForm?.supplierPrice)} | Expert: {planPriceLabel(planForm?.expertPrice)}</CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
                   <div className="grid grid-cols-3 gap-2 mb-3">
@@ -3057,28 +2757,20 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       { label: "Annulés", count: allSubsWithUsers.filter((s: any) => s.status === "canceled").length, color: "text-red-500", bg: "bg-red-100" },
                     ].map((s) => (
                       <div key={s.label} className="text-center p-2 rounded-lg bg-muted/20 border border-border/10">
-                        <p className={cn("text-lg font-bold", s.color          )}
-
->{s.count}</p>
+                        <p className={cn("text-lg font-bold", s.color)}>{s.count}</p>
                         <p className="text-[9px] text-muted-foreground">{s.label}</p>
                       </div>
-                    )          )}
-
-
+                    ))}
                   </div>
                   <div className="space-y-1.5">
                     {allSubsWithUsers.filter((s: any) => s.status === "active" || s.status === "pending").slice(0, 4).map((sub: any) => (
                       <div key={sub._id} className="flex items-center justify-between py-1 border-b border-border/5 last:border-0">
                         <span className="text-xs truncate max-w-[130px]">{sub.user?.name || sub.user?.email || "Non renseigné"}</span>
-                        <Badge variant={sub.status === "active" ? "default" : "outline"} className={cn("text-[8px] h-4 px-1.5", sub.status === "pending" && "border-amber-300 text-amber-600"          )}
-
->
+                        <Badge variant={sub.status === "active" ? "default" : "outline"} className={cn("text-[8px] h-4 px-1.5", sub.status === "pending" && "border-amber-300 text-amber-600")}>
                           {sub.status === "active" ? "Actif" : "En attente"}
                         </Badge>
                       </div>
-                    )          )}
-
-
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -3100,15 +2792,11 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                   <Input
                     placeholder="Rechercher..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value          )}
-
-
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     className="h-9 w-32 sm:w-48 pl-9 text-sm"
                   />
                 </div>
-                <Button size="sm" className="gap-1.5 h-9 shrink-0" onClick={() => setShowNewMaterial(!showNewMaterial          )}
-
->
+                <Button size="sm" className="gap-1.5 h-9 shrink-0" onClick={() => setShowNewMaterial(!showNewMaterial)}>
                   <Plus className="h-4 w-4" />
                   <span className="hidden xs:inline">Ajouter</span>
                 </Button>
@@ -3122,54 +2810,40 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                       <div>
                         <label className="text-xs text-muted-foreground mb-1 block">Nom</label>
-                        <Input value={newMaterial.name} onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value }          )}
-
- placeholder="Ciment CPJ 42.5" className="h-9 text-sm" />
+                        <Input value={newMaterial.name} onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })} placeholder="Ciment CPJ 42.5" className="h-9 text-sm" />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground mb-1 block">Catégorie</label>
                         <select
                           value={newMaterial.category}
-                          onChange={(e) => setNewMaterial({ ...newMaterial, category: e.target.value }          )}
-
-
+                          onChange={(e) => setNewMaterial({ ...newMaterial, category: e.target.value })}
                           className="h-9 w-full rounded-lg border border-border/50 bg-background px-3 text-sm"
                         >
                           {Object.entries(categoryLabels).map(([key, label]) => (
                             <option key={key} value={key}>{label}</option>
-                          )          )}
-
-
+                          ))}
                         </select>
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground mb-1 block">Unité</label>
-                        <Input value={newMaterial.unit} onChange={(e) => setNewMaterial({ ...newMaterial, unit: e.target.value }          )}
-
- placeholder="sacs" className="h-9 text-sm" />
+                        <Input value={newMaterial.unit} onChange={(e) => setNewMaterial({ ...newMaterial, unit: e.target.value })} placeholder="sacs" className="h-9 text-sm" />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground mb-1 block">Prix unitaire</label>
-                        <Input type="number" value={newMaterial.unitPrice} onChange={(e) => setNewMaterial({ ...newMaterial, unitPrice: parseFloat(e.target.value) }          )}
-
- placeholder="12" className="h-9 text-sm" />
+                        <Input type="number" value={newMaterial.unitPrice} onChange={(e) => setNewMaterial({ ...newMaterial, unitPrice: parseFloat(e.target.value) })} placeholder="12" className="h-9 text-sm" />
                       </div>
                       <div className="flex items-end gap-2">
                         <Button size="sm" onClick={handleCreateMaterial} className="h-9">
                           <Check className="h-4 w-4 mr-1" />
                           Ajouter
                         </Button>
-                        <Button size="sm" variant="ghost" className="h-9" onClick={() => setShowNewMaterial(false          )}
-
->
+                        <Button size="sm" variant="ghost" className="h-9" onClick={() => setShowNewMaterial(false)}>
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>
                   </div>
-                      )}
-
-
+            )}
               </div>
 
 
@@ -3179,9 +2853,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                   variant="outline"
                   size="sm"
                   className="gap-1.5 h-8 text-xs mb-2"
-                  onClick={() => setShowImportZone(!showImportZone          )}
-
-
+                  onClick={() => setShowImportZone(!showImportZone)}
                 >
                   <Upload className="h-3.5 w-3.5" />
                   Importer un fichier Excel (.xlsx)
@@ -3197,9 +2869,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             importing
                               ? "border-primary/40 bg-primary/5"
                               : "border-border/40 hover:border-primary/40 hover:bg-muted/20"
-                                    )}
-
-
+                          )}
                         >
                           {importing ? (
                             <div className="flex flex-col items-center gap-2">
@@ -3216,9 +2886,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                 Colonnes attendues : nom/désignation, prix, unité (optionnel), SKU/ID (optionnel)
                               </span>
                             </div>
-                                    )}
-
-
+                          )}
                           <input
                             id="excel-upload"
                             type="file"
@@ -3257,26 +2925,16 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           <div className="mt-2 max-h-24 overflow-y-auto text-[10px] text-destructive/80 space-y-0.5">
                             {importResult.errors.slice(0, 20).map((err, i) => (
                               <p key={i}>• {err}</p>
-                            )          )}
-
-
+                            ))}
                             {importResult.errors.length > 20 && (
                               <p className="text-muted-foreground">... et {importResult.errors.length - 20} autre(s)</p>
-                                      )}
-
-
+                            )}
                           </div>
-                                  )}
-
-
+                        )}
                       </div>
-                              )}
-
-
+                    )}
                   </div>
-                          )}
-
-
+                )}
               </div>
 
               {/* Materials table */}
@@ -3301,16 +2959,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           {editingMaterial === material._id ? (
                             <Input
                               value={editValues[material._id]?.name || material.name}
-                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], name: e.target.value } }          )}
-
-
+                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], name: e.target.value } })}
                               className="h-8 text-sm"
                             />
                           ) : (
                             <span className="font-medium">{material.name}</span>
-                                    )}
-
-
+                          )}
                         </td>
                         <td className="py-2.5 px-3">
                           <Badge variant="secondary" className="text-xs font-normal">
@@ -3321,68 +2975,50 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           {editingMaterial === material._id ? (
                             <Input
                               value={editValues[material._id]?.unit || material.unit}
-                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], unit: e.target.value } }          )}
-
-
+                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], unit: e.target.value } })}
                               className="h-8 text-sm w-20 ml-auto"
                             />
                           ) : (
                             material.unit
-                                    )}
-
-
+                          )}
                         </td>
                         <td className="py-2.5 px-2 text-right font-medium">
                           {editingMaterial === material._id ? (
                             <Input
                               type="number"
                               value={editValues[material._id]?.unitPrice ?? material.unitPrice}
-                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], unitPrice: parseFloat(e.target.value) } }          )}
-
-
+                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], unitPrice: parseFloat(e.target.value) } })}
                               className="h-8 text-sm w-24 ml-auto"
                             />
                           ) : (
-                            `${material.unitPrice.toFixed(3          )}
-
- TND`
-                                    )}
-
-
+                            `${material.unitPrice.toFixed(3)} TND`
+                          )}
                         </td>
                         <td className="py-2.5 px-2">
                           {editingMaterial === material._id ? (
                             <Input
                               placeholder="Tunis / Sousse…"
                               value={editValues[material._id]?.region ?? material.region ?? ""}
-                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], region: e.target.value } }          )}
-
-
+                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], region: e.target.value } })}
                               className="h-8 text-sm w-28"
                             />
                           ) : (
                             <span className="text-xs text-muted-foreground">{material.region || "—"}</span>
-                                    )}
-
-
+                          )}
                         </td>
                         <td className="py-2.5 px-2">
                           {editingMaterial === material._id ? (
                             <Input
                               placeholder="Fournisseur, devis, référence…"
                               value={editValues[material._id]?.notes ?? material.notes ?? ""}
-                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], notes: e.target.value } }          )}
-
-
+                              onChange={(e) => setEditValues({ ...editValues, [material._id]: { ...editValues[material._id], notes: e.target.value } })}
                               className="h-8 text-sm w-40"
                             />
                           ) : (
                             <span className="text-xs text-muted-foreground line-clamp-1">
                               {material.notes || "—"}
                             </span>
-                                    )}
-
-
+                          )}
                         </td>
                         <td className="py-2.5 px-2">
                           <span className="text-[10px] text-muted-foreground">
@@ -3394,22 +3030,16 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <td className="py-2.5 px-2 text-right">
                           {editingMaterial === material._id ? (
                             <div className="flex items-center justify-end gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-500" onClick={() => handleUpdateMaterial(material._id          )}
-
->
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-500" onClick={() => handleUpdateMaterial(material._id)}>
                                 <Save className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingMaterial(null          )}
-
->
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingMaterial(null)}>
                                 <X className="h-4 w-4" />
                               </Button>
                             </div>
                           ) : (
                             <div className="flex items-center justify-end gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingMaterial(material._id          )}
-
->
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingMaterial(material._id)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
                               <Button
@@ -3425,14 +3055,10 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
-                                    )}
-
-
+                          )}
                         </td>
                       </tr>
-                    )          )}
-
-
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -3473,22 +3099,16 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <Loader2 className="h-4 w-4 animate-spin mr-1" />
                       ) : (
                         <Trash2 className="h-4 w-4 mr-1" />
-                                )}
-
-
+                      )}
                       Supprimer ({selectedProjectIds.size})
                     </Button>
-                            )}
-
-
+                  )}
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Rechercher un projet..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value          )}
-
-
+                      onChange={(e) => setSearchQuery(e.target.value)}
                       className="h-9 w-40 sm:w-56 pl-9 text-sm"
                     />
                   </div>
@@ -3546,9 +3166,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <td className="py-2.5 px-3">
                           <input
                             type="checkbox"
-                            checked={selectedProjectIds.has(project._id          )}
-
-
+                            checked={selectedProjectIds.has(project._id)}
                             onChange={() => {
                               const next = new Set(selectedProjectIds);
                               if (next.has(project._id)) next.delete(project._id);
@@ -3577,9 +3195,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           <Badge variant="outline" className="text-[9px] font-normal">{project.category || "—"}</Badge>
                         </td>
                         <td className="py-2.5 px-2 text-center">
-                          <Badge variant={project.status === "completed" ? "default" : "secondary"} className={cn("text-[9px] font-normal", project.status === "completed" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : ""          )}
-
->
+                          <Badge variant={project.status === "completed" ? "default" : "secondary"} className={cn("text-[9px] font-normal", project.status === "completed" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : "")}>
                             {project.status === "completed" ? "Terminé" : project.status === "pending" ? "En cours" : project.status}
                           </Badge>
                         </td>
@@ -3589,17 +3205,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             : "—"}
                         </td>
                         <td className="py-2.5 px-2 text-right text-[10px] text-muted-foreground">
-                          {new Date(project.createdAt).toLocaleDateString("fr-FR"          )}
-
-
+                          {new Date(project.createdAt).toLocaleDateString("fr-FR")}
                         </td>
                         <td className="py-2.5 px-2 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
-                              onClick={() => navigate(`/dashboard/project/${project._id}`          )}
-
-
+                              onClick={() => navigate(`/dashboard/project/${project._id}`)}
                               className="p-1.5 rounded-md hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
                               title="Voir le projet"
                             >
@@ -3625,31 +3237,23 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           </div>
                         </td>
                       </tr>
-                    )          )}
-
-
+                    ))}
                     {allProjects.filter((p: any) => searchQuery ? (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()) || (p.category || "").toLowerCase().includes(searchQuery.toLowerCase()) : true).length === 0 && (
                       <tr>
                         <td colSpan={8} className="text-center py-8 text-xs text-muted-foreground">Aucun projet trouvé</td>
                       </tr>
-                              )}
-
-
+                    )}
                   </tbody>
                 </table>
               </div>
 
               {allProjects.length > 0 && (
                 <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                  <span className="font-medium text-foreground">Total estimations: <span className="font-mono">{new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(totalCost          )}
-
-</span></span>
+                  <span className="font-medium text-foreground">Total estimations: <span className="font-mono">{new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 }).format(totalCost)}</span></span>
                   <span>•</span>
                   <span>{allProjects.filter((p: any) => p.status === "completed").length} terminé(s)</span>
                 </div>
-                        )}
-
-
+              )}
             </div>
           </TabsContent>
           {/* Investissements Management */}
@@ -3685,22 +3289,16 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <Loader2 className="h-4 w-4 animate-spin mr-1" />
                       ) : (
                         <Trash2 className="h-4 w-4 mr-1" />
-                                )}
-
-
+                      )}
                       Supprimer ({selectedAnalysisIds.size})
                     </Button>
-                            )}
-
-
+                  )}
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Rechercher une analyse..."
                       value={investmentSearch}
-                      onChange={(e) => setInvestmentSearch(e.target.value          )}
-
-
+                      onChange={(e) => setInvestmentSearch(e.target.value)}
                       className="h-9 w-40 sm:w-56 pl-9 text-sm"
                     />
                   </div>
@@ -3763,9 +3361,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           <td className="py-2.5 px-3">
                             <input
                               type="checkbox"
-                              checked={selectedAnalysisIds.has(analysis._id          )}
-
-
+                              checked={selectedAnalysisIds.has(analysis._id)}
                               onChange={() => {
                                 const next = new Set(selectedAnalysisIds);
                                 if (next.has(analysis._id)) next.delete(analysis._id);
@@ -3777,11 +3373,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           </td>
                           <td className="py-2.5 px-3">
                             <p className="font-medium text-xs">{analysis.input?.name || "Analyse sans nom"}</p>
-                            <p className="text-[9px] text-muted-foreground">{(analysis.input?.city || ""          )}
-
- {(analysis.input?.region || ""          )}
-
-</p>
+                            <p className="text-[9px] text-muted-foreground">{(analysis.input?.city || "")} {(analysis.input?.region || "")}</p>
                           </td>
                           <td className="py-2.5 px-2 hidden sm:table-cell">
                             <div className="flex items-center gap-1.5">
@@ -3803,22 +3395,16 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                               : "—"}
                           </td>
                           <td className="py-2.5 px-2 text-right text-xs font-medium">
-                            {rendement != null ? `${Number(rendement).toFixed(1          )}
-
-%` : "—"}
+                            {rendement != null ? `${Number(rendement).toFixed(1)}%` : "—"}
                           </td>
                           <td className="py-2.5 px-2 text-right text-[10px] text-muted-foreground">
-                            {new Date(analysis.createdAt).toLocaleDateString("fr-FR"          )}
-
-
+                            {new Date(analysis.createdAt).toLocaleDateString("fr-FR")}
                           </td>
                           <td className="py-2.5 px-2 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <button
                                 type="button"
-                                onClick={() => navigate(`/dashboard/investments/result/${analysis._id}`          )}
-
-
+                                onClick={() => navigate(`/dashboard/investments/result/${analysis._id}`)}
                                 className="p-1.5 rounded-md hover:bg-muted/30 text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
                                 title="Voir l'analyse"
                               >
@@ -3844,16 +3430,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           </td>
                         </tr>
                         );
-                      }          )}
-
-
+                      })}
                     {allAnalyses.filter((a: any) => investmentSearch ? (a.input?.name || "").toLowerCase().includes(investmentSearch.toLowerCase()) || (a.input?.investmentType || "").toLowerCase().includes(investmentSearch.toLowerCase()) : true).length === 0 && (
                       <tr>
                         <td colSpan={8} className="text-center py-8 text-xs text-muted-foreground">Aucune analyse trouvée</td>
                       </tr>
-                              )}
-
-
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -3896,9 +3478,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                     <Input
                       placeholder="Rechercher..."
                       value={userSearch}
-                      onChange={(e) => setUserSearch(e.target.value          )}
-
-
+                      onChange={(e) => setUserSearch(e.target.value)}
                       className="h-9 w-40 sm:w-56 pl-9 text-sm"
                     />
                   </div>
@@ -3914,14 +3494,10 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <Loader2 className="h-4 w-4 animate-spin mr-1" />
                       ) : (
                         <Trash2 className="h-4 w-4 mr-1" />
-                                )}
-
-
+                      )}
                       Supprimer ({selectedUserIds.size})
                     </Button>
-                            )}
-
-
+                  )}
                 </div>
               </div>
 
@@ -3963,9 +3539,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <td className="py-2.5 px-3">
                           <input
                             type="checkbox"
-                            checked={selectedUserIds.has(u._id          )}
-
-
+                            checked={selectedUserIds.has(u._id)}
                             onChange={() => {
                               const next = new Set(selectedUserIds);
                               if (next.has(u._id)) next.delete(u._id);
@@ -3977,22 +3551,16 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         </td>
                         <td className="py-2.5 px-3">
                           <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8 shrink-0 border border-border/40 cursor-pointer" onClick={() => setSelectedUser(u          )}
-
->
+                            <Avatar className="h-8 w-8 shrink-0 border border-border/40 cursor-pointer" onClick={() => setSelectedUser(u)}>
                               {u.image ? (
                                 <AvatarImage src={u.image} alt="Photo" className="object-cover" />
                               ) : (
                                 <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
                                   {u.name?.charAt(0)?.toUpperCase() || "?"}
                                 </AvatarFallback>
-                                        )}
-
-
+                              )}
                             </Avatar>
-                            <div className="min-w-0 cursor-pointer" onClick={() => setSelectedUser(u          )}
-
->
+                            <div className="min-w-0 cursor-pointer" onClick={() => setSelectedUser(u)}>
                               <p className="font-medium text-xs truncate max-w-[120px] sm:max-w-[180px]">
                                 {u.name || u.email || "Non renseigné"}
                               </p>
@@ -4006,17 +3574,13 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           <span className="text-xs">{u.phone || "—"}</span>
                         </td>
                         <td className="py-2.5 px-2 text-center">
-                          <Badge className={cn("text-[9px]", u.role === "admin" ? "bg-purple-500/10 text-purple-600 border-purple-200/30" : u.role === "moderator" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" : "bg-muted/30 text-muted-foreground"          )}
-
->
+                          <Badge className={cn("text-[9px]", u.role === "admin" ? "bg-purple-500/10 text-purple-600 border-purple-200/30" : u.role === "moderator" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" : "bg-muted/30 text-muted-foreground")}>
                             {u.role === "admin" ? "Admin" : u.role === "moderator" ? "Modérateur" : "Utilisateur"}
                           </Badge>
                         </td>
                         <td className="py-2.5 px-2 text-center">
                           {isModerator ? (
-                            <Badge className={cn("text-[9px]", (u.profileRole ?? u.userRole) === "supplier" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" : (u.profileRole ?? u.userRole) === "expert" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : "bg-muted/30 text-muted-foreground"          )}
-
->
+                            <Badge className={cn("text-[9px]", (u.profileRole ?? u.userRole) === "supplier" ? "bg-amber-500/10 text-amber-600 border-amber-200/30" : (u.profileRole ?? u.userRole) === "expert" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : "bg-muted/30 text-muted-foreground")}>
                               {(u.profileRole ?? u.userRole) === "supplier" ? "Fournisseur" : (u.profileRole ?? u.userRole) === "expert" ? "Expert" : "Client Pro"}
                             </Badge>
                           ) : (
@@ -4035,23 +3599,17 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                 (u.profileRole ?? u.userRole) === "supplier" ? "text-amber-600 bg-amber-400/10" :
                                 (u.profileRole ?? u.userRole) === "expert" ? "text-blue-600 bg-blue-500/5" :
                                 "text-muted-foreground"
-                                        )}
-
-
+                              )}
                             >
                               <option value="client">Client Pro</option>
                               <option value="supplier">Fournisseur</option>
                               <option value="expert">Expert</option>
                             </select>
-                                    )}
-
-
+                          )}
                         </td>
                         <td className="py-2.5 px-2 text-center">
                           {isModerator ? (
-                            <Badge className={cn("text-[9px]", (u.referencePlan ?? u.subscriptionPlan) === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : (u.referencePlan ?? u.subscriptionPlan) === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : (u.referencePlan ?? u.subscriptionPlan) === "supplier" ? "bg-amber-400/10 text-amber-600 border-amber-200/30" : "bg-muted/30 text-muted-foreground"          )}
-
->
+                            <Badge className={cn("text-[9px]", (u.referencePlan ?? u.subscriptionPlan) === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" : (u.referencePlan ?? u.subscriptionPlan) === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : (u.referencePlan ?? u.subscriptionPlan) === "supplier" ? "bg-amber-400/10 text-amber-600 border-amber-200/30" : "bg-muted/30 text-muted-foreground")}>
                               {(u.referencePlan ?? u.subscriptionPlan) === "supplier" ? "Fournisseur" : (u.referencePlan ?? u.subscriptionPlan) === "expert" ? "Expert" : (u.referencePlan ?? u.subscriptionPlan) === "pro" ? "Client Pro" : "Aucun"}
                             </Badge>
                           ) : (
@@ -4077,18 +3635,14 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                 (u.referencePlan ?? u.subscriptionPlan) === "expert" ? "text-emerald-600 bg-emerald-500/5" :
                                 (u.referencePlan ?? u.subscriptionPlan) === "supplier" ? "text-amber-600 bg-amber-400/10" :
                                 "text-muted-foreground"
-                                        )}
-
-
+                              )}
                             >
                               <option value="free">Aucun</option>
                               <option value="pro">Client Pro</option>
                               <option value="expert">Expert</option>
                               <option value="supplier">Fournisseur</option>
                             </select>
-                                    )}
-
-
+                          )}
                         </td>
                         <td className="py-2.5 px-2 text-right text-[10px] text-muted-foreground">
                           <div className="flex items-center justify-end gap-1.5">
@@ -4123,16 +3677,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                     ok
                                       ? "bg-emerald-500/10 text-emerald-600"
                                       : "bg-red-500/10 text-red-600",
-                                            )}
-
-
+                                  )}
                                 >
                                   {ok ? "✓" : "!"}
                                 </span>
                               );
-                            })(          )}
-
-
+                            })()}
                           {(u.createdAt ?? (u as any)._creationTime)
                             ? new Date(u.createdAt ?? (u as any)._creationTime).toLocaleDateString("fr-FR")
                             : "—"}
@@ -4161,9 +3711,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                               <option value="moderator">Modérateur</option>
                               <option value="admin">Admin</option>
                             </select>
-                                      )}
-
-
+                            )}
                             <button
                               type="button"
                               onClick={async () => {
@@ -4184,9 +3732,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             </button>
                             <button
                               type="button"
-                              onClick={() => setDeletingUserId(u._id          )}
-
-
+                              onClick={() => setDeletingUserId(u._id)}
                               className="p-1.5 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors"
                               title="Supprimer"
                             >
@@ -4195,9 +3741,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           </div>
                         </td>
                       </tr>
-                    )          )}
-
-
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -4249,9 +3793,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="min-w-0">
-                                <p className="font-medium text-xs truncate max-w-[120px] cursor-pointer hover:text-primary transition-colors" onClick={() => setSelectedUser(sub.user          )}
-
->{sub.user?.name || sub.user?.email || "Non renseigné"}</p>
+                                <p className="font-medium text-xs truncate max-w-[120px] cursor-pointer hover:text-primary transition-colors" onClick={() => setSelectedUser(sub.user)}>{sub.user?.name || sub.user?.email || "Non renseigné"}</p>
                                 <p className="text-[9px] text-muted-foreground truncate max-w-[120px]">{sub.user?.email || ""}</p>
                               </div>
                             </div>
@@ -4312,28 +3854,20 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             </div>
                           </td>
                         </tr>
-                      )          )}
-
-
+                      ))}
                     </tbody>
                   </table>
                 </div>
-                        )}
-
-
+              )}
 
               {/* Totals summary */}
               {pendingSubs.length > 0 && (
                 <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
                   <span>{pendingSubs.length} demande(s) en attente</span>
                   <span>•</span>
-                  <span>Total : {pendingSubs.reduce((sum: number, s: any) => sum + (s.amount || 0), 0).toLocaleString("fr-FR"          )}
-
- TND</span>
+                  <span>Total : {pendingSubs.reduce((sum: number, s: any) => sum + (s.amount || 0), 0).toLocaleString("fr-FR")} TND</span>
                 </div>
-                        )}
-
-
+              )}
             </div>
           </TabsContent>
 
@@ -4354,9 +3888,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                     <Input
                       placeholder="Rechercher..."
                       value={subSearch}
-                      onChange={(e) => setSubSearch(e.target.value          )}
-
-
+                      onChange={(e) => setSubSearch(e.target.value)}
                       className="h-9 w-40 sm:w-48 pl-9 text-sm"
                     />
                   </div>
@@ -4419,23 +3951,17 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                               sub.plan === "pro" ? "bg-blue-500/10 text-blue-600 border-blue-200/30" :
                               sub.plan === "expert" ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" :
                               "bg-muted/30 text-muted-foreground"
-                                      )}
-
->
+                            )}>
                               {sub.plan === "pro" ? "Client Pro" : sub.plan === "expert" ? "Expert" : sub.plan === "supplier" ? "Fournisseur" : sub.plan}
                             </Badge>
                           </td>
                           <td className="py-2.5 px-2 sm:px-3 text-center">
-                            <Badge className={cn("text-[9px]", sub.status === "active" ? "bg-emerald-500/10 text-emerald-600" : sub.status === "pending" ? "bg-amber-500/10 text-amber-600" : "bg-muted/30 text-muted-foreground"          )}
-
->
+                            <Badge className={cn("text-[9px]", sub.status === "active" ? "bg-emerald-500/10 text-emerald-600" : sub.status === "pending" ? "bg-amber-500/10 text-amber-600" : "bg-muted/30 text-muted-foreground")}>
                               {sub.status === "active" ? "Actif" : sub.status === "pending" ? "En attente" : sub.status}
                             </Badge>
                           </td>
                           <td className="py-2.5 px-2 sm:px-3 text-right hidden sm:table-cell">
-                            <span className="font-mono text-xs font-medium">{sub.amount ? `${sub.amount.toLocaleString("fr-FR"          )}
-
- TND` : "—"}</span>
+                            <span className="font-mono text-xs font-medium">{sub.amount ? `${sub.amount.toLocaleString("fr-FR")} TND` : "—"}</span>
                           </td>
                           <td className="py-2.5 px-2 sm:px-3 text-right hidden sm:table-cell text-[10px] text-muted-foreground">
                             {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "—"}
@@ -4457,9 +3983,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                     <X className="h-3 w-3 mr-0.5" /> Non
                                   </Button>
                                 </>
-                                        )}
-
-
+                              )}
                               <button
                                 type="button"
                                 className="p-1.5 rounded-md hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors"
@@ -4479,22 +4003,16 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                             </div>
                           </td>
                         </tr>
-                      )          )}
-
-
+                      ))}
                       {allSubsWithUsers.filter((sub: any) => subSearch ? (sub.user?.name || "").toLowerCase().includes(subSearch.toLowerCase()) || (sub.user?.email || "").toLowerCase().includes(subSearch.toLowerCase()) || (sub.plan || "").toLowerCase().includes(subSearch.toLowerCase()) : true).length === 0 && (
                         <tr>
                           <td colSpan={6} className="text-center py-8 text-xs text-muted-foreground">Aucun abonnement trouvé</td>
                         </tr>
-                                )}
-
-
+                      )}
                     </tbody>
                   </table>
                 </div>
-                        )}
-
-
+              )}
             </div>
           </TabsContent>
 
@@ -4547,31 +4065,23 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         return (
                           <tr key={log._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
                             <td className="py-2.5 px-2 sm:px-3 text-[10px] text-muted-foreground">
-                              {new Date(log.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }          )}
-
-
+                              {new Date(log.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                             </td>
                             <td className="py-2.5 px-2 sm:px-3 text-xs font-medium">{log.adminName || "Admin"}</td>
                             <td className="py-2.5 px-2 sm:px-3">
                               <div className="flex items-center gap-1.5">
-                                <Icon className={cn("h-3.5 w-3.5", config.color          )}
-
- />
+                                <Icon className={cn("h-3.5 w-3.5", config.color)} />
                                 <span className="text-xs">{config.label}</span>
                               </div>
                             </td>
                             <td className="py-2.5 px-2 sm:px-3 text-xs text-muted-foreground">{log.details || "—"}</td>
                           </tr>
                         );
-                      }          )}
-
-
+                      })}
                     </tbody>
                   </table>
                 </div>
-                        )}
-
-
+              )}
             </div>
           </TabsContent>
 
@@ -4594,9 +4104,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <label className="text-xs text-muted-foreground">Banque</label>
                         <Input
                           value={paymentForm.bankName}
-                          onChange={(e) => setPaymentForm({...paymentForm, bankName: e.target.value}          )}
-
-
+                          onChange={(e) => setPaymentForm({...paymentForm, bankName: e.target.value})}
                           placeholder="Ex: BIAT, Amen Bank..."
                           className="h-9 text-sm mt-1"
                         />
@@ -4605,9 +4113,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <label className="text-xs text-muted-foreground">Titulaire</label>
                         <Input
                           value={paymentForm.bankTitulaire}
-                          onChange={(e) => setPaymentForm({...paymentForm, bankTitulaire: e.target.value}          )}
-
-
+                          onChange={(e) => setPaymentForm({...paymentForm, bankTitulaire: e.target.value})}
                           placeholder="Nom du titulaire"
                           className="h-9 text-sm mt-1"
                         />
@@ -4616,9 +4122,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <label className="text-xs text-muted-foreground">RIB</label>
                         <Input
                           value={paymentForm.bankRib}
-                          onChange={(e) => setPaymentForm({...paymentForm, bankRib: e.target.value}          )}
-
-
+                          onChange={(e) => setPaymentForm({...paymentForm, bankRib: e.target.value})}
                           placeholder="RIB bancaire"
                           className="h-9 text-sm font-mono mt-1"
                         />
@@ -4627,9 +4131,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <label className="text-xs text-muted-foreground">IBAN</label>
                         <Input
                           value={paymentForm.bankIban}
-                          onChange={(e) => setPaymentForm({...paymentForm, bankIban: e.target.value}          )}
-
-
+                          onChange={(e) => setPaymentForm({...paymentForm, bankIban: e.target.value})}
                           placeholder="IBAN international"
                           className="h-9 text-sm font-mono mt-1"
                         />
@@ -4638,9 +4140,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <label className="text-xs text-muted-foreground">SWIFT/BIC</label>
                         <Input
                           value={paymentForm.bankSwift}
-                          onChange={(e) => setPaymentForm({...paymentForm, bankSwift: e.target.value}          )}
-
-
+                          onChange={(e) => setPaymentForm({...paymentForm, bankSwift: e.target.value})}
                           placeholder="Code SWIFT"
                           className="h-9 text-sm font-mono mt-1"
                         />
@@ -4657,9 +4157,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <label className="text-xs text-muted-foreground">Marchand</label>
                         <Input
                           value={paymentForm.d17MerchantName}
-                          onChange={(e) => setPaymentForm({...paymentForm, d17MerchantName: e.target.value}          )}
-
-
+                          onChange={(e) => setPaymentForm({...paymentForm, d17MerchantName: e.target.value})}
                           placeholder="Nom du marchand"
                           className="h-9 text-sm mt-1"
                         />
@@ -4668,9 +4166,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <label className="text-xs text-muted-foreground">Téléphone</label>
                         <Input
                           value={paymentForm.d17Phone}
-                          onChange={(e) => setPaymentForm({...paymentForm, d17Phone: e.target.value}          )}
-
-
+                          onChange={(e) => setPaymentForm({...paymentForm, d17Phone: e.target.value})}
                           placeholder="Numéro D17"
                           className="h-9 text-sm mt-1"
                         />
@@ -4679,9 +4175,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <label className="text-xs text-muted-foreground">Email</label>
                         <Input
                           value={paymentForm.d17Email}
-                          onChange={(e) => setPaymentForm({...paymentForm, d17Email: e.target.value}          )}
-
-
+                          onChange={(e) => setPaymentForm({...paymentForm, d17Email: e.target.value})}
                           placeholder="Email D17"
                           className="h-9 text-sm mt-1"
                         />
@@ -4690,9 +4184,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <label className="text-xs text-muted-foreground">Notice</label>
                         <Input
                           value={paymentForm.d17Notice}
-                          onChange={(e) => setPaymentForm({...paymentForm, d17Notice: e.target.value}          )}
-
-
+                          onChange={(e) => setPaymentForm({...paymentForm, d17Notice: e.target.value})}
                           placeholder="Instructions de paiement"
                           className="h-9 text-sm mt-1"
                         />
@@ -4723,9 +4215,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       <Save className="h-4 w-4" />
                       Enregistrer
                     </Button>
-                            )}
-
-
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -4782,16 +4272,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       <Badge variant="outline" className="text-[10px] bg-blue-500/5">Client Pro</Badge>
                       {defaultPlan === "client_pro" && (
                         <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20">✓ Forfait par défaut</Badge>
-                                )}
-
-
+                      )}
                       {clientProEnabled ? (
                         <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Activé</Badge>
                       ) : (
                         <Badge variant="outline" className="text-[10px]">Désactivé</Badge>
-                                )}
-
-
+                      )}
                     </div>
                   </div>
                   <div className="rounded-lg bg-background/60 border border-border/20 p-3 text-[11px] text-muted-foreground space-y-1.5">
@@ -4805,9 +4291,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       <Input
                         type="number"
                         value={limitForm.clientProPrice}
-                        onChange={(e) => setLimitForm({ ...limitForm, clientProPrice: parseFloat(e.target.value) }          )}
-
-
+                        onChange={(e) => setLimitForm({ ...limitForm, clientProPrice: parseFloat(e.target.value) })}
                         className="h-8 w-full text-sm mt-1"
                       />
                     </div>
@@ -4837,9 +4321,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Gratuit</Badge>
                       ) : (
                         <Badge className="text-[10px] bg-purple-500/10 text-purple-600 border-purple-200/30">Payant</Badge>
-                                )}
-
-
+                      )}
                       <Badge variant="outline" className="text-[10px] bg-purple-500/5">Fournisseur</Badge>
                     </div>
                   </div>
@@ -4855,9 +4337,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         type="number"
                         value={limitForm.supplierPrice}
                         disabled={limitForm.supplierFree}
-                        onChange={(e) => setLimitForm({ ...limitForm, supplierPrice: parseFloat(e.target.value) }          )}
-
-
+                        onChange={(e) => setLimitForm({ ...limitForm, supplierPrice: parseFloat(e.target.value) })}
                         className="h-8 w-full text-sm mt-1"
                       />
                     </div>
@@ -4900,9 +4380,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Gratuit</Badge>
                       ) : (
                         <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-200/30">Payant</Badge>
-                                )}
-
-
+                      )}
                       <Badge variant="outline" className="text-[10px] bg-emerald-500/5">Expert</Badge>
                     </div>
                   </div>
@@ -4918,9 +4396,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         type="number"
                         value={limitForm.expertPrice}
                         disabled={limitForm.expertFree}
-                        onChange={(e) => setLimitForm({ ...limitForm, expertPrice: parseFloat(e.target.value) }          )}
-
-
+                        onChange={(e) => setLimitForm({ ...limitForm, expertPrice: parseFloat(e.target.value) })}
                         className="h-8 w-full text-sm mt-1"
                       />
                     </div>
@@ -4968,20 +4444,14 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                           key={opt.id}
                           type="button"
                           disabled={!opt.available}
-                          onClick={() => opt.available && setDefaultPlan(opt.id          )}
-
-
+                          onClick={() => opt.available && setDefaultPlan(opt.id)}
                           className={cn(
                             "flex items-center gap-3 rounded-xl border p-3 text-left transition-all",
                             selected ? "border-primary bg-primary/5" : "border-border/40 hover:border-primary/40",
                             !opt.available && "cursor-not-allowed opacity-50",
-                                    )}
-
-
+                          )}
                         >
-                          <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded-full border", selected ? "border-primary" : "border-muted-foreground/40"          )}
-
->
+                          <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded-full border", selected ? "border-primary" : "border-muted-foreground/40")}>
                             {selected && <span className="h-2 w-2 rounded-full bg-primary" />}
                           </span>
                           <span className="min-w-0 flex-1">
@@ -4990,29 +4460,21 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                               <span className="block text-[10px] text-muted-foreground">
                                 {opt.hint} — sélectionnez l'autre forfait actif.
                               </span>
-                                      )}
-
-
+                            )}
                           </span>
                           {selected && (
                             <Badge className="text-[9px] bg-primary/10 text-primary border-primary/20">✓ Forfait par défaut</Badge>
-                                    )}
-
-
+                          )}
                         </button>
                       );
-                    }          )}
-
-
+                    })}
                   </div>
                   {!clientProEnabled && (
                     <p className="text-[11px] text-muted-foreground">
                       Client Pro est désactivé : les nouveaux comptes ne reçoivent aucun forfait payé
                       (souscription obligatoire ; aucun essai Client Pro n'est démarré).
                     </p>
-                            )}
-
-
+                  )}
                   <p className="text-[11px] text-muted-foreground">
                     « Aucun forfait payé » n'attribue <strong className="text-foreground">aucun abonnement</strong> :
                     le compte suit la période d'essai gratuite si elle est activée et si Client Pro
@@ -5084,13 +4546,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                     <Save className="h-4 w-4" />
                     Enregistrer les abonnements
                   </Button>
-                          )}
-
-
+                )}
                   </>
-                          )}
-
-
+                )}
                 </div>
               </CardContent>
             </Card>
@@ -5148,9 +4606,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                       <Input
                         placeholder="Rechercher..."
                         value={expertSearch}
-                        onChange={(e) => setExpertSearch(e.target.value          )}
-
-
+                        onChange={(e) => setExpertSearch(e.target.value)}
                         className="h-9 w-36 sm:w-44 pl-9 text-sm"
                       />
                     </div>
@@ -5173,9 +4629,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <Wrench className="h-3.5 w-3.5" />
                         <span className="hidden sm:inline">Migrer</span> {legacyExpertProfessions}
                       </Button>
-                              )}
-
-
+                    )}
                     {allExperts.length > 0 && (
                       <Button
                         variant="outline"
@@ -5208,9 +4662,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                         <Download className="h-3.5 w-3.5" />
                         <span className="hidden sm:inline">Export CSV</span>
                       </Button>
-                              )}
-
-
+                    )}
                   </div>
                 </div>
 
@@ -5267,13 +4719,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                       <AvatarImage src={profile.user.image} className="object-cover" />
                                     ) : (
                                       <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                                        {(profile.displayName || "?").charAt(0).toUpperCase(          )}
-
-
+                                        {(profile.displayName || "?").charAt(0).toUpperCase()}
                                       </AvatarFallback>
-                                              )}
-
-
+                                    )}
                                   </Avatar>
                                   <div className="min-w-0">
                                     <p className="font-medium text-xs truncate max-w-[120px] sm:max-w-[180px]">{profile.displayName || "—"}</p>
@@ -5288,42 +4736,30 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                 <div className="flex flex-wrap gap-1">
                                   {(profile.specialties || []).slice(0, 2).map((s: string) => (
                                     <Badge key={s} variant="secondary" className="text-[8px]">{s}</Badge>
-                                  )          )}
-
-
+                                  ))}
                                   {(profile.specialties || []).length > 2 && (
                                     <Badge variant="secondary" className="text-[8px]">+{profile.specialties.length - 2}</Badge>
-                                            )}
-
-
+                                  )}
                                 </div>
                               </td>
                               <td className="py-2.5 px-3 text-center">
-                                <Badge className={cn("text-[9px]", statusColors[profile.subscriptionStatus] || statusColors.inactive          )}
-
->
+                                <Badge className={cn("text-[9px]", statusColors[profile.subscriptionStatus] || statusColors.inactive)}>
                                   {statusLabels[profile.subscriptionStatus] || profile.subscriptionStatus}
                                 </Badge>
                               </td>
                               <td className="py-2.5 px-3 text-center hidden sm:table-cell">
-                                <Badge variant={profile.isVisible ? "default" : "secondary"} className={cn("text-[9px]", profile.isVisible ? "bg-emerald-500/10 text-emerald-600" : "bg-muted/30"          )}
-
->
+                                <Badge variant={profile.isVisible ? "default" : "secondary"} className={cn("text-[9px]", profile.isVisible ? "bg-emerald-500/10 text-emerald-600" : "bg-muted/30")}>
                                   {profile.isVisible ? "Visible" : "Masqué"}
                                 </Badge>
                               </td>
                               <td className="py-2.5 px-3 text-center hidden md:table-cell">
                                 {profile.paymentProofUrl ? (
-                                  <Badge className={cn("text-[9px]", profile.paymentProofVerified ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"          )}
-
->
+                                  <Badge className={cn("text-[9px]", profile.paymentProofVerified ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600")}>
                                     {profile.paymentProofVerified ? "Vérifié" : "En attente"}
                                   </Badge>
                                 ) : (
                                   <span className="text-[9px] text-muted-foreground">—</span>
-                                          )}
-
-
+                                )}
                               </td>
                               <td className="py-2.5 px-3 text-right">
                                 <div className="flex items-center justify-end gap-1">
@@ -5354,9 +4790,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                         <X className="h-3.5 w-3.5 text-red-600" />
                                       </Button>
                                     </>
-                                            )}
-
-
+                                  )}
                                   <Button
                                     variant="ghost" size="icon" className="h-7 w-7"
                                     onClick={async () => {
@@ -5402,15 +4836,11 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                               </td>
                             </tr>
                           );
-                        }          )}
-
-
+                        })}
                       </tbody>
                     </table>
                   </div>
-                          )}
-
-
+                )}
               </div>
             </TabsContent>
 
@@ -5488,13 +4918,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                     <AvatarImage src={profile.user.image} className="object-cover" />
                                   ) : (
                                     <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                                      {(profile.displayName || "?").charAt(0).toUpperCase(          )}
-
-
+                                      {(profile.displayName || "?").charAt(0).toUpperCase()}
                                     </AvatarFallback>
-                                            )}
-
-
+                                  )}
                                 </Avatar>
                                 <div className="min-w-0">
                                   <p className="font-medium text-xs truncate">{profile.displayName || "—"}</p>
@@ -5506,9 +4932,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                               <span className="text-xs font-medium">{profile.paymentAmount ? `${profile.paymentAmount} TND` : "—"}</span>
                             </td>
                             <td className="py-2.5 px-3 text-center">
-                              <Badge className={cn("text-[9px]", profile.paymentProofVerified ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : "bg-amber-500/10 text-amber-600 border-amber-200/30"          )}
-
->
+                              <Badge className={cn("text-[9px]", profile.paymentProofVerified ? "bg-emerald-500/10 text-emerald-600 border-emerald-200/30" : "bg-amber-500/10 text-amber-600 border-amber-200/30")}>
                                 {profile.paymentProofVerified ? "Vérifié" : "En attente"}
                               </Badge>
                             </td>
@@ -5522,16 +4946,12 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                 {profile.paymentProofUrl && (
                                   <Button
                                     variant="ghost" size="icon" className="h-7 w-7"
-                                    onClick={() => window.open(profile.paymentProofUrl, "_blank"          )}
-
-
+                                    onClick={() => window.open(profile.paymentProofUrl, "_blank")}
                                     title="Voir le reçu"
                                   >
                                     <Eye className="h-3.5 w-3.5" />
                                   </Button>
-                                          )}
-
-
+                                )}
                                 {!profile.paymentProofVerified && (
                                   <Button
                                     variant="ghost" size="icon" className="h-7 w-7"
@@ -5545,9 +4965,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                                   >
                                     <Check className="h-3.5 w-3.5 text-emerald-600" />
                                   </Button>
-                                          )}
-
-
+                                )}
                                 <Button
                                   variant="ghost" size="icon" className="h-7 w-7"
                                   onClick={async () => {
@@ -5564,15 +4982,11 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                               </div>
                             </td>
                           </tr>
-                        )          )}
-
-
+                        ))}
                       </tbody>
                     </table>
                   </div>
-                          )}
-
-
+                )}
               </div>
             </TabsContent>
 
@@ -5581,18 +4995,14 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
           <TabsContent value="annonces">
             <AnnouncementList />
           </TabsContent>
-                    )}
-
-
+          )}
 
           {/* ── Analytics (Real-time geolocation tracking) ── */}
           {canSee("analytics") && (
           <TabsContent value="analytics">
             <AnalyticsDashboard />
           </TabsContent>
-                    )}
-
-
+          )}
 
         </Tabs>
         </div>
@@ -5600,9 +5010,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
         {/* Footer */}
         <div className="mt-10 pt-6 border-t border-border/5 text-center">
           <p className="text-[10px] text-muted-foreground/40">
-            batibuild &copy; {new Date().getFullYear(          )}
-
- &mdash; Panneau d'administration v2.0
+            batibuild &copy; {new Date().getFullYear()} &mdash; Panneau d'administration v2.0
           </p>
         </div>
     </main>
@@ -5625,9 +5033,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
                   <p className="font-medium text-foreground">{deletingUser.name || "Sans nom"}</p>
                   <p className="text-xs text-muted-foreground">{deletingUser.email || ""}</p>
                 </div>
-                        )}
-
-
+              )}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -5648,9 +5054,7 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", "          )}
               </>
             ) : (
               "Supprimer définitivement"
-                      )}
-
-
+            )}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -5678,13 +5082,7 @@ const trialDayPad = (n: number) => String(n).padStart(2, "0");
 function trialToDayInput(ts: number | null): string {
   if (!ts) return "";
   const d = new Date(ts);
-  return `${d.getFullYear(          )}
-
--${trialDayPad(d.getMonth() + 1          )}
-
--${trialDayPad(d.getDate()          )}
-
-`;
+  return `${d.getFullYear()}-${trialDayPad(d.getMonth() + 1)}-${trialDayPad(d.getDate())}`;
 }
 
 /** `YYYY-MM-DD` → bornes UTC de la journée (début ou fin). */
@@ -5825,9 +5223,7 @@ function TrialSettings() {
       });
       toast.success(
         form.enabled
-          ? `Période d'essai enregistrée : ${trialDurationLabel(form.durationDays          )}
-
- pour les profils éligibles (Client Pro : ${
+          ? `Période d'essai enregistrée : ${trialDurationLabel(form.durationDays)} pour les profils éligibles (Client Pro : ${
               form.clientProDurationDays == null
                 ? trialDurationLabel(form.durationDays)
                 : trialDurationLabel(form.clientProDurationDays)
@@ -5955,24 +5351,18 @@ function TrialSettings() {
               form.enabled
                 ? "border-emerald-200/30 bg-emerald-500/10 text-emerald-600"
                 : "border-border/40 text-muted-foreground",
-                      )}
-
-
+            )}
           >
             {form.enabled ? "Activée" : "Désactivée"}
           </Badge>
           <Badge variant="outline" className="text-[10px]">
-            {trialDurationLabel(form.durationDays          )}
-
-
+            {trialDurationLabel(form.durationDays)}
           </Badge>
           {stats?.campaignOpen && (
             <Badge variant="outline" className="border-emerald-500/30 text-[10px] text-emerald-600">
               Campagne ouverte
             </Badge>
-                    )}
-
-
+          )}
         </div>
       </div>
 
@@ -5987,9 +5377,7 @@ function TrialSettings() {
         </div>
         <Switch
           checked={form.enabled}
-          onCheckedChange={(checked) => setForm({ ...form, enabled: checked }          )}
-
-
+          onCheckedChange={(checked) => setForm({ ...form, enabled: checked })}
         />
       </div>
 
@@ -6036,23 +5424,17 @@ function TrialSettings() {
               <button
                 key={days}
                 type="button"
-                onClick={() => setForm({ ...form, durationDays: days }          )}
-
-
+                onClick={() => setForm({ ...form, durationDays: days })}
                 className={cn(
                   "rounded-md border px-2 py-1 text-[11px] transition-colors",
                   form.durationDays === days
                     ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                     : "border-border/40 text-muted-foreground hover:border-emerald-500/40",
-                          )}
-
-
+                )}
               >
                 {days} j
               </button>
-            )          )}
-
-
+            ))}
           </div>
         </div>
         <p className="text-[10px] text-muted-foreground">
@@ -6061,9 +5443,7 @@ function TrialSettings() {
         </p>
         {durationError && (
           <p className="text-[11px] text-red-600 dark:text-red-400">{durationError}</p>
-                  )}
-
-
+        )}
       </div>
 
       {/* Fenêtre globale */}
@@ -6077,9 +5457,7 @@ function TrialSettings() {
             <label className="text-[11px] text-muted-foreground">Date de début</label>
             <Input
               type="date"
-              value={trialToDayInput(form.validFrom          )}
-
-
+              value={trialToDayInput(form.validFrom)}
               onChange={(e) =>
                 setForm({ ...form, validFrom: trialFromDayInput(e.target.value, false) })
               }
@@ -6090,9 +5468,7 @@ function TrialSettings() {
             <label className="text-[11px] text-muted-foreground">Date de fin</label>
             <Input
               type="date"
-              value={trialToDayInput(form.validUntil          )}
-
-
+              value={trialToDayInput(form.validUntil)}
               onChange={(e) =>
                 setForm({ ...form, validUntil: trialFromDayInput(e.target.value, true) })
               }
@@ -6102,9 +5478,7 @@ function TrialSettings() {
         </div>
         <p className="text-[11px] text-muted-foreground">
           Laisser vide = sans limite. Un essai démarré ne dépasse jamais la date de fin
-          {form.validUntil ? ` (${trialDayFmt.format(new Date(form.validUntil)          )}
-
-)` : ""}.
+          {form.validUntil ? ` (${trialDayFmt.format(new Date(form.validUntil))})` : ""}.
         </p>
       </div>
 
@@ -6121,25 +5495,19 @@ function TrialSettings() {
               <button
                 key={profile.key}
                 type="button"
-                onClick={() => toggleProfile(profile.key          )}
-
-
+                onClick={() => toggleProfile(profile.key)}
                 className={cn(
                   "flex items-start gap-2 rounded-lg border p-2.5 text-left transition-colors",
                   selected
                     ? "border-emerald-500/40 bg-emerald-500/[0.06]"
                     : "border-border/40 hover:border-emerald-500/30",
-                          )}
-
-
+                )}
               >
                 <span
                   className={cn(
                     "mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border",
                     selected ? "border-emerald-500 bg-emerald-500 text-white" : "border-border",
-                            )}
-
-
+                  )}
                 >
                   {selected && <Check className="h-2.5 w-2.5" />}
                 </span>
@@ -6151,9 +5519,7 @@ function TrialSettings() {
                 </span>
               </button>
             );
-          }          )}
-
-
+          })}
         </div>
         <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/[0.05] p-2.5 text-[11px] leading-relaxed text-emerald-700 dark:text-emerald-300">
           <strong>Période Client Pro.</strong> Coché, Client Pro reçoit la période d'accès pour la
@@ -6169,9 +5535,7 @@ function TrialSettings() {
           </p>
           <Switch
             checked={form.newAccountsOnly}
-            onCheckedChange={(checked) => setForm({ ...form, newAccountsOnly: checked }          )}
-
-
+            onCheckedChange={(checked) => setForm({ ...form, newAccountsOnly: checked })}
           />
         </div>
       </div>
@@ -6189,25 +5553,19 @@ function TrialSettings() {
               <button
                 key={module.key}
                 type="button"
-                onClick={() => toggleModule(module.key          )}
-
-
+                onClick={() => toggleModule(module.key)}
                 className={cn(
                   "flex items-start gap-2 rounded-lg border p-2.5 text-left transition-colors",
                   selected
                     ? "border-emerald-500/40 bg-emerald-500/[0.06]"
                     : "border-border/40 hover:border-emerald-500/30",
-                          )}
-
-
+                )}
               >
                 <span
                   className={cn(
                     "mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border",
                     selected ? "border-emerald-500 bg-emerald-500 text-white" : "border-border",
-                            )}
-
-
+                  )}
                 >
                   {selected && <Check className="h-2.5 w-2.5" />}
                 </span>
@@ -6219,9 +5577,7 @@ function TrialSettings() {
                 </span>
               </button>
             );
-          }          )}
-
-
+          })}
         </div>
         <p className="text-[11px] text-muted-foreground">
           Aucun module n'est accordé au-delà de cette sélection. Le téléchargement des rapports PDF
@@ -6250,9 +5606,7 @@ function TrialSettings() {
               </p>
               <Switch
                 checked={trialQuota.enabled}
-                onCheckedChange={(checked) => setTrialQuota({ ...trialQuota, enabled: checked }          )}
-
-
+                onCheckedChange={(checked) => setTrialQuota({ ...trialQuota, enabled: checked })}
               />
             </div>
             <div className="flex flex-wrap items-end gap-3">
@@ -6279,30 +5633,22 @@ function TrialSettings() {
                     key={n}
                     type="button"
                     disabled={!trialQuota.enabled}
-                    onClick={() => setTrialQuota({ ...trialQuota, maxProjects: n }          )}
-
-
+                    onClick={() => setTrialQuota({ ...trialQuota, maxProjects: n })}
                     className={cn(
                       "rounded-md border px-2 py-1 text-[11px] transition-colors disabled:opacity-50",
                       trialQuota.maxProjects === n
                         ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                         : "border-border/40 text-muted-foreground hover:border-emerald-500/40",
-                              )}
-
-
+                    )}
                   >
                     {n}
                   </button>
-                )          )}
-
-
+                ))}
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => void handleSaveQuota(          )}
-
-
+                onClick={() => void handleSaveQuota()}
                 disabled={savingQuota}
                 className="gap-2"
               >
@@ -6310,9 +5656,7 @@ function TrialSettings() {
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Save className="h-3.5 w-3.5" />
-                          )}
-
-
+                )}
                 Enregistrer le plafond
               </Button>
             </div>
@@ -6325,9 +5669,7 @@ function TrialSettings() {
               « Limite du nombre de projets par offre », juste en dessous.
             </p>
           </>
-                  )}
-
-
+        )}
       </div>
 
       {/* Actions */}
@@ -6338,20 +5680,14 @@ function TrialSettings() {
             Enregistrement…
           </Button>
         ) : (
-          <Button onClick={() => void handleSaveTrial(          )}
-
- className="gap-2">
+          <Button onClick={() => void handleSaveTrial()} className="gap-2">
             <Save className="h-4 w-4" />
             Enregistrer les paramètres
           </Button>
-                  )}
-
-
+        )}
         <Button
           variant="outline"
-          onClick={() => void handleResetTrial(          )}
-
-
+          onClick={() => void handleResetTrial()}
           disabled={saving}
           className="gap-2"
         >
@@ -6390,9 +5726,7 @@ function TrialSettings() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => void handleMigrateFree(          )}
-
-
+          onClick={() => void handleMigrateFree()}
           disabled={migrating || (legacy?.total ?? 0) === 0}
           className="gap-2"
         >
@@ -6400,9 +5734,7 @@ function TrialSettings() {
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <RotateCcw className="h-3.5 w-3.5" />
-                    )}
-
-
+          )}
           Convertir les comptes « Free » ({legacy?.total ?? 0})
         </Button>
       </div>
