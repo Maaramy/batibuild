@@ -50,6 +50,7 @@ export const SITE_PERMISSIONS = [
   "quality",
   "team",
   "reports",
+  "ai",
 ] as const;
 
 export type SitePermission = (typeof SITE_PERMISSIONS)[number];
@@ -157,7 +158,10 @@ interface AccessSnapshot {
 }
 
 /** Source de vérité unique de l'accès au module. */
-async function accessFor(ctx: QueryCtx | MutationCtx, user: Doc<"users"> | null): Promise<AccessSnapshot> {
+export async function accessFor(
+  ctx: QueryCtx | MutationCtx,
+  user: Doc<"users"> | null,
+): Promise<AccessSnapshot> {
   const config = await readConfig(ctx);
   const base = {
     price: config.price,
@@ -446,13 +450,13 @@ export const cancelSiteCotisation = mutation({
 // Accès à un chantier (isolation par utilisateur ET par chantier)
 // ============================================================================
 
-interface SiteContext {
+export interface SiteContext {
   site: Doc<"siteProjects">;
   isOwner: boolean;
   permissions: SitePermission[];
 }
 
-async function loadSite(
+export async function loadSite(
   ctx: QueryCtx | MutationCtx,
   user: Doc<"users"> | null,
   siteId: Id<"siteProjects">,
@@ -482,7 +486,7 @@ async function loadSite(
   };
 }
 
-async function requireSitePermission(
+export async function requireSitePermission(
   ctx: QueryCtx | MutationCtx,
   user: Doc<"users"> | null,
   siteId: Id<"siteProjects">,
@@ -498,7 +502,7 @@ async function requireSitePermission(
   );
 }
 
-async function requireSiteOwner(
+export async function requireSiteOwner(
   ctx: QueryCtx | MutationCtx,
   user: Doc<"users"> | null,
   siteId: Id<"siteProjects">,
@@ -511,7 +515,7 @@ async function requireSiteOwner(
   return context;
 }
 
-async function logAction(
+export async function logAction(
   ctx: MutationCtx,
   siteId: Id<"siteProjects">,
   userId: Id<"users">,

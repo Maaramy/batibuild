@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   BarChart3,
+  BrainCircuit,
   CalendarClock,
   CalendarRange,
   CheckCircle2,
@@ -60,6 +61,8 @@ import {
 } from "@/lib/siteTracking";
 import { SITE_REPORTS, exportSiteReportPdf, type SiteReportKind } from "@/lib/siteReportPdf";
 import { SiteCotisationCard } from "@/components/site/SitePaywall";
+import { SiteIntelligencePanel } from "@/components/site/intelligence/SiteIntelligencePanel";
+import { AiErrorBoundary } from "@/components/site/intelligence/AiErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -108,6 +111,7 @@ const PERMISSIONS: { key: string; label: string; hint: string }[] = [
   { key: "quality", label: "Contrôle qualité", hint: "Inspections et réserves" },
   { key: "team", label: "Intervenants", hint: "Voir l'équipe du chantier" },
   { key: "reports", label: "Rapports", hint: "Générer les rapports PDF" },
+  { key: "ai", label: "Intelligence IA", hint: "Photos, analyses et pointages assistés" },
 ];
 
 const RISK_TONES: Record<string, { label: string; className: string; bar: string }> = {
@@ -368,6 +372,11 @@ function SiteDetailView({ data, siteId }: { data: SiteData; siteId: Id<"siteProj
               <TabsTrigger value="reports" className="gap-1.5 text-xs">
                 <FileText className="h-3.5 w-3.5" /> Rapports
               </TabsTrigger>
+              {(data.isOwner || data.permissions.includes("ai") || data.permissions.includes("quality")) && (
+                <TabsTrigger value="intelligence" className="gap-1.5 text-xs">
+                  <BrainCircuit className="h-3.5 w-3.5" /> Intelligence IA
+                </TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -480,6 +489,32 @@ function SiteDetailView({ data, siteId }: { data: SiteData; siteId: Id<"siteProj
                 ))}
               </CardContent>
             </Card>
+
+            {(data.isOwner || data.permissions.includes("ai") || data.permissions.includes("quality")) && (
+              <Card className="overflow-hidden border-emerald-200/70 bg-gradient-to-br from-emerald-50 via-teal-50 to-white">
+                <CardContent className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-2">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                      <BrainCircuit className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">AI Site Intelligence</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Analysez les photos du chantier, mesurez l'avancement réel, détectez les
+                        anomalies et produisez des rapports intelligents.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="h-8 shrink-0 gap-1 bg-emerald-600 text-xs text-white hover:bg-emerald-500"
+                    onClick={() => setTab("intelligence")}
+                  >
+                    <BrainCircuit className="h-3.5 w-3.5" /> Ouvrir le module IA
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* ═══ PLANNING ═══ */}
@@ -525,6 +560,13 @@ function SiteDetailView({ data, siteId }: { data: SiteData; siteId: Id<"siteProj
           {/* ═══ PRÉVISIONS ═══ */}
           <TabsContent value="risk">
             <RiskTab data={data} />
+          </TabsContent>
+
+          {/* ═══ AI SITE INTELLIGENCE ═══ */}
+          <TabsContent value="intelligence">
+            <AiErrorBoundary>
+              <SiteIntelligencePanel siteId={data.site._id} />
+            </AiErrorBoundary>
           </TabsContent>
 
           {/* ═══ RAPPORTS ═══ */}
