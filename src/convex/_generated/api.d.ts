@@ -79,8 +79,6 @@ import type * as roadmapEngine from "../roadmapEngine.js";
 import type * as roadmapPlaybooks from "../roadmapPlaybooks.js";
 import type * as roadmapQuantitatif from "../roadmapQuantitatif.js";
 import type * as seo from "../seo.js";
-import type * as siteIntelligence from "../siteIntelligence.js";
-import type * as siteIntelligenceActions from "../siteIntelligenceActions.js";
 import type * as siteTracking from "../siteTracking.js";
 import type * as storageCleanup from "../storageCleanup.js";
 import type * as storageReport from "../storageReport.js";
@@ -175,8 +173,6 @@ declare const fullApi: ApiFromModules<{
   roadmapPlaybooks: typeof roadmapPlaybooks;
   roadmapQuantitatif: typeof roadmapQuantitatif;
   seo: typeof seo;
-  siteIntelligence: typeof siteIntelligence;
-  siteIntelligenceActions: typeof siteIntelligenceActions;
   siteTracking: typeof siteTracking;
   storageCleanup: typeof storageCleanup;
   storageReport: typeof storageReport;

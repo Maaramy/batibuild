@@ -50,7 +50,6 @@ export const SITE_PERMISSIONS = [
   "quality",
   "team",
   "reports",
-  "ai",
 ] as const;
 
 export type SitePermission = (typeof SITE_PERMISSIONS)[number];
