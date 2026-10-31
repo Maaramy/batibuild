@@ -19,6 +19,7 @@ import { formatSiteDate, formatTND } from "@/lib/siteTracking";
 import { MySubscriptionCard } from "@/components/MySubscriptionCard";
 import { AnnouncementCarousel } from "@/components/announcements/AnnouncementCarousel";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
+import { PlatformReviewCard } from "@/components/PlatformReviewCard";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import {
   MessagingIconWithBadge,
@@ -1350,6 +1351,8 @@ export default function Dashboard() {
             </>
           )}
 
+          {/* ── Notez BatiBuild (avis privé, propre à chaque compte) ── */}
+          <PlatformReviewCard />
         </div>
       </div>
 
