@@ -84,15 +84,23 @@ export function AiReportsSection({
       );
 
       let photos: AiReportPhoto[] = [];
+      let photoIds: Id<"siteMonitoringImages">[] = [];
       if (withPhotos && candidateImages.length > 0) {
         const selected = candidateImages.slice(0, 4);
         const loaded = await Promise.all(
           selected.map(async (entry) => {
             const dataUrl = await imageToDataUrl(entry.image.url ?? "");
-            return dataUrl ? { dataUrl, caption: entry.caption } : null;
+            return dataUrl
+              ? { photo: { dataUrl, caption: entry.caption }, id: entry.image._id }
+              : null;
           }),
         );
-        photos = loaded.filter((item): item is AiReportPhoto => item !== null);
+        photos = loaded
+          .filter((item): item is NonNullable<typeof item> => item !== null)
+          .map((item) => item.photo);
+        photoIds = loaded
+          .filter((item): item is NonNullable<typeof item> => item !== null)
+          .map((item) => item.id);
       }
 
       exportAiSiteReportPdf(reportKind, {
@@ -142,7 +150,7 @@ export function AiReportsSection({
         kind: reportKind,
         periodStart: period.start,
         periodEnd: period.end,
-        imageIds: photos.length > 0 ? candidateImagesForSave(data, period).slice(0, photos.length) : [],
+        imageIds: photoIds,
         snapshot: {
           validated: data.summary.validated,
           planned: data.summary.planned,
@@ -302,8 +310,3 @@ export function AiReportsSection({
   );
 }
 
-function candidateImagesForSave(data: AiWorkspace, period: { start: number; end: number }) {
-  return data.sessions
-    .filter((session) => session.date >= period.start && session.date <= period.end)
-    .flatMap((session) => session.images.map((image) => image._id));
-}
