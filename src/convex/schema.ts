@@ -1255,6 +1255,8 @@ const schema = defineSchema(
         v.literal("email_template_delete"),
         v.literal("notification_recipient_save"),
         v.literal("notification_recipient_delete"),
+        v.literal("site_module_config_updated"),
+        v.literal("approve_site_cotisation"),
       ),
       targetUserId: v.optional(v.id("users")),
       targetUserEmail: v.optional(v.string()),
@@ -2306,6 +2308,239 @@ const schema = defineSchema(
       .index("by_type", ["type"])
       .index("by_created", ["createdAt"])
       .index("by_order", ["displayOrder"]),
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // GESTION & SUIVI DE CHANTIER
+    // --------------------------------------------------------------------------
+    // Module payant (cotisation dédiée) isolé par utilisateur ET par chantier.
+    // Un chantier peut naître d'une estimation existante (`projects`) ou être
+    // créé indépendamment : `projectId` est alors absent et AUCUNE estimation
+    // n'est dupliquée ni modifiée.
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /** Configuration administrée du module (document unique). */
+    siteModuleConfig: defineTable({
+      enabled: v.boolean(),
+      price: v.number(),
+      currency: v.string(),
+      durationDays: v.number(),
+      updatedAt: v.number(),
+      updatedBy: v.optional(v.id("users")),
+    }),
+
+    /** Cotisation du module : commande puis période d'accès (aucune passerelle). */
+    siteCotisations: defineTable({
+      userId: v.id("users"),
+      amount: v.number(),
+      currency: v.string(),
+      durationDays: v.number(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("active"),
+        v.literal("expired"),
+        v.literal("refused"),
+        v.literal("cancelled"),
+      ),
+      startDate: v.optional(v.number()),
+      endDate: v.optional(v.number()),
+      paymentMethod: v.optional(v.string()),
+      paymentProofStorageId: v.optional(v.id("_storage")),
+      paymentProofUrl: v.optional(v.string()),
+      paymentProofFileName: v.optional(v.string()),
+      paymentProofUploadedAt: v.optional(v.number()),
+      invoiceId: v.optional(v.id("invoices")),
+      validatedAt: v.optional(v.number()),
+      validatedBy: v.optional(v.id("users")),
+      refusedAt: v.optional(v.number()),
+      refusalReason: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_status", ["status"])
+      .index("by_user_status", ["userId", "status"])
+      .index("by_end", ["endDate"]),
+
+    /** Chantier suivi (mode A : issu d'une estimation / mode B : autonome). */
+    siteProjects: defineTable({
+      userId: v.id("users"),
+      name: v.string(),
+      source: v.union(v.literal("estimation"), v.literal("standalone")),
+      projectId: v.optional(v.id("projects")),
+      category: projectCategoryValidator,
+      region: v.optional(regionValidator),
+      address: v.optional(v.string()),
+      surface: v.optional(v.number()),
+      clientName: v.optional(v.string()),
+      managerName: v.optional(v.string()),
+      budgetInitial: v.number(),
+      budgetRevised: v.optional(v.number()),
+      startDate: v.number(),
+      expectedEndDate: v.number(),
+      description: v.optional(v.string()),
+      characteristics: v.optional(v.string()),
+      status: v.union(
+        v.literal("active"),
+        v.literal("completed"),
+        v.literal("archived"),
+      ),
+      completedAt: v.optional(v.number()),
+      archivedAt: v.optional(v.number()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_status", ["userId", "status"])
+      .index("by_project", ["projectId"]),
+
+    /** Tâches du planning (une par phase, extensible par l'utilisateur). */
+    siteTasks: defineTable({
+      siteId: v.id("siteProjects"),
+      phaseKey: v.string(),
+      name: v.string(),
+      order: v.number(),
+      weight: v.number(),
+      startDate: v.number(),
+      endDate: v.number(),
+      responsible: v.optional(v.string()),
+      progress: v.number(),
+      status: v.union(
+        v.literal("todo"),
+        v.literal("in_progress"),
+        v.literal("done"),
+        v.literal("blocked"),
+      ),
+      dependsOn: v.optional(v.string()),
+      notes: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_site", ["siteId"])
+      .index("by_site_order", ["siteId", "order"]),
+
+    /** Suivi quotidien : activités, effectifs, heures, photos, incidents. */
+    siteDailyLogs: defineTable({
+      siteId: v.id("siteProjects"),
+      date: v.number(),
+      activities: v.string(),
+      workers: v.array(v.object({ role: v.string(), count: v.number() })),
+      hoursWorked: v.number(),
+      observations: v.optional(v.string()),
+      issues: v.optional(v.string()),
+      photoStorageIds: v.optional(v.array(v.id("_storage"))),
+      createdBy: v.id("users"),
+      createdAt: v.number(),
+    })
+      .index("by_site", ["siteId"])
+      .index("by_site_date", ["siteId", "date"]),
+
+    /** Dépenses réelles (matériaux, main-d'œuvre, équipements, divers). */
+    siteExpenses: defineTable({
+      siteId: v.id("siteProjects"),
+      label: v.string(),
+      category: v.string(),
+      nature: v.union(
+        v.literal("materiaux"),
+        v.literal("main_oeuvre"),
+        v.literal("equipement"),
+        v.literal("autre"),
+      ),
+      amount: v.number(),
+      date: v.number(),
+      supplier: v.optional(v.string()),
+      reference: v.optional(v.string()),
+      notes: v.optional(v.string()),
+      createdBy: v.id("users"),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_site", ["siteId"])
+      .index("by_site_date", ["siteId", "date"]),
+
+    /** Suivi des matériaux : prévu / commandé / livré / consommé. */
+    siteMaterials: defineTable({
+      siteId: v.id("siteProjects"),
+      name: v.string(),
+      unit: v.string(),
+      category: v.optional(v.string()),
+      plannedQty: v.number(),
+      orderedQty: v.number(),
+      deliveredQty: v.number(),
+      consumedQty: v.number(),
+      unitPrice: v.number(),
+      supplier: v.optional(v.string()),
+      notes: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_site", ["siteId"]),
+
+    /** Intervenants et permissions accordées par le propriétaire du chantier. */
+    siteStakeholders: defineTable({
+      siteId: v.id("siteProjects"),
+      name: v.string(),
+      role: v.union(
+        v.literal("architecte"),
+        v.literal("ingenieur"),
+        v.literal("entrepreneur"),
+        v.literal("chef_chantier"),
+        v.literal("artisan"),
+        v.literal("electricien"),
+        v.literal("plombier"),
+        v.literal("fournisseur"),
+      ),
+      company: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      email: v.optional(v.string()),
+      userId: v.optional(v.id("users")),
+      permissions: v.array(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_site", ["siteId"])
+      .index("by_user", ["userId"]),
+
+    /** Contrôle qualité : inspections, réserves et actions correctives. */
+    siteInspections: defineTable({
+      siteId: v.id("siteProjects"),
+      phaseKey: v.string(),
+      title: v.string(),
+      date: v.number(),
+      inspector: v.string(),
+      findings: v.optional(v.string()),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("passed"),
+        v.literal("failed"),
+      ),
+      reservations: v.array(
+        v.object({
+          label: v.string(),
+          severity: v.union(
+            v.literal("mineure"),
+            v.literal("majeure"),
+            v.literal("critique"),
+          ),
+          resolved: v.boolean(),
+          action: v.optional(v.string()),
+          resolvedAt: v.optional(v.number()),
+        }),
+      ),
+      createdBy: v.id("users"),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_site", ["siteId"]),
+
+    /** Journal des modifications du chantier (audit interne). */
+    siteAuditLogs: defineTable({
+      siteId: v.id("siteProjects"),
+      userId: v.id("users"),
+      action: v.string(),
+      details: v.string(),
+      createdAt: v.number(),
+    })
+      .index("by_site", ["siteId"]),
 
     // ── Connection logs (real-time analytics) ──────────────────────
     connectionLogs: defineTable({

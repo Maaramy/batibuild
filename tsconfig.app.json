@@ -45,5 +45,18 @@
    * frontend, et « exclude » ne s'applique qu'aux fichiers collectés via
    * « include », pas à ceux atteints par un import.
    */
-  "exclude": ["src/convex/**"]
+  "exclude": [
+    "src/convex/**",
+    /*
+     * Les fichiers de test sont typés dans LEUR PROPRE projet
+     * (`tsconfig.tests.json`), exécuté par `bun run typecheck tests` :
+     * rien n'est retiré du contrôle de type, mais le programme de
+     * l'application (celui que `tsc -b` compile à chaque déploiement) ne
+     * charge plus les 169 fichiers de test et leurs dépendances de test.
+     * Mesuré : −64 Mo et −13 s sur un build qui frôle la limite de 2 Go de
+     * la sandbox. Un fichier de test n'entre PLUS dans ce programme.
+     */
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
+  ]
 }

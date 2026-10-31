@@ -62,6 +62,12 @@ export const FEATURE_FLAGS_CATALOG = [
       "Guide de construction de A à Z et suivi de l'exécution",
   },
   {
+    key: "site_tracking",
+    name: "Gestion & Suivi de Chantier",
+    description:
+      "Planification, suivi quotidien, budget, matériaux, intervenants et contrôle qualité des chantiers (module payant par cotisation)",
+  },
+  {
     key: "plans_3d_enhanced",
     name: "Rendu 3D amélioré des plans architecturaux",
     description:

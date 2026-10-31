@@ -30,6 +30,7 @@ export const LOCAL_DEFAULT_FLAGS: Record<string, boolean> = {
   architectural_plans: true,
   construction_guide: true,
   investment_project: true,
+  site_tracking: true,
 };
 
 interface FeatureFlagsContextValue {
