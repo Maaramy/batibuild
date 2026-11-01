@@ -193,14 +193,14 @@ export default function Chantiers() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="site-module min-h-screen bg-background">
       <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-5 sm:py-6 lg:px-8">
         <div className="mb-5 flex flex-col gap-3 sm:mb-7 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
             <Button
               variant="ghost"
               size="icon"
-              className="mt-0.5 h-8 w-8 shrink-0"
+              className="mt-0.5 h-10 w-10 shrink-0 sm:h-8 sm:w-8"
               onClick={() => navigate("/dashboard")}
               aria-label="Retour au tableau de bord"
             >
@@ -208,10 +208,10 @@ export default function Chantiers() {
             </Button>
             <div>
               <div className="flex items-center gap-2">
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-sm shadow-emerald-600/25">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-sm shadow-emerald-600/25">
                   <HardHat className="h-4 w-4" />
                 </span>
-                <h1 className="text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">
+                <h1 className="min-w-0 break-words text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">
                   Gestion & Suivi de Chantier
                 </h1>
               </div>
@@ -221,7 +221,10 @@ export default function Chantiers() {
               </p>
             </div>
           </div>
-          <Button className="gap-1.5 self-start bg-emerald-600 text-white hover:bg-emerald-500" onClick={openDialog}>
+          <Button
+            className="w-full gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500 sm:w-auto sm:self-start"
+            onClick={openDialog}
+          >
             <Plus className="h-4 w-4" /> Nouveau chantier
           </Button>
         </div>
@@ -257,7 +260,9 @@ export default function Chantiers() {
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground sm:text-[11px]">
                   <item.icon className="h-3 w-3" /> {item.label}
                 </div>
-                <p className="mt-1 truncate text-sm font-semibold sm:text-base">{item.value}</p>
+                <p className="mt-1 break-words text-[13px] font-semibold leading-tight tabular-nums sm:text-base">
+                  {item.value}
+                </p>
               </div>
             ))}
           </div>
@@ -320,7 +325,7 @@ export default function Chantiers() {
                 >
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{site.name}</p>
+                      <p className="line-clamp-2 break-words text-sm font-semibold">{site.name}</p>
                       <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
                         <Building2 className="h-3 w-3" /> {siteTypeLabel(site.category)}
                         {site.surface ? ` · ${site.surface} m²` : ""}
@@ -340,11 +345,13 @@ export default function Chantiers() {
                   <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
                     <div>
                       <p className="text-muted-foreground">Budget révisé</p>
-                      <p className="truncate font-medium">{site.budget ? formatTND(site.budget.revised) : "—"}</p>
+                      <p className="break-words font-medium tabular-nums">
+                        {site.budget ? formatTND(site.budget.revised) : "—"}
+                      </p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Dépensé</p>
-                      <p className={`truncate font-medium ${overBudget ? "text-rose-600 dark:text-rose-400" : ""}`}>
+                      <p className={`break-words font-medium tabular-nums ${overBudget ? "text-rose-600 dark:text-rose-400" : ""}`}>
                         {site.budget ? formatTND(site.budget.spent) : "—"}
                       </p>
                     </div>
@@ -388,7 +395,10 @@ export default function Chantiers() {
 
       {/* ═══ Création — deux modes, une seule interface ═══ */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-2xl overflow-y-auto p-4 sm:p-6">
+        {/* `site-module` est nécessaire ici : la modale est rendue dans un
+            portail, hors du conteneur principal — elle doit hériter des cibles
+            tactiles et de la safe area du module. */}
+        <DialogContent className="site-module max-h-[90dvh] overflow-y-auto p-4 sm:max-w-2xl sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Créer un chantier</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
@@ -398,7 +408,9 @@ export default function Chantiers() {
           </DialogHeader>
 
           <Tabs value={mode} onValueChange={setMode} className="mt-1">
-            <TabsList className="grid w-full grid-cols-2">
+            {/* Deux onglets empilés sur mobile : à 320 px, « Depuis une
+                estimation » ne tient pas sur une demi-largeur. */}
+            <TabsList className="grid h-auto w-full grid-cols-1 gap-1 sm:grid-cols-2">
               <TabsTrigger value="estimation" className="gap-1.5 text-xs">
                 <Sparkles className="h-3.5 w-3.5" /> Depuis une estimation
               </TabsTrigger>
@@ -450,7 +462,7 @@ export default function Chantiers() {
                 Le budget initial reprend le scénario retenu de l'estimation, et le DQE est importé dans le suivi
                 des matériaux. Modifier le chantier ne modifie jamais l'estimation.
               </p>
-              <DialogFooter className="gap-2 pt-1">
+              <DialogFooter className="gap-2 pt-1 [&>button]:w-full sm:[&>button]:w-auto">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Annuler
                 </Button>
@@ -567,7 +579,7 @@ export default function Chantiers() {
                   />
                 </div>
               </div>
-              <DialogFooter className="gap-2 pt-1">
+              <DialogFooter className="gap-2 pt-1 [&>button]:w-full sm:[&>button]:w-auto">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Annuler
                 </Button>

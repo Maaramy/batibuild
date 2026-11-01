@@ -102,15 +102,21 @@ export default function AdminSiteModule() {
   const pending = data.cotisations.filter((row: any) => row.status === "pending");
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="site-module min-h-screen bg-background">
       <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-5 sm:py-6 lg:px-8">
         <div className="mb-5 flex items-start gap-3">
-          <Button variant="ghost" size="icon" className="mt-0.5 h-8 w-8" onClick={() => navigate("/dashboard/admin")}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mt-0.5 h-10 w-10 shrink-0 sm:h-8 sm:w-8"
+            aria-label="Retour à l'administration"
+            onClick={() => navigate("/dashboard/admin")}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight sm:text-xl">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-emerald-600 to-teal-600 text-white">
+            <h1 className="flex flex-wrap items-center gap-2 text-lg font-semibold tracking-tight sm:text-xl">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-emerald-600 to-teal-600 text-white">
                 <HardHat className="h-4 w-4" />
               </span>
               Suivi de chantier — administration
@@ -134,7 +140,9 @@ export default function AdminSiteModule() {
               <p className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
                 <item.icon className="h-3 w-3" /> {item.label}
               </p>
-              <p className="mt-1 truncate text-sm font-semibold">{item.value}</p>
+              <p className="mt-1 break-words text-[13px] font-semibold leading-tight tabular-nums sm:text-sm">
+                {item.value}
+              </p>
             </div>
           ))}
         </div>
@@ -245,7 +253,7 @@ export default function AdminSiteModule() {
                           <p className="text-[10px] text-rose-600 dark:text-rose-400">Motif : {row.refusalReason}</p>
                         )}
                       </div>
-                      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                      <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:shrink-0 sm:justify-end">
                         <Badge variant="outline" className={`text-[9px] ${badge.className}`}>
                           {badge.label}
                         </Badge>
@@ -307,7 +315,7 @@ export default function AdminSiteModule() {
       </div>
 
       <Dialog open={!!refuseTarget} onOpenChange={(open) => !open && setRefuseTarget(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="site-module sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base">Refuser la cotisation</DialogTitle>
           </DialogHeader>
@@ -315,7 +323,7 @@ export default function AdminSiteModule() {
             <Label className="text-xs">Motif communiqué au client</Label>
             <Textarea rows={3} className="text-xs" value={refuseReason} onChange={(event) => setRefuseReason(event.target.value)} placeholder="Justificatif illisible, montant incorrect…" />
           </div>
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 [&>button]:w-full sm:[&>button]:w-auto">
             <Button variant="outline" onClick={() => setRefuseTarget(null)}>
               Annuler
             </Button>

@@ -122,7 +122,7 @@ export function SiteCotisationCard({ compact = false }: { compact?: boolean }) {
             <ShieldCheck className="h-4 w-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-2 text-sm font-semibold">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
               Cotisation active
               <Badge variant="outline" className="border-emerald-500/40 text-[10px] text-emerald-700 dark:text-emerald-300">
                 {access.isAdmin && access.reason === "admin" ? "Accès administrateur" : `Validée jusqu'au ${formatSiteDate(access.endDate)}`}
@@ -196,8 +196,7 @@ export function SiteCotisationCard({ compact = false }: { compact?: boolean }) {
           aucune écriture n'est possible sur vos chantiers (contrôle côté serveur).
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap items-end gap-x-6 gap-y-2 rounded-xl border border-border/60 bg-muted/30 p-3">
+      <CardContent className="space-y-4">          <div className="flex flex-wrap items-end gap-x-6 gap-y-2 rounded-xl border border-border/60 bg-muted/30 p-3">
           <div>
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Montant</p>
             <p className="text-xl font-semibold text-emerald-700 dark:text-emerald-300">
@@ -225,7 +224,7 @@ export function SiteCotisationCard({ compact = false }: { compact?: boolean }) {
                 ? "Justificatif reçu. Un administrateur vérifie le règlement puis active votre cotisation."
                 : "Dernière étape : joignez la preuve de votre paiement pour permettre la validation."}
             </p>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               <input
                 ref={fileRef}
                 type="file"
@@ -238,7 +237,7 @@ export function SiteCotisationCard({ compact = false }: { compact?: boolean }) {
               />
               <Button
                 size="sm"
-                className="h-8 gap-1.5 bg-emerald-600 text-xs text-white hover:bg-emerald-500"
+                className="h-10 w-full gap-1.5 bg-emerald-600 text-xs text-white hover:bg-emerald-500 sm:h-8 sm:w-auto"
                 disabled={uploading}
                 onClick={() => fileRef.current?.click()}
               >
@@ -248,7 +247,7 @@ export function SiteCotisationCard({ compact = false }: { compact?: boolean }) {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 text-xs"
+                className="h-10 w-full text-xs sm:h-8 sm:w-auto"
                 disabled={busy}
                 onClick={async () => {
                   if (!cotisation) return;

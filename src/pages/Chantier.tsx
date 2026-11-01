@@ -20,6 +20,7 @@ import {
   BadgeCheck,
   BarChart3,
   CalendarClock,
+  CalendarDays,
   CalendarRange,
   CheckCircle2,
   ClipboardList,
@@ -29,7 +30,9 @@ import {
   Info,
   LayoutDashboard,
   Loader2,
+  Mail,
   Package,
+  Phone,
   Plus,
   ShieldAlert,
   Sparkles,
@@ -59,6 +62,7 @@ import {
   type ExpenseNature,
 } from "@/lib/siteTracking";
 import { SITE_REPORTS, exportSiteReportPdf, type SiteReportKind } from "@/lib/siteReportPdf";
+import { SiteCalendar } from "@/components/site/SiteCalendar";
 import { SiteCotisationCard } from "@/components/site/SitePaywall";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -157,8 +161,12 @@ function Kpi({
       <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground sm:text-[11px]">
         <Icon className="h-3 w-3" /> {label}
       </div>
-      <p className={`mt-1 truncate text-sm font-semibold sm:text-base ${toneClass}`}>{value}</p>
-      {hint && <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{hint}</p>}
+      {/* Le montant passe à la ligne plutôt que d'être tronqué : sur un écran
+          de 320 px, « 250.000 TND » doit rester lisible en entier. */}
+      <p className={`mt-1 break-words text-[13px] font-semibold leading-tight tabular-nums sm:text-base ${toneClass}`}>
+        {value}
+      </p>
+      {hint && <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -187,8 +195,8 @@ export default function Chantier() {
 
   if (!entry.canOpen) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="mx-auto w-full max-w-3xl px-4 py-8">
+      <div className="site-module min-h-screen bg-background">
+        <div className="mx-auto w-full max-w-3xl px-3 py-8 sm:px-4">
           <Button variant="ghost" size="sm" className="mb-4 gap-1.5" onClick={() => navigate("/dashboard/chantiers")}>
             <ArrowLeft className="h-4 w-4" /> Mes chantiers
           </Button>
@@ -252,7 +260,7 @@ function SiteDetailView({ data, siteId }: { data: SiteData; siteId: Id<"siteProj
   const [tab, setTab] = useState("dashboard");
 
   return (
-    <div className="min-h-screen bg-background pb-10">
+    <div className="site-module min-h-screen bg-background">
       <div className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-5 sm:py-6 lg:px-8">
         {/* En-tête */}
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -260,7 +268,7 @@ function SiteDetailView({ data, siteId }: { data: SiteData; siteId: Id<"siteProj
             <Button
               variant="ghost"
               size="icon"
-              className="mt-0.5 h-8 w-8 shrink-0"
+              className="mt-0.5 h-10 w-10 shrink-0 sm:h-8 sm:w-8"
               onClick={() => navigate("/dashboard/chantiers")}
               aria-label="Retour aux chantiers"
             >
@@ -268,7 +276,9 @@ function SiteDetailView({ data, siteId }: { data: SiteData; siteId: Id<"siteProj
             </Button>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">{site.name}</h1>
+                <h1 className="min-w-0 break-words text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">
+                  {site.name}
+                </h1>
                 <Badge variant="outline" className="text-[10px]">
                   {site.status === "active" ? "En cours" : site.status === "completed" ? "Terminé" : "Archivé"}
                 </Badge>
@@ -300,10 +310,10 @@ function SiteDetailView({ data, siteId }: { data: SiteData; siteId: Id<"siteProj
               </p>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <div className="rounded-lg border border-border/60 px-3 py-1.5 text-right">
+          <div className="flex w-full items-center gap-2 sm:w-auto sm:shrink-0">
+            <div className="flex w-full items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2 sm:block sm:w-auto sm:py-1.5 sm:text-right">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Avancement</p>
-              <p className="text-sm font-semibold">{data.progress} %</p>
+              <p className="text-sm font-semibold tabular-nums">{data.progress} %</p>
             </div>
           </div>
         </div>
@@ -329,43 +339,49 @@ function SiteDetailView({ data, siteId }: { data: SiteData; siteId: Id<"siteProj
         )}
 
         <Tabs value={tab} onValueChange={setTab} className="w-full">
-          <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
-            <TabsList className="mb-4 inline-flex w-max gap-1 bg-muted/50 p-1">
-              <TabsTrigger value="dashboard" className="gap-1.5 text-xs">
+          {/* Rangée d'onglets : défilement horizontal LOCAL (le geste ne propage
+              pas au viewport) ; chaque onglet reste une cible de 44 px sur
+              mobile et reprend sa taille compacte dès `sm`. */}
+          <div className="site-scroll-x -mx-3 px-3 pb-1 sm:mx-0 sm:px-0">
+            <TabsList
+              aria-label="Sections du chantier"
+              className="mb-3 inline-flex h-auto w-max max-w-none gap-1 bg-muted/50 p-1"
+            >
+              <TabsTrigger value="dashboard" className="h-9 shrink-0 gap-1.5 px-2.5 text-[11px] sm:h-8 sm:text-xs">
                 <LayoutDashboard className="h-3.5 w-3.5" /> Tableau de bord
               </TabsTrigger>
-              <TabsTrigger value="planning" className="gap-1.5 text-xs">
+              <TabsTrigger value="planning" className="h-9 shrink-0 gap-1.5 px-2.5 text-[11px] sm:h-8 sm:text-xs">
                 <CalendarRange className="h-3.5 w-3.5" /> Planning
               </TabsTrigger>
               {can("daily") && (
-                <TabsTrigger value="daily" className="gap-1.5 text-xs">
+                <TabsTrigger value="daily" className="h-9 shrink-0 gap-1.5 px-2.5 text-[11px] sm:h-8 sm:text-xs">
                   <ClipboardList className="h-3.5 w-3.5" /> Quotidien
                 </TabsTrigger>
               )}
               {can("budget") && (
-                <TabsTrigger value="budget" className="gap-1.5 text-xs">
+                <TabsTrigger value="budget" className="h-9 shrink-0 gap-1.5 px-2.5 text-[11px] sm:h-8 sm:text-xs">
                   <Wallet className="h-3.5 w-3.5" /> Budget
                 </TabsTrigger>
               )}
               {can("materials") && (
-                <TabsTrigger value="materials" className="gap-1.5 text-xs">
+                <TabsTrigger value="materials" className="h-9 shrink-0 gap-1.5 px-2.5 text-[11px] sm:h-8 sm:text-xs">
                   <Package className="h-3.5 w-3.5" /> Matériaux
                 </TabsTrigger>
               )}
               {can("team") && (
-                <TabsTrigger value="team" className="gap-1.5 text-xs">
+                <TabsTrigger value="team" className="h-9 shrink-0 gap-1.5 px-2.5 text-[11px] sm:h-8 sm:text-xs">
                   <Users className="h-3.5 w-3.5" /> Intervenants
                 </TabsTrigger>
               )}
               {can("quality") && (
-                <TabsTrigger value="quality" className="gap-1.5 text-xs">
+                <TabsTrigger value="quality" className="h-9 shrink-0 gap-1.5 px-2.5 text-[11px] sm:h-8 sm:text-xs">
                   <BadgeCheck className="h-3.5 w-3.5" /> Qualité
                 </TabsTrigger>
               )}
-              <TabsTrigger value="risk" className="gap-1.5 text-xs">
+              <TabsTrigger value="risk" className="h-9 shrink-0 gap-1.5 px-2.5 text-[11px] sm:h-8 sm:text-xs">
                 <TrendingUp className="h-3.5 w-3.5" /> Prévisions
               </TabsTrigger>
-              <TabsTrigger value="reports" className="gap-1.5 text-xs">
+              <TabsTrigger value="reports" className="h-9 shrink-0 gap-1.5 px-2.5 text-[11px] sm:h-8 sm:text-xs">
                 <FileText className="h-3.5 w-3.5" /> Rapports
               </TabsTrigger>
             </TabsList>
@@ -601,6 +617,22 @@ function PlanningTab({ data, siteId, canEdit }: { data: SiteData; siteId: Id<"si
 
   return (
     <div className="space-y-4">
+      {/* Calendrier : vues jour / semaine / mois, calculées à partir des phases
+          déjà chargées. Aucune requête ni mutation supplémentaire. */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-1.5 text-sm">
+            <CalendarDays className="h-3.5 w-3.5" /> Calendrier du chantier
+          </CardTitle>
+          <p className="text-[11px] text-muted-foreground">
+            Repérez les échéances par jour, par semaine ou sur le mois complet.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <SiteCalendar tasks={data.tasks} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Diagramme de Gantt</CardTitle>
@@ -617,7 +649,7 @@ function PlanningTab({ data, siteId, canEdit }: { data: SiteData; siteId: Id<"si
               <div key={task._id} className="grid grid-cols-1 gap-1 sm:grid-cols-[minmax(0,180px)_1fr] sm:items-center sm:gap-3">
                 <div className="flex items-center justify-between gap-2 text-[11px] sm:block">
                   <span className="block truncate font-medium">{task.name}</span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground sm:block">
+                  <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums sm:block">
                     {formatSiteDate(task.startDate)} → {formatSiteDate(task.endDate)}
                   </span>
                 </div>
@@ -628,7 +660,7 @@ function PlanningTab({ data, siteId, canEdit }: { data: SiteData; siteId: Id<"si
                   >
                     <div className="h-full rounded bg-emerald-600" style={{ width: `${progress}%` }} />
                   </div>
-                  <span className="absolute right-1 top-0.5 text-[9px] font-medium text-emerald-800 dark:text-emerald-200">
+                  <span className="absolute right-1 top-0.5 text-[9px] font-medium tabular-nums text-emerald-800 dark:text-emerald-200">
                     {progress} %
                   </span>
                 </div>
@@ -644,53 +676,70 @@ function PlanningTab({ data, siteId, canEdit }: { data: SiteData; siteId: Id<"si
             <CardTitle className="text-sm">Mise à jour des phases</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
+            {/* Sur mobile, chaque phase devient une carte à deux colonnes :
+                plus de rangée de 500 px à faire défiler latéralement. */}
             {data.tasks.map((task) => (
               <div
                 key={task._id}
-                className="grid grid-cols-1 gap-2 rounded-lg border border-border/50 p-2.5 sm:grid-cols-[minmax(0,1fr)_90px_130px_120px_auto] sm:items-center"
+                className="relative grid grid-cols-2 gap-2 rounded-xl border border-border/50 p-3 pr-14 sm:grid-cols-[minmax(0,1fr)_90px_130px_120px_auto] sm:items-center sm:gap-2 sm:p-2.5"
               >
-                <span className="truncate text-xs font-medium">{task.name}</span>
-                <div className="flex items-center gap-1">
+                <span className="col-span-2 min-w-0 truncate pr-6 text-xs font-medium sm:col-span-1 sm:pr-0">
+                  {task.name}
+                </span>
+                <div className="min-w-0 space-y-0.5">
+                  <span className="block text-[10px] text-muted-foreground sm:hidden">Avancement</span>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={100}
+                      defaultValue={task.progress}
+                      aria-label={`Avancement de ${task.name}`}
+                      className="h-9 text-xs tabular-nums sm:h-7"
+                      onBlur={(event) => {
+                        const value = Number(event.target.value);
+                        if (value !== task.progress && Number.isFinite(value)) void save(task._id, { progress: value });
+                      }}
+                    />
+                    <span className="text-[10px] text-muted-foreground">%</span>
+                  </div>
+                </div>
+                <div className="min-w-0 space-y-0.5">
+                  <span className="block text-[10px] text-muted-foreground sm:hidden">Statut</span>
+                  <Select value={task.status} onValueChange={(value) => void save(task._id, { status: value })}>
+                    <SelectTrigger className="h-9 w-full text-xs sm:h-7" aria-label={`Statut de ${task.name}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(TASK_STATUS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2 min-w-0 space-y-0.5 sm:col-span-1">
+                  <span className="block text-[10px] text-muted-foreground sm:hidden">Fin prévue</span>
                   <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    defaultValue={task.progress}
-                    className="h-7 text-xs"
-                    onBlur={(event) => {
-                      const value = Number(event.target.value);
-                      if (value !== task.progress && Number.isFinite(value)) void save(task._id, { progress: value });
+                    type="date"
+                    defaultValue={isoDate(task.endDate)}
+                    aria-label={`Date de fin de ${task.name}`}
+                    className="h-9 w-full text-xs sm:h-7"
+                    onChange={(event) => {
+                      const value = fromIso(event.target.value);
+                      if (Number.isFinite(value) && value !== task.endDate) void save(task._id, { endDate: value });
                     }}
                   />
-                  <span className="text-[10px] text-muted-foreground">%</span>
                 </div>
-                <Select value={task.status} onValueChange={(value) => void save(task._id, { status: value })}>
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(TASK_STATUS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  type="date"
-                  defaultValue={isoDate(task.endDate)}
-                  className="h-7 text-xs"
-                  onChange={(event) => {
-                    const value = fromIso(event.target.value);
-                    if (Number.isFinite(value) && value !== task.endDate) void save(task._id, { endDate: value });
-                  }}
-                />
                 {data.isOwner ? (
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-rose-600"
+                    className="absolute right-1 top-1 h-11 w-11 text-muted-foreground hover:text-rose-600 sm:static sm:h-7 sm:w-7 sm:justify-self-end"
                     disabled={busy === task._id}
+                    aria-label={`Supprimer la phase ${task.name}`}
                     onClick={async () => {
                       try {
                         await deleteTask({ taskId: task._id });
@@ -703,33 +752,42 @@ function PlanningTab({ data, siteId, canEdit }: { data: SiteData; siteId: Id<"si
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 ) : (
-                  <span />
+                  <span className="hidden sm:block" />
                 )}
               </div>
             ))}
 
-            <div className="grid grid-cols-1 gap-2 rounded-lg border border-dashed border-emerald-500/40 p-2.5 sm:grid-cols-[minmax(0,1fr)_140px_140px_auto] sm:items-center">
+            <div className="grid grid-cols-2 gap-2 rounded-xl border border-dashed border-emerald-500/40 p-3 sm:grid-cols-[minmax(0,1fr)_140px_140px_auto] sm:items-center sm:p-2.5">
               <Input
-                className="h-8 text-xs"
+                className="col-span-2 h-9 text-xs sm:col-span-1 sm:h-8"
                 placeholder="Nouvelle phase (ex. Clôture)"
+                aria-label="Nom de la nouvelle phase"
                 value={draft.name}
                 onChange={(event) => setDraft({ ...draft, name: event.target.value })}
               />
-              <Input
-                type="date"
-                className="h-8 text-xs"
-                value={draft.startDate}
-                onChange={(event) => setDraft({ ...draft, startDate: event.target.value })}
-              />
-              <Input
-                type="date"
-                className="h-8 text-xs"
-                value={draft.endDate}
-                onChange={(event) => setDraft({ ...draft, endDate: event.target.value })}
-              />
+              <div className="col-span-2 min-w-0 space-y-0.5 sm:col-span-1">
+                <span className="block text-[10px] text-muted-foreground sm:hidden">Début</span>
+                <Input
+                  type="date"
+                  aria-label="Début de la nouvelle phase"
+                  className="h-9 w-full text-xs sm:h-8"
+                  value={draft.startDate}
+                  onChange={(event) => setDraft({ ...draft, startDate: event.target.value })}
+                />
+              </div>
+              <div className="col-span-2 min-w-0 space-y-0.5 sm:col-span-1">
+                <span className="block text-[10px] text-muted-foreground sm:hidden">Fin</span>
+                <Input
+                  type="date"
+                  aria-label="Fin de la nouvelle phase"
+                  className="h-9 w-full text-xs sm:h-8"
+                  value={draft.endDate}
+                  onChange={(event) => setDraft({ ...draft, endDate: event.target.value })}
+                />
+              </div>
               <Button
                 size="sm"
-                className="h-8 gap-1 bg-emerald-600 text-xs text-white hover:bg-emerald-500"
+                className="col-span-2 h-10 w-full gap-1 bg-emerald-600 text-xs text-white hover:bg-emerald-500 sm:col-span-1 sm:h-8 sm:w-auto"
                 disabled={!draft.name.trim() || busy === "new"}
                 onClick={async () => {
                   setBusy("new");
@@ -863,12 +921,13 @@ function DailyTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">{formatSiteDate(log.date)}</p>
-                  <p className="mt-0.5 whitespace-pre-line text-xs">{log.activities}</p>
+                  <p className="mt-0.5 whitespace-pre-line break-words text-xs">{log.activities}</p>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 shrink-0 text-muted-foreground hover:text-rose-600"
+                  aria-label={`Supprimer le suivi du ${formatSiteDate(log.date)}`}
+                  className="h-11 w-11 shrink-0 text-muted-foreground hover:text-rose-600 sm:h-6 sm:w-6"
                   onClick={async () => {
                     try {
                       await deleteLog({ logId: log._id });
@@ -911,6 +970,12 @@ function BudgetTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects"
     supplier: "",
   });
 
+  // Base de comparaison « prévu / réel » : la plus grande des deux valeurs,
+  // jamais zéro (division sûre), pour des barres proportionnelles lisibles.
+  const revisedBudget = budget?.revised ?? data.site.budgetInitial ?? 0;
+  const spentBudget = budget?.spent ?? 0;
+  const budgetBaseline = Math.max(revisedBudget, spentBudget, 1);
+
   const submit = async () => {
     if (!form.label.trim() || Number(form.amount) <= 0) {
       toast.error("Libellé et montant positif sont obligatoires.");
@@ -950,6 +1015,45 @@ function BudgetTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects"
         <Kpi icon={Package} label="Matériaux livrés" value={formatTND(budget?.materialsDeliveredValue ?? 0)} />
       </div>
 
+      {/* Comparaison budgétaire : deux barres de même base, lisibles même sur
+          un écran de 320 px (aucune largeur fixe, montants en TND tabulaires). */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Budget prévisionnel vs dépenses réelles</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2.5">
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2 text-[11px]">
+              <span className="min-w-0 truncate">Budget révisé</span>
+              <span className="shrink-0 font-medium tabular-nums">{formatTND(revisedBudget)}</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-emerald-500"
+                style={{ width: `${Math.min(100, Math.round((revisedBudget / budgetBaseline) * 100))}%` }}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2 text-[11px]">
+              <span className="min-w-0 truncate">Dépenses réelles</span>
+              <span className="shrink-0 font-medium tabular-nums">{formatTND(spentBudget)}</span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className={`h-full rounded-full ${spentBudget > revisedBudget ? "bg-rose-500" : "bg-amber-500"}`}
+                style={{ width: `${Math.min(100, Math.round((spentBudget / budgetBaseline) * 100))}%` }}
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            {budget
+              ? `${budget.consumedPct} % du budget consommé${spentBudget > revisedBudget ? " — dépassement" : ""}.`
+              : "Montants non communiqués avec vos droits actuels."}
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card>
           <CardHeader className="pb-2">
@@ -960,30 +1064,35 @@ function BudgetTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects"
             {[...data.expenses]
               .sort((a, b) => b.date - a.date)
               .map((expense) => (
-                <div key={expense._id} className="flex items-center gap-2 rounded-lg border border-border/50 p-2 text-xs">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{expense.label}</p>
-                    <p className="text-[10px] text-muted-foreground">
+                // Une dépense = une carte : libellé et montant sur la première
+                // ligne, métadonnées et action sur la seconde.
+                <div key={expense._id} className="rounded-xl border border-border/50 p-2.5 text-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 flex-1 break-words font-medium">{expense.label}</p>
+                    <span className="shrink-0 font-semibold tabular-nums">{formatTND(expense.amount)}</span>
+                  </div>
+                  <div className="mt-1 flex items-end justify-between gap-2">
+                    <p className="min-w-0 text-[10px] leading-relaxed text-muted-foreground">
                       {formatSiteDate(expense.date)} · {EXPENSE_CATEGORY_LABELS[expense.category as ExpenseCategory] ?? expense.category} ·{" "}
                       {EXPENSE_NATURE_LABELS[expense.nature as ExpenseNature] ?? expense.nature}
                       {expense.supplier ? ` · ${expense.supplier}` : ""}
                     </p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Supprimer la dépense ${expense.label}`}
+                      className="h-11 w-11 shrink-0 text-muted-foreground hover:text-rose-600 sm:h-6 sm:w-6"
+                      onClick={async () => {
+                        try {
+                          await deleteExpense({ expenseId: expense._id });
+                        } catch (error: any) {
+                          toast.error(error?.message ?? "Suppression impossible.");
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                  <span className="shrink-0 font-semibold">{formatTND(expense.amount)}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-rose-600"
-                    onClick={async () => {
-                      try {
-                        await deleteExpense({ expenseId: expense._id });
-                      } catch (error: any) {
-                        toast.error(error?.message ?? "Suppression impossible.");
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
                 </div>
               ))}
           </CardContent>
@@ -998,7 +1107,7 @@ function BudgetTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects"
               <Input className="h-8 text-xs" placeholder="Libellé *" value={form.label} onChange={(event) => setForm({ ...form, label: event.target.value })} />
               <div className="grid grid-cols-2 gap-2">
                 <Select value={form.category} onValueChange={(value) => setForm({ ...form, category: value })}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-8 w-full text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1010,7 +1119,7 @@ function BudgetTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects"
                   </SelectContent>
                 </Select>
                 <Select value={form.nature} onValueChange={(value) => setForm({ ...form, nature: value as ExpenseNature })}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-8 w-full text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1023,8 +1132,22 @@ function BudgetTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects"
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Input type="number" min={0} className="h-8 text-xs" placeholder="Montant (TND) *" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} />
-                <Input type="date" className="h-8 text-xs" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} />
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  className="col-span-2 h-8 text-xs tabular-nums sm:col-span-1"
+                  placeholder="Montant (TND) *"
+                  value={form.amount}
+                  onChange={(event) => setForm({ ...form, amount: event.target.value })}
+                />
+                <Input
+                  type="date"
+                  className="col-span-2 h-8 w-full text-xs sm:col-span-1"
+                  aria-label="Date de la dépense"
+                  value={form.date}
+                  onChange={(event) => setForm({ ...form, date: event.target.value })}
+                />
               </div>
               <Input className="h-8 text-xs" placeholder="Fournisseur (optionnel)" value={form.supplier} onChange={(event) => setForm({ ...form, supplier: event.target.value })} />
               <Button className="w-full gap-1.5 bg-emerald-600 text-white hover:bg-emerald-500" size="sm" disabled={busy} onClick={submit}>
@@ -1143,7 +1266,8 @@ function MaterialsTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjec
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-rose-600"
+                      aria-label={`Supprimer le matériau ${material.name}`}
+                      className="h-11 w-11 text-muted-foreground hover:text-rose-600 sm:h-6 sm:w-6"
                       onClick={async () => {
                         try {
                           await deleteMaterial({ materialId: material._id });
@@ -1200,14 +1324,44 @@ function MaterialsTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjec
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Ajouter un matériau</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_80px_110px_120px_auto] sm:items-end">
-          <Input className="h-8 text-xs" placeholder="Désignation" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
-          <Input className="h-8 text-xs" placeholder="Unité" value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} />
-          <Input type="number" min={0} className="h-8 text-xs" placeholder="Qté prévue" value={form.plannedQty} onChange={(event) => setForm({ ...form, plannedQty: event.target.value })} />
-          <Input type="number" min={0} className="h-8 text-xs" placeholder="Prix unitaire" value={form.unitPrice} onChange={(event) => setForm({ ...form, unitPrice: event.target.value })} />
+        <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_80px_110px_120px_auto] sm:items-end">
+          <Input
+            className="col-span-2 h-9 text-xs sm:col-span-1 sm:h-8"
+            placeholder="Désignation"
+            aria-label="Désignation du matériau"
+            value={form.name}
+            onChange={(event) => setForm({ ...form, name: event.target.value })}
+          />
+          <Input
+            className="h-9 text-xs sm:h-8"
+            placeholder="Unité"
+            aria-label="Unité du matériau"
+            value={form.unit}
+            onChange={(event) => setForm({ ...form, unit: event.target.value })}
+          />
+          <Input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            className="h-9 text-xs tabular-nums sm:h-8"
+            placeholder="Qté prévue"
+            aria-label="Quantité prévue"
+            value={form.plannedQty}
+            onChange={(event) => setForm({ ...form, plannedQty: event.target.value })}
+          />
+          <Input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            className="col-span-2 h-9 text-xs tabular-nums sm:col-span-1 sm:h-8"
+            placeholder="Prix unitaire (TND)"
+            aria-label="Prix unitaire en dinars"
+            value={form.unitPrice}
+            onChange={(event) => setForm({ ...form, unitPrice: event.target.value })}
+          />
           <Button
             size="sm"
-            className="h-8 gap-1 bg-emerald-600 text-xs text-white hover:bg-emerald-500"
+            className="col-span-2 h-10 w-full gap-1 bg-emerald-600 text-xs text-white hover:bg-emerald-500 sm:col-span-1 sm:h-8 sm:w-auto"
             disabled={!form.name.trim() || busy}
             onClick={async () => {
               setBusy(true);
@@ -1283,7 +1437,8 @@ function TeamTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects"> 
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 shrink-0 text-muted-foreground hover:text-rose-600"
+                    aria-label={`Retirer ${stakeholder.name} du chantier`}
+                    className="h-11 w-11 shrink-0 text-muted-foreground hover:text-rose-600 sm:h-6 sm:w-6"
                     onClick={async () => {
                       try {
                         await removeStakeholder({ stakeholderId: stakeholder._id });
@@ -1312,6 +1467,25 @@ function TeamTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects"> 
                   </Badge>
                 )}
               </div>
+              {/* Contact direct : un geste depuis le téléphone (appel ou e-mail). */}
+              {(stakeholder.phone || stakeholder.email) && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {stakeholder.phone && (
+                    <Button asChild variant="outline" size="sm" className="h-9 flex-1 gap-1.5 text-[11px]">
+                      <a href={`tel:${stakeholder.phone}`}>
+                        <Phone className="h-3.5 w-3.5" /> Appeler
+                      </a>
+                    </Button>
+                  )}
+                  {stakeholder.email && (
+                    <Button asChild variant="outline" size="sm" className="h-9 flex-1 gap-1.5 text-[11px]">
+                      <a href={`mailto:${stakeholder.email}`}>
+                        <Mail className="h-3.5 w-3.5" /> E-mail
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </CardContent>
@@ -1329,7 +1503,7 @@ function TeamTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects"> 
             <Input className="h-8 text-xs" placeholder="Nom *" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
             <div className="grid grid-cols-2 gap-2">
               <Select value={form.role} onValueChange={(value) => setForm({ ...form, role: value })}>
-                <SelectTrigger className="h-8 text-xs">
+                <SelectTrigger className="h-8 w-full text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1458,7 +1632,7 @@ function QualityTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects
                       }
                     }}
                   >
-                    <SelectTrigger className="h-7 w-[120px] shrink-0 text-[11px]">
+                    <SelectTrigger className="h-9 w-[104px] shrink-0 text-[11px] sm:h-7 sm:w-[120px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1468,7 +1642,9 @@ function QualityTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects
                     </SelectContent>
                   </Select>
                 </div>
-                {inspection.findings && <p className="mt-1 text-[11px] text-muted-foreground">{inspection.findings}</p>}
+                {inspection.findings && (
+                  <p className="mt-1 break-words text-[11px] text-muted-foreground">{inspection.findings}</p>
+                )}
                 {inspection.reservations.length > 0 && (
                   <div className="mt-1.5 space-y-1">
                     {inspection.reservations.map((reservation, index) => (
@@ -1507,7 +1683,7 @@ function QualityTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects
         <CardContent className="space-y-2">
           <Input className="h-8 text-xs" placeholder="Intitulé *" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
           <Select value={form.phaseKey} onValueChange={(value) => setForm({ ...form, phaseKey: value })}>
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger className="h-8 w-full text-xs">
               <SelectValue placeholder="Phase contrôlée" />
             </SelectTrigger>
             <SelectContent>
@@ -1519,12 +1695,23 @@ function QualityTab({ data, siteId }: { data: SiteData; siteId: Id<"siteProjects
             </SelectContent>
           </Select>
           <div className="grid grid-cols-2 gap-2">
-            <Input type="date" className="h-8 text-xs" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} />
-            <Input className="h-8 text-xs" placeholder="Inspecteur *" value={form.inspector} onChange={(event) => setForm({ ...form, inspector: event.target.value })} />
+            <Input
+              type="date"
+              className="col-span-2 h-8 w-full text-xs sm:col-span-1"
+              aria-label="Date du contrôle"
+              value={form.date}
+              onChange={(event) => setForm({ ...form, date: event.target.value })}
+            />
+            <Input
+              className="col-span-2 h-8 text-xs sm:col-span-1"
+              placeholder="Inspecteur *"
+              value={form.inspector}
+              onChange={(event) => setForm({ ...form, inspector: event.target.value })}
+            />
           </div>
           <Textarea rows={2} className="text-xs" placeholder="Constats" value={form.findings} onChange={(event) => setForm({ ...form, findings: event.target.value })} />
           <Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value })}>
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger className="h-8 w-full text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

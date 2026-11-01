@@ -729,3 +729,92 @@ html.rtl nav[aria-label="breadcrumb"] {
 html.rtl nav[aria-label="breadcrumb"] ol {
   flex-direction: row-reverse;
 }
+
+/* ============================================================================
+   MODULE « GESTION & SUIVI DE CHANTIER » — MOBILE FIRST
+   ----------------------------------------------------------------------------
+   Portée stricte : seuls les écrans du module (liste des chantiers, fiche
+   chantier, administration du module, carte de cotisation) portent la classe
+   `site-module`. Aucune autre page de la plateforme n'est affectée.
+
+   - `overflow-x: clip` : aucun débordement horizontal ne peut atteindre le
+     viewport. Les zones qui doivent réellement défiler (rangée d'onglets,
+     Gantt) gardent leur propre `overflow-x: auto` local.
+   - Safe areas iOS / Android : encoche, barre home et gestes système.
+   - Cibles tactiles ≥ 44 px sur mobile (recommandation Apple / Google),
+     rendues à leur taille compacte dès le breakpoint `sm`.
+   - Les libellés de boutons peuvent revenir à la ligne sur un écran étroit :
+     un intitulé long ne pousse plus jamais la page hors de l'écran.
+   ============================================================================ */
+.site-module {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+
+/* Zone à défilement horizontal LOCAL (onglets, tableaux larges) : le geste
+   reste contenu dans la zone et ne propage pas au viewport. */
+.site-scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.site-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+/* Modale du module : bottom sheet sur mobile → marge basse qui respecte la
+   safe area (la modale est rendue dans un portail, hors du conteneur). */
+.site-module[data-slot="dialog-content"] {
+  padding-bottom: max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+}
+
+@media (max-width: 639px) {
+  /* Champs de saisie : hauteur confortable au doigt. Le `min-height` prime sur
+     les classes `h-8` des formulaires compacts, sans les modifier une à une. */
+  .site-module
+    :is(
+      input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+      select,
+      textarea
+    ) {
+    min-height: 2.75rem;
+  }
+
+  /* Boutons et déclencheurs : 44 × 44 px minimum, sauf les contrôles compacts
+     (interrupteur, case à cocher) dont la taille est dictée par leur piste.
+     `[data-slot="button"]` couvre aussi les liens rendus en bouton (tel:, mailto:). */
+  .site-module
+    :is(button, [data-slot="button"], [data-slot="select-trigger"]):not([role="switch"]):not(
+      [role="checkbox"]
+    ):not([data-slot="switch"]) {
+    min-height: 2.75rem;
+  }
+
+  /* Un intitulé long revient à la ligne plutôt que de pousser la page hors de
+     l'écran — sauf dans la rangée d'onglets, qui défile et reste sur une ligne. */
+  .site-module
+    :is(button, [data-slot="button"]):not([data-slot="tabs-trigger"]):not([role="switch"]):not(
+      [role="checkbox"]
+    ) {
+    white-space: normal;
+  }
+
+  /* La rangée d'onglets doit pouvoir accueillir des déclencheurs de 44 px. */
+  .site-module [data-slot="tabs-list"] {
+    height: auto;
+  }
+
+  /* Cartes : marges latérales resserrées sur petit écran → une vingtaine de
+     pixels de largeur utile gagnés par carte, sans modifier chaque écran. */
+  .site-module [data-slot="card-header"],
+  .site-module [data-slot="card-content"],
+  .site-module [data-slot="card-footer"] {
+    padding-inline: 0.875rem;
+  }
+}
+
