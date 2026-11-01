@@ -17,7 +17,6 @@ import { api } from "@/convex/_generated/api";
 import { ClientProPaywall } from "@/components/ClientProPaywall";
 import { formatSiteDate, formatTND } from "@/lib/siteTracking";
 import { MySubscriptionCard } from "@/components/MySubscriptionCard";
-import { PlatformReviewCard } from "@/components/PlatformReviewCard";
 import { AnnouncementCarousel } from "@/components/announcements/AnnouncementCarousel";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 import { NotificationCenter } from "@/components/NotificationCenter";
@@ -1350,9 +1349,6 @@ export default function Dashboard() {
               </ClientProPaywall>
             </>
           )}
-
-          {/* ── Notez BatiBuild (avis privé, propre à chaque compte) ── */}
-          <PlatformReviewCard />
         </div>
       </div>
 
