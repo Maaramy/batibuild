@@ -20,6 +20,7 @@ import {
   Building2,
   CalendarRange,
   HardHat,
+  ClipboardCheck,
   LayoutGrid,
   Loader2,
   Plus,
@@ -209,7 +210,7 @@ export default function Chantiers() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-sm shadow-emerald-600/25">
-                  <HardHat className="h-4 w-4" />
+                  <ClipboardCheck className="h-4 w-4" />
                 </span>
                 <h1 className="min-w-0 break-words text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">
                   Gestion & Suivi de Chantier
@@ -276,7 +277,7 @@ export default function Chantiers() {
           <Card className="border-dashed border-emerald-500/30 bg-emerald-50/30 dark:bg-emerald-950/10">
             <CardContent className="px-4 py-10 text-center sm:py-14">
               <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25">
-                <HardHat className="h-6 w-6" />
+                <ClipboardCheck className="h-6 w-6" />
               </div>
               <h2 className="text-base font-semibold sm:text-lg">
                 {canCreate ? "Votre premier chantier commence ici" : "Débloquez le suivi de chantier"}

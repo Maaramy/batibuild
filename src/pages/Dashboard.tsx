@@ -31,6 +31,7 @@ import {
   LayoutGrid,
   Plus,
   HardHat,
+  ClipboardCheck,
   LogOut,
   TrendingUp,
   Clock,
@@ -529,12 +530,6 @@ export default function Dashboard() {
                     <DropdownMenuItem onClick={() => navigate("/dashboard/admin/subscriptions")} className="cursor-pointer gap-2 text-xs">
                       <CreditCard className="h-3.5 w-3.5" />
                       Essais & abonnements
-                    </DropdownMenuItem>
-                  )}
-                  {(user?.role === "admin" || user?.role === "moderator") && (
-                    <DropdownMenuItem onClick={() => navigate("/dashboard/admin/chantiers")} className="cursor-pointer gap-2 text-xs">
-                      <HardHat className="h-3.5 w-3.5" />
-                      Cotisations chantier
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
@@ -1262,7 +1257,7 @@ export default function Dashboard() {
               <CardHeader className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:p-4 lg:p-5">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-                    <HardHat className="h-4 w-4" />
+                    <ClipboardCheck className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
                     <CardTitle className="flex flex-wrap items-center gap-1.5 text-sm sm:text-base lg:text-lg">
@@ -1294,7 +1289,7 @@ export default function Dashboard() {
                     className="h-8 gap-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-xs text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500 sm:text-sm"
                     onClick={() => navigate("/dashboard/chantiers")}
                   >
-                    <HardHat className="h-3.5 w-3.5" />
+                    <ClipboardCheck className="h-3.5 w-3.5" />
                     {siteAccess?.allowed ? "Ouvrir" : "Souscrire"}
                   </Button>
                 </div>

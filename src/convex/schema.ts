@@ -1474,6 +1474,16 @@ const schema = defineSchema(
       ),
       clientProRefundOnDelete: v.optional(v.boolean()),
       clientProAllowStacking: v.optional(v.boolean()),
+      // ── Cotisation « Mes projets d'investissement » — TARIF DE RÉFÉRENCE ──
+      // Réglée par l'administrateur (Admin → Abonnements mensuels). « Tarif
+      // seulement » : ces champs n'ouvrent ni ne ferment aucun accès et aucun
+      // circuit de paiement ne les consomme. L'accès au module reste régi par
+      // les crédits Client Pro (`convex/access.ts`), inchangé.
+      // Absent/null = aucun tarif publié : rien n'est codé en dur, seul
+      // l'administrateur saisit le montant.
+      investmentCotisationPrice: v.optional(v.union(v.number(), v.null())),
+      investmentCotisationCurrency: v.optional(v.string()),
+      investmentCotisationUpdatedAt: v.optional(v.number()),
       // ── Limite du nombre de projets par offre ────────────────────────────
       // Réglée par l'administrateur (Admin → Abonnements mensuels). Source de
       // vérité : `convex/projectLimits.ts`, vérifiée côté serveur dans la même

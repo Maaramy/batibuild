@@ -688,3 +688,71 @@ export const updatePaymentConfig = mutation({
     return { success: true };
   },
 });
+
+// ============================================================================
+// Cotisation « Mes projets d'investissement » — TARIF DE RÉFÉRENCE
+// ----------------------------------------------------------------------------
+// L'administrateur enregistre un tarif (et sa devise) depuis Admin → Abonnements
+// mensuels. Ce champ est PUREMENT INFORMATIF : il n'ouvre ni ne ferme aucun
+// accès et aucun circuit de paiement ne le consomme. L'accès au module reste
+// régi par les crédits Client Pro (`convex/access.ts`), sans changement.
+// Aucun tarif par défaut : tant que l'administrateur n'a rien saisi, la valeur
+// reste `null` et l'interface affiche « aucun tarif publié ».
+// ============================================================================
+
+function canManageInvestmentCotisation(role: string | null | undefined) {
+  return role === "admin" || role === "moderator";
+}
+
+export const getInvestmentCotisation = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || !canManageInvestmentCotisation(user.role)) return null;
+
+    const config = await ctx.db.query("paymentConfig").order("desc").first();
+    const raw = config?.investmentCotisationPrice ?? null;
+    return {
+      price: typeof raw === "number" && Number.isFinite(raw) && raw >= 0 ? raw : null,
+      currency: config?.investmentCotisationCurrency ?? "TND",
+      updatedAt: config?.investmentCotisationUpdatedAt ?? null,
+    };
+  },
+});
+
+export const updateInvestmentCotisation = mutation({
+  args: {
+    // `null` = retirer le tarif publié (champ vidé par l'administrateur).
+    price: v.union(v.number(), v.null()),
+    currency: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || !canManageInvestmentCotisation(user.role)) {
+      throw new Error("Unauthorized: Admin access required");
+    }
+    if (args.price !== null && (!Number.isFinite(args.price) || args.price < 0)) {
+      throw new Error("Le tarif doit être un montant positif, ou laissé vide.");
+    }
+
+    const currency = (args.currency ?? "TND").trim().toUpperCase() || "TND";
+    const patch = {
+      investmentCotisationPrice: args.price === null ? null : Math.round(args.price),
+      investmentCotisationCurrency: currency,
+      investmentCotisationUpdatedAt: Date.now(),
+    };
+
+    const existingConfig = await ctx.db.query("paymentConfig").order("desc").first();
+    if (existingConfig) {
+      await ctx.db.patch(existingConfig._id, patch);
+    } else {
+      await ctx.db.insert("paymentConfig", {
+        ...DEFAULT_PLAN_PRICING,
+        ...patch,
+        createdAt: Date.now(),
+      } as any);
+    }
+
+    return { success: true, price: patch.investmentCotisationPrice, currency };
+  },
+});

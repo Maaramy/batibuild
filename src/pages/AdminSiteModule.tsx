@@ -17,6 +17,7 @@ import {
   Banknote,
   CalendarClock,
   CheckCircle2,
+  ClipboardCheck,
   Gauge,
   HardHat,
   Loader2,
@@ -117,7 +118,7 @@ export default function AdminSiteModule() {
           <div>
             <h1 className="flex flex-wrap items-center gap-2 text-lg font-semibold tracking-tight sm:text-xl">
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-emerald-600 to-teal-600 text-white">
-                <HardHat className="h-4 w-4" />
+                <ClipboardCheck className="h-4 w-4" />
               </span>
               Suivi de chantier — administration
             </h1>

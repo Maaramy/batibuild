@@ -4254,18 +4254,18 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <CardHeader>
                 <CardTitle className="text-base">Abonnements mensuels — prix et configuration</CardTitle>
                 <CardDescription className="text-xs">
-                  Trois dispositifs distincts : cotisation Client Pro par crédits de projets,
-                  abonnement mensuel Expert et abonnement mensuel Fournisseur. Aucun paiement
-                  n'attribue de droits sans confirmation ; les droits Client Pro et professionnels
-                  sont indépendants.
+                  Cinq dispositifs : cotisation Client Pro par crédits de projets, abonnements
+                  mensuels Expert et Fournisseur, tarif de référence du module d'investissement et
+                  cotisation du module Gestion & Suivi de Chantier (validée après paiement). Aucun
+                  paiement n'attribue de droits sans confirmation ; chaque droit est indépendant.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <SubscriptionSettingsPanel />
 
-                {/* Ancienne interface conservée mais MASQUÉE : remplacée par les trois
-                    sections ci-dessus (cotisation Client Pro / Expert / Fournisseur).
-                    Aucun de ces contrôles n'est visible ni utilisé par l'administrateur. */}
+                {/* Ancienne interface conservée mais MASQUÉE : remplacée par les sections
+                    ci-dessus (Client Pro / Expert / Fournisseur / investissement /
+                    suivi de chantier). Aucun de ces contrôles n'est visible ni utilisé. */}
                 <div className="hidden" aria-hidden="true">
                 {/* ═══ Période d'essai gratuite (remplace l'ancien forfait Free) ═══ */}
                 <TrialSettings />
