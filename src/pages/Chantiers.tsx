@@ -398,7 +398,10 @@ export default function Chantiers() {
         {/* `site-module` est nécessaire ici : la modale est rendue dans un
             portail, hors du conteneur principal — elle doit hériter des cibles
             tactiles et de la safe area du module. */}
-        <DialogContent className="site-module max-h-[90dvh] overflow-y-auto p-4 sm:max-w-2xl sm:p-6">
+        {/* Marges latérales : imposées par `.site-module[data-slot="dialog-content"]`
+            (1.25rem sur mobile, 1.5rem dès `sm`) pour rester identiques à gauche
+            et à droite, quel que soit le contenu des champs. */}
+        <DialogContent className="site-module max-h-[90dvh] overflow-y-auto py-4 sm:max-w-2xl sm:py-6">
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg">Créer un chantier</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">

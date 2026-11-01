@@ -767,10 +767,30 @@ html.rtl nav[aria-label="breadcrumb"] ol {
   display: none;
 }
 
-/* Modale du module : bottom sheet sur mobile → marge basse qui respecte la
-   safe area (la modale est rendue dans un portail, hors du conteneur). */
+/* Modale du module (rendue dans un portail, hors du conteneur) : gouttière
+   latérale identique à gauche et à droite, largeur bornée au viewport, et
+   marge basse qui respecte la safe area. `overflow-x: hidden` garantit qu'un
+   champ natif un peu large ne peut pas décaler la feuille horizontalement
+   (sinon la marge gauche disparaît au profit de la droite). */
 .site-module[data-slot="dialog-content"] {
+  width: 100%;
+  max-width: 100%;
+  padding-inline: 1.25rem;
   padding-bottom: max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+  overflow-x: hidden;
+}
+
+/* Les colonnes de formulaire peuvent rétrécir : jamais de débordement dû à un
+   `input[type="date"]` ou à un libellé long. */
+.site-module[data-slot="dialog-content"] :is(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (min-width: 640px) {
+  .site-module[data-slot="dialog-content"] {
+    padding-inline: 1.5rem;
+  }
 }
 
 @media (max-width: 639px) {
