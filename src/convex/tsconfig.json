@@ -18,8 +18,53 @@
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
     "isolatedModules": true,
-    "noEmit": true
+    "noEmit": true,
+
+    /*
+     * TYPES AMBIANTS LIMITÉS AU BACKEND.
+     *
+     * Sans ce champ, TypeScript charge AUTOMATIQUEMENT tous les paquets
+     * `@types` installés — y compris ceux du frontend. Mesuré sur ce projet :
+     * le programme Convex chargeait 1122 fichiers dont 515 définitions
+     * `@types`, parmi lesquelles 408 venaient de `@types/three` (la 3D du
+     * frontend) et une vingtaine de `vite` / `vitest` / `postcss`. Ces
+     * définitions ne sont JAMAIS utilisées par une fonction Convex, mais
+     * elles étaient parsées, liées et conservées en mémoire à chaque
+     * typecheck — celui que `convex dev` / `convex deploy` exécute
+     * (`tsc --project src/convex --listFiles`), dans un cgroup de 2 Go.
+     *
+     * `node` reste nécessaire (process, Buffer, timers des actions Node).
+     * Les types des bibliothèques importées explicitement (convex,
+     * @convex-dev/auth, zod, nodemailer, bcryptjs, vitest…) sont résolus par
+     * l'IMPORT lui-même : `types` ne restreint que l'inclusion globale, donc
+     * aucune vérification n'est perdue.
+     */
+    "types": ["node"],
+
+    /*
+     * CACHE INCRÉMENTAL.
+     *
+     * `convex dev` rejoue ce typecheck à chaque modification. Le cache est
+     * écrit hors du projet (node_modules/.tmp, ignoré par Git) pour ne jamais
+     * être poussé vers le déploiement, et permet au second passage de ne
+     * revérifier que ce qui a changé. Le premier passage reste complet : le
+     * cache n'allège aucune règle, il évite seulement de refaire le même
+     * travail deux fois.
+     */
+    "incremental": true,
+    "tsBuildInfoFile": "../../node_modules/.tmp/tsconfig.convex.tsbuildinfo"
   },
   "include": ["./**/*"],
-  "exclude": ["./_generated"]
+  /*
+   * `_generated` : les liaisons sont régénérées par `convex codegen` (elles
+   * restent typées, mais via les imports, pas via ce glob).
+   *
+   * `*.test.ts` : les 73 fichiers de test du backend importent `vitest`, qui
+   * embarque Vite, PostCSS, Rollup, esbuild et tout `@vitest/*` — soit ~90
+   * définitions npm sans rapport avec une fonction déployée, chargées à CHAQUE
+   * typecheck lancé par `convex dev` / `convex deploy`. Ces tests ne sont PAS
+   * abandonnés au contrôle de type : ils vivent dans le projet
+   * `tsconfig.convex-tests.json`, exécuté par `bun run typecheck`.
+   */
+  "exclude": ["./_generated", "./**/*.test.ts"]
 }

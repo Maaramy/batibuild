@@ -1,0 +1,30 @@
+{
+  /*
+   * PROJET DES TESTS BACKEND (src/convex/**\/*.test.ts)
+   * ---------------------------------------------------------------------------
+   * Ces 73 fichiers ne sont pas déployés : ils ne servent qu'à `vitest`. Les
+   * garder dans `src/convex/tsconfig.json` obligeait le typecheck de CHAQUE
+   * push Convex (`tsc --project src/convex --listFiles`) à charger vitest,
+   * Vite, PostCSS, Rollup, esbuild et tout `@vitest/*` — mesuré : 690 fichiers
+   * au lieu de ~470, dans un cgroup de 2 Go.
+   *
+   * Aucun test n'échappe donc au contrôle de type : ce projet hérite
+   * EXACTEMENT des mêmes options que le backend (strict, cible, lib,
+   * moduleResolution, cache incrémental) et n'ajoute que les globales Vitest.
+   * `bun run typecheck` l'exécute après le projet Convex.
+   */
+  "extends": "./src/convex/tsconfig.json",
+  "compilerOptions": {
+    /* Cache distinct : les deux projets ne doivent jamais partager le même. */
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.convex-tests.tsbuildinfo",
+    /*
+     * `vitest/globals` : `vitest.config.ts` active `globals: true`. Les tests
+     * importent déjà explicitement describe/it/expect, mais les matchers
+     * globaux doivent être connus du compilateur pour que le typage reste
+     * identique à celui de l'exécution.
+     */
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/convex/**/*.test.ts"],
+  "exclude": ["./src/convex/_generated"]
+}

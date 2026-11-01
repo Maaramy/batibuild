@@ -9,14 +9,15 @@
 // typer le backend. Cumulés, ils dépassent `memory.max` et le noyau tue le
 // dernier arrivé.
 //
-// Ce script ne désactive AUCUNE vérification : il exécute les QUATRE projets
+// Ce script ne désactive AUCUNE vérification : il exécute les CINQ projets
 // TypeScript l'un APRÈS l'autre (jamais en parallèle), attend qu'assez de
 // mémoire soit réellement libre avant chaque projet, puis mesure la durée et le
 // pic du cgroup pour chacun. Un projet en échec arrête la suite et son code de
 // sortie est propagé tel quel (134 = plafond V8, 137 = SIGKILL mémoire).
 //
-//   bun run typecheck            # les quatre projets, dans l'ordre
-//   bun run typecheck frontend   # un seul projet (frontend | vite | convex | tests)
+//   bun run typecheck              # les cinq projets, dans l'ordre
+//   bun run typecheck convex       # un seul projet (frontend | vite | convex |
+//                                  #  convex-tests | tests)
 // ============================================================================
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -28,6 +29,10 @@ const CGROUP = "/sys/fs/cgroup";
 const PROJECTS = [
   { id: "frontend", label: "frontend (src)", config: "tsconfig.app.json" },
   { id: "convex", label: "fonctions Convex", config: "src/convex/tsconfig.json" },
+  // Tests backend : sortis du projet Convex pour ne plus charger vitest/Vite à
+  // chaque push (le typecheck de déploiement lit `src/convex/tsconfig.json`),
+  // mais toujours typés ici avec les mêmes options strictes.
+  { id: "convex-tests", label: "tests Convex", config: "tsconfig.convex-tests.json" },
   { id: "vite", label: "config Vite", config: "tsconfig.node.json" },
   // Les tests vivent dans leur propre projet : `tsc -b` (déploiement) ne
   // charge plus que l'application, mais aucun fichier de test n'échappe au
@@ -124,7 +129,14 @@ function runProject(project) {
 }
 
 const only = process.argv[2];
-const queue = only ? PROJECTS.filter((p) => p.id === only || p.config.includes(only)) : PROJECTS;
+// Correspondance EXACTE sur l'identifiant d'abord : « tests » ne doit pas
+// embarquer « convex-tests » (dont le nom de config contient « tests »).
+const exact = only ? PROJECTS.filter((p) => p.id === only) : [];
+const queue = only
+  ? exact.length > 0
+    ? exact
+    : PROJECTS.filter((p) => p.config.includes(only))
+  : PROJECTS;
 if (queue.length === 0) {
   console.error(
     `Projet inconnu : ${only}. Choix : ${PROJECTS.map((p) => p.id).join(", ")}`,

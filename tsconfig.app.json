@@ -1,5 +1,18 @@
 {
   "compilerOptions": {
+    /*
+     * CACHE INCRÉMENTAL — activé explicitement.
+     *
+     * `tsBuildInfoFile` seul ne suffit pas : sans `incremental`, TypeScript
+     * réécrit le fichier de build à chaque passage mais refait TOUTE
+     * l'analyse. Mesuré ici : 65 s à chaque `tsc -p tsconfig.app.json`, même
+     * deux fois de suite sans modifier un seul fichier. Avec `incremental`, un
+     * second passage sans changement ne revérifie que ce qui a bougé.
+     *
+     * Aucune règle n'est assouplie : le premier passage reste complet. Le
+     * fichier de cache vit dans node_modules/.tmp (ignoré par Git).
+     */
+    "incremental": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "ES2020",
     "useDefineForClassFields": true,
