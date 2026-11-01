@@ -2562,6 +2562,21 @@ const schema = defineSchema(
       .index("by_connected", ["connectedAt"])
       .index("by_lastSeen", ["lastSeenAt"]),
 
+    // ── Avis « Notez BatiBuild » (satisfaction de la plateforme) ──────────
+    // CONFIDENTIEL : notes et commentaires réservés aux administrateurs.
+    // Aucune lecture publique — voir `platformReviews.ts` (requireAdmin).
+    // Un SEUL avis actif par utilisateur (upsert sur `by_user`).
+    platformReviews: defineTable({
+      userId: v.id("users"),
+      rating: v.number(),
+      comment: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_rating", ["rating"])
+      .index("by_date", ["createdAt"]),
+
   },
   {
     schemaValidation: false,

@@ -39,6 +39,7 @@ import { usePdfGate } from "@/hooks/use-pdf-gate";
 import { ArticleEditDialog } from "@/components/quantitatif/ArticleEditDialog";
 import { QuantitatifDetails } from "@/components/quantitatif/QuantitatifDetails";
 import { ComplementaryWorksSection } from "@/components/complementary/ComplementaryWorksSection";
+import { PlatformReviewCard } from "@/components/PlatformReviewCard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -2614,6 +2615,12 @@ export default function ProjectDetail() {
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
               </button>
             )}
+
+            {/* ═══ Notez BatiBuild ═══
+                En bas de la page des résultats, après l'ensemble des résultats
+                et des informations. Avis strictement privé (consultable
+                uniquement par les administrateurs). */}
+            <PlatformReviewCard />
 
           </motion.div>
         )}

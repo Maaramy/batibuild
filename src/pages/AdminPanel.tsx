@@ -45,6 +45,7 @@ import {
   type PlanPriceFormValues,
 } from "@/lib/planPricing";
 import StorageReportAdmin from "@/components/admin/StorageReportAdmin";
+import { PlatformReviewsAdmin } from "@/components/admin/PlatformReviewsAdmin";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -123,6 +124,7 @@ import {
   Megaphone,
   Headset,
   Wrench,
+  Star,
 } from "lucide-react";
 
 // ============================================================================
@@ -142,7 +144,7 @@ export default function AdminPanel() {
     "recus", "recusFournisseurs", "recusExperts", "subscriptions", "invoices",
     "fournisseurs", "experts", "analytics", "support", "journal", "paiement",
     "limites", "seo", "blog", "bim", "bareme", "emails", "modeles", "historique", "features",
-    "stockage",
+    "stockage", "avis",
   ];
   const initialTab =
     isSupportAgentRole
@@ -876,6 +878,15 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 )}
               </TabsTrigger>
               )}
+              {/* Avis et évaluations — ADMINISTRATEURS UNIQUEMENT : les notes et
+                  commentaires nominatifs des utilisateurs ne sont pas du ressort
+                  des modérateurs, et le serveur refuse tout autre rôle. */}
+              {isAdmin && (
+              <TabsTrigger value="avis" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Star className="h-3.5 w-3.5" />
+                <span>Avis</span>
+              </TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -883,6 +894,21 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
           {isAdmin && (
             <TabsContent value="invoices">
               <InvoicesAdmin />
+            </TabsContent>
+          )}
+
+          {/* ── Avis et évaluations BatiBuild (administrateurs uniquement) ── */}
+          {isAdmin && (
+            <TabsContent value="avis">
+              <div className="space-y-3">
+                <div>
+                  <h2 className="text-sm font-semibold">Avis et évaluations BatiBuild</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Notes et commentaires des utilisateurs — rubrique strictement confidentielle.
+                  </p>
+                </div>
+                <PlatformReviewsAdmin />
+              </div>
             </TabsContent>
           )}
 

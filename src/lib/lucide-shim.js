@@ -183,6 +183,7 @@ export { default as Menu } from "../../node_modules/lucide-react/dist/esm/icons/
 export { default as MessageCircle } from "../../node_modules/lucide-react/dist/esm/icons/message-circle.js";
 export { default as MessageSquare } from "../../node_modules/lucide-react/dist/esm/icons/message-square.js";
 export { default as MessageSquarePlus } from "../../node_modules/lucide-react/dist/esm/icons/message-square-plus.js";
+export { default as MessageSquareText } from "../../node_modules/lucide-react/dist/esm/icons/message-square-text.js";
 export { default as MessagesSquare } from "../../node_modules/lucide-react/dist/esm/icons/messages-square.js";
 export { default as Minus } from "../../node_modules/lucide-react/dist/esm/icons/minus.js";
 export { default as MinusIcon } from "../../node_modules/lucide-react/dist/esm/icons/minus.js";
