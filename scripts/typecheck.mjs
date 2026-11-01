@@ -39,11 +39,13 @@ const PROJECTS = [
  * Mémoire libre exigée avant chaque projet, en Mo.
  *
  * Re-mesuré 2026-11 dans ce sandbox : le projet le plus lourd (application)
- * termine avec 786 Mo libres (67 s) et est tué par le noyau en dessous de
- * ~700 Mo. 850 laisse la marge constatée sans faire attendre indéfiniment un
- * cgroup que Vite et Convex occupent en permanence.
+ * pèse 867 Mo de tas et ~1 Go de RSS, alors que Vite, esbuild et Convex en
+ * occupent 0,5 à 1,4 Go sur les 2 Go du cgroup. Il a été tué par le noyau en
+ * dessous de ~700 Mo libres, et même à 1 150 Mo libres quand Vite recompilait
+ * en parallèle : le seuil est donc aligné sur celui de l'enveloppe `tsc`
+ * (scripts/harden-build-bins.mjs) et doublé d'un contrôle de stabilité.
  */
-const NEED_MB = Number(process.env.BB_TYPECHECK_NEED_MB || 850);
+const NEED_MB = Number(process.env.BB_TYPECHECK_NEED_MB || 1150);
 /** Attente maximale de mémoire libre avant de tenter quand même. */
 const WAIT_MS = Number(process.env.BB_TYPECHECK_WAIT_MS || 90_000);
 

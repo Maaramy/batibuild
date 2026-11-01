@@ -54,6 +54,7 @@ describe("featureFlags.getFlagsMap", () => {
       ai_materials: true,
       architectural_plans: true,
       construction_guide: true,
+      site_tracking: true,
       plans_3d_enhanced: true,
     });
   });
@@ -183,7 +184,7 @@ describe("featureFlags.getAllFlags", () => {
       {},
     );
 
-    expect(flags).toHaveLength(6);
+    expect(flags).toHaveLength(7);
     expect(flags!.every((f) => f.enabled === true)).toBe(true);
     expect(flags!.map((f) => f.key)).toEqual([
       "construction_cost_estimation",
@@ -191,6 +192,7 @@ describe("featureFlags.getAllFlags", () => {
       "investment_project",
       "architectural_plans",
       "construction_guide",
+      "site_tracking",
       "plans_3d_enhanced",
     ]);
     expect(flags!.map((f) => f.name)).toContain("Projet d'investissement");
@@ -223,7 +225,7 @@ describe("featureFlags.ensureFlagDocs", () => {
     const { internal } = await import("./_generated/api.js");
 
     const first = await t.mutation(internal.featureFlags.ensureFlagDocs, {});
-    expect(first.created).toBe(7);
+    expect(first.created).toBe(8);
 
     const second = await t.mutation(internal.featureFlags.ensureFlagDocs, {});
     expect(second.created).toBe(0);

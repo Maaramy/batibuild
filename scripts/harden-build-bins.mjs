@@ -141,8 +141,8 @@ export const TARGETS = [
      * (marge). Aucun rejeu : un échec reste un échec (contrat vérifié par
      * src/lib/clientBundleGuards.test.ts).
      */
-    needMb: Number(process.env.BB_TSC_NEED_MB || 850),
-    waitMaxS: Number(process.env.BB_TSC_WAIT_MAX_S || 180),
+    needMb: Number(process.env.BB_TSC_NEED_MB || 1150),
+    waitMaxS: Number(process.env.BB_TSC_WAIT_MAX_S || 100),
   },
   {
     name: "vite",
@@ -291,8 +291,17 @@ export function wrapperSource({
           `wait_for_room() {`,
           `  waited=0`,
           `  free=$(budget_mb)`,
-          `  while [ "$free" -gt 0 ] && [ "$free" -lt "$need_mb" ] && [ "$waited" -lt "$wait_max_s" ]; do`,
-          `    echo "[heap-guard] ${name} : \${free} Mo libres < \${need_mb} Mo requis — attente \${waited} s" >&2`,
+          `  stable=0`,
+          `  while [ "$free" -gt 0 ] && [ "$waited" -lt "$wait_max_s" ]; do`,
+          `    if [ "$free" -ge "$need_mb" ]; then`,
+          `      # Deux lectures consécutives au-dessus du seuil : la mémoire ne doit`,
+          `      # pas être un creux passager (Vite/esbuild libèrent puis reprennent).`,
+          `      stable=$((stable + 1))`,
+          `      [ "$stable" -ge 2 ] && break`,
+          `    else`,
+          `      stable=0`,
+          `      echo "[heap-guard] ${name} : \${free} Mo libres < \${need_mb} Mo requis — attente \${waited} s" >&2`,
+          `    fi`,
           `    sleep 5`,
           `    waited=$((waited + 5))`,
           `    free=$(budget_mb)`,
