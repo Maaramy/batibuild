@@ -4,6 +4,7 @@ import { FeatureGate } from "@/components/FeatureGate";
 import { FeatureFlagsProvider } from "@/hooks/use-feature-flags";
 import { SEO } from "@/components/SEO";
 import { MessagingBadgeSync } from "@/components/MessagingBadgeSync";
+import { LanguageDirectionSync } from "@/components/LanguageDirectionSync";
 import { WebBootSync } from "@/components/WebBootSync";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ConnectionErrorScreen } from "@/components/ConnectionErrorScreen";
@@ -237,6 +238,9 @@ createRoot(document.getElementById("root")!).render(
           <FeatureFlagsProvider>
           <BrowserRouter>
             <SessionTracker />
+            {/* Direction RTL/LTR + lang sur <html> : suit la langue choisie,
+                sur TOUS les écrans (publics comme tableau de bord). */}
+            <LanguageDirectionSync />
             {/* Pastille temps réel de la Messagerie : publiée vers la barre de
                 navigation native de l'application Android. */}
             <MessagingBadgeSync />

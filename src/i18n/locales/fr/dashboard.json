@@ -59,5 +59,67 @@
   },
   "materialsUpdate": "Mise à jour des prix",
   "materialsLastUpdate": "Dernière mise à jour : {{date}}",
-  "materialsUpdateNow": "Mettre à jour maintenant"
+  "materialsUpdateNow": "Mettre à jour maintenant",
+  "language": {
+    "label": "Langue de l'interface",
+    "fr": "Français",
+    "ar": "العربية"
+  },
+  "shell": {
+    "title": {
+      "client": "Dashboard",
+      "supplier": "Espace Fournisseur",
+      "expert": "Espace Expert"
+    },
+    "badge": {
+      "client": "Client Pro",
+      "supplier": "Fournisseur",
+      "expert": "Expert"
+    },
+    "subtitle": {
+      "client": "Gérez vos projets de construction",
+      "welcome": "Bienvenue, {{name}}",
+      "supplier": "Statistiques et devis",
+      "supplierEmpty": "Créez votre profil fournisseur",
+      "expert": "Statistiques et services",
+      "expertEmpty": "Créez votre profil expert"
+    },
+    "nav": {
+      "dashboard": "Tableau de bord",
+      "newProject": "Nouveau projet",
+      "projects": "Mes projets",
+      "journey": "Démarche de construction",
+      "favorites": "Projets favoris",
+      "materials": "Prix matériaux",
+      "investments": "Investissements immobiliers",
+      "siteTracking": "Suivi de chantier",
+      "supplierSpace": "Espace fournisseur",
+      "expertSpace": "Espace expert",
+      "statistics": "Statistiques",
+      "supplierProfile": "Mon profil fournisseur",
+      "expertProfile": "Mon profil expert",
+      "reports": "Rapports PDF",
+      "messages": "Messagerie",
+      "support": "Support",
+      "blog": "Blog",
+      "profile": "Mon profil",
+      "admin": "Administration",
+      "settings": "Paramètres",
+      "logout": "Déconnexion",
+      "roleSupplier": "Fournisseur",
+      "roleExpert": "Expert",
+      "roleClient": "Client"
+    },
+    "menu": {
+      "profile": "Mon profil",
+      "subscription": "Abonnement",
+      "admin": "Administration",
+      "trials": "Essais & abonnements",
+      "siteContributions": "Cotisations chantier",
+      "logout": "Déconnexion"
+    },
+    "expandNav": "Déployer la navigation",
+    "collapseNav": "Réduire la navigation",
+    "dashboardTagline": "Tableau de bord"
+  }
 }

@@ -11,6 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { LogoMark } from "@/components/Logo";
 import { AvatarWithInitials } from "@/components/AvatarWithInitials";
 import { api } from "@/convex/_generated/api";
@@ -94,6 +96,7 @@ import { fmtTND, fmtPct } from "@/components/investment/shared";
 export default function Dashboard() {
   usePageSEO({ title: "Tableau de bord - batibuild", description: "Gérez vos projets de construction et suivez vos estimations sur batibuild." });
   const { user, signOut } = useAuth();
+  const { t } = useTranslation("dashboard");
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   // Feature flags : masque intégralement les modules désactivés par l'admin
@@ -274,8 +277,8 @@ export default function Dashboard() {
           <button
             type="button"
             onClick={() => setSidebarCollapsed(false)}
-            aria-label="Déployer la navigation"
-            title="Déployer la navigation"
+            aria-label={t("shell.expandNav")}
+            title={t("shell.expandNav")}
             className="rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
           >
             <LogoMark className="h-7 w-7 rounded-lg" />
@@ -285,13 +288,13 @@ export default function Dashboard() {
             <LogoMark className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg" />
             <div className="min-w-0 flex-1">
               <span className="text-sm sm:text-base font-semibold">batibuild</span>
-              <p className="text-[9px] sm:text-[10px] text-muted-foreground">Tableau de bord</p>
+              <p className="text-[9px] sm:text-[10px] text-muted-foreground">{t("shell.dashboardTagline")}</p>
             </div>
             <button
               type="button"
               onClick={() => setSidebarCollapsed(true)}
-              aria-label="Réduire la navigation"
-              title="Réduire la navigation"
+              aria-label={t("shell.collapseNav")}
+              title={t("shell.collapseNav")}
               className="hidden h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring lg:grid"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -311,7 +314,7 @@ export default function Dashboard() {
                   viewMode !== "client" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}>
                 {isSupplier ? <Store className="h-3 w-3" /> : <Briefcase className="h-3 w-3" />}
-                {isSupplier ? "Fournisseur" : "Expert"}
+                {isSupplier ? t("shell.nav.roleSupplier") : t("shell.nav.roleExpert")}
               </button>
               <button
                 onClick={() => { setViewMode("client"); setMobileSidebarOpen(false); }}
@@ -320,61 +323,61 @@ export default function Dashboard() {
                   viewMode === "client" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}>
                 <User className="h-3 w-3" />
-                Client
+                {t("shell.nav.roleClient")}
               </button>
             </div>
           </div>
         )}        {(() => {
           const inClientMode = viewMode === "client";
           return [
-            { icon: LayoutDashboard, label: "Tableau de bord", active: true, onClick: () => setMobileSidebarOpen(false) },
+            { icon: LayoutDashboard, label: t("shell.nav.dashboard"), active: true, onClick: () => setMobileSidebarOpen(false) },
             // Client features — only visible in client mode
             ...(inClientMode ? [
               ...(isFeatureEnabled("construction_cost_estimation") ? [
-                { icon: Plus, label: "Nouveau projet", onClick: () => { navigate("/dashboard/new"); setMobileSidebarOpen(false); } },
+                { icon: Plus, label: t("shell.nav.newProject"), onClick: () => { navigate("/dashboard/new"); setMobileSidebarOpen(false); } },
               ] : []),
               // Page dédiée « Mes projets » — même destination que l'onglet de
               // la barre de navigation de l'application Android.
-              { icon: LayoutGrid, label: "Mes projets", onClick: () => { navigate("/dashboard/projects"); setMobileSidebarOpen(false); } },
-              { icon: Rocket, label: "Démarche de construction", onClick: () => { navigate("/dashboard/guide"); setMobileSidebarOpen(false); } },
-              { icon: Star, label: "Projets favoris", onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
+              { icon: LayoutGrid, label: t("shell.nav.projects"), onClick: () => { navigate("/dashboard/projects"); setMobileSidebarOpen(false); } },
+              { icon: Rocket, label: t("shell.nav.journey"), onClick: () => { navigate("/dashboard/guide"); setMobileSidebarOpen(false); } },
+              { icon: Star, label: t("shell.nav.favorites"), onClick: () => { setActiveTab("favorites"); setMobileSidebarOpen(false); } },
               ...(isFeatureEnabled("ai_materials") ? [
-                { icon: TrendingUp, label: "Prix matériaux", onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
+                { icon: TrendingUp, label: t("shell.nav.materials"), onClick: () => { navigate("/dashboard/materials"); setMobileSidebarOpen(false); } },
               ] : []),
               ...(isFeatureEnabled("investment_project") ? [
-                { icon: Landmark, label: "Investissements immobiliers", onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
+                { icon: Landmark, label: t("shell.nav.investments"), onClick: () => { navigate("/dashboard/investments"); setMobileSidebarOpen(false); } },
               ] : []),
               ...(siteTrackingEnabled ? [
-                { icon: HardHat, label: "Suivi de chantier", onClick: () => { navigate("/dashboard/chantiers"); setMobileSidebarOpen(false); } },
+                { icon: HardHat, label: t("shell.nav.siteTracking"), onClick: () => { navigate("/dashboard/chantiers"); setMobileSidebarOpen(false); } },
               ] : []),
             ] : []),
             // Professional features — parent + submenu
             ...(viewMode === "supplier" ? [
-              { icon: Store, label: "Espace fournisseur", isExpandable: true, onClick: () => { setProMenuOpen(!proMenuOpen); } },
+              { icon: Store, label: t("shell.nav.supplierSpace"), isExpandable: true, onClick: () => { setProMenuOpen(!proMenuOpen); } },
             ] : []),
             ...(viewMode === "expert" ? [
-              { icon: Briefcase, label: "Espace expert", isExpandable: true, badge: expertUnread ?? 0, onClick: () => { setProMenuOpen(!proMenuOpen); } },
+              { icon: Briefcase, label: t("shell.nav.expertSpace"), isExpandable: true, badge: expertUnread ?? 0, onClick: () => { setProMenuOpen(!proMenuOpen); } },
             ] : []),
             // Sub-menu items (shown when expanded)
             ...(viewMode === "supplier" && proMenuOpen ? [
-              { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/supplier/stats"); setMobileSidebarOpen(false); } },
-              { icon: Settings, label: "Mon profil fournisseur", isSubItem: true, onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
+              { icon: BarChart3, label: t("shell.nav.statistics"), isSubItem: true, onClick: () => { navigate("/dashboard/supplier/stats"); setMobileSidebarOpen(false); } },
+              { icon: Settings, label: t("shell.nav.supplierProfile"), isSubItem: true, onClick: () => { navigate("/dashboard/supplier"); setMobileSidebarOpen(false); } },
             ] : []),
             // Sous-menu expert : uniquement les entrées propres à l'espace
             // expert (les demandes et devis reçus vivent dans la Messagerie,
             // qui porte déjà sa propre pastille).
             ...(viewMode === "expert" && proMenuOpen ? [
-              { icon: BarChart3, label: "Statistiques", isSubItem: true, onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
-              { icon: Settings, label: "Mon profil expert", isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
+              { icon: BarChart3, label: t("shell.nav.statistics"), isSubItem: true, onClick: () => { navigate("/dashboard/expert/stats"); setMobileSidebarOpen(false); } },
+              { icon: Settings, label: t("shell.nav.expertProfile"), isSubItem: true, onClick: () => { navigate("/dashboard/expert"); setMobileSidebarOpen(false); } },
             ] : []),
-            { icon: FileDown, label: "Rapports PDF", onClick: () => { navigate("/dashboard/reports"); setMobileSidebarOpen(false); } },
+            { icon: FileDown, label: t("shell.nav.reports"), onClick: () => { navigate("/dashboard/reports"); setMobileSidebarOpen(false); } },
             // Sa pastille est posée sur l'icône (entrée `messaging`) : un seul
             // badge par entrée, jamais de doublon en fin de ligne.
-            { icon: MessageSquare, label: "Messagerie", messaging: true, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
-            { icon: Headset, label: "Support", badge: supportUnread, onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
-            { icon: Newspaper, label: "Blog", onClick: () => { navigate("/blog"); setMobileSidebarOpen(false); } },
-            { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
-            ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
+            { icon: MessageSquare, label: t("shell.nav.messages"), messaging: true, onClick: () => { navigate("/dashboard/messages"); setMobileSidebarOpen(false); } },
+            { icon: Headset, label: t("shell.nav.support"), badge: supportUnread, onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
+            { icon: Newspaper, label: t("shell.nav.blog"), onClick: () => { navigate("/blog"); setMobileSidebarOpen(false); } },
+            { icon: User, label: t("shell.nav.profile"), onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
+            ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: t("shell.nav.admin"), onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
           ];
         })().map((item) => (
           <div key={item.label}>
@@ -409,16 +412,16 @@ export default function Dashboard() {
       </nav>
       <div className={cn("border-t border-border/30 space-y-1.5", collapsed ? "p-2" : "p-3 sm:p-4")}>
         <button onClick={() => navigate("/dashboard/settings")}
-          title="Paramètres"
+          title={t("shell.nav.settings")}
           className={cn("w-full flex items-center gap-2 sm:gap-3 rounded-lg text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all", collapsed ? "justify-center px-2 py-2" : "px-2.5 sm:px-3 py-2 sm:py-2.5")}>
           <Settings className="h-4 w-4 shrink-0" />
-          {!collapsed && <span className="truncate">Paramètres</span>}
+          {!collapsed && <span className="truncate">{t("shell.nav.settings")}</span>}
         </button>
         <button onClick={handleSignOut}
-          title="Déconnexion"
+          title={t("shell.nav.logout")}
           className={cn("w-full flex items-center gap-2 sm:gap-3 rounded-lg text-xs sm:text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all", collapsed ? "justify-center px-2 py-2" : "px-2.5 sm:px-3 py-2 sm:py-2.5")}>
           <LogOut className="h-4 w-4 shrink-0" />
-          {!collapsed && <span className="truncate">Déconnexion</span>}
+          {!collapsed && <span className="truncate">{t("shell.nav.logout")}</span>}
         </button>
       </div>
     </>
@@ -463,7 +466,11 @@ export default function Dashboard() {
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <h1 className="text-sm sm:text-base font-semibold truncate">
-                    {viewMode === "supplier" ? "Espace Fournisseur" : viewMode === "expert" ? "Espace Expert" : "Dashboard"}
+                    {viewMode === "supplier"
+                      ? t("shell.title.supplier")
+                      : viewMode === "expert"
+                        ? t("shell.title.expert")
+                        : t("shell.title.client")}
                   </h1>
                   <Badge
                     variant="secondary"
@@ -475,20 +482,29 @@ export default function Dashboard() {
                         : "bg-muted/40 text-muted-foreground"
                     }`}
                   >
-                    {user?.userRole === "supplier" ? "Fournisseur" : user?.userRole === "expert" ? "Expert" : "Client Pro"}
+                    {user?.userRole === "supplier"
+                      ? t("shell.badge.supplier")
+                      : user?.userRole === "expert"
+                        ? t("shell.badge.expert")
+                        : t("shell.badge.client")}
                   </Badge>
                 </div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                   {viewMode === "supplier"
-                    ? (supplierProfile ? "Statistiques et devis" : "Créez votre profil fournisseur")
+                    ? (supplierProfile ? t("shell.subtitle.supplier") : t("shell.subtitle.supplierEmpty"))
                     : viewMode === "expert"
-                      ? (expertProfile ? "Statistiques et services" : "Créez votre profil expert")
-                      : user?.name ? `Bienvenue, ${user.name.split(' ')[0]}` : "Gérez vos projets de construction"
+                      ? (expertProfile ? t("shell.subtitle.expert") : t("shell.subtitle.expertEmpty"))
+                      : user?.name
+                        ? t("shell.subtitle.welcome", { name: user.name.split(" ")[0] })
+                        : t("shell.subtitle.client")
                   }
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              {/* Sélecteur de langue FR / AR — bascule immédiate, sans
+                  rechargement, et préférence mémorisée. */}
+              <LanguageSwitcher />
               <NotificationCenter extraUnread={totalUnread} fallbackPath={notificationsPath} />
               {mounted && (
                 <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -513,34 +529,34 @@ export default function Dashboard() {
                   </div>
                   <DropdownMenuItem onClick={() => navigate("/dashboard/profile")} className="cursor-pointer gap-2 text-xs">
                     <User className="h-3.5 w-3.5" />
-                    Mon profil
+                    {t("shell.menu.profile")}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/dashboard/pricing")} className="cursor-pointer gap-2 text-xs">
                     <CreditCard className="h-3.5 w-3.5" />
-                    Abonnement
+                    {t("shell.menu.subscription")}
                   </DropdownMenuItem>
                   {(user?.role === "admin" || user?.role === "moderator") && (
                     <DropdownMenuItem onClick={() => navigate("/dashboard/admin")} className="cursor-pointer gap-2 text-xs">
                       <Shield className="h-3.5 w-3.5" />
-                      Administration
+                      {t("shell.menu.admin")}
                     </DropdownMenuItem>
                   )}
                   {(user?.role === "admin" || user?.role === "moderator") && (
                     <DropdownMenuItem onClick={() => navigate("/dashboard/admin/subscriptions")} className="cursor-pointer gap-2 text-xs">
                       <CreditCard className="h-3.5 w-3.5" />
-                      Essais & abonnements
+                      {t("shell.menu.trials")}
                     </DropdownMenuItem>
                   )}
                   {(user?.role === "admin" || user?.role === "moderator") && (
                     <DropdownMenuItem onClick={() => navigate("/dashboard/admin/chantiers")} className="cursor-pointer gap-2 text-xs">
                       <HardHat className="h-3.5 w-3.5" />
-                      Cotisations chantier
+                      {t("shell.menu.siteContributions")}
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer gap-2 text-xs text-destructive focus:text-destructive">
                     <LogOut className="h-3.5 w-3.5" />
-                    Déconnexion
+                    {t("shell.menu.logout")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

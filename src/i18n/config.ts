@@ -71,13 +71,17 @@ export const DEFAULT_LANGUAGE = "fr";
  * APPLICATION ANDROID : le détecteur de cookie est retiré de la chaîne, le
  * stockage local (celui de la coque) restant la seule source — le système de
  * cookies Web n'est jamais utilisé dans l'application.
+ *
+ * `navigator` n'est VOLONTAIREMENT plus consulté : le français est la langue
+ * par défaut de la plateforme, y compris pour les comptes existants qui n'ont
+ * jamais choisi de langue. Sans cela, un navigateur réglé en anglais ouvrait
+ * BatiBuild en anglais, alors que seuls FR et AR sont proposés dans le
+ * sélecteur ; l'utilisateur bascule ensuite en arabe d'un seul clic.
  */
 export function languageDetectionConfig(webCookiesEnabled: boolean) {
   const secure = typeof location !== "undefined" && location.protocol === "https:";
   return {
-    order: webCookiesEnabled
-      ? ["cookie", "localStorage", "navigator"]
-      : ["localStorage", "navigator"],
+    order: webCookiesEnabled ? ["cookie", "localStorage"] : ["localStorage"],
     lookupLocalStorage: LANGUAGE_STORAGE_KEY,
     lookupCookie: COOKIE_NAMES.lang as string,
     caches: webCookiesEnabled ? ["cookie", "localStorage"] : ["localStorage"],
