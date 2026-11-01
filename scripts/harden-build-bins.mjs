@@ -126,7 +126,24 @@ export const HEAP_MB = process.env.BB_BUILD_HEAP_MB || HEAP_MB_BY_TARGET.tsc;
  *              `vite preview` gardent tout leur tas.
  */
 export const TARGETS = [
-  { name: "tsc", target: "typescript/bin/tsc", buildOnly: false },
+  {
+    name: "tsc",
+    target: "typescript/bin/tsc",
+    buildOnly: false,
+    /*
+     * Mémoire libre exigée AVANT de compiler, et attente maximale.
+     *
+     * Mesuré dans ce sandbox (cgroup 2 Go) : un `tsc -b` complet consomme
+     * ~880 Mo de tas et ~1 Go de RSS. Vite, esbuild et Convex en occupent
+     * ~1,1 Go. Lancé avec moins de ~780 Mo libres, le compilateur est tué par
+     * le noyau (SIGKILL/137) vers la 45e seconde — sans aucun diagnostic
+     * TypeScript. Avec 786 Mo libres, il termine en 67 s. On attend donc 850 Mo
+     * (marge). Aucun rejeu : un échec reste un échec (contrat vérifié par
+     * src/lib/clientBundleGuards.test.ts).
+     */
+    needMb: Number(process.env.BB_TSC_NEED_MB || 850),
+    waitMaxS: Number(process.env.BB_TSC_WAIT_MAX_S || 180),
+  },
   {
     name: "vite",
     target: "vite/bin/vite.js",
@@ -226,6 +243,8 @@ export function wrapperSource({
   heapMb,
   buildOnly,
   retryAbortMb = null,
+  needMb = 0,
+  waitMaxS = 0,
 }) {
   const resolveTarget = [
     `self="$0"`,
@@ -252,6 +271,60 @@ export function wrapperSource({
       `}`,
     ].join("\n");
   const FAST = `--max-old-space-size=${heapMb}`;
+
+  /**
+   * Attente de la mémoire RÉELLE du cgroup avant compilation.
+   *
+   * Le sandbox fait 2 Go et les serveurs de développement (Vite, esbuild,
+   * Convex) en occupent ~1,1 Go : lancer le compilateur dès qu'il est demandé
+   * le fait tuer par le noyau, ce qui ressemble à un échec de typage alors que
+   * le code est correct. L'attente est bornée (`wait_max_s`) et n'échoue
+   * jamais : si la mémoire ne monte pas, la compilation est tentée quand même.
+   */
+  const memoryHelpers =
+    needMb > 0
+      ? [
+          ``,
+          `# ── Attente de mémoire avant compilation ───────────────────────────────`,
+          `need_mb=\${BB_NEED_MB:-${needMb}}`,
+          `wait_max_s=\${BB_WAIT_MAX_S:-${waitMaxS}}`,
+          `wait_for_room() {`,
+          `  waited=0`,
+          `  free=$(budget_mb)`,
+          `  while [ "$free" -gt 0 ] && [ "$free" -lt "$need_mb" ] && [ "$waited" -lt "$wait_max_s" ]; do`,
+          `    echo "[heap-guard] ${name} : \${free} Mo libres < \${need_mb} Mo requis — attente \${waited} s" >&2`,
+          `    sleep 5`,
+          `    waited=$((waited + 5))`,
+          `    free=$(budget_mb)`,
+          `  done`,
+          `  echo "[heap-guard] ${name} : \${free} Mo libres, besoin \${need_mb} Mo — lancement (attente \${waited} s)" >&2`,
+          `  return 0`,
+          `}`,
+          ``,
+          `# Seules les invocations qui compilent un PROJET (\`-b\`, \`-p\`, \`--build\`,\n` +
+            `# \`--project\`) consomment le gros tas. Une commande courte (\`--version\`,\n` +
+            `# script de test, outil) ne doit pas attendre : elle ne compilerait rien.`,
+          `compiles_project() {`,
+          `  for arg in "$@"; do`,
+          `    case "$arg" in`,
+          `      -b|--build|-p|--project) return 0 ;;`,
+          `    esac`,
+          `  done`,
+          `  return 1`,
+          `}`,
+          ``,
+          `# Le VRAI compilateur TypeScript (paquet complet) est le seul à mériter`,
+          `# l'attente : elle coûte jusqu'à 180 s. Une enveloppe reconstruite dans un`,
+          `# dossier de test (faux binaire, aucun \`lib/tsc.js\`) ne doit pas attendre.`,
+          `real_compiler() {`,
+          `  [ -f "$here/../typescript/lib/tsc.js" ]`,
+          `}`,
+          ``,
+          `waits_for_memory() {`,
+          `  real_compiler && compiles_project "$@"`,
+          `}`,
+        ].join("\n")
+      : "";
   const report = (withCap) =>
     [
       `if [ "$status" -ne 0 ]; then`,
@@ -288,6 +361,7 @@ export function wrapperSource({
   const guarded = [
     `free=$(budget_mb)`,
     `echo "[heap-guard] ${name} : \${free} Mo libres — plafond ${heapMb} Mo" >&2`,
+    needMb > 0 ? `waits_for_memory "$@" && wait_for_room` : "",
     `started=$(date +%s)`,
     `run_node "$@"`,
     `status=$?`,
@@ -313,7 +387,7 @@ export function wrapperSource({
     .filter(Boolean)
     .join("\n\n");
 
-  return `#!/bin/sh\n# ${MARKER} — voir scripts/harden-build-bins.mjs\n${resolveTarget}\n${cgroupHelpers}\n${SIGNAL_HELPERS}\n\n${launchers}\n\n${body}\n`;
+  return `#!/bin/sh\n# ${MARKER} — voir scripts/harden-build-bins.mjs\n${resolveTarget}\n${cgroupHelpers}\n${memoryHelpers}\n${SIGNAL_HELPERS}\n\n${launchers}\n\n${body}\n`;
 }
 
 /**
@@ -331,6 +405,8 @@ export function patchBin({
   heapMb = HEAP_MB_BY_TARGET[name] ?? HEAP_MB,
   buildOnly = false,
   retryAbortMb = null,
+  needMb = 0,
+  waitMaxS = 0,
 }) {
   const binPath = join(binDir, name);
   if (!existsSync(binPath)) return "absent";
@@ -351,6 +427,8 @@ export function patchBin({
     heapMb,
     buildOnly,
     retryAbortMb,
+    needMb,
+    waitMaxS,
   });
   if (existing === next) return "already";
 

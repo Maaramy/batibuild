@@ -15,6 +15,18 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /*
+     * Types AMBIANTS limités à ce que le frontend utilise réellement.
+     *
+     * Sans ce champ, TypeScript charge TOUS les paquets `@types` installés
+     * (node, nodemailer, jspdf, bcryptjs, three… et leurs dépendances) dans le
+     * programme du navigateur, alors que le code les importe explicitement
+     * quand il en a besoin (`three`, par exemple). Mesuré : −25 Mo et −26
+     * fichiers de définitions sur un programme qui frôle la limite mémoire du
+     * sandbox. `vite/client` reste requis pour `import.meta.env`.
+     */
+    "types": ["vite/client"],
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": false,

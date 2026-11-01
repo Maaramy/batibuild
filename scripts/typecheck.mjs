@@ -35,8 +35,15 @@ const PROJECTS = [
   { id: "tests", label: "tests (src)", config: "tsconfig.tests.json" },
 ];
 
-/** Pic mesuré du projet le plus lourd (~1 Go) + marge de sécurité. */
-const NEED_MB = Number(process.env.BB_TYPECHECK_NEED_MB || 1150);
+/**
+ * Mémoire libre exigée avant chaque projet, en Mo.
+ *
+ * Re-mesuré 2026-11 dans ce sandbox : le projet le plus lourd (application)
+ * termine avec 786 Mo libres (67 s) et est tué par le noyau en dessous de
+ * ~700 Mo. 850 laisse la marge constatée sans faire attendre indéfiniment un
+ * cgroup que Vite et Convex occupent en permanence.
+ */
+const NEED_MB = Number(process.env.BB_TYPECHECK_NEED_MB || 850);
 /** Attente maximale de mémoire libre avant de tenter quand même. */
 const WAIT_MS = Number(process.env.BB_TYPECHECK_WAIT_MS || 90_000);
 

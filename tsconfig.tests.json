@@ -11,7 +11,13 @@
    */
   "extends": "./tsconfig.app.json",
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tests.tsbuildinfo"
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tests.tsbuildinfo",
+    /*
+     * Le projet des tests tourne dans un environnement Node + Vitest : il a
+     * besoin des globales de Vitest (`globals: true` dans vitest.config.ts)
+     * en plus des types Vite hérités du projet application.
+     */
+    "types": ["vite/client", "vitest/globals", "node"]
   },
   "include": ["src/**/*.test.ts", "src/**/*.test.tsx"],
   "exclude": ["src/convex/**"]
