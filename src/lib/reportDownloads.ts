@@ -40,6 +40,7 @@ import {
   lotsSubtotal,
   resolveWorkSelection,
 } from "./workCategories";
+import { readQuantitatifLang } from "./quantitatifArabic";
 import { exportDecisionSupportPdf } from "./decisionSupportPdf";
 import { regionLabel } from "./providerRegions";
 import { generateFloorPlans, repairFloorPlan } from "./floorPlanEngine";
@@ -175,6 +176,8 @@ export async function downloadCostReport({
     dqeScaleFactor: 1,
     personalized,
     costEvolution,
+    // Langue du quantitatif mémorisée sur la page de résultat (FR par défaut).
+    quantitatifLang: readQuantitatifLang(),
     onStart: () => undefined,
     onProgress: onProgress ?? (() => undefined),
     onSuccess: () => undefined,

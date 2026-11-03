@@ -102,6 +102,11 @@ import {
 import { anchorScenariosToTotal, resolveEstimationBudget } from "@/lib/estimationBudget";
 import { applyWorkSelectionToLots, resolveWorkSelection } from "@/lib/workCategories";
 import {
+  readQuantitatifLang,
+  writeQuantitatifLang,
+  type QuantitatifLang,
+} from "@/lib/quantitatifArabic";
+import {
   formatLaborLot,
   formatQuantitatifQuantity,
   normalizeLaborLine,
@@ -440,6 +445,15 @@ export default function ProjectDetail() {
   const [refreshingQuantitatif, setRefreshingQuantitatif] = useState(false);
   const [openCat, setOpenCat] = useState<string>("__all_expanded");
   const [selectedScenario, setSelectedScenario] = useState<string>("standard");
+  // Langue du « Quantitatif détaillé » (FR par défaut) : conserve le choix lors
+  // des re-rendus, des navigations et du téléchargement du devis.
+  const [quantitatifLang, setQuantitatifLang] = useState<QuantitatifLang>(() =>
+    readQuantitatifLang(),
+  );
+  const changeQuantitatifLang = (lang: QuantitatifLang) => {
+    setQuantitatifLang(lang);
+    writeQuantitatifLang(lang);
+  };
 
   // Initialisation (unique) du scénario affiché depuis la source partagée du
   // projet — définie par « Coût estimatif » ou par « Choix matériaux AI ».
@@ -574,6 +588,8 @@ export default function ProjectDetail() {
       // identique aux lots d'origine).
       dqe: sdbPdfLots ? { lots: sdbPdfLots } : dqeData ? { ...dqeData, lots: workFilteredDqeLots } : dqeData,
       dqeScaleFactor: sdbPdfLots ? 1 : sf,
+      // Le quantitatif du devis suit la langue sélectionnée sur la page.
+      quantitatifLang,
       // Scénario « Personnalisé » : `null` s'il n'y a aucune modification — le
       // devis n'en fait alors aucune mention.
       personalized: personalized ?? null,
@@ -2051,6 +2067,8 @@ export default function ProjectDetail() {
                       refreshing={refreshingQuantitatif}
                       onRefresh={refreshQuantitatif}
                       onOpenArticle={setEditingLine}
+                      lang={quantitatifLang}
+                      onLangChange={changeQuantitatifLang}
                     />
 
                     {/* Popup de modification d'un article du quantitatif */}

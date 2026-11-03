@@ -6,6 +6,7 @@ import {
   ChevronUp,
   FileText,
   Globe,
+  Languages,
   Layers,
   Loader2,
   Pencil,
@@ -20,14 +21,20 @@ import {
   quantitatifLineKey,
   type QuantitatifCustomizationEntry,
 } from "@/convex/quantitatifCustomLogic";
-import { formatLaborLot, formatQuantitatifQuantity } from "@/lib/laborLot";
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat("fr-TN", {
-    style: "currency",
-    currency: "TND",
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(n) ? n : 0);
+import { formatLaborLot } from "@/lib/laborLot";
+import {
+  formatQuantitatifMoney,
+  formatQuantitatifQuantityI18n,
+  quantitatifDir,
+  tq,
+  translateDescription,
+  translateDesignation,
+  translateLaborLabel,
+  translateLotName,
+  translateNature,
+  translateScenarioLabel,
+  type QuantitatifLang,
+} from "@/lib/quantitatifArabic";
 
 const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -36,14 +43,17 @@ const fadeUp = {
   animate: { opacity: 1, y: 0, transition: { duration: 0.3 } },
 };
 
-const NATURE_META: Record<string, { label: string; icon: any; color: string }> = {
-  materiaux: { label: "Matériaux", icon: Layers, color: "text-blue-600" },
-  main_oeuvre: { label: "Main-d'œuvre", icon: Users, color: "text-emerald-600" },
-  equipements: { label: "Outillage & Équipements", icon: Plug, color: "text-purple-600" },
-  transport: { label: "Transport", icon: Truck, color: "text-amber-600" },
-  etudes: { label: "Études & Permis", icon: FileText, color: "text-red-600" },
+const NATURE_META: Record<string, { icon: any; color: string }> = {
+  materiaux: { icon: Layers, color: "text-blue-600" },
+  main_oeuvre: { icon: Users, color: "text-emerald-600" },
+  equipements: { icon: Plug, color: "text-purple-600" },
+  transport: { icon: Truck, color: "text-amber-600" },
+  etudes: { icon: FileText, color: "text-red-600" },
 };
 const NATURE_ORDER = ["materiaux", "main_oeuvre", "equipements", "transport", "etudes"];
+
+/** Taux de TVA appliqué au coût total (les montants du DQE sont TTC). */
+const VAT_RATE = 0.19;
 
 export interface QuantitatifDetailsProps {
   /** Lots du quantitatif, déjà mis à l'échelle du scénario affiché. */
@@ -87,6 +97,9 @@ export interface QuantitatifDetailsProps {
     lineIndex: number;
     line: any;
   }) => void;
+  /** Langue de consultation du quantitatif (FR par défaut). */
+  lang: QuantitatifLang;
+  onLangChange: (lang: QuantitatifLang) => void;
 }
 
 /**
@@ -101,6 +114,12 @@ export interface QuantitatifDetailsProps {
  * Les travaux complémentaires personnalisés sont rendus EXACTEMENT comme les
  * autres catégories (une catégorie par travail, articles groupés par nature),
  * sans aucune icône ni style propre.
+ *
+ * LANGUES : le sélecteur FR / AR (au-dessus du titre) ne change QUE le texte
+ * affiché — mêmes lots, mêmes quantités, mêmes prix, mêmes totaux. En arabe,
+ * le bloc passe en RTL (`dir="rtl"`), les libellés sont traduits par le module
+ * central `lib/quantitatifArabic`, et les nombres restent isolés en LTR pour
+ * rester parfaitement lisibles.
  */
 export function QuantitatifDetails({
   lots,
@@ -119,16 +138,62 @@ export function QuantitatifDetails({
   refreshing,
   onRefresh,
   onOpenArticle,
+  lang,
+  onLangChange,
 }: QuantitatifDetailsProps) {
   const [openCat, setOpenCat] = useState<string>("__all_expanded");
+
+  const isAr = lang === "ar";
+  const dir = quantitatifDir(lang);
+  const money = (n: number) => formatQuantitatifMoney(n, lang);
+  const quantity = (q: unknown, unit: unknown, nature?: unknown) =>
+    formatQuantitatifQuantityI18n(q, unit, nature, lang);
+
+  // Décomposition TTC → HT / TVA du total affiché (montants jamais modifiés :
+  // le total reste la somme exacte des lots).
+  const totalHT = totalBudg / (1 + VAT_RATE);
+  const totalVat = totalBudg - totalHT;
 
   return (
     <motion.div
       variants={fadeUp}
       initial="initial"
       animate="animate"
+      dir={dir}
+      lang={lang}
       className="rounded-xl border bg-card shadow-sm overflow-hidden"
     >
+      {/* Sélecteur de langue — juste au-dessus du titre */}
+      <div className="flex items-center justify-between gap-2 border-b border-border/10 bg-muted/[0.04] px-3 py-1.5">
+        <div
+          role="group"
+          aria-label={tq("langSwitchLabel", lang)}
+          className="inline-flex items-center gap-0.5 rounded-full border border-border/50 bg-card p-0.5 shadow-sm"
+        >
+          {(["fr", "ar"] as const).map((code) => (
+            <button
+              key={code}
+              type="button"
+              onClick={() => onLangChange(code)}
+              aria-pressed={lang === code}
+              title={code === "fr" ? tq("french", lang) : tq("arabic", lang)}
+              className={cn(
+                "min-w-[2.1rem] rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide transition-colors",
+                lang === code
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {code.toUpperCase()}
+            </button>
+          ))}
+        </div>
+        <span className="flex items-center gap-1 text-[9px] text-muted-foreground/70">
+          <Languages className="h-3 w-3" />
+          FR / AR
+        </span>
+      </div>
+
       {/* Header */}
       <button
         onClick={() => setOpenCat(openCat ? "" : "__all")}
@@ -138,7 +203,7 @@ export function QuantitatifDetails({
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Layers className="h-3.5 w-3.5" />
           </div>
-          <h3 className="text-sm font-semibold">Quantitatif détaillé</h3>
+          <h3 className="text-sm font-semibold">{tq("title", lang)}</h3>
           {scenarioBadge && (
             <Badge
               variant="outline"
@@ -149,19 +214,19 @@ export function QuantitatifDetails({
                   : "text-primary border-primary/30",
               )}
             >
-              {scenarioBadge.label}
+              {translateScenarioLabel(scenarioBadge.label, lang)}
             </Badge>
           )}
           <Badge variant="secondary" className="text-[9px]">
-            {lots.length} étapes
+            {lots.length} {tq("steps", lang)}
           </Badge>
         </div>
         <div className="flex items-center gap-1">
           <span
             role="button"
             tabIndex={0}
-            aria-label="Mettre à jour le quantitatif selon le catalogue 2026"
-            title="Mettre à jour le quantitatif selon le catalogue 2026"
+            aria-label={tq("refreshTitle", lang)}
+            title={tq("refreshTitle", lang)}
             onClick={(e) => {
               e.stopPropagation();
               onRefresh?.();
@@ -191,7 +256,7 @@ export function QuantitatifDetails({
                 setOpenCat(openCat === "__all_expanded" ? "__all" : "__all_expanded");
               }}
               className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-muted/30 text-muted-foreground transition-colors cursor-pointer"
-              title={openCat === "__all_expanded" ? "Tout replier" : "Tout déplier"}
+              title={openCat === "__all_expanded" ? tq("collapseAll", lang) : tq("expandAll", lang)}
             >
               {openCat === "__all_expanded" ? (
                 <ChevronUp className="h-3.5 w-3.5" />
@@ -216,11 +281,23 @@ export function QuantitatifDetails({
             className="overflow-hidden"
           >
             <div className="border-t border-border/10">
+              {/* En-têtes de colonnes (ordre inversé automatiquement en RTL) */}
+              <div className="flex items-center gap-2 border-b border-border/10 bg-muted/[0.06] px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="flex-1 min-w-0 truncate">{tq("columnDesignation", lang)}</span>
+                <span className="w-14 shrink-0 text-end">{tq("columnQuantity", lang)}</span>
+                <span className="hidden w-20 shrink-0 text-end sm:block">
+                  {tq("columnUnitPrice", lang)}
+                </span>
+                <span className="w-20 shrink-0 text-end">{tq("columnAmount", lang)}</span>
+                <span className="w-3 shrink-0" aria-hidden />
+              </div>
+
               {/* ══════ VUE HIÉRARCHIQUE DQE (étapes / sous-étapes) ══════ */}
               <div className="divide-y divide-border/10">
                 {lots.map((lot: any) => {
                   const isOpen = openCat === lot.name || openCat === "__all_expanded";
                   const canEditLot = isEditableLot(lot.id);
+                  const lotLabel = translateLotName(lot.name, lang);
 
                   // Grouper les lignes par nature en conservant l'index global
                   // de chaque ligne dans le lot (clé de personnalisation).
@@ -235,27 +312,32 @@ export function QuantitatifDetails({
                   return (
                     <div key={lot.id}>
                       {/* Ligne de l'étape (lot) */}
-                      <div className="flex items-center gap-1 pr-2 transition-colors hover:bg-muted/10">
+                      <div className="flex items-center gap-1 pe-2 transition-colors hover:bg-muted/10">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenCat(isOpen ? "__all" : lot.name);
                           }}
-                          className="flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2 text-left"
+                          className="flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2 text-start"
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold text-foreground">{lot.name}</span>
-                              <span className="text-[9px] text-muted-foreground/50">{lot.percent}%</span>
+                              <span className="text-[11px] font-bold text-foreground">{lotLabel}</span>
+                              <span className="text-[9px] text-muted-foreground/50" dir="ltr">
+                                {lot.percent}%
+                              </span>
                               {canEditLot && (
                                 <span className="text-[9px] text-muted-foreground/50">
-                                  · articles modifiables
+                                  · {tq("editableArticles", lang)}
                                 </span>
                               )}
                             </div>
                           </div>
-                          <span className="text-xs font-bold tabular-nums text-primary shrink-0">
-                            {fmt(lot.subtotal)}
+                          <span
+                            dir="ltr"
+                            className="text-xs font-bold tabular-nums text-primary shrink-0"
+                          >
+                            {money(lot.subtotal)}
                           </span>
                           {isOpen ? (
                             <ChevronUp className="h-4 w-4 text-muted-foreground/50 shrink-0" />
@@ -280,10 +362,13 @@ export function QuantitatifDetails({
                                 {/* Header nature */}
                                 <div className="flex items-center gap-1.5 px-3 py-1 bg-muted/10 border-b border-border/5">
                                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                                    {meta.label}
+                                    {translateNature(nature, lang)}
                                   </span>
-                                  <span className="text-[10px] text-muted-foreground/50 ml-auto">
-                                    {fmt(natureTotal)}
+                                  <span
+                                    dir="ltr"
+                                    className="text-[10px] text-muted-foreground/50 ms-auto"
+                                  >
+                                    {money(natureTotal)}
                                   </span>
                                 </div>
                                 {/* Lignes */}
@@ -292,17 +377,19 @@ export function QuantitatifDetails({
                                   const lineIndex: number = entry.index;
                                   const lineKey = quantitatifLineKey(lot.id, lineIndex);
                                   const isCustomized = customizationByKey.has(lineKey);
+                                  const designation = translateDesignation(line.designation, lang);
+                                  const description = translateDescription(line.description, lang);
                                   const rowContent = (
                                     <>
                                       <div className="flex-1 min-w-0">
                                         <p className="text-[11px] font-medium leading-snug flex flex-wrap items-center gap-1.5">
-                                          <span>{line.designation}</span>
+                                          <span>{designation}</span>
                                           {isCustomized && (
                                             <Badge
                                               variant="outline"
                                               className="text-[8px] h-3.5 px-1 border-amber-400/40 text-amber-700 bg-amber-400/10 shrink-0"
                                             >
-                                              Personnalisé
+                                              {tq("personalized", lang)}
                                             </Badge>
                                           )}
                                         </p>
@@ -310,20 +397,29 @@ export function QuantitatifDetails({
                                             complémentaires personnalisés sont
                                             affichés comme les articles du gros
                                             œuvre et du second œuvre. */}
-                                        {line.description && (
+                                        {description && (
                                           <p className="text-[10px] text-muted-foreground/60 leading-snug">
-                                            {line.description}
+                                            {description}
                                           </p>
                                         )}
                                       </div>
-                                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
-                                        {formatQuantitatifQuantity(line.quantity, line.unit, line.nature)}
+                                      <span
+                                        dir="ltr"
+                                        className="w-14 shrink-0 text-end text-[10px] text-muted-foreground tabular-nums"
+                                      >
+                                        {quantity(line.quantity, line.unit, line.nature)}
                                       </span>
-                                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 hidden sm:block">
-                                        {fmt(line.unitPrice)}
+                                      <span
+                                        dir="ltr"
+                                        className="w-20 shrink-0 text-end text-[10px] text-muted-foreground tabular-nums hidden sm:block"
+                                      >
+                                        {money(line.unitPrice)}
                                       </span>
-                                      <span className="text-xs font-semibold tabular-nums shrink-0">
-                                        {fmt(line.total)}
+                                      <span
+                                        dir="ltr"
+                                        className="w-20 shrink-0 text-end text-xs font-semibold tabular-nums"
+                                      >
+                                        {money(line.total)}
                                       </span>
                                       {canEditLot && (
                                         <Pencil className="h-3 w-3 text-muted-foreground/40 shrink-0 mt-0.5" />
@@ -341,29 +437,48 @@ export function QuantitatifDetails({
                                   // électricité). Elle est déjà comprise dans le montant
                                   // du poste : elle n'est jamais recomptée dans le lot.
                                   const laborRow = line.labor ? (
-                                    <div className="flex items-start gap-2 pl-7 pr-3 py-1 border-b border-border/5 bg-muted/[0.04]">
+                                    <div className="flex items-start gap-2 ps-7 pe-3 py-1 border-b border-border/5 bg-muted/[0.04]">
                                       <div className="flex-1 min-w-0">
                                         <p className="text-[10px] text-muted-foreground leading-snug">
-                                          ↳ {line.labor.label}
-                                          <span className="text-muted-foreground/60"> · inclus dans le montant</span>
+                                          ↳ {translateLaborLabel(line.labor.label, lang)}
+                                          <span className="text-muted-foreground/60">
+                                            {" "}
+                                            · {tq("includedInAmount", lang)}
+                                          </span>
                                         </p>
                                       </div>
-                                      <span className="text-[10px] text-muted-foreground/80 tabular-nums shrink-0">
-                                        {formatLaborLot(line.labor.quantity)}
+                                      <span
+                                        dir="ltr"
+                                        className="w-14 shrink-0 text-end text-[10px] text-muted-foreground/80 tabular-nums"
+                                      >
+                                        {isAr
+                                          ? formatQuantitatifQuantityI18n(
+                                              line.labor.quantity,
+                                              line.labor.unit,
+                                              "main_oeuvre",
+                                              lang,
+                                            )
+                                          : formatLaborLot(line.labor.quantity)}
                                       </span>
-                                      <span className="text-[10px] text-muted-foreground/80 tabular-nums shrink-0 hidden sm:block">
-                                        {fmt(line.labor.unitPrice)}
+                                      <span
+                                        dir="ltr"
+                                        className="w-20 shrink-0 text-end text-[10px] text-muted-foreground/80 tabular-nums hidden sm:block"
+                                      >
+                                        {money(line.labor.unitPrice)}
                                       </span>
-                                      <span className="text-[11px] font-medium tabular-nums text-muted-foreground shrink-0">
-                                        {fmt(line.labor.total)}
+                                      <span
+                                        dir="ltr"
+                                        className="w-20 shrink-0 text-end text-[11px] font-medium tabular-nums text-muted-foreground"
+                                      >
+                                        {money(line.labor.total)}
                                       </span>
                                     </div>
                                   ) : null;
                                   const row = canEditLot ? (
                                     <button
                                       type="button"
-                                      title="Modifier cet article"
-                                      aria-label={`Modifier l'article ${line.designation}`}
+                                      title={tq("editArticle", lang)}
+                                      aria-label={`${tq("editArticle", lang)} — ${designation}`}
                                       onClick={() =>
                                         onOpenArticle({
                                           lotId: lot.id,
@@ -372,7 +487,7 @@ export function QuantitatifDetails({
                                           line: rawLineByKey.get(lineKey) ?? line,
                                         })
                                       }
-                                      className={cn(rowClass, "w-full text-left")}
+                                      className={cn(rowClass, "w-full", isAr ? "text-right" : "text-left")}
                                     >
                                       {rowContent}
                                     </button>
@@ -396,60 +511,86 @@ export function QuantitatifDetails({
                 })}
               </div>
 
-              {/* ═══ Récapitulatif : Total TTC + Prix moyen par région ═══ */}
+              {/* ═══ Récapitulatif : Totaux HT / TVA / TTC + Prix moyen région ═══ */}
               <div className="border-t border-border/10 bg-muted/5 px-3 py-2.5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Total TTC */}
                   <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
                     <div className="flex items-center gap-2 mb-1">
                       <Wallet className="h-4 w-4 text-primary" />
-                      <span className="text-xs font-bold text-primary">Coût total estimé TTC</span>
+                      <span className="text-xs font-bold text-primary">{tq("totalTTC", lang)}</span>
                     </div>
-                    <p className="text-lg font-black tabular-nums text-primary">{fmt(totalBudg)}</p>
+                    <p dir="ltr" className="text-lg font-black tabular-nums text-primary text-start">
+                      {money(totalBudg)}
+                    </p>
                     {builtSurface > 0 && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
-                        soit {fmt(displayedCostM2)}/m² · {builtSurface} m² · TVA 19% incluse
+                        {tq("perM2", lang, {
+                          cost: money(displayedCostM2),
+                          surface: builtSurface,
+                        })}
                       </p>
                     )}
+                    {/* Mentions HT / TVA / TTC — mêmes montants, seuls les
+                        libellés changent avec la langue. */}
+                    <div className="mt-2 space-y-0.5 border-t border-primary/10 pt-1.5">
+                      {(
+                        [
+                          ["totalHT", totalHT],
+                          ["vat", totalVat],
+                          ["totalTTCLabel", totalBudg],
+                        ] as const
+                      ).map(([key, value]) => (
+                        <div key={key} className="flex items-baseline justify-between gap-2">
+                          <span className="text-[9px] text-muted-foreground">{tq(key, lang)}</span>
+                          <span
+                            dir="ltr"
+                            className={cn(
+                              "text-[10px] tabular-nums",
+                              key === "totalTTCLabel"
+                                ? "font-bold text-primary"
+                                : "font-medium text-foreground/80",
+                            )}
+                          >
+                            {money(value)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                     {isPersonalized && modifiedCount > 0 && (
                       <p className="text-[9px] text-amber-700 mt-1">
-                        Scénario Personnalisé — {modifiedCount} article
-                        {modifiedCount > 1 ? "s" : ""} modifié
-                        {modifiedCount > 1 ? "s" : ""} par rapport au scénario de référence.
+                        {tq("personalizedModified", lang, { n: modifiedCount })}
                       </p>
                     )}
                     {isPersonalized && removedCount > 0 && (
                       <p className="text-[9px] text-amber-700 mt-0.5">
-                        Scénario Personnalisé — {removedCount} poste
-                        {removedCount > 1 ? "s" : ""} supprimé
-                        {removedCount > 1 ? "s" : ""} (hors postes protégés : Gros œuvre,
-                        Transport et autres, études et postes porteurs).
+                        {tq("personalizedRemoved", lang, { n: removedCount })}
                       </p>
                     )}
                     {isPersonalized &&
                       lots.some((l: { customWorks?: boolean }) => l?.customWorks) && (
                       <p className="text-[9px] text-amber-700 mt-0.5">
-                        Travaux complémentaires personnalisés inclus (une catégorie par
-                        travail, juste avant « Aménagement extérieur ») — uniquement dans ce
-                        scénario.
+                        {tq("personalizedCustomWorks", lang)}
                       </p>
                     )}
                     {dqeTotals && (
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2">
                         {(
                           [
-                            ["materiaux", "Matériaux", dqeTotals.materiaux],
-                            ["main_oeuvre", "Main-d'œuvre", dqeTotals.mainOeuvre],
-                            ["equipements", "Outillage", dqeTotals.equipements],
-                            ["transport", "Transport", dqeTotals.transport],
-                            ["etudes", "Études", dqeTotals.etudes],
+                            ["materiaux", dqeTotals.materiaux],
+                            ["main_oeuvre", dqeTotals.mainOeuvre],
+                            ["equipements", dqeTotals.equipements],
+                            ["transport", dqeTotals.transport],
+                            ["etudes", dqeTotals.etudes],
                           ] as const
                         )
-                          .filter(([, , v]) => v > 0)
-                          .map(([key, label, val]) => (
+                          .filter(([, v]) => v > 0)
+                          .map(([key, val]) => (
                             <span key={key} className="text-[9px] text-muted-foreground">
-                              {label}:{" "}
-                              <span className="font-semibold text-foreground/80">{fmt(val)}</span>
+                              {translateNature(key, lang)}:{" "}
+                              <span dir="ltr" className="font-semibold text-foreground/80">
+                                {money(val)}
+                              </span>
                             </span>
                           ))}
                       </div>
@@ -460,15 +601,15 @@ export function QuantitatifDetails({
                     <div className="flex items-center gap-2 mb-1">
                       <Globe className="h-4 w-4 text-muted-foreground" />
                       <span className="text-xs font-bold text-muted-foreground">
-                        Prix moyen par région
+                        {tq("avgRegionTitle", lang)}
                       </span>
                     </div>
-                    <p className="text-lg font-black tabular-nums text-foreground">
-                      {fmt(avgM2)}
+                    <p dir="ltr" className="text-lg font-black tabular-nums text-foreground text-start">
+                      {money(avgM2)}
                       <span className="text-xs font-normal text-muted-foreground">/m²</span>
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      Moyenne nationale (24 gouvernorats) · Base marché Tunisie 2026
+                      {tq("avgRegionNote", lang)}
                     </p>
                     {regionLabel && avgM2 > 0 && displayedCostM2 !== avgM2 && (
                       <p
@@ -478,8 +619,10 @@ export function QuantitatifDetails({
                         )}
                       >
                         {displayedCostM2 > avgM2 ? "▲" : "▼"}{" "}
-                        {Math.abs(Math.round((displayedCostM2 / avgM2 - 1) * 100))}% vs moyenne
-                        nationale ({regionLabel})
+                        {tq("vsNational", lang, {
+                          pct: Math.abs(Math.round((displayedCostM2 / avgM2 - 1) * 100)),
+                          region: regionLabel,
+                        })}
                       </p>
                     )}
                   </div>

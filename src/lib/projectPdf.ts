@@ -16,6 +16,24 @@ import {
   buildAppliedCostEvolutionPdfBlock,
   type EstimateEvolutionFingerprint,
 } from "./costEvolution";
+import {
+  ARABIC_PDF_FONT,
+  loadArabicFontBase64,
+  registerArabicFont,
+  rtlPdf,
+} from "./arabicPdf";
+import {
+  formatQuantitatifMoney,
+  formatQuantitatifQuantityI18n,
+  tq,
+  translateDescription,
+  translateDesignation,
+  translateLaborLabel,
+  translateLotName,
+  translateNature,
+  translateScenarioLabel,
+  type QuantitatifLang,
+} from "./quantitatifArabic";
 
 applyAutotablePlugin(jsPDF);
 
@@ -65,6 +83,13 @@ export interface ProjectPdfOptions {
    * identiques, seuls les nouveaux calculs concernés sont synchronisés.
    */
   costEvolution?: EstimateEvolutionFingerprint | null;
+  /**
+   * Langue du « Quantitatif détaillé » dans le devis : `fr` (défaut) génère le
+   * tableau français habituel, `ar` le génère en arabe avec une véritable mise
+   * en page RTL (police arabe embarquée, lettres liées, colonnes inversées).
+   * Les montants, quantités et calculs sont strictement identiques.
+   */
+  quantitatifLang?: QuantitatifLang;
   onStart: () => void;
   onProgress: (step: number) => void;
   onSuccess: () => void;
@@ -87,6 +112,7 @@ export async function generateProjectPdf({
   dqeScaleFactor = 1,
   personalized = null,
   costEvolution = null,
+  quantitatifLang = "fr",
   onStart,
   onProgress,
   onSuccess,
@@ -508,19 +534,61 @@ export async function generateProjectPdf({
     const hasDqeLots = dqeLots.length > 0;
     const hasFlatItems = breakdown.some((b: any) => b.items?.length > 0);
 
+    // Langue du quantitatif : en arabe, la police arabe est embarquée (une
+    // seule fois) et la section est dessinée en RTL. Si le chargement échoue
+    // (hors ligne), le devis reste en français au lieu d'afficher des carrés.
+    let arabicFontBase64: string | null = null;
+    if (quantitatifLang === "ar" && (hasDqeLots || hasFlatItems)) {
+      try {
+        arabicFontBase64 = await loadArabicFontBase64();
+        registerArabicFont(doc, arabicFontBase64);
+      } catch {
+        arabicFontBase64 = null;
+      }
+    }
+    const arabicSection = !!arabicFontBase64;
+    const arMoney = (n: number) => rtlPdf(formatQuantitatifMoney(n, "ar"));
+
     if (hasDqeLots || hasFlatItems) {
       addPageIfNeeded(12);
 
       doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
+      if (arabicSection) doc.setFont(ARABIC_PDF_FONT, "normal");
+      else doc.setFont("helvetica", "bold");
       doc.setTextColor(C.text[0], C.text[1], C.text[2]);
-      doc.text(`Quantitatif détaillé — Scénario ${scenarioLabel}`, ml, y);
+      if (arabicSection) {
+        doc.text(
+          rtlPdf(`${tq("title", "ar")} — ${translateScenarioLabel(scenarioLabel, "ar")}`),
+          pw - mr,
+          y,
+          { align: "right" },
+        );
+      } else {
+        doc.text(`Quantitatif détaillé — Scénario ${scenarioLabel}`, ml, y);
+      }
       y += 2;
 
       // Ventilation par nature (totaux DQE du scénario exporté)
       const dqeTotals = values.dqeTotals;
 
-      if (dqeTotals) {
+      if (dqeTotals && arabicSection) {
+        // Ventilation par nature : une seule ligne arabe RTL (montants intacts).
+        doc.setFontSize(6);
+        doc.setFont(ARABIC_PDF_FONT, "normal");
+        doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
+        const arNatureEntries: [string, number][] = [
+          ["materiaux", dqeTotals.materiaux],
+          ["main_oeuvre", dqeTotals.mainOeuvre],
+          ["equipements", dqeTotals.equipements],
+          ["transport", dqeTotals.transport],
+          ["etudes", dqeTotals.etudes],
+        ].filter(([, v]) => (v as number) > 0) as [string, number][];
+        const arVentilation = arNatureEntries
+          .map(([key, val]) => `${translateNature(key, "ar")}: ${formatQuantitatifMoney(val, "ar")}`)
+          .join(" · ");
+        doc.text(rtlPdf(arVentilation), pw - mr, y + 5, { align: "right" });
+        y += 9;
+      } else if (dqeTotals) {
         doc.setFontSize(6);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(C.textSecondary[0], C.textSecondary[1], C.textSecondary[2]);
@@ -549,8 +617,178 @@ export async function generateProjectPdf({
         y += 13;
       }
 
-      // ── DQE LOTS (hierarchical) ──
-      if (hasDqeLots) {
+      // ── DQE LOTS — VERSION ARABE (RTL, police embarquée) ──
+      if (hasDqeLots && arabicSection) {
+        dqeLots.forEach((lot: any) => {
+          addPageIfNeeded(14);
+
+          // En-tête de l'étape : nom à DROITE, référence et montant à gauche.
+          doc.setFillColor(C.primary[0], C.primary[1], C.primary[2]);
+          doc.roundedRect(ml, y, cw, 6, 0.5, 0.5, "F");
+          doc.setTextColor(255, 255, 255);
+          doc.setFont(ARABIC_PDF_FONT, "normal");
+          doc.setFontSize(7);
+          doc.text(rtlPdf(translateLotName(lot.name, "ar")), pw - mr - 2, y + 4, {
+            align: "right",
+          });
+          doc.setFontSize(6);
+          doc.text(
+            rtlPdf(`${lot.percent || 0}% · ${(lot.lines || []).length} بنود`),
+            ml + 2,
+            y + 4,
+          );
+          doc.setFontSize(7);
+          doc.text(arMoney(lot.subtotal), ml + cw * 0.42, y + 4, { align: "right" });
+          y += 7;
+
+          const byNature: Record<string, any[]> = {};
+          for (const line of lot.lines || []) {
+            const n = line.nature || "materiaux";
+            if (!byNature[n]) byNature[n] = [];
+            byNature[n].push(line);
+          }
+
+          NATURE_ORDER.forEach((nat) => {
+            const natLines = byNature[nat];
+            if (!natLines || natLines.length === 0) return;
+
+            addPageIfNeeded(6 + natLines.length * 4);
+
+            const nc = NATURE_COLORS[nat] || C.textSecondary;
+            doc.setFillColor(nc[0], nc[1], nc[2]);
+            doc.rect(pw - mr - 2, y, 2, 4, "F");
+            doc.setFontSize(6);
+            doc.setFont(ARABIC_PDF_FONT, "normal");
+            doc.setTextColor(nc[0], nc[1], nc[2]);
+            const natTotal = natLines.reduce((s: number, l: any) => s + (l.total || 0), 0);
+            doc.text(
+              rtlPdf(
+                `${translateNature(nat, "ar")} — ${natLines.length} بنود · ${formatQuantitatifMoney(natTotal, "ar")}`,
+              ),
+              pw - mr - 5,
+              y + 3,
+              { align: "right" },
+            );
+            y += 5;
+
+            // Colonnes inversées pour la lecture arabe : le libellé est à droite.
+            const arBody: any[][] = [];
+            natLines.forEach((line: any) => {
+              const designation = translateDesignation(line.designation, "ar");
+              const description = line.description
+                ? translateDescription(line.description, "ar")
+                : "";
+              arBody.push([
+                {
+                  content: arMoney(line.total || 0),
+                  styles: { fontSize: 6, halign: "right" as const, fontStyle: "normal" as const },
+                },
+                {
+                  content: arMoney(line.unitPrice || 0),
+                  styles: { fontSize: 6, halign: "right" as const, textColor: C.textSecondary },
+                },
+                {
+                  content: rtlPdf(
+                    formatQuantitatifQuantityI18n(line.quantity, line.unit, line.nature, "ar"),
+                  ),
+                  styles: { fontSize: 6, halign: "right" as const, textColor: C.textSecondary },
+                },
+                {
+                  content: rtlPdf(description ? `${designation}\n${description}` : designation),
+                  styles: { fontSize: 6, halign: "right" as const },
+                },
+              ]);
+              if (line.labor) {
+                arBody.push([
+                  {
+                    content: arMoney(line.labor.total || 0),
+                    styles: { fontSize: 5.5, halign: "right" as const, textColor: C.textSecondary },
+                  },
+                  {
+                    content: arMoney(line.labor.unitPrice || 0),
+                    styles: { fontSize: 5.5, halign: "right" as const, textColor: C.textSecondary },
+                  },
+                  {
+                    content: rtlPdf(
+                      formatQuantitatifQuantityI18n(
+                        line.labor.quantity,
+                        line.labor.unit,
+                        "main_oeuvre",
+                        "ar",
+                      ),
+                    ),
+                    styles: { fontSize: 5.5, halign: "right" as const, textColor: C.textSecondary },
+                  },
+                  {
+                    content: rtlPdf(
+                      `${tq("includedInAmount", "ar")} — ↳ ${translateLaborLabel(line.labor.label, "ar")}`,
+                    ),
+                    styles: { fontSize: 5.5, halign: "right" as const, textColor: C.textSecondary },
+                  },
+                ]);
+              }
+            });
+
+            (doc as any).autoTable({
+              startY: y,
+              margin: { left: ml, right: mr },
+              tableWidth: cw,
+              head: [
+                [
+                  { content: rtlPdf(tq("columnAmount", "ar")), styles: { halign: "right" as const } },
+                  { content: rtlPdf(tq("columnUnitPrice", "ar")), styles: { halign: "right" as const } },
+                  { content: rtlPdf(tq("columnQuantity", "ar")), styles: { halign: "right" as const } },
+                  { content: rtlPdf(tq("columnDesignation", "ar")), styles: { halign: "right" as const } },
+                ],
+              ],
+              body: arBody,
+              theme: "grid",
+              styles: {
+                font: ARABIC_PDF_FONT,
+                fontSize: 6,
+                cellPadding: 1,
+                textColor: C.text,
+                lineColor: C.border,
+                lineWidth: 0.2,
+                halign: "right",
+              },
+              headStyles: {
+                font: ARABIC_PDF_FONT,
+                fillColor: nc,
+                textColor: 255,
+                fontSize: 5.5,
+                cellPadding: 1.5,
+                halign: "right",
+              },
+              columnStyles: {
+                0: { cellWidth: 24 },
+                1: { cellWidth: 22 },
+                2: { cellWidth: 18 },
+                3: { halign: "right" },
+              },
+              alternateRowStyles: { fillColor: [249, 250, 251] },
+            });
+
+            y = (doc as any).lastAutoTable?.finalY || y + 4;
+            y += 2;
+          });
+
+          y += 3;
+        });
+
+        // Total général du quantitatif, en arabe.
+        addPageIfNeeded(10);
+        doc.setFont(ARABIC_PDF_FONT, "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(C.primary[0], C.primary[1], C.primary[2]);
+        doc.text(
+          rtlPdf(`${tq("totalTTC", "ar")} : ${formatQuantitatifMoney(totalCost, "ar")}`),
+          pw - mr,
+          y + 3,
+          { align: "right" },
+        );
+        y += 10;
+      } else if (hasDqeLots) {
         dqeLots.forEach((lot: any) => {
           addPageIfNeeded(14);
 

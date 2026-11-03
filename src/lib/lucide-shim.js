@@ -153,6 +153,7 @@ export { default as InfoIcon } from "../../node_modules/lucide-react/dist/esm/ic
 export { default as Italic } from "../../node_modules/lucide-react/dist/esm/icons/italic.js";
 export { default as KeyRound } from "../../node_modules/lucide-react/dist/esm/icons/key-round.js";
 export { default as Landmark } from "../../node_modules/lucide-react/dist/esm/icons/landmark.js";
+export { default as Languages } from "../../node_modules/lucide-react/dist/esm/icons/languages.js";
 export { default as Layers } from "../../node_modules/lucide-react/dist/esm/icons/layers.js";
 export { default as Layers3 } from "../../node_modules/lucide-react/dist/esm/icons/layers-3.js";
 export { default as LayoutDashboard } from "../../node_modules/lucide-react/dist/esm/icons/layout-dashboard.js";
