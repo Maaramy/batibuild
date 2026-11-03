@@ -14,6 +14,7 @@ import {
   buildNextSteps,
   buildOmissions,
   buildExecution,
+  executionCategories,
   buildSiteRiskAnalysis,
   ensureCurrentRoadmap,
   phaseProgress,
@@ -278,10 +279,16 @@ function derive(stored: Roadmap, input: RoadmapProjectInput): Roadmap {
   };
 
   // Phases d'exécution : avancement et budget recalculés depuis les étapes.
+  // Catégories du résultat « Coût de construction » : les phases, tâches et le
+  // suivi par catégorie restent alignés sur les lots réellement chiffrés,
+  // même après une coche, une dépense ou une photo.
   const execution = r.execution
     ? buildExecution(
         playbookForCategory(input.category),
-        executionContextFromProject(input),
+        {
+          ...executionContextFromProject(input),
+          categories: executionCategories(input, r.budget.selected),
+        },
         r.construction,
         r.planning,
       )

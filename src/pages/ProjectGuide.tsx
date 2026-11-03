@@ -442,6 +442,11 @@ export default function ProjectGuide() {
   // Groupes du planning : phases d'exécution de la trame du type de projet.
   // Repli sur une phase unique pour une feuille de route enregistrée avant
   // l'arrivée des trames par type (la progression reste intacte).
+  // Catégories du résultat « Coût de construction » : chaque tâche d'exécution
+  // est rattachée aux lots réellement chiffrés qu'elle réalise.
+  const executionCategories = roadmap.execution?.categories ?? [];
+  const categoryNames = new Map(executionCategories.map((c) => [c.id, c.name]));
+
   const executionGroups = roadmap.execution?.phases?.length
     ? roadmap.execution.phases
     : [
@@ -748,6 +753,7 @@ export default function ProjectGuide() {
                                   {fmtDate(roadmap.summary.startDate + task.endDay * DAY_MS)}
                                 </span>
                                 <span>{task.responsible}</span>
+                                <CategoryChips ids={task.categoryIds} names={categoryNames} />
                                 <span className="font-medium text-foreground/70">{fmtTnd(task.cost)}</span>
                                 {task.completedAt && (
                                   <span className="text-emerald-600 dark:text-emerald-400">
@@ -787,14 +793,48 @@ export default function ProjectGuide() {
               </p>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                 {roadmap.execution?.description ?? "Travaux enregistrés pour ce projet."}
-              </p>
-              <p className="mt-1 text-[10px] text-muted-foreground/70">
+              </p>                  <p className="mt-1 text-[10px] text-muted-foreground/70">
                 {roadmap.execution?.taskCount ?? roadmap.construction.length} tâche(s) ·{" "}
                 {roadmap.execution?.totalDays ?? maxDays} jours estimés ·{" "}
                 {roadmap.project.surface ? `${roadmap.project.surface} m²` : "surface non renseignée"}
                 {levelSurfaces ? ` · ${levelSurfaces}` : ""}
+                {executionCategories.length > 0 ? ` · ${executionCategories.length} catégorie(s) du résultat` : ""}
               </p>
             </div>
+
+            {executionCategories.length > 0 && (
+              <Card className="border-border/40 bg-background/50">
+                <CardHeader className="p-3 sm:p-4 pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-emerald-600" /> Catégories du résultat suivies
+                  </CardTitle>
+                  <CardDescription className="text-[10px]">
+                    Montants du « Coût de construction » ({fmtTnd(executionCategories.reduce((a, c) => a + c.amount, 0))})
+                    rattachés aux tâches d'exécution — {executionCategories.filter((c) => c.taskIds.length > 0).length} catégorie(s)
+                    couverte(s) par la trame.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-3 sm:p-4 pt-0 space-y-1.5">
+                  {executionCategories.map((cat) => (
+                    <div key={cat.id} className="rounded-lg border border-border/30 bg-muted/10 p-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="min-w-0 text-xs font-semibold leading-tight">{cat.name}</p>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {cat.taskIds.length > 0 && <StatusBadge status={cat.status as ExecutionTaskStatus} />}
+                          <span className="text-[11px] font-bold tabular-nums">{fmtTnd(cat.amount)}</span>
+                        </div>
+                      </div>
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                        {cat.pctOfTotal}% du budget du projet ·{" "}
+                        {cat.taskIds.length > 0 ? `${cat.taskIds.length} tâche(s) d'exécution` : "aucune tâche rattachée"}
+                      </p>
+                      <Progress value={cat.progress} className="mt-2 h-1 [&>div]:bg-emerald-500" />
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
 
             {roadmap.materials && roadmap.materials.length > 0 && (
               <Card className="border-border/40 bg-background/50">
@@ -870,11 +910,12 @@ export default function ProjectGuide() {
                                   <p className={`text-xs font-semibold leading-snug ${c.status === "done" ? "line-through text-muted-foreground" : ""}`}>
                                     {c.order}. {c.title}
                                   </p>
-                                  <p className="text-[10px] text-muted-foreground">
-                                    {c.dureeJours} j · {fmtTnd(c.budgetEstime)}
-                                    {c.levelSurface ? ` · ${c.levelSurface} m²` : ""}
-                                    {plan ? ` · ${plan.responsible}` : ""}
-                                    {c.completedAt ? ` · terminé le ${fmtDate(c.completedAt)}` : ""}
+                                  <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+                                    <span>{c.dureeJours} j · {fmtTnd(c.budgetEstime)}</span>
+                                    {c.levelSurface ? <span>{c.levelSurface} m²</span> : null}
+                                    {plan ? <span>{plan.responsible}</span> : null}
+                                    <CategoryChips ids={c.categoryIds} names={categoryNames} />
+                                    {c.completedAt ? <span>terminé le {fmtDate(c.completedAt)}</span> : null}
                                   </p>
                                 </div>
                                 <StatusBadge status={taskStatusById.get(c.id) ?? (c.status === "done" ? "done" : "todo")} />
@@ -1276,6 +1317,28 @@ function StatusBadge({ status }: { status: ExecutionTaskStatus }) {
     >
       {EXECUTION_STATUS_LABELS[status]}
     </span>
+  );
+}
+
+/**
+ * Catégories du résultat « Coût de construction » réalisées par une tâche :
+ * uniquement les libellés des lots réellement chiffrés (aucune catégorie
+ * inventée quand le projet n'a pas de quantitatif).
+ */
+function CategoryChips({ ids, names }: { ids?: string[]; names: Map<string, string> }) {
+  const labels = (ids ?? []).map((id) => names.get(id)).filter((label): label is string => !!label);
+  if (labels.length === 0) return null;
+  return (
+    <>
+      {labels.map((label) => (
+        <span
+          key={label}
+          className="rounded-full border border-cyan-500/25 bg-cyan-500/[0.06] px-1.5 py-px text-[9px] font-medium text-cyan-700 dark:text-cyan-400"
+        >
+          {label}
+        </span>
+      ))}
+    </>
   );
 }
 

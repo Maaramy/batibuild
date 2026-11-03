@@ -32,6 +32,7 @@ import {
   executionContextFromProject,
   playbookForCategory,
   resolvePlaybookTasks,
+  type ExecutionCategory,
   type ExecutionContext,
   type ExecutionPhaseKey,
   type ExecutionPlaybook,
@@ -39,7 +40,7 @@ import {
 } from "./roadmapPlaybooks";
 
 /** Version de la trame de feuille de route (structure d'exécution par type). */
-export const ROADMAP_VERSION = 2;
+export const ROADMAP_VERSION = 3;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,8 @@ export interface PlanningTask {
   id: string;
   title: string;
   phase: string;
+  /** Catégories du résultat « Coût de construction » couvertes par la tâche. */
+  categoryIds?: string[];
   /** Phase d'exécution métier (préparation, structure, finitions…). */
   phaseKey?: ExecutionPhaseKey;
   durationDays: number;
@@ -135,12 +138,35 @@ export interface RoadmapExecution {
   phases: ExecutionPhaseSummary[];
   /** Niveaux réels du projet, avec leur surface couverte quand elle est connue. */
   levels: { label: string; surface?: number }[];
+  /**
+   * Catégories du résultat « Coût de construction » suivies par l'exécution :
+   * montant exact du lot, étapes rattachées et avancement. Toutes les
+   * catégories chiffrées sont listées, même celles qu'aucune étape ne couvre.
+   */
+  categories: ExecutionCategorySummary[];
+  /** Signature des catégories prises en compte (détecte un résultat modifié). */
+  categoriesKey: string;
+}
+
+export interface ExecutionCategorySummary {
+  id: string;
+  name: string;
+  /** Montant du lot dans les résultats du coût de construction (TND). */
+  amount: number;
+  /** Part du budget total du projet (%). */
+  pctOfTotal: number;
+  /** Étapes d'exécution rattachées à cette catégorie. */
+  taskIds: string[];
+  progress: number;
+  status: StepStatus | "in_progress";
 }
 
 export interface ConstructionStep {
   id: string;
   order: number;
   title: string;
+  /** Catégories du résultat « Coût de construction » couvertes par l'étape. */
+  categoryIds?: string[];
   /** Phase d'exécution métier à laquelle appartient l'étape. */
   phaseKey?: ExecutionPhaseKey;
   phaseTitle?: string;
@@ -419,6 +445,56 @@ const BUDGET_LABELS: Record<string, string> = {
 
 const round = (n: number) => Math.round(n);
 
+// ─── Catégories du résultat « Coût de construction » ────────────────────────
+
+/**
+ * Catégories chiffrées du résultat pour le projet : une par lot du quantitatif
+ * détaillé, avec le montant du scénario retenu. `undefined` quand le projet n'a
+ * pas de quantitatif (aucune catégorie n'est inventée).
+ */
+export function executionCategories(
+  input: RoadmapProjectInput,
+  scenario?: string,
+): ExecutionCategory[] | undefined {
+  const builtSurface = input.surface
+    ? realBuiltArea(input.surface, input.floors ?? 1, input.levelSurfaces)
+    : undefined;
+  const quantitatif = resolveRoadmapQuantitatif({
+    costEstimate: input.costEstimate ?? null,
+    quantitatif: input.quantitatif ?? null,
+    builtSurface,
+    scenario: scenario ?? input.selectedScenario,
+  });
+  return categoriesFromQuantitatif(quantitatif);
+}
+
+function categoriesFromQuantitatif(q: RoadmapQuantitatif): ExecutionCategory[] | undefined {
+  if (q.source !== "quantitatif_detaille" || q.lots.length === 0) return undefined;
+  return q.lots.map((lot) => ({ id: lot.id, name: lot.name, amount: lot.subtotal }));
+}
+
+const categoriesKeyOf = (categories: readonly ExecutionCategory[] | undefined) =>
+  (categories ?? []).map((c) => c.id).sort().join("|");
+
+/**
+ * Rattache les catégories du résultat aux étapes déjà enregistrées : une
+ * feuille de route conservée (progression saisie) reste intacte mais reste
+ * alignée sur les catégories chiffrées actuelles.
+ */
+function withResultCategories<T extends { id: string; categoryIds?: string[] }>(
+  items: T[],
+  playbook: ExecutionPlaybook,
+  ctx: ExecutionContext,
+): T[] {
+  if (!ctx.categories?.length) return items;
+  const byId = new Map(
+    resolvePlaybookTasks(playbook, ctx).map((t) => [t.resolvedId, t.categoryIds] as const),
+  );
+  return items.map((item) =>
+    byId.has(item.id) ? { ...item, categoryIds: byId.get(item.id) } : item,
+  );
+}
+
 // ─── Génération ─────────────────────────────────────────────────────────────
 
 export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
@@ -432,7 +508,10 @@ export function generateRoadmap(project: RoadmapProjectInput): Roadmap {
   // Le type enregistré résout la trame (phases, tâches, équipements, métiers) ;
   // les surfaces et niveaux réels du projet pilotent le dépliage et les durées.
   const playbook = playbookForCategory(project.category);
-  const executionContext = executionContextFromProject(project);
+  const executionContext: ExecutionContext = {
+    ...executionContextFromProject(project),
+    categories: executionCategories(project),
+  };
   const playbookTasks = resolvePlaybookTasks(playbook, executionContext);
 
   // ── Budget (Phase 05) — scénario réellement retenu par le projet ─────────
@@ -711,21 +790,26 @@ export function syncRoadmapQuantitatif(
     budgetGap: (r.summary?.budgetConsumed ?? 0) - totalCost,
   };
 
+  // Catégories du résultat (lots du quantitatif) : elles pilotent la trame
+  // d'exécution (tâches réellement chiffrées) et le suivi par catégorie.
+  const playbook = playbookForCategory(input.category);
+  const executionContext: ExecutionContext = {
+    ...executionContextFromProject(input),
+    categories: categoriesFromQuantitatif(quantitatif),
+  };
+  const constructionSteps = withResultCategories(construction, playbook, executionContext);
+  const planningSteps = withResultCategories(planning, playbook, executionContext);
+
   const execution = r.execution
-    ? buildExecution(
-        playbookForCategory(input.category),
-        executionContextFromProject(input),
-        construction,
-        planning,
-      )
+    ? buildExecution(playbook, executionContext, constructionSteps, planningSteps)
     : r.execution;
 
   return {
     ...r,
     quantitatif,
     budget,
-    planning,
-    construction,
+    planning: planningSteps,
+    construction: constructionSteps,
     phases,
     execution,
     predictions,
@@ -978,6 +1062,7 @@ export function buildPlanning(
       id: t.resolvedId,
       title: t.displayTitle,
       phase: "Phase 08 — Construction",
+      categoryIds: t.categoryIds,
       phaseKey: t.phase,
       durationDays,
       startDay: cursor,
@@ -1022,6 +1107,7 @@ export function buildConstructionSteps(
       id: t.resolvedId,
       order: index + 1,
       title: t.displayTitle,
+      categoryIds: t.categoryIds,
       phaseKey: t.phase,
       phaseTitle: EXECUTION_PHASES[t.phase].title,
       responsible: t.responsible,
@@ -1690,6 +1776,33 @@ export function buildExecution(
     });
   }
 
+  // Catégories du résultat suivies : montant exact du lot, étapes rattachées
+  // et avancement calculé depuis le planning (jamais un montant recalculé ici).
+  const categories = ctx.categories ?? [];
+  const categoriesTotal = categories.reduce((acc, c) => acc + c.amount, 0);
+  const categorySummaries: ExecutionCategorySummary[] = categories.map((category) => {
+    const steps = construction.filter((s) => s.categoryIds?.includes(category.id));
+    const ids = new Set(steps.map((s) => s.id));
+    const planTasks = planning.filter((p) => ids.has(p.id));
+    const progress = planTasks.length
+      ? Math.round(planTasks.reduce((acc, t) => acc + t.progress, 0) / planTasks.length)
+      : Math.round((steps.filter((s) => s.status === "done").length / Math.max(steps.length, 1)) * 100);
+    return {
+      id: category.id,
+      name: category.name,
+      amount: category.amount,
+      pctOfTotal: categoriesTotal > 0 ? Math.round((category.amount / categoriesTotal) * 100) : 0,
+      taskIds: steps.map((s) => s.id),
+      progress,
+      status:
+        steps.length > 0 && steps.every((s) => s.status === "done")
+          ? "done"
+          : progress > 0
+            ? "in_progress"
+            : "todo",
+    };
+  });
+
   return {
     key: playbook.key,
     label: playbook.label,
@@ -1702,6 +1815,8 @@ export function buildExecution(
       { levelSurfaces: ctx.levelSurfaces, surface: ctx.surface },
       ctx.floors,
     ),
+    categories: categorySummaries,
+    categoriesKey: categoriesKeyOf(categories),
   };
 }
 
@@ -1748,7 +1863,12 @@ export function isRoadmapUntouched(r: Roadmap | null | undefined): boolean {
 /** La trame enregistrée correspond-elle au type actuel du projet ? */
 export function roadmapMatchesProject(r: Roadmap, input: RoadmapProjectInput): boolean {
   if (!r?.execution) return false;
-  return r.version >= ROADMAP_VERSION && r.execution.key === playbookForCategory(input.category).key;
+  if (r.version < ROADMAP_VERSION) return false;
+  if (r.execution.key !== playbookForCategory(input.category).key) return false;
+  // Catégories chiffrées modifiées (nouveau quantitatif, autre scénario) : la
+  // trame d'exécution ne correspond plus aux résultats du coût de construction.
+  const expected = categoriesKeyOf(executionCategories(input, r.budget?.selected));
+  return (r.execution.categoriesKey ?? "") === expected;
 }
 
 /**

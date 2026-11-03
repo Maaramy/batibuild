@@ -2879,6 +2879,20 @@ export interface ExecutionContext {
   levelSurfaces?: number[];
   hasPool: boolean;
   hasExterior: boolean;
+  /**
+   * Catégories réellement chiffrées dans le résultat « Coût de construction »
+   * (une par lot du quantitatif détaillé, montants du scénario retenu).
+   * Absentes → la trame du type de projet est utilisée telle quelle.
+   */
+  categories?: ExecutionCategory[];
+}
+
+/** Une catégorie chiffrée du résultat (lot du quantitatif, jamais recalculée ici). */
+export interface ExecutionCategory {
+  id: string;
+  name: string;
+  /** Montant exact du lot dans les résultats du coût de construction (TND). */
+  amount: number;
 }
 
 export interface ResolvedPlaybookTask extends PlaybookTask {
@@ -2888,6 +2902,11 @@ export interface ResolvedPlaybookTask extends PlaybookTask {
   displayTitle: string;
   levelLabel?: string;
   levelSurface?: number;
+  /**
+   * Catégories du résultat couvertes par cette tâche (ids de lots du
+   * quantitatif). Vide quand le projet n'a pas de quantitatif chiffré.
+   */
+  categoryIds: string[];
 }
 
 const EXTERIOR_CATEGORIES = new Set(["maison", "villa", "duplex", "residence_touristique", "projet_neuf"]);
@@ -2919,17 +2938,109 @@ export function executionContextFromProject(project: {
   };
 }
 
-/** Filtre les tâches conditionnelles et déplie les tâches « par niveau ». */
+// ── Catégories du résultat « Coût de construction » → phases ────────────────
+//
+// Chaque phase d'exécution est justifiée par des catégories RÉELLEMENT
+// chiffrées : une phase dont aucune catégorie n'existe dans les résultats n'a
+// pas de tâches (on ne planifie pas une toiture qui n'est pas au devis).
+// L'installation de chantier et la réception restent toujours planifiées : ce
+// sont des postes de conduite de travaux, pas des ouvrages.
+
+const PHASE_LOT_KEYWORDS: Record<ExecutionPhaseKey, string[]> = {
+  preparation: ["frais_preliminaires", "frais preliminaire", "etude", "installation", "vrd"],
+  terrassement: ["terrassement", "fondation", "fouille", "deblai", "depose", "demolition"],
+  gros_oeuvre: ["gros_oeuvre", "gros oeuvre", "maconnerie", "structure", "beton", "coffrage", "elevation"],
+  planchers: ["plancher", "dalle", "escalier", "structure", "gros oeuvre"],
+  enveloppe: ["toiture", "etancheite", "facade", "charpente", "couverture", "vitrine", "coque"],
+  second_oeuvre: [
+    "second_oeuvre", "second oeuvre", "cloison", "electricite", "plomberie", "menuiserie", "cvc",
+    "cablage", "tableau", "appareillage", "eclairage", "alimentation", "evacuation", "ventilation",
+    "chauffe_eau", "amenagement interieur", "faux plafond", "terre",
+  ],
+  finitions: ["finition", "carrelage", "revetement", "peinture", "enduit", "faience", "nettoyage"],
+  equipements: [
+    "equipement", "enseigne", "sanitaire", "robinetterie", "cuisine", "filtration", "froid",
+    "meuble", "mobilier", "plan_travail", "margelle", "plage", "amenagement exterieur", "amenagement",
+  ],
+  controle: ["essais", "nettoyage", "reception", "controle"],
+};
+
+/** Phases toujours planifiées (conduite de chantier, pas un ouvrage chiffré). */
+const ALWAYS_PLANNED_PHASES = new Set<ExecutionPhaseKey>(["preparation", "controle"]);
+
+/**
+ * Catégories de main-d'œuvre : elles ne correspondent à aucun ouvrage mais à
+ * la main-d'œuvre incluse dans toutes les tâches (elle est suivie partout).
+ */
+const LABOUR_LOT_KEYWORDS = ["main_oeuvre", "main oeuvre", "main d oeuvre"];
+
+/** Mots trop génériques pour rattacher une catégorie à une tâche. */
+const FALLBACK_STOPWORDS = new Set(["travaux", "oeuvre", "divers", "autres", "generaux"]);
+
+const normalizeWords = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+/** Vrai si la catégorie (lot) correspond à l'un des mots-clés de la phase. */
+function lotMatchesKeywords(lot: { id: string; name: string }, keywords: string[]): boolean {
+  const text = ` ${normalizeWords(`${lot.id} ${lot.name}`)} `;
+  const tokens = text.trim().split(" ");
+  return keywords.some((raw) => {
+    const keyword = normalizeWords(raw);
+    if (!keyword) return false;
+    if (keyword.includes(" ")) return text.includes(` ${keyword} `);
+    if (keyword.length < 3) return false;
+    return tokens.some(
+      (token) => token === keyword || token.startsWith(keyword) || (token.length >= 4 && keyword.startsWith(token)),
+    );
+  });
+}
+
+/** Ids des catégories du résultat qui justifient une phase d'exécution. */
+export function categoriesForPhase(
+  phase: ExecutionPhaseKey,
+  categories: readonly ExecutionCategory[] | undefined,
+): string[] {
+  if (!categories?.length) return [];
+  const keywords = PHASE_LOT_KEYWORDS[phase] ?? [];
+  return categories.filter((c) => lotMatchesKeywords(c, keywords)).map((c) => c.id);
+}
+
+/**
+ * Filtre les tâches conditionnelles et déplie les tâches « par niveau ».
+ *
+ * Quand les catégories chiffrées du résultat sont connues, la trame est en plus
+ * restreinte aux catégories réellement présentes : aucune tâche de toiture pour
+ * un projet sans lot d'étanchéité, aucune tâche de finitions sans lot de
+ * revêtements, etc.
+ */
 export function resolvePlaybookTasks(
   playbook: ExecutionPlaybook,
   ctx: ExecutionContext,
 ): ResolvedPlaybookTask[] {
+  const categories = ctx.categories ?? [];
+  const phaseCategories = new Map<ExecutionPhaseKey, string[]>();
+  for (const phase of EXECUTION_PHASE_ORDER) {
+    phaseCategories.set(phase, categoriesForPhase(phase, categories));
+  }
+  // Restriction active seulement si au moins un ouvrage chiffré est reconnu :
+  // sinon (quantitatif illisible) la trame complète du type reste utilisée.
+  const restrict = EXECUTION_PHASE_ORDER.some(
+    (phase) => !ALWAYS_PLANNED_PHASES.has(phase) && (phaseCategories.get(phase)?.length ?? 0) > 0,
+  );
+
   const out: ResolvedPlaybookTask[] = [];
   for (const t of playbook.tasks) {
     if (t.requires === "multi_level" && ctx.floors < 2) continue;
     if (t.requires === "pool" && !ctx.hasPool) continue;
     if (t.requires === "exterior" && !ctx.hasExterior) continue;
     if (t.requires === "elevator" && ctx.floors < 2) continue;
+    const categoryIds = phaseCategories.get(t.phase) ?? [];
+    if (restrict && !ALWAYS_PLANNED_PHASES.has(t.phase) && categoryIds.length === 0) continue;
 
     if (t.perLevel) {
       for (let i = 0; i < ctx.floors; i++) {
@@ -2940,13 +3051,47 @@ export function resolvePlaybookTasks(
           displayTitle: `${t.title} — ${levelLabel(i)}`,
           levelLabel: levelLabel(i),
           levelSurface: typeof levelSurface === "number" && levelSurface > 0 ? levelSurface : i === 0 ? ctx.surface : undefined,
+          categoryIds: [...categoryIds],
         });
       }
       continue;
     }
 
-    out.push({ ...t, resolvedId: t.id, displayTitle: t.title });
+    out.push({ ...t, resolvedId: t.id, displayTitle: t.title, categoryIds: [...categoryIds] });
   }
+
+  // ── Catégories chiffrées qu'aucune phase ne couvre ─────────────────────────
+  // Une trame ne contient pas forcément de phase pour chaque lot (reprises de
+  // gros œuvre d'un bureau, dépose d'une salle de bain…) : la catégorie est
+  // alors rattachée aux tâches qui la mentionnent explicitement, plutôt que
+  // d'apparaître sans suivi. Les catégories de main-d'œuvre sont suivies par
+  // toutes les tâches (elle y est incluse).
+  if (restrict) {
+    const attached = new Set(out.flatMap((t) => t.categoryIds));
+    for (const category of categories) {
+      if (attached.has(category.id)) continue;
+      if (lotMatchesKeywords(category, LABOUR_LOT_KEYWORDS)) {
+        for (const t of out) t.categoryIds.push(category.id);
+        continue;
+      }
+      const tokens = [...new Set(normalizeWords(category.name).split(" "))].filter(
+        (word) => word.length >= 5 && !FALLBACK_STOPWORDS.has(word),
+      );
+      if (tokens.length === 0) continue;
+      for (const t of out) {
+        const words = normalizeWords(
+          `${t.title} ${t.objectif} ${t.travaux.join(" ")} ${t.mainOeuvre.join(" ")}`,
+        ).split(" ");
+        const mentioned = tokens.some((token) =>
+          words.some(
+            (word) => word === token || word.startsWith(token) || (word.length >= 4 && token.startsWith(word)),
+          ),
+        );
+        if (mentioned) t.categoryIds.push(category.id);
+      }
+    }
+  }
+
   return out;
 }
 

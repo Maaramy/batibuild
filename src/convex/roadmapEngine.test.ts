@@ -19,7 +19,7 @@ import {
   playbookForCategory,
   resolvePlaybookTasks,
 } from "./roadmapPlaybooks";
-import { ensureCurrentRoadmap, ROADMAP_VERSION } from "./roadmapEngine";
+import { ensureCurrentRoadmap, syncRoadmapQuantitatif, ROADMAP_VERSION } from "./roadmapEngine";
 
 // ── Projet complet type (résultat d'estimation) ──
 function fullProject(): RoadmapProjectInput {
@@ -561,6 +561,155 @@ describe("trames d'exécution par type de projet", () => {
     const upgraded = ensureCurrentRoadmap(fresh, { ...project, category: "piscine" });
     expect(upgraded).not.toBe(fresh);
     expect(upgraded.execution?.key).toBe("piscine");
+  });
+
+  /** Lot du quantitatif détaillé (catégorie chiffrée du résultat). */
+  const lot = (id: string, name: string, subtotal: number) => ({
+    id,
+    name,
+    subtotal,
+    lines: [
+      { designation: `Article ${name}`, quantity: 1, unit: "u", unitPrice: subtotal, total: subtotal, nature: "materiaux" },
+    ],
+  });
+
+  const projectWithLots = (
+    category: string,
+    lots: ReturnType<typeof lot>[],
+    extra: Partial<RoadmapProjectInput> = {},
+  ): RoadmapProjectInput => {
+    const total = lots.reduce((acc, l) => acc + l.subtotal, 0);
+    return {
+      _id: `proj_lots_${category}`,
+      name: `Projet ${category}`,
+      category,
+      region: "ariana",
+      surface: 100,
+      surfaceTotale: 300,
+      floors: 1,
+      costEstimate: {
+        totalCost: total,
+        costPerSquareMeter: Math.round(total / 100),
+        budgetScenarios: {
+          economique: { totalCost: Math.round(total * 0.85), costPerM2: 0, label: "Économique", multiplier: 0.85 },
+          standard: { totalCost: total, costPerM2: 0, label: "Standard", multiplier: 1 },
+          premium: { totalCost: Math.round(total * 1.3), costPerM2: 0, label: "Premium", multiplier: 1.3 },
+        },
+      },
+      quantitatif: { lots },
+      ...extra,
+    };
+  };
+
+  describe("catégories du résultat « Coût de construction »", () => {
+    it("ne planifie que les ouvrages réellement chiffrés (une seule catégorie)", () => {
+      const project = projectWithLots("villa", [
+        lot("gros_oeuvre", "Gros œuvre (fondations, structures)", 120_000),
+      ]);
+      const r = generateRoadmap(project);
+
+      // Catégorie unique = le lot chiffré, au dinar près.
+      expect(r.execution!.categories.map((c) => c.id)).toEqual(["gros_oeuvre"]);
+      expect(r.execution!.categories[0].amount).toBe(120_000);
+      expect(r.execution!.categories[0].pctOfTotal).toBe(100);
+      expect(r.budget.totalCost).toBe(120_000);
+
+      // Aucune phase d'un ouvrage absent du devis (toiture, finitions…).
+      const phaseKeys = r.execution!.phases.map((p) => p.key);
+      expect(phaseKeys).toContain("gros_oeuvre");
+      expect(phaseKeys).not.toContain("enveloppe");
+      expect(phaseKeys).not.toContain("finitions");
+      expect(phaseKeys).not.toContain("equipements");
+      expect(phaseKeys).not.toContain("second_oeuvre");
+
+      // Chaque étape restante réalise la catégorie (ou relève de la conduite
+      // de chantier : installation et réception).
+      for (const step of r.construction) {
+        const conduit = step.phaseKey === "preparation" || step.phaseKey === "controle";
+        expect(conduit || step.categoryIds?.includes("gros_oeuvre")).toBe(true);
+      }
+      expect(
+        r.construction.some((c) => c.categoryIds?.includes("gros_oeuvre")),
+      ).toBe(true);
+    });
+
+    it("suit chaque catégorie du résultat avec son montant exact", () => {
+      const project = projectWithLots("villa", [
+        lot("gros_oeuvre", "Gros œuvre (fondations, structures)", 70_000),
+        lot("toiture", "Étanchéité et toiture", 50_000),
+      ]);
+      const r = generateRoadmap(project);
+
+      expect(r.execution!.categories.map((c) => c.name)).toEqual([
+        "Gros œuvre (fondations, structures)",
+        "Étanchéité et toiture",
+      ]);
+      expect(r.execution!.categories.reduce((acc, c) => acc + c.amount, 0)).toBe(120_000);
+      expect(r.execution!.categories.map((c) => c.pctOfTotal)).toEqual([58, 42]);
+
+      // Le lot « toiture » ouvre bien la phase enveloppe, et elle seule.
+      const enveloppe = r.execution!.phases.find((p) => p.key === "enveloppe");
+      expect(enveloppe).toBeDefined();
+      const etancheite = r.construction.filter((c) => enveloppe!.taskIds.includes(c.id));
+      expect(etancheite.every((c) => c.categoryIds?.includes("toiture"))).toBe(true);
+      expect(r.planning.every((t) => t.categoryIds !== undefined)).toBe(true);
+    });
+
+    it("suit l'avancement de chaque catégorie depuis les tâches rattachées", () => {
+      const project = projectWithLots("villa", [
+        lot("gros_oeuvre", "Gros œuvre (fondations, structures)", 70_000),
+        lot("toiture", "Étanchéité et toiture", 50_000),
+      ]);
+      const r = generateRoadmap(project);
+      const advanced = {
+        ...r,
+        planning: r.planning.map((t) =>
+          t.categoryIds?.includes("toiture") ? { ...t, progress: 100, status: "done" as const } : t,
+        ),
+      };
+      const synced = syncRoadmapQuantitatif(advanced, project);
+
+      const toiture = synced.execution!.categories.find((c) => c.id === "toiture")!;
+      const grosOeuvre = synced.execution!.categories.find((c) => c.id === "gros_oeuvre")!;
+      expect(toiture.progress).toBe(100);
+      expect(toiture.status).toBe("in_progress");
+      expect(grosOeuvre.progress).toBe(0);
+      expect(toiture.taskIds.length + grosOeuvre.taskIds.length).toBeLessThanOrEqual(
+        synced.construction.length,
+      );
+    });
+
+    it("respecte aussi le type de projet (plomberie : aucune phase de gros œuvre)", () => {
+      const r = generateRoadmap(
+        projectWithLots("plomberie_complete", [
+          lot("alimentation", "Alimentation en eau", 60_000),
+          lot("evacuation", "Évacuation", 45_000),
+          lot("sanitaires", "Sanitaires et robinetterie", 30_000),
+          lot("essais", "Essais et mise en service", 5_000),
+        ]),
+      );
+
+      expect(r.execution!.key).toBe("plomberie_complete");
+      expect(r.execution!.categories.map((c) => c.id)).toEqual([
+        "alimentation",
+        "evacuation",
+        "sanitaires",
+        "essais",
+      ]);
+      const phaseKeys = r.execution!.phases.map((p) => p.key);
+      expect(phaseKeys).not.toContain("terrassement");
+      expect(phaseKeys).not.toContain("gros_oeuvre");
+      expect(phaseKeys).not.toContain("enveloppe");
+      expect(r.construction.length).toBeGreaterThan(0);
+    });
+
+    it("sans quantitatif, conserve la trame complète du type (aucune catégorie inventée)", () => {
+      const r = generateRoadmap(baseProject("villa"));
+      expect(r.execution!.categories).toEqual([]);
+      expect(r.execution!.categoriesKey).toBe("");
+      expect(r.execution!.phases.map((p) => p.key)).toContain("finitions");
+      expect(r.construction.every((c) => (c.categoryIds ?? []).length === 0)).toBe(true);
+    });
   });
 
   it("conserve une structure commune (10 phases) tout en adaptant la phase 08", () => {
