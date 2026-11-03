@@ -26,6 +26,7 @@ import {
   formatQuantitatifMoney,
   formatQuantitatifQuantityI18n,
   quantitatifDir,
+  splitQuantitatifVat,
   tq,
   translateDescription,
   translateDesignation,
@@ -51,9 +52,6 @@ const NATURE_META: Record<string, { icon: any; color: string }> = {
   etudes: { icon: FileText, color: "text-red-600" },
 };
 const NATURE_ORDER = ["materiaux", "main_oeuvre", "equipements", "transport", "etudes"];
-
-/** Taux de TVA appliqué au coût total (les montants du DQE sont TTC). */
-const VAT_RATE = 0.19;
 
 export interface QuantitatifDetailsProps {
   /** Lots du quantitatif, déjà mis à l'échelle du scénario affiché. */
@@ -149,10 +147,9 @@ export function QuantitatifDetails({
   const quantity = (q: unknown, unit: unknown, nature?: unknown) =>
     formatQuantitatifQuantityI18n(q, unit, nature, lang);
 
-  // Décomposition TTC → HT / TVA du total affiché (montants jamais modifiés :
-  // le total reste la somme exacte des lots).
-  const totalHT = totalBudg / (1 + VAT_RATE);
-  const totalVat = totalBudg - totalHT;
+  // Récapitulatif TTC → HT / TVA du total affiché : le total reste la somme
+  // exacte des lots (aucun montant recalculé), et HT + TVA = TTC au dinar près.
+  const { ht: totalHT, vat: totalVat, ttc: totalTTC } = splitQuantitatifVat(totalBudg);
 
   return (
     <motion.div
@@ -521,7 +518,7 @@ export function QuantitatifDetails({
                       <span className="text-xs font-bold text-primary">{tq("totalTTC", lang)}</span>
                     </div>
                     <p dir="ltr" className="text-lg font-black tabular-nums text-primary text-start">
-                      {money(totalBudg)}
+                      {money(totalTTC)}
                     </p>
                     {builtSurface > 0 && (
                       <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -538,7 +535,7 @@ export function QuantitatifDetails({
                         [
                           ["totalHT", totalHT],
                           ["vat", totalVat],
-                          ["totalTTCLabel", totalBudg],
+                          ["totalTTCLabel", totalTTC],
                         ] as const
                       ).map(([key, value]) => (
                         <div key={key} className="flex items-baseline justify-between gap-2">
@@ -606,7 +603,9 @@ export function QuantitatifDetails({
                     </div>
                     <p dir="ltr" className="text-lg font-black tabular-nums text-foreground text-start">
                       {money(avgM2)}
-                      <span className="text-xs font-normal text-muted-foreground">/m²</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {tq("perM2Unit", lang)}
+                      </span>
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       {tq("avgRegionNote", lang)}

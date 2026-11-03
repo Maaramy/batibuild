@@ -45,6 +45,7 @@ export const QUANTITATIF_UI = {
   personalized: { fr: "Personnalisé", ar: "مخصص" },
   editArticle: { fr: "Modifier cet article", ar: "تعديل هذا البند" },
   totalTTC: { fr: "Coût total estimé TTC", ar: "التكلفة الإجمالية المقدرة شامل الأداءات" },
+  perM2Unit: { fr: "/m²", ar: "/م²" },
   totalHT: { fr: "Total HT", ar: "المجموع دون أداءات" },
   vat: { fr: "TVA 19 %", ar: "الأداء على القيمة المضافة 19 %" },
   totalTTCLabel: { fr: "Total TTC", ar: "المجموع شامل الأداءات" },
@@ -57,8 +58,8 @@ export const QUANTITATIF_UI = {
     ar: "سيناريو مخصص — {n} بند معدّل مقارنة بالسيناريو المرجعي.",
   },
   personalizedRemoved: {
-    fr: "Scénario Personnalisé — {n} poste(s) supprimé(s) (hors postes protégés).",
-    ar: "سيناريو مخصص — {n} بند محذوف (باستثناء البنود المحمية).",
+    fr: "Scénario Personnalisé — {n} poste(s) supprimé(s) (hors postes protégés : Gros œuvre, Transport et autres, études et postes porteurs).",
+    ar: "سيناريو مخصص — {n} بند محذوف (باستثناء البنود المحمية: الأشغال الكبرى، النقل وغيرها، الدراسات والبنود الحاملة).",
   },
   personalizedCustomWorks: {
     fr: "Travaux complémentaires personnalisés inclus (une catégorie par travail).",
@@ -396,6 +397,20 @@ export function translateScenarioLabel(label: string | null | undefined, lang: Q
     .replace(/Premium/gi, "ممتاز")
     .replace(/Économique/gi, "اقتصادي")
     .replace(/Standard/gi, "قياسي");
+}
+
+/** Taux de TVA des montants du quantitatif (prix TTC du marché tunisien). */
+export const QUANTITATIF_VAT_RATE = 0.19;
+
+/**
+ * Décomposition du total TTC en HT / TVA / TTC. Le TTC affiché est arrondi une
+ * seule fois et la TVA est le RESTE : HT + TVA = TTC au dinar près, dans les
+ * deux langues (aucun montant recalculé à partir d'un autre total).
+ */
+export function splitQuantitatifVat(totalTtc: number): { ht: number; vat: number; ttc: number } {
+  const ttc = Math.round(Number(totalTtc) || 0);
+  const ht = Math.round(ttc / (1 + QUANTITATIF_VAT_RATE));
+  return { ht, vat: ttc - ht, ttc };
 }
 
 /** Direction de lecture du bloc. */

@@ -8,6 +8,7 @@ import {
   formatQuantitatifQuantityI18n,
   quantitatifDir,
   readQuantitatifLang,
+  splitQuantitatifVat,
   tq,
   translateDescription,
   translateDesignation,
@@ -154,6 +155,16 @@ describe("quantitatif détaillé — sélecteur FR / AR", () => {
     expect(formatQuantitatifQuantityI18n(120, "m²", "materiaux", "fr")).toBe("120 m²");
     expect(formatQuantitatifQuantityI18n(2, "lot", "main_oeuvre", "ar")).toBe("2 بنود");
     expect(formatQuantitatifQuantityI18n(2, "lot", "main_oeuvre", "fr")).toBe("2 lots");
+  });
+
+  it("décompose le total TTC en HT + TVA sans écart", () => {
+    const { ht, vat, ttc } = splitQuantitatifVat(243_798);
+    expect(ttc).toBe(243_798);
+    expect(ht + vat).toBe(ttc);
+    expect(Math.round((ht / ttc - 1 / 1.19) * 1000)).toBeCloseTo(0, 0);
+    // Total déjà rond : aucun montant inventé, TVA = 19 % du HT.
+    const round = splitQuantitatifVat(119_000);
+    expect(round).toEqual({ ht: 100_000, vat: 19_000, ttc: 119_000 });
   });
 
   it("garde une couverture complète des dictionnaires", () => {

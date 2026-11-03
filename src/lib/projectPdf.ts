@@ -32,7 +32,9 @@ import {
   translateLotName,
   translateNature,
   translateScenarioLabel,
+  splitQuantitatifVat,
   type QuantitatifLang,
+  type QuantitatifUiKey,
 } from "./quantitatifArabic";
 
 applyAutotablePlugin(jsPDF);
@@ -776,18 +778,32 @@ export async function generateProjectPdf({
           y += 3;
         });
 
-        // Total général du quantitatif, en arabe.
-        addPageIfNeeded(10);
+        // Récapitulatif du quantitatif en arabe : HT, TVA et TTC (mêmes
+        // montants que le bloc à l'écran, HT + TVA = TTC).
+        const arVatSplit = splitQuantitatifVat(totalCost);
+        const arRecap: [QuantitatifUiKey, number][] = [
+          ["totalHT", arVatSplit.ht],
+          ["vat", arVatSplit.vat],
+          ["totalTTCLabel", arVatSplit.ttc],
+        ];
+        addPageIfNeeded(6 + arRecap.length * 4.5);
         doc.setFont(ARABIC_PDF_FONT, "normal");
-        doc.setFontSize(8);
-        doc.setTextColor(C.primary[0], C.primary[1], C.primary[2]);
-        doc.text(
-          rtlPdf(`${tq("totalTTC", "ar")} : ${formatQuantitatifMoney(totalCost, "ar")}`),
-          pw - mr,
-          y + 3,
-          { align: "right" },
-        );
-        y += 10;
+        arRecap.forEach(([key, value], index) => {
+          doc.setFontSize(index === arRecap.length - 1 ? 8 : 7);
+          const primary = index === arRecap.length - 1;
+          doc.setTextColor(
+            primary ? C.primary[0] : C.textSecondary[0],
+            primary ? C.primary[1] : C.textSecondary[1],
+            primary ? C.primary[2] : C.textSecondary[2],
+          );
+          doc.text(
+            rtlPdf(`${tq(key, "ar")} : ${formatQuantitatifMoney(value, "ar")}`),
+            pw - mr,
+            y + 3 + index * 4.5,
+            { align: "right" },
+          );
+        });
+        y += 3 + arRecap.length * 4.5 + 3;
       } else if (hasDqeLots) {
         dqeLots.forEach((lot: any) => {
           addPageIfNeeded(14);
