@@ -202,17 +202,89 @@ export default function AdminPanel() {
   const supportUnread = useQuery(api.support.adminUnreadTotal) || 0;
   const approveSub = useMutation(api.subscriptions.adminApproveSubscription);
   const rejectSub = useMutation(api.subscriptions.adminRejectSubscription);
-  // Demandes en attente réparties par moyen de règlement : l'onglet
-  // « Virements » présente le virement bancaire, puis le virement D17.
-  const bankPendingSubs = pendingSubs.filter((s: any) => s.paymentMethod !== "d17");
-  const d17PendingSubs = pendingSubs.filter((s: any) => s.paymentMethod === "d17");
+  // ==========================================================================
+  // Demandes de cotisation en attente — TOUS les profils et TOUS les flux.
+  // La requête agrège `subscriptions`, `clientProCreditOrders`,
+  // `expertProfiles`, `supplierProfiles` et `siteCotisations` : une demande
+  // Client Pro / Expert / Fournisseur n'est plus invisible dans cet onglet.
+  // Convex étant réactif, badge, compteurs et liste se mettent à jour dès
+  // qu'une demande est soumise, confirmée ou refusée.
+  // ==========================================================================
+  const pendingPaymentRequests = useQuery(api.paymentRequests.getPendingPaymentRequests) || [];
+  const [requestFilter, setRequestFilter] = useState<"all" | "bank_transfer" | "d17">("all");
+  const [requestDetails, setRequestDetails] = useState<any>(null);
+
+  const approveClientProOrder = useMutation(api.clientProCredits.adminApproveClientProOrder);
+  const rejectClientProOrder = useMutation(api.clientProCredits.adminRejectClientProOrder);
+  const approveSiteCotisation = useMutation(api.siteTracking.adminApproveSiteCotisation);
+  const refuseSiteCotisation = useMutation(api.siteTracking.adminRefuseSiteCotisation);
+
+  const formatRequestDate = (timestamp?: number) =>
+    timestamp
+      ? new Date(timestamp).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })
+      : "—";
+
+  /** Confirmation du paiement : même mutation que le flux d'origine. */
+  const confirmPaymentRequest = async (request: any) => {
+    try {
+      if (request.kind === "client_pro") {
+        await approveClientProOrder({ orderId: request.recordId });
+      } else if (request.kind === "expert") {
+        await approveExpertSub({ profileId: request.recordId });
+      } else if (request.kind === "supplier") {
+        await approveSupplierSub({ profileId: request.recordId });
+      } else if (request.kind === "site") {
+        await approveSiteCotisation({ cotisationId: request.recordId });
+      } else {
+        await approveSub({ subscriptionId: request.recordId });
+      }
+      toast.success("Paiement confirmé");
+      setRequestDetails(null);
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors de la confirmation");
+    }
+  };
+
+  /** Refus de la demande : aucune cotisation n'est activée. */
+  const rejectPaymentRequest = async (request: any) => {
+    try {
+      if (request.kind === "client_pro") {
+        await rejectClientProOrder({ orderId: request.recordId });
+      } else if (request.kind === "expert") {
+        await rejectExpertSub({ profileId: request.recordId });
+      } else if (request.kind === "supplier") {
+        await rejectSupplierSub({ profileId: request.recordId });
+      } else if (request.kind === "site") {
+        await refuseSiteCotisation({ cotisationId: request.recordId });
+      } else {
+        await rejectSub({ subscriptionId: request.recordId });
+      }
+      toast.success("Demande refusée");
+      setRequestDetails(null);
+    } catch (err: any) {
+      toast.error(err.message || "Erreur lors du refus");
+    }
+  };
+
+  const filteredPaymentRequests = pendingPaymentRequests.filter((request: any) =>
+    requestFilter === "all" ? true : request.paymentFamily === requestFilter,
+  );
+  const bankPaymentRequests = filteredPaymentRequests.filter(
+    (request: any) => request.paymentFamily === "bank_transfer",
+  );
+  const d17PaymentRequests = filteredPaymentRequests.filter(
+    (request: any) => request.paymentFamily === "d17",
+  );
+  const unknownPaymentRequests = filteredPaymentRequests.filter(
+    (request: any) => request.paymentFamily === "unknown",
+  );
 
   /**
-   * Tableau partagé des demandes de paiement en attente : mêmes colonnes et
-   * mêmes actions pour le virement bancaire et pour le virement D17.
+   * Tableau partagé des demandes de cotisation : mêmes colonnes et mêmes
+   * actions pour le virement bancaire et pour le virement D17.
    */
-  const renderPendingSubsTable = (subs: any[], emptyLabel: string) => {
-    if (subs.length === 0) {
+  const renderPaymentRequestsTable = (requests: any[], emptyLabel: string) => {
+    if (requests.length === 0) {
       return (
         <p className="rounded-2xl border border-dashed border-border/40 bg-background/40 px-4 py-8 text-center text-xs text-muted-foreground">
           {emptyLabel}
@@ -225,83 +297,99 @@ export default function AdminPanel() {
           <thead>
             <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
               <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Client</th>
-              <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Téléphone</th>
-              <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Offre</th>
-              <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Montant</th>
-              <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Méthode</th>
-              <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Date</th>
-              <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Action</th>
+              <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Profil</th>
+              <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden lg:table-cell">Formule</th>
+              <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Montant</th>
+              <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Mode</th>
+              <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden md:table-cell">Date</th>
+              <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Justif.</th>
+              <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Statut / Actions</th>
             </tr>
           </thead>
           <tbody>
-            {subs.map((sub: any) => (
-              <tr key={sub._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
+            {requests.map((request: any) => (
+              <tr key={request.requestId} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
                 <td className="py-2.5 px-2 sm:px-3">
                   <div className="flex items-center gap-2">
                     <Avatar className="h-8 w-8 shrink-0 border border-border/40">
-                      <AvatarImage src={sub.user?.image || ""} alt="Photo" className="object-cover" />
                       <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                        {sub.user?.name?.charAt(0)?.toUpperCase() || "?"}
+                        {request.userName?.charAt(0)?.toUpperCase() || "?"}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
-                      <p className="font-medium text-xs truncate max-w-[120px] cursor-pointer hover:text-primary transition-colors" onClick={() => setSelectedUser(sub.user)}>{sub.user?.name || sub.user?.email || "Non renseigné"}</p>
-                      <p className="text-[9px] text-muted-foreground truncate max-w-[120px]">{sub.user?.email || ""}</p>
+                      <p className="font-medium text-xs truncate max-w-[150px] cursor-pointer hover:text-primary transition-colors" onClick={() => setRequestDetails(request)}>{request.userName || "Non renseigné"}</p>
+                      <p className="text-[9px] text-muted-foreground truncate max-w-[150px]">{request.userEmail || "—"}</p>
+                      <p className="text-[9px] text-muted-foreground md:hidden">
+                        {request.profileType} · {request.paymentMethodLabel} · {formatRequestDate(request.submittedAt)}
+                      </p>
                     </div>
                   </div>
                 </td>
-                <td className="py-2.5 px-2 sm:px-3 text-left hidden sm:table-cell">
-                  <span className="text-[10px] text-muted-foreground">{sub.user?.phone || "—"}</span>
+                <td className="py-2.5 px-2 sm:px-3 text-left hidden md:table-cell">
+                  <Badge variant="outline" className="text-[9px]">{request.profileType}</Badge>
+                </td>
+                <td className="py-2.5 px-2 sm:px-3 text-left hidden lg:table-cell">
+                  <span className="text-[10px] text-muted-foreground">{request.formula}</span>
                 </td>
                 <td className="py-2.5 px-2 sm:px-3 text-center">
-                  <Badge variant="outline" className="text-[9px] capitalize">
-                    {sub.plan}
-                  </Badge>
+                  <span className="font-mono text-xs font-medium">
+                    {request.amount == null ? "—" : `${request.amount.toLocaleString("fr-FR")} ${request.currency}`}
+                  </span>
                 </td>
                 <td className="py-2.5 px-2 sm:px-3 text-center hidden sm:table-cell">
-                  <span className="font-mono text-xs font-medium">{sub.amount} TND</span>
+                  <Badge variant="secondary" className="text-[9px]">{request.paymentMethodLabel}</Badge>
                 </td>
-                <td className="py-2.5 px-2 sm:px-3 text-center hidden sm:table-cell">
-                  <Badge variant="secondary" className="text-[9px]">
-                    {sub.paymentMethod === "bank_transfer" ? "Virement" : sub.paymentMethod === "d17" ? "D17" : sub.paymentMethod}
-                  </Badge>
+                <td className="py-2.5 px-2 sm:px-3 text-right hidden md:table-cell text-[10px] text-muted-foreground">
+                  {formatRequestDate(request.submittedAt)}
                 </td>
-                <td className="py-2.5 px-2 sm:px-3 text-right hidden sm:table-cell text-[10px] text-muted-foreground">
-                  {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString("fr-FR") : "—"}
+                <td className="py-2.5 px-2 sm:px-3 text-center">
+                  {request.proofUrl ? (
+                    <a
+                      href={request.proofUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
+                      title={request.proofFileName || "Justificatif de paiement"}
+                    >
+                      <FileText className="h-3 w-3" /> Voir
+                    </a>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">—</span>
+                  )}
                 </td>
                 <td className="py-2.5 px-2 sm:px-3 text-right">
                   <div className="flex items-center justify-end gap-1">
+                    <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-500/30 hidden lg:inline-flex">
+                      En attente
+                    </Badge>
                     <Button
                       variant="outline"
                       size="sm"
                       className="h-8 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                      onClick={async () => {
-                        try {
-                          await approveSub({ subscriptionId: sub._id });
-                          toast.success("Abonnement approuvé");
-                        } catch (err: any) {
-                          toast.error(err.message || "Erreur");
-                        }
-                      }}
+                      onClick={() => confirmPaymentRequest(request)}
+                      title="Confirmer le paiement"
                     >
                       <Check className="h-3 w-3 mr-1" />
-                      <span className="hidden sm:inline">Approuver</span>
+                      <span className="hidden sm:inline">Confirmer</span>
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={async () => {
-                        try {
-                          await rejectSub({ subscriptionId: sub._id });
-                          toast.success("Demande rejetée");
-                        } catch (err: any) {
-                          toast.error(err.message || "Erreur");
-                        }
-                      }}
+                      onClick={() => rejectPaymentRequest(request)}
+                      title="Refuser la demande"
                     >
                       <X className="h-3 w-3 mr-1" />
-                      <span className="hidden sm:inline">Rejeter</span>
+                      <span className="hidden sm:inline">Refuser</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setRequestDetails(request)}
+                      title="Détails de la demande"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </td>
@@ -849,9 +937,9 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <TabsTrigger value="virements" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
                 <Banknote className="h-3.5 w-3.5" />
                 <span>Virements</span>
-                {pendingSubs.length > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm">
-                    {pendingSubs.length}
+                {pendingPaymentRequests.length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-0.5 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white shadow-sm">
+                    {pendingPaymentRequests.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -3885,58 +3973,215 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
             </div>
           </TabsContent>
 
-          {/* Virements */}
+          {/* Virements — demandes de cotisation : virement bancaire et D17 */}
           <TabsContent value="virements">
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Banknote className="h-5 w-5 text-primary" />
-                <div>
-                  <h2 className="text-lg font-semibold">Virements</h2>
-                  <p className="text-xs text-muted-foreground">Abonnements en attente de validation — virement bancaire et virement D17</p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <Banknote className="h-5 w-5 text-primary" />
+                  <div>
+                    <h2 className="text-lg font-semibold">Virements</h2>
+                    <p className="text-xs text-muted-foreground">Demandes de cotisation en attente — virement bancaire et virement D17, tous profils confondus</p>
+                  </div>
+                </div>
+                {/* Filtres : toutes les demandes / virement bancaire / D17 */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {([
+                    { key: "all", label: "Toutes les demandes" },
+                    { key: "bank_transfer", label: "Virement bancaire" },
+                    { key: "d17", label: "Virement D17" },
+                  ] as const).map((option) => (
+                    <Button
+                      key={option.key}
+                      size="sm"
+                      variant={requestFilter === option.key ? "default" : "outline"}
+                      className="h-8 text-[11px]"
+                      onClick={() => setRequestFilter(option.key)}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
-              {pendingSubs.length === 0 ? (
+              {/* Notification rouge — badge temps réel (query Convex réactive) */}
+              {pendingPaymentRequests.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setRequestDetails(pendingPaymentRequests[0])}
+                  className="flex w-full items-center gap-2 rounded-2xl border border-red-500/25 bg-red-500/5 px-3 py-2 text-left transition-colors hover:bg-red-500/10"
+                >
+                  <span className="flex h-2 w-2 shrink-0 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-xs font-medium text-red-600">
+                    {pendingPaymentRequests.length} demande(s) de cotisation en attente de validation
+                  </span>
+                  <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-red-600/80">
+                    Voir la plus récente <ArrowRight className="h-3 w-3" />
+                  </span>
+                </button>
+              )}
+
+              {filteredPaymentRequests.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted/30 mx-auto mb-4">
                     <Banknote className="h-8 w-8 text-muted-foreground/50" />
                   </div>
                   <p className="text-sm font-semibold">Aucune demande en attente</p>
-                  <p className="text-xs text-muted-foreground mt-1">Les demandes de virement bancaire et D17 apparaîtront ici.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Les demandes de virement bancaire et D17 apparaîtront ici dès leur soumission.</p>
                 </div>
               ) : (
                 <div className="space-y-6">
                   {/* Virement bancaire */}
-                  <section className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Landmark className="h-4 w-4 text-primary" />
-                      <h3 className="text-sm font-semibold">Virement bancaire</h3>
-                      <Badge variant="outline" className="text-[10px]">{bankPendingSubs.length}</Badge>
-                    </div>
-                    {renderPendingSubsTable(bankPendingSubs, "Aucune demande de virement bancaire en attente.")}
-                  </section>
+                  {requestFilter !== "d17" && (
+                    <section className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Landmark className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold">Virement bancaire</h3>
+                        <Badge className={cn("text-[10px]", bankPaymentRequests.length > 0 ? "bg-red-500 text-white border-red-500" : "bg-muted/30 text-muted-foreground")}>
+                          {bankPaymentRequests.length}
+                        </Badge>
+                      </div>
+                      {renderPaymentRequestsTable(bankPaymentRequests, "Aucune demande de virement bancaire en attente.")}
+                    </section>
+                  )}
 
                   {/* Virement D17 — affiché sous le virement bancaire */}
-                  <section className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Smartphone className="h-4 w-4 text-primary" />
-                      <h3 className="text-sm font-semibold">Virement D17</h3>
-                      <Badge variant="outline" className="text-[10px]">{d17PendingSubs.length}</Badge>
-                    </div>
-                    {renderPendingSubsTable(d17PendingSubs, "Aucune demande de virement D17 en attente.")}
-                  </section>
+                  {requestFilter !== "bank_transfer" && (
+                    <section className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold">Virement D17</h3>
+                        <Badge className={cn("text-[10px]", d17PaymentRequests.length > 0 ? "bg-red-500 text-white border-red-500" : "bg-muted/30 text-muted-foreground")}>
+                          {d17PaymentRequests.length}
+                        </Badge>
+                      </div>
+                      {renderPaymentRequestsTable(d17PaymentRequests, "Aucune demande de virement D17 en attente.")}
+                    </section>
+                  )}
+
+                  {/* Demandes antérieures dont la méthode n'est pas reconnue :
+                      elles restent visibles et validables (aucune demande perdue). */}
+                  {requestFilter === "all" && unknownPaymentRequests.length > 0 && (
+                    <section className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold">Moyen de paiement non précisé</h3>
+                        <Badge variant="outline" className="text-[10px]">{unknownPaymentRequests.length}</Badge>
+                      </div>
+                      {renderPaymentRequestsTable(unknownPaymentRequests, "Aucune demande sans moyen de paiement.")}
+                    </section>
+                  )}
                 </div>
               )}
 
-              {/* Totals summary */}
-              {pendingSubs.length > 0 && (
+              {/* Totaux de la sélection courante */}
+              {filteredPaymentRequests.length > 0 && (
                 <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-                  <span>{pendingSubs.length} demande(s) en attente</span>
+                  <span>{filteredPaymentRequests.length} demande(s) en attente</span>
                   <span>•</span>
-                  <span>Total : {pendingSubs.reduce((sum: number, s: any) => sum + (s.amount || 0), 0).toLocaleString("fr-FR")} TND</span>
+                  <span>Total : {filteredPaymentRequests.reduce((sum: number, r: any) => sum + (r.amount || 0), 0).toLocaleString("fr-FR")} TND</span>
                 </div>
               )}
             </div>
+
+            {/* Détails d'une demande */}
+            <Dialog open={!!requestDetails} onOpenChange={(open) => !open && setRequestDetails(null)}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Détails de la demande</DialogTitle>
+                  <DialogDescription>
+                    Demande de cotisation en attente — le paiement est validé manuellement.
+                  </DialogDescription>
+                </DialogHeader>
+                {requestDetails && (
+                  <div className="space-y-4 text-sm">
+                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-xs">
+                      <div className="min-w-0">
+                        <dt className="text-muted-foreground">Nom et prénom</dt>
+                        <dd className="font-medium truncate">{requestDetails.userName || "Non renseigné"}</dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="text-muted-foreground">Adresse e-mail</dt>
+                        <dd className="font-medium truncate">{requestDetails.userEmail || "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Téléphone</dt>
+                        <dd className="font-medium">{requestDetails.userPhone || "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Type de profil</dt>
+                        <dd className="font-medium">{requestDetails.profileType}</dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="text-muted-foreground">Formule de cotisation</dt>
+                        <dd className="font-medium">{requestDetails.formula}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Montant demandé</dt>
+                        <dd className="font-mono font-medium">
+                          {requestDetails.amount == null ? "—" : `${requestDetails.amount.toLocaleString("fr-FR")} ${requestDetails.currency}`}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Mode de paiement</dt>
+                        <dd className="font-medium">{requestDetails.paymentMethodLabel}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Date et heure de soumission</dt>
+                        <dd className="font-medium">{formatRequestDate(requestDetails.submittedAt)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">Statut</dt>
+                        <dd>
+                          <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/30">En attente de validation</Badge>
+                        </dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="text-muted-foreground">Justificatif de paiement</dt>
+                        <dd className="font-medium">
+                          {requestDetails.proofUrl ? (
+                            <a
+                              href={requestDetails.proofUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-primary hover:underline"
+                            >
+                              <FileText className="h-3.5 w-3.5" /> {requestDetails.proofFileName || "Consulter le justificatif"}
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground">Aucun justificatif joint</span>
+                          )}
+                        </dd>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <dt className="text-muted-foreground">Référence de la demande</dt>
+                        <dd className="font-mono text-[10px] text-muted-foreground break-all">{requestDetails.requestId}</dd>
+                      </div>
+                    </dl>
+                    <div className="flex flex-wrap justify-end gap-2 pt-2">
+                      <DialogClose asChild>
+                        <Button variant="outline" size="sm">Fermer</Button>
+                      </DialogClose>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 border-red-200 hover:bg-red-50"
+                        onClick={() => rejectPaymentRequest(requestDetails)}
+                      >
+                        <X className="h-3.5 w-3.5 mr-1" /> Refuser
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() => confirmPaymentRequest(requestDetails)}
+                      >
+                        <Check className="h-3.5 w-3.5 mr-1" /> Confirmer le paiement
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* Subscriptions */}

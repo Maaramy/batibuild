@@ -92,6 +92,39 @@ export function paymentMethodDefinition(
 }
 
 /**
+ * Famille de règlement utilisée par la section admin « Virements ».
+ * `unknown` = méthode non renseignée ou valeur historique non reconnue : la
+ * demande reste visible dans l'administration (aucune demande n'est perdue).
+ */
+export type ManualPaymentFamily = "bank_transfer" | "d17" | "unknown";
+
+/**
+ * Normalise la valeur `paymentMethod` réellement enregistrée en base.
+ *
+ * Les données historiques peuvent porter « D17 », « d17 (La Poste) »,
+ * « Virement », « bank »… : les filtres de l'administration doivent les
+ * classer correctement au lieu de les ignorer.
+ */
+export function paymentMethodFamily(
+  slug: PaymentMethodSlug | null | undefined,
+): ManualPaymentFamily {
+  const value = (slug ?? "").trim().toLowerCase();
+  if (!value) return "unknown";
+  if (value.includes("d17") || value.includes("poste")) return "d17";
+  if (value.includes("bank") || value.includes("virement") || value === "transfer") {
+    return "bank_transfer";
+  }
+  return "unknown";
+}
+
+/** Libellé lisible d'une méthode enregistrée (valeur brute si inconnue). */
+export function paymentMethodLabel(slug: PaymentMethodSlug | null | undefined): string {
+  const value = (slug ?? "").trim();
+  if (!value) return "Non précisé";
+  return paymentMethodDefinition(value)?.label ?? value;
+}
+
+/**
  * Le règlement de cette méthode exige-t-il une validation manuelle par un
  * administrateur ? Une méthode inconnue est traitée comme manuelle : on
  * n'active jamais un paiement qu'on ne sait pas encaisser.

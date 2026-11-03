@@ -57,6 +57,7 @@ import type * as materials from "../materials.js";
 import type * as messaging from "../messaging.js";
 import type * as notifications from "../notifications.js";
 import type * as paymentMethodStates from "../paymentMethodStates.js";
+import type * as paymentRequests from "../paymentRequests.js";
 import type * as payments from "../payments.js";
 import type * as platformReviews from "../platformReviews.js";
 import type * as priceEngine from "../priceEngine.js";
@@ -152,6 +153,7 @@ declare const fullApi: ApiFromModules<{
   messaging: typeof messaging;
   notifications: typeof notifications;
   paymentMethodStates: typeof paymentMethodStates;
+  paymentRequests: typeof paymentRequests;
   payments: typeof payments;
   platformReviews: typeof platformReviews;
   priceEngine: typeof priceEngine;
