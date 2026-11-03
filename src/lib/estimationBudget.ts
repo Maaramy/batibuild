@@ -31,6 +31,7 @@ import {
 import { withComplementaryWorksLots } from "@/lib/complementaryWorks";
 import {
   applyWorkSelectionToLots,
+  lotsSubtotal,
   resolveWorkSelection,
   scaleCostEstimateForWorkSelection,
   workSelectionRatio,
@@ -118,6 +119,46 @@ const isScenarioKey = (value: unknown): value is BudgetScenarioKey =>
   typeof value === "string" && (SCENARIO_KEYS as string[]).includes(value);
 
 /**
+ * Re-ancrage des scénarios budgétaires sur le coût total TTC réellement
+ * chiffré — utilisé par toutes les surfaces qui affichent les trois
+ * scénarios (page du projet, rapports PDF).
+ *
+ * Le scénario Standard EST le coût total TTC de l'estimation. Quand le total
+ * affiché change (travaux retenus du « Mode de construction », harmonisation
+ * du quantitatif), les trois scénarios sont recalculés à partir de ce total en
+ * conservant leur position relative au Standard : Économique < Standard <
+ * Premium, aucun écart inventé, aucune moyenne.
+ *
+ * `standard` à `null` (ou sans sélection active) → objet retourné inchangé.
+ */
+export function anchorScenariosToTotal<T extends { totalCost?: number | null; costPerM2?: number | null }>(
+  scenarios: Record<BudgetScenarioKey, T> | null | undefined,
+  standard: { totalCost: number; costPerM2: number } | null | undefined,
+): Record<BudgetScenarioKey, T> | null {
+  if (!scenarios || !standard) return scenarios ?? null;
+  const referenceTotal = num(scenarios.standard?.totalCost);
+  if (standard.totalCost <= 0) return scenarios;
+  // Déjà ancrés (ou aucune sélection) : aucun arrondi parasite.
+  if (referenceTotal === standard.totalCost && num(scenarios.standard?.costPerM2) === standard.costPerM2) {
+    return scenarios;
+  }
+  const anchorOne = (scenario: T | undefined): T => {
+    if (!scenario) return scenario as unknown as T;
+    const spread = referenceTotal > 0 ? num(scenario.totalCost) / referenceTotal : 1;
+    return {
+      ...scenario,
+      totalCost: Math.round(standard.totalCost * spread),
+      costPerM2: Math.round(num(standard.costPerM2) * spread),
+    } as T;
+  };
+  return {
+    economique: anchorOne(scenarios.economique),
+    standard: anchorOne(scenarios.standard),
+    premium: anchorOne(scenarios.premium),
+  };
+}
+
+/**
  * Montant TTC du scénario affiché, calculé une seule fois pour les deux pages.
  * Retourne exactement les mêmes nombres que l'estimation officielle.
  */
@@ -147,27 +188,58 @@ export function resolveEstimationBudget(input: EstimationBudgetInput): Estimatio
     BudgetScenarioKey,
     { totalCost?: number | null; costPerM2?: number | null }
   > | null;
-  const scenarios = storedScenarios
-    ? {
-        economique: {
-          key: "economique" as const,
-          totalCost: real(storedScenarios.economique?.totalCost),
-          costPerM2: real(storedScenarios.economique?.costPerM2 ?? 0),
-        },
-        standard: {
-          key: "standard" as const,
-          totalCost: real(storedScenarios.standard?.totalCost),
-          costPerM2: real(storedScenarios.standard?.costPerM2 ?? 0),
-        },
-        premium: {
-          key: "premium" as const,
-          totalCost: real(storedScenarios.premium?.totalCost),
-          costPerM2: real(storedScenarios.premium?.costPerM2 ?? 0),
-        },
-      }
-    : null;
+  const storedScenarioAmounts: Record<BudgetScenarioKey, EstimationScenarioAmount> | null =
+    storedScenarios
+      ? {
+          economique: {
+            key: "economique" as const,
+            totalCost: real(storedScenarios.economique?.totalCost),
+            costPerM2: real(storedScenarios.economique?.costPerM2 ?? 0),
+          },
+          standard: {
+            key: "standard" as const,
+            totalCost: real(storedScenarios.standard?.totalCost),
+            costPerM2: real(storedScenarios.standard?.costPerM2 ?? 0),
+          },
+          premium: {
+            key: "premium" as const,
+            totalCost: real(storedScenarios.premium?.totalCost),
+            costPerM2: real(storedScenarios.premium?.costPerM2 ?? 0),
+          },
+        }
+      : null;
 
-  const totalCost = real(stored?.totalCost);
+  // ── Scénarios budgétaires ancrés sur le coût total TTC ───────────────────
+  // Le scénario Standard EST le coût total TTC de l'estimation : le moteur
+  // écrit `budgetScenarios.standard = total du quantitatif` (`projects.ts`).
+  // Dès que le « Mode de construction » ne retient qu'une partie des travaux,
+  // ce total change : les trois scénarios sont donc ré-ancrés sur la somme TTC
+  // EXACTE des lots conservés, en conservant leur position relative au
+  // Standard (Économique < Standard < Premium). Aucun montant moyen, aucun
+  // écart inventé : seul l'écart déjà chiffré par le moteur est reporté.
+  // Sans sélection (ou quantitatif vide) : montants d'origine, au dinar près.
+  const workTtcTotal = real(lotsSubtotal(keptLots));
+  const anchor = workSelection.active && workTtcTotal > 0 ? workTtcTotal : null;
+  const builtSurfaceM2 = Number(input.builtSurface) || 0;
+
+  // Standard = coût total TTC des travaux retenus, coût au m² recalculé sur la
+  // surface réellement construite (repli sur le coût au m² enregistré si la
+  // surface est inconnue). Aucun ancrage → montants enregistrés tels quels.
+  const scenarios = anchorScenariosToTotal(
+    storedScenarioAmounts,
+    anchor !== null
+      ? {
+          totalCost: anchor,
+          costPerM2:
+            builtSurfaceM2 > 0
+              ? Math.round(anchor / builtSurfaceM2)
+              : num(storedScenarioAmounts?.standard?.costPerM2),
+        }
+      : null,
+  );
+
+  // Coût global TTC : celui des travaux chiffrés lorsque la sélection est active.
+  const totalCost = anchor ?? real(stored?.totalCost);
 
   const rawLots = keptLots;
   const modifications = [...(input.modifications ?? [])];

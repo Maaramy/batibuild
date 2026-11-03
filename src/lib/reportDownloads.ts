@@ -34,7 +34,12 @@ import {
 } from "@/convex/quantitatifCustomLogic";
 import { buildBudgetAnalysis } from "./budgetEngine";
 import { realBuiltArea } from "./buildingLevels";
-import { resolveEstimationBudget } from "./estimationBudget";
+import { anchorScenariosToTotal, resolveEstimationBudget } from "./estimationBudget";
+import {
+  applyWorkSelectionToLots,
+  lotsSubtotal,
+  resolveWorkSelection,
+} from "./workCategories";
 import { exportDecisionSupportPdf } from "./decisionSupportPdf";
 import { regionLabel } from "./providerRegions";
 import { generateFloorPlans, repairFloorPlan } from "./floorPlanEngine";
@@ -104,19 +109,43 @@ export async function downloadCostReport({
       ? 1 / (1 + storedCe.contingencyPercentage / 100)
       : 1;
   const ai = project?.aiAnalysis;
-  const scenarios = ce?.budgetScenarios;
-  const dqe = project?.dqe ?? storedCe?.dqe;
+  const rawDqe = project?.dqe ?? storedCe?.dqe;
+
+  // Surface réellement construite : base du coût au m² des scénarios et totaux.
+  const builtSurface = project?.surface ? project.surface * (project.floors || 1) : 0;
+
+  // ── « Mode de construction » ──────────────────────────────────────────────
+  // Le devis ne chiffre que les catégories retenues et les scénarios budgétaires
+  // sont ré-ancrés sur leur coût total TTC : le PDF affiche donc exactement les
+  // mêmes montants que la page du projet et l'aide à la décision.
+  const workSelection = resolveWorkSelection(
+    (project as any)?.workCategories ?? null,
+    (project as any)?.category ?? null,
+  );
+  const dqeLots = workSelection.active
+    ? applyWorkSelectionToLots(rawDqe?.lots ?? [], workSelection)
+    : rawDqe?.lots ?? [];
+  const dqe = rawDqe ? { ...rawDqe, lots: dqeLots } : rawDqe;
+  const reportTtcTotal = lotsSubtotal(dqeLots);
+  const scenarios = anchorScenariosToTotal(
+    ce?.budgetScenarios,
+    workSelection.active && reportTtcTotal > 0
+      ? {
+          totalCost: reportTtcTotal,
+          costPerM2: builtSurface > 0 ? Math.round(reportTtcTotal / builtSurface) : 0,
+        }
+      : null,
+  );
 
   // Scénario « Personnalisé » : scénario de référence + modifications d'articles.
   const customization = await convex.query(api.quantitatifCustom.getCustomization, {
     projectId: projectId as never,
   });
   const entries = (customization?.modifications ?? []) as QuantitatifCustomizationEntry[];
-  const builtSurface = project?.surface ? project.surface * (project.floors || 1) : 0;
   let personalized: ProjectLike = null;
-  if (entries.length && dqe?.lots?.length) {
+  if (entries.length && dqeLots.length) {
     const baseFactor = budgetScenarioFactor(scenarios, customization!.baseScenario);
-    const scaled = scaleDqeLots(dqe.lots, baseFactor * realCostFactor);
+    const scaled = scaleDqeLots(dqeLots, baseFactor * realCostFactor);
     const overlay = overlayCustomizations(scaled, entries, {
       scaleFactor: baseFactor,
       realCostFactor,

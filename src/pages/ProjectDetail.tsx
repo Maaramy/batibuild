@@ -99,7 +99,7 @@ import {
   correctEnduitLissageBimItems,
   isEnduitLissageName,
 } from "@/lib/enduitLissage";
-import { resolveEstimationBudget } from "@/lib/estimationBudget";
+import { anchorScenariosToTotal, resolveEstimationBudget } from "@/lib/estimationBudget";
 import { applyWorkSelectionToLots, resolveWorkSelection } from "@/lib/workCategories";
 import {
   formatLaborLot,
@@ -541,9 +541,9 @@ export default function ProjectDetail() {
     }
     // Compute scale factor for the requested scenario
     const sf = (() => {
-      if (!scenarios || !scenarios.standard || scenario === "standard") return 1;
-      const sel = scenarios[scenario as keyof typeof scenarios];
-      return sel ? sel.totalCost / (scenarios.standard.totalCost || 1) : 1;
+      if (!displayScenarios || !displayScenarios.standard || scenario === "standard") return 1;
+      const sel = displayScenarios[scenario as keyof typeof displayScenarios];
+      return sel ? sel.totalCost / (displayScenarios.standard.totalCost || 1) : 1;
     })();
     const dqeData = (project as any)?.dqe;
     // Rénovation de salle de bain : le devis reprend le quantitatif réel du
@@ -565,7 +565,9 @@ export default function ProjectDetail() {
       project,
       ce,
       ai,
-      scenarios,
+      // Scénarios ré-ancrés sur le total TTC des travaux chiffrés : le tableau
+      // du devis affiche les mêmes montants que la page.
+      scenarios: displayScenarios ?? scenarios,
       scenario,
       // « Mode de construction » : le devis ne reprend que les catégories
       // chiffrées (sans sélection enregistrée, `workFilteredDqeLots` est
@@ -863,6 +865,16 @@ export default function ProjectDetail() {
   );
   const personalized = estimationBudget.personalized;
 
+  // ── Scénarios budgétaires réellement affichés ────────────────────────────
+  // Montants ré-ancrés sur le coût total TTC des travaux chiffrés (résolveur
+  // partagé) : le Standard égale le total TTC affiché et les écarts relatifs du
+  // moteur (Économique / Premium) sont conservés. Sans « Mode de construction »
+  // actif, ce sont exactement les scénarios enregistrés (même objet renvoyé).
+  const displayScenarios = useMemo(
+    () => anchorScenariosToTotal(scenarios, estimationBudget.scenarios?.standard ?? null),
+    [scenarios, estimationBudget.scenarios],
+  );
+
   // ── Ajout / retrait d'un travail complémentaire ───────────────────────────
   // La sélection est enregistrée côté serveur (source unique) : la requête
   // réactive met aussitôt à jour le Quantitatif détaillé, le scénario
@@ -1002,11 +1014,11 @@ export default function ProjectDetail() {
 
   // Scale factor based on selected scenario vs standard
   const scaleFactor = useMemo(() => {
-    if (!scenarios || !scenarios.standard) return 1;
-    const sel = scenarios[effectiveScenario as keyof typeof scenarios];
+    if (!displayScenarios || !displayScenarios.standard) return 1;
+    const sel = displayScenarios[effectiveScenario as keyof typeof displayScenarios];
     if (!sel || effectiveScenario === "standard") return 1;
-    return sel.totalCost / scenarios.standard.totalCost;
-  }, [scenarios, effectiveScenario]);
+    return sel.totalCost / displayScenarios.standard.totalCost;
+  }, [displayScenarios, effectiveScenario]);
 
   // Scaled breakdown for current scenario
   const scaledBreakdown = useMemo(() => {
@@ -1037,17 +1049,17 @@ export default function ProjectDetail() {
 
   // Current total cost for selected scenario
   const currentTotal = useMemo(() => {
-    if (!scenarios) return ce?.totalCost || 0;
-    const sel = scenarios[effectiveScenario as keyof typeof scenarios];
+    if (!displayScenarios) return ce?.totalCost || 0;
+    const sel = displayScenarios[effectiveScenario as keyof typeof displayScenarios];
     return sel?.totalCost || ce?.totalCost || 0;
-  }, [scenarios, effectiveScenario, ce?.totalCost]);
+  }, [displayScenarios, effectiveScenario, ce?.totalCost]);
 
   // Current cost per m²
   const currentCostM2 = useMemo(() => {
-    if (!scenarios) return ce?.costPerSquareMeter || 0;
-    const sel = scenarios[effectiveScenario as keyof typeof scenarios];
+    if (!displayScenarios) return ce?.costPerSquareMeter || 0;
+    const sel = displayScenarios[effectiveScenario as keyof typeof displayScenarios];
     return sel?.costPerM2 || ce?.costPerSquareMeter || 0;
-  }, [scenarios, effectiveScenario, ce?.costPerSquareMeter]);
+  }, [displayScenarios, effectiveScenario, ce?.costPerSquareMeter]);
 
   // Lots salle de bain tels qu'affichés (montants arrondis au dinar) : le total
   // est leur somme EXACTE, identique au DQE enregistré par le moteur et au
@@ -1832,11 +1844,11 @@ export default function ProjectDetail() {
             )}
 
             {/* ═══ Budget Scenarios ═══ */}
-            {scenarios && (
+            {displayScenarios && (
               <SectionCard icon={PiggyBank} title="Scénarios budgétaires" badge="cliquez pour appliquer">
                 <div className={cn("grid grid-cols-1 gap-3", hasPersonalizedScenario ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3")}>
                   {(["economique", "standard", "premium"] as const).map((key) => {
-                    const s = scenarios[key];
+                    const s = displayScenarios[key];
                     if (!s) return null;
                     const isActive = key === selectedScenario;
                     const isStd = key === "standard";

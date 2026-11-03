@@ -197,6 +197,36 @@ describe("ajustement des montants de l'estimation", () => {
     expect(filtered.scenarios.standard.totalCost).toBe(80_000);
   });
 
+  it("ré-ancre les scénarios budgétaires sur le coût total TTC des travaux retenus", () => {
+    // Cas réel : le total TTC enregistré (100 000) ne se déduit pas de la somme
+    // des lots après harmonisation du quantitatif. Les scénarios doivent suivre
+    // le TTC réellement chiffré, pas un pourcentage approximatif du total.
+    const lots = [
+      { id: "gros_oeuvre", subtotal: 70_000 },
+      { id: "second_oeuvre", subtotal: 15_000 },
+      { id: "vrd", subtotal: 12_000 },
+    ];
+    const budget = resolveEstimationBudget({
+      costEstimate: COST_ESTIMATE as any,
+      dqeLots: lots as any,
+      builtSurface: 100,
+      selectedScenario: "standard",
+      workCategories: ["gros_oeuvre", "second_oeuvre"],
+      projectCategory: "maison",
+    });
+
+    // Standard = TTC exact des lots retenus (85 000), coût au m² recalculé.
+    expect(budget.selectedTotal).toBe(85_000);
+    expect(budget.totalCost).toBe(85_000);
+    expect(budget.selectedCostPerM2).toBe(850);
+    expect(budget.scenarios.standard.totalCost).toBe(85_000);
+    // Positions relatives du moteur conservées : −10 % et +20 % du Standard.
+    expect(budget.scenarios.economique.totalCost).toBe(76_500);
+    expect(budget.scenarios.premium.totalCost).toBe(102_000);
+    expect(budget.scenarios.economique.costPerM2).toBe(765);
+    expect(budget.scenarios.premium.costPerM2).toBe(1_020);
+  });
+
   it("calcule le ratio des travaux sélectionnés sur le quantitatif complet", () => {
     const selection = resolveWorkSelection(["gros_oeuvre", "second_oeuvre"], "maison");
     const kept = applyWorkSelectionToLots(MAISON_LOTS, selection);
