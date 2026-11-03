@@ -479,3 +479,76 @@ describe('curseur de budget — seuil, pas et maximum dynamique', () => {
     expect(hasAnalyzableBudgetRange(MIN_BUDGET_TND)).toBe(true)
   })
 })
+
+describe('buildBudgetAnalysis — catégories du résultat « Coût de construction »', () => {
+  // Une catégorie par lot du Quantitatif (ce que le résultat affiche), avec
+  // leurs sous-lots réels.
+  const breakdown: CategoryBreakdownItem[] = [
+    { category: 'plomberie', label: 'Plomberie', estimatedCost: 40_000, percentage: 40 },
+    {
+      category: 'gros_oeuvre',
+      label: 'Gros œuvre (fondations, structures)',
+      estimatedCost: 60_000,
+      percentage: 60,
+    },
+  ]
+  const lots: QuantitatifLot[] = [
+    {
+      id: 'gros_oeuvre',
+      name: 'Gros œuvre (fondations, structures)',
+      subtotal: 60_000,
+      lines: [
+        { designation: 'Fouilles et semelles', subcategory: 'Terrassement et fondations', total: 25_000 },
+        { designation: 'Poteaux et poutres', subcategory: 'Structure béton armé', total: 35_000 },
+      ],
+    },
+    {
+      id: 'plomberie',
+      name: 'Plomberie',
+      subtotal: 40_000,
+      lines: [
+        { designation: 'Alimentation eau froide', subcategory: 'Réseau d’alimentation', total: 15_000 },
+        { designation: 'Évacuations EU/EV', subcategory: 'Évacuations', total: 25_000 },
+      ],
+    },
+  ]
+
+  const analysis = buildBudgetAnalysis({
+    projectId: 'proj-1',
+    userId: 'user-1',
+    projectName: 'Projet test',
+    scenarioLabel: 'Standard',
+    projectTotal: 100_000,
+    budgetAvailable: 70_000,
+    breakdown,
+    breakdownSource: 'lots',
+    lots,
+  })
+
+  it('conserve les libellés et montants des catégories du résultat', () => {
+    expect(analysis.breakdown.map((l) => l.categoryLabel)).toEqual([
+      'Gros œuvre (fondations, structures)',
+      'Plomberie',
+    ])
+    expect(analysis.breakdown.map((l) => l.estimatedCost)).toEqual([60_000, 40_000])
+    // Ordre technique : le gros œuvre précède la plomberie.
+    expect(analysis.breakdown.map((l) => l.categoryId)).toEqual(['gros_oeuvre', 'plomberie'])
+  })
+
+  it('rattache à chaque catégorie les sous-lots de SON lot, sans double comptage', () => {
+    const gros = analysis.breakdown.find((l) => l.categoryId === 'gros_oeuvre')!
+    const plomberie = analysis.breakdown.find((l) => l.categoryId === 'plomberie')!
+
+    expect(gros.subcategories.map((s) => s.subcategoryLabel)).toEqual([
+      'Structure béton armé',
+      'Terrassement et fondations',
+    ])
+    expect(plomberie.subcategories.map((s) => s.subcategoryLabel)).toEqual([
+      'Évacuations',
+      'Réseau d’alimentation',
+    ])
+    // Aucun sous-lot d'un lot n'est repris dans un autre lot-catégorie.
+    expect(gros.subcategories.some((s) => s.subcategoryLabel === 'Évacuations')).toBe(false)
+    expect(plomberie.subcategories.every((s) => s.estimatedCost <= 40_000)).toBe(true)
+  })
+})

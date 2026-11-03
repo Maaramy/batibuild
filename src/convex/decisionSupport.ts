@@ -4,6 +4,7 @@ import type { MutationCtx, QueryCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
 import { requireDecisionSupport, resolveDecisionSupport } from './decisionSupportAccess'
 import { scaleDqeLots } from './quantitatifCustomLogic'
+import { applyWorkSelectionToLots, resolveWorkSelection } from '../lib/workCategories'
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AIDE À LA DÉCISION — Budget & capacité de construction.
@@ -86,7 +87,7 @@ export const getProjectBudgetContext = query({
     // sur le coût réel, au même niveau que le scénario corrigé et le Quantitatif
     // (un seul produit, arrondi identique à `scaleDqeLots`).
     const breakdownFactor = scaleFactor * realCostFactor
-    const breakdown = (stored?.breakdown ?? [])
+    const storedBreakdown = (stored?.breakdown ?? [])
       .map((c) => ({
         category: String(c.category),
         label: c.label,
@@ -147,7 +148,35 @@ export const getProjectBudgetContext = query({
       }))
       .filter((lot) => lot.id !== '')
 
-    const lots = scaleDqeLots(rawLots, scaleFactor * realCostFactor) as CtxLot[]
+    const scaledLots = scaleDqeLots(rawLots, scaleFactor * realCostFactor) as CtxLot[]
+
+    // ── Catégories = celles du RÉSULTAT « Coût de construction » ────────────
+    // Le résultat affiche une catégorie par lot du Quantitatif détaillé
+    // (« Répartition par catégorie »), filtrées par le « Mode de construction »
+    // du projet. L'aide à la décision reprend EXACTEMENT ces catégories, leurs
+    // libellés et leurs montants : la capacité de construction, la
+    // priorisation, les recommandations et le rapport PDF parlent donc des
+    // mêmes postes que le résultat, quel que soit le type de projet.
+    // Sans quantitatif enregistré : repli sur la répartition de l'estimation
+    // (aucun montant inventé, aucune catégorie fabriquée).
+    const lots = applyWorkSelectionToLots(
+      scaledLots,
+      resolveWorkSelection(project.workCategories ?? null, project.category),
+    ) as CtxLot[]
+    const lotsTotal = lots.reduce((sum, lot) => sum + (Number(lot.subtotal) || 0), 0)
+    const lotsBreakdown = lots
+      .map((lot) => {
+        const estimatedCost = Math.round(Number(lot.subtotal) || 0)
+        return {
+          category: lot.id,
+          label: lot.name || lot.id,
+          estimatedCost,
+          percentage:
+            lotsTotal > 0 ? Math.round((estimatedCost / lotsTotal) * 1000) / 10 : 0,
+        }
+      })
+      .filter((c) => c.estimatedCost > 0)
+    const breakdown = lotsBreakdown.length > 0 ? lotsBreakdown : storedBreakdown
 
     return {
       userId: user._id,
@@ -155,6 +184,11 @@ export const getProjectBudgetContext = query({
       projectCategory: project.category,
       region: project.region ?? null,
       breakdown,
+      // Origine des catégories : le module applique une correspondance STRICTE
+      // lot ↔ catégorie quand elles viennent du Quantitatif du résultat.
+      breakdownSource: (lotsBreakdown.length > 0 ? 'lots' : 'estimate') as
+        | 'lots'
+        | 'estimate',
       lots,
       surface: project.surface ? project.surface * (project.floors || 1) : undefined,
       // Total du scénario enregistré — identique à `currentTotal` du résultat.

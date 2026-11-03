@@ -164,7 +164,13 @@ const DEFAULT_RANK = 50;
 
 export function categoryPriority(category: string): number {
   const key = String(category ?? "").toLowerCase();
-  return CATEGORY_PRIORITY.find((c) => c.key === key)?.rank ?? DEFAULT_RANK;
+  const direct = CATEGORY_PRIORITY.find((c) => c.key === key)?.rank;
+  if (direct !== undefined) return direct;
+  // Catégorie du RÉSULTAT « Coût de construction » (lot du Quantitatif) : sa
+  // priorité est celle du type de travaux auquel le lot appartient.
+  const resolved = categoryForLot(key);
+  if (!resolved) return DEFAULT_RANK;
+  return CATEGORY_PRIORITY.find((c) => c.key === resolved)?.rank ?? DEFAULT_RANK;
 }
 
 // ── Types de sortie ────────────────────────────────────────────────────────
@@ -290,6 +296,12 @@ export interface BudgetAnalysisInput {
   budgetAvailable: number;
   breakdown: CategoryBreakdownItem[];
   lots?: QuantitatifLot[];
+  /**
+   * Origine des catégories : `"lots"` = une catégorie par lot du Quantitatif
+   * (résultat « Coût de construction ») — correspondance lot ↔ catégorie
+   * STRICTE ; `"estimate"` (défaut) = répartition agrégée de l'estimation.
+   */
+  breakdownSource?: "lots" | "estimate";
   surface?: number;
   /**
    * Coût au m² ENREGISTRÉ du scénario courant (page résultat « Estimation du
@@ -438,13 +450,21 @@ function buildHierarchy(
   cat: CategoryBreakdownItem,
   lots: QuantitatifLot[],
   categoryFunded: number,
+  strictLotCategory = false,
 ): BudgetSubcategoryLine[] {
   const cost = Math.max(0, Number(cat.estimatedCost) || 0);
 
   // Regroupement des articles par sous-lot, dans l'ordre du Quantitatif.
   const groups = new Map<string, { label: string; lines: BudgetArticleLine[]; total: number }>();
+  // Catégorie = lot du Quantitatif (« Répartition par catégorie » du résultat
+  // « Coût de construction ») : la correspondance est STRICTE, un lot ne peut
+  // jamais alimenter deux catégories. Sinon (répartition agrégée de
+  // l'estimation), repli sur la correspondance lot → catégorie.
   for (const lot of lots) {
-    if (categoryForLot(lot.id) !== cat.category) continue;
+    const matches = strictLotCategory
+      ? lot.id === cat.category
+      : categoryForLot(lot.id) === cat.category;
+    if (!matches) continue;
     for (const line of lot.lines ?? []) {
       const total =
         Number.isFinite(Number(line.total)) && Number(line.total) > 0
@@ -540,6 +560,7 @@ function simulateScenario(
   projectTotal: number,
   budget: number,
   lots: QuantitatifLot[],
+  strictLotCategories = false,
 ): SimulatedScenario {
   let remaining = Math.max(0, budget);
   let cumulative = 0;
@@ -575,7 +596,7 @@ function simulateScenario(
       realizationPct: realizationPct(cost, fundedAmount),
       status,
       priority: categoryPriority(cat.category),
-      subcategories: buildHierarchy(cat, lots, fundedAmount),
+      subcategories: buildHierarchy(cat, lots, fundedAmount, strictLotCategories),
     };
   });
 
@@ -727,7 +748,8 @@ export function buildBudgetAnalysis(input: BudgetAnalysisInput): BudgetAnalysis 
     };
   }
 
-  const current = simulateScenario(ordered, projectTotal, budget, lots);
+  const strictLots = input.breakdownSource === "lots";
+  const current = simulateScenario(ordered, projectTotal, budget, lots, strictLots);
   const boostedBudget = round2(budget + BUDGET_SIMULATION_STEP_TND);
   const scenarios: BudgetScenarioLine[] = [
     toScenario("actuel", "Budget actuel", budget, current, projectTotal),
@@ -735,14 +757,14 @@ export function buildBudgetAnalysis(input: BudgetAnalysisInput): BudgetAnalysis 
       "plus_palier",
       `+ ${frNumber(BUDGET_SIMULATION_STEP_TND)} TND`,
       boostedBudget,
-      simulateScenario(ordered, projectTotal, boostedBudget, lots),
+      simulateScenario(ordered, projectTotal, boostedBudget, lots, strictLots),
       projectTotal,
     ),
     toScenario(
       "complet",
       "Projet complet",
       projectTotal,
-      simulateScenario(ordered, projectTotal, projectTotal, lots),
+      simulateScenario(ordered, projectTotal, projectTotal, lots, strictLots),
       projectTotal,
     ),
   ];

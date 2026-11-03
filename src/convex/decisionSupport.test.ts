@@ -146,12 +146,14 @@ describe("getProjectBudgetContext — coûts strictement identiques au résultat
     // la décision n'affichent aucun imprévus. Un seul produit (facteur du
     // scénario × retrait de la majoration), arrondi identique au Quantitatif.
     const f = scaleFactor * REAL_COST_FACTOR;
-    expect(ctx.breakdown).toEqual([
-      { ...BREAKDOWN[0], estimatedCost: Math.round(BREAKDOWN[0].estimatedCost * f) },
-      { ...BREAKDOWN[1], estimatedCost: Math.round(BREAKDOWN[1].estimatedCost * f) },
-    ]);
+    // Catégories = celles du RÉSULTAT : une par lot du Quantitatif, montant
+    // égal au sous-total du lot (même produit, même arrondi).
+    expect(ctx.breakdown.map((b) => b.category)).toEqual(["fondations", "toiture"]);
+    expect(ctx.breakdown.map((b) => b.label)).toEqual(["Fondations", "Toiture"]);
     expect(ctx.breakdown[0].estimatedCost).toBe(115_741);
     expect(ctx.breakdown[1].estimatedCost).toBe(57_870);
+    // Pourcentages recalculés sur la somme des catégories du résultat.
+    expect(ctx.breakdown.map((b) => b.percentage)).toEqual([66.7, 33.3]);
 
     // Quantitatif = `scaleDqeLots(lots, scaleFactor × realCostFactor)` du
     // résultat : arronds identiques, prix unitaire recalculé depuis le total.
@@ -209,7 +211,10 @@ describe("getProjectBudgetContext — coûts strictement identiques au résultat
     if (!ctx) return;
 
     expect(ctx.totalCost).toBe(255_960);
-    expect(ctx.breakdown).toEqual(BREAKDOWN);
+    expect(ctx.breakdown).toEqual([
+      { category: "fondations", label: "Fondations", estimatedCost: 100_000, percentage: 66.7 },
+      { category: "toiture", label: "Toiture", estimatedCost: 50_000, percentage: 33.3 },
+    ]);
     expect(ctx.lots[0].subtotal).toBe(100_000);
     expect(ctx.lots[0].lines[0]).toEqual({
       designation: "Béton C25/30",
@@ -220,6 +225,57 @@ describe("getProjectBudgetContext — coûts strictement identiques au résultat
       total: 6_400,
     });
     expect(ctx.lots[1].lines[0].total).toBe(5_460);
+  });
+
+  it("catégories = celles du résultat, filtrées par le « Mode de construction »", async () => {
+    // Projet villa avec deux lots connus du gabarit : seul « gros_oeuvre » est
+    // retenu dans « Mode de construction ».
+    const projectId = await t.run(async (ctx) =>
+      ctx.db.insert("projects", {
+        userId,
+        name: "Villa 150 m²",
+        category: "villa",
+        status: "completed",
+        region: "tunis",
+        surface: 150,
+        floors: 1,
+        selectedScenario: "standard",
+        workCategories: ["gros_oeuvre"],
+        dqe: {
+          lots: [
+            { id: "gros_oeuvre", name: "Gros œuvre (fondations, structures)", subtotal: 180_000, lines: [] },
+            { id: "second_oeuvre", name: "Second œuvre et finitions", subtotal: 60_000, lines: [] },
+          ],
+        },
+        costEstimate: {
+          totalCost: 240_000,
+          costPerSquareMeter: 1_600,
+          currency: "TND",
+          breakdown: [],
+          contingencyBuffer: 0,
+          contingencyPercentage: 0,
+          budgetScenarios: SCENARIOS,
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }),
+    );
+    const ctx = await asUser(t, userId).query(api.decisionSupport.getProjectBudgetContext, {
+      projectId,
+    });
+    expect(ctx).not.toBeNull();
+    if (!ctx) return;
+
+    // Une seule catégorie : celle réellement chiffrée par le résultat.
+    expect(ctx.breakdown).toEqual([
+      {
+        category: "gros_oeuvre",
+        label: "Gros œuvre (fondations, structures)",
+        estimatedCost: 180_000,
+        percentage: 100,
+      },
+    ]);
+    expect(ctx.lots.map((l) => l.id)).toEqual(["gros_oeuvre"]);
   });
 
   it("refuse l'accès à un autre utilisateur", async () => {

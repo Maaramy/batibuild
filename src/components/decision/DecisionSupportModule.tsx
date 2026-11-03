@@ -304,7 +304,12 @@ export function DecisionSupportModule({
         projectTotal,
         costPerM2,
         budgetAvailable: value,
+        // Catégories du RÉSULTAT « Coût de construction » (une par lot du
+        // Quantitatif, filtrées par le « Mode de construction ») : la capacité
+        // de construction, la priorisation et les recommandations suivent donc
+        // exactement les postes chiffrés du résultat.
         breakdown: ctx.breakdown,
+        breakdownSource: ctx.breakdownSource,
         lots: ctx.lots,
         surface,
       });
