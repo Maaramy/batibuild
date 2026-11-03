@@ -61,6 +61,21 @@ export const ANDROID_APP_PLAY_STORE_URL = `https://play.google.com/store/apps/de
 export const ANDROID_APP_PUBLISHED = false;
 
 /**
+ * BOUTONS DE TÉLÉCHARGEMENT ACTIFS ?
+ *
+ * Désactivés sur demande : les deux boutons de la page d'accueil (bandeau
+ * épinglé et bannière du pied de page) restent VISIBLES mais INACTIFS — aucun
+ * clic ne mène au fichier, aucun téléchargement n'est déclenché. Repasser ce
+ * drapeau à `true` réactive les deux boutons d'un coup, sans autre changement.
+ */
+export const ANDROID_APP_DOWNLOAD_ENABLED = false;
+
+/** Les boutons de téléchargement sont-ils cliquables ? */
+export function isAppDownloadEnabled(): boolean {
+  return ANDROID_APP_DOWNLOAD_ENABLED;
+}
+
+/**
  * Choix de la cible, isolé du drapeau pour être testable dans les deux cas :
  * fiche Play Store si l'application est publiée, sinon fichier direct.
  */

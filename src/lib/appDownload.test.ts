@@ -21,6 +21,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  ANDROID_APP_DOWNLOAD_ENABLED,
   ANDROID_APP_DOWNLOAD_URL,
   ANDROID_APP_FILE_ID,
   ANDROID_APP_PACKAGE_ID,
@@ -32,6 +33,7 @@ import {
   dismissAppDownloadBanner,
   getAppDownloadUrl,
   isAppDownloadBannerDismissed,
+  isAppDownloadEnabled,
   resolveAppDownloadUrl,
   resolveBannerFlagStore,
   subscribeAppDownloadBanner,
@@ -207,6 +209,37 @@ describe("page de chargement", () => {
 
     expect(loading).toBeGreaterThan(-1);
     expect(fallback).toContain("Loading...");
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Boutons de téléchargement DÉSACTIVÉS (demande éditoriale)
+ * ------------------------------------------------------------------ */
+
+describe("boutons de téléchargement désactivés", () => {
+  const pinned = stripComments(read("components", "AppDownloadBanner.tsx"));
+  const footer = stripComments(read("components", "AppDownloadFooterBanner.tsx"));
+
+  it("le drapeau de téléchargement est désactivé", () => {
+    expect(ANDROID_APP_DOWNLOAD_ENABLED).toBe(false);
+    expect(isAppDownloadEnabled()).toBe(false);
+  });
+
+  it("les deux bandeaux lisent ce drapeau et rendent un état inactif", () => {
+    for (const source of [pinned, footer]) {
+      expect(source).toContain("isAppDownloadEnabled");
+      expect(source).toContain('aria-disabled="true"');
+      // Aucune cible cliquable dans l'état désactivé : pas de lien rendu.
+      expect(source).toContain('cursor-not-allowed');
+    }
+  });
+
+  it("conserve les deux boutons visibles sur la page d'accueil", () => {
+    expect(pinned).toContain("Télécharger");
+    expect(footer).toContain("Télécharger");
+    const landing = stripComments(read("pages", "Landing.tsx"));
+    expect(landing).toContain("<AppDownloadBanner />");
+    expect(landing).toContain("<AppDownloadFooterBanner");
   });
 });
 

@@ -4,7 +4,11 @@ import { Download, X } from "lucide-react";
 
 import { GooglePlayIcon } from "@/components/GooglePlayIcon";
 import { LogoMark } from "@/components/Logo";
-import { dismissAppDownloadBanner, getAppDownloadUrl } from "@/lib/appDownload";
+import {
+  dismissAppDownloadBanner,
+  getAppDownloadUrl,
+  isAppDownloadEnabled,
+} from "@/lib/appDownload";
 import { useAppDownloadBannerVisible } from "@/hooks/use-app-download-banner";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +23,9 @@ import { cn } from "@/lib/utils";
  *   · l'icône batibuild, l'icône Google Play, le texte et le bouton mènent tous
  *     à la MÊME cible que la bannière du pied de page (`getAppDownloadUrl()`) :
  *     la fiche Play Store dès que l'application y est publiée, sinon le fichier
- *     officiel de l'application Android ;
+ *     officiel de l'application Android — TANT QUE le téléchargement est actif
+ *     (`ANDROID_APP_DOWNLOAD_ENABLED`). Désactivé, le bandeau reste affiché mais
+ *     devient un simple bloc informatif, sans lien ni clic ;
  *   · `target="_blank"` + `rel="noopener noreferrer"` : nouvel onglet sur
  *     ordinateur et navigateur mobile ; dans l'application Android, la coque
  *     ouvre les domaines externes dans le navigateur système — jamais de
@@ -45,6 +51,36 @@ export function AppDownloadBanner({ className }: { className?: string }) {
 
   if (!visible) return null;
 
+  // Boutons désactivés sur demande : le bandeau reste affiché, mais la zone de
+  // téléchargement n'est plus une cible cliquable (aucun lien, aucun clic).
+  const enabled = isAppDownloadEnabled();
+
+  const inner = (
+    <>
+      <LogoMark size="sm" className="h-6 w-6 shrink-0 rounded-md ring-1 ring-white/25" />
+
+      <span className="min-w-0 truncate text-[12px] font-semibold leading-tight sm:text-[13px]">
+        {t("appDownload.title")}
+      </span>
+
+      <span className="hidden shrink-0 items-center gap-1.5 text-[11px] font-medium text-white/85 sm:flex">
+        <GooglePlayIcon className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">{t("appDownload.subtitle")}</span>
+      </span>
+
+      <span
+        aria-hidden="true"
+        className={cn(
+          "ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1",
+          "text-[11px] font-semibold text-white transition-colors group-hover:bg-white/25",
+        )}
+      >
+        <Download className="h-3.5 w-3.5" />
+        <span>Télécharger</span>
+      </span>
+    </>
+  );
+
   return (
     <div
       role="complementary"
@@ -55,36 +91,27 @@ export function AppDownloadBanner({ className }: { className?: string }) {
       )}
     >
       <div className="mx-auto flex h-10 max-w-7xl items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:px-8">
-        {/* Toute la zone gauche ouvre le téléchargement : une seule cible, large. */}
-        <a
-          href={getAppDownloadUrl()}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={t("appDownload.openAria")}
-          className="group flex min-w-0 flex-1 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:gap-3"
-        >
-          <LogoMark size="sm" className="h-6 w-6 shrink-0 rounded-md ring-1 ring-white/25" />
-
-          <span className="min-w-0 truncate text-[12px] font-semibold leading-tight sm:text-[13px]">
-            {t("appDownload.title")}
-          </span>
-
-          <span className="hidden shrink-0 items-center gap-1.5 text-[11px] font-medium text-white/85 sm:flex">
-            <GooglePlayIcon className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{t("appDownload.subtitle")}</span>
-          </span>
-
-          <span
-            aria-hidden="true"
-            className={cn(
-              "ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1",
-              "text-[11px] font-semibold text-white transition-colors group-hover:bg-white/25",
-            )}
+        {/* Toute la zone gauche ouvre le téléchargement : une seule cible, large.
+            Désactivée, elle devient un simple bloc informatif. */}
+        {enabled ? (
+          <a
+            href={getAppDownloadUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={t("appDownload.openAria")}
+            className="group flex min-w-0 flex-1 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:gap-3"
           >
-            <Download className="h-3.5 w-3.5" />
-            <span>Télécharger</span>
-          </span>
-        </a>
+            {inner}
+          </a>
+        ) : (
+          <div
+            aria-disabled="true"
+            aria-label={t("appDownload.openAria")}
+            className="flex min-w-0 flex-1 cursor-not-allowed items-center gap-2 rounded-md opacity-60 sm:gap-3"
+          >
+            {inner}
+          </div>
+        )}
 
         {/* ✕ : masquage immédiat, mémorisé pour la session. */}
         <button

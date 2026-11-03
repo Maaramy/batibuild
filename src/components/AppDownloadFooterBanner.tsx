@@ -2,7 +2,7 @@ import { Download } from "lucide-react";
 
 import { GooglePlayIcon } from "@/components/GooglePlayIcon";
 import { LogoMark } from "@/components/Logo";
-import { getAppDownloadUrl } from "@/lib/appDownload";
+import { getAppDownloadUrl, isAppDownloadEnabled } from "@/lib/appDownload";
 import { IS_ANDROID_APP } from "@/lib/runtime";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +14,9 @@ import { cn } from "@/lib/utils";
  * l'application y est publiée, sinon le fichier officiel de l'application
  * Android. Insérée en ligne dans le pied de page, sans flottement ni fermeture.
  *
- *   · toute la bannière est UNE seule cible cliquable, avec `aria-label` ;
+ *   · toute la bannière est UNE seule cible cliquable, avec `aria-label` —
+ *     sauf quand le téléchargement est désactivé (`ANDROID_APP_DOWNLOAD_ENABLED`) :
+ *     elle reste alors visible et informative, mais sans lien ni clic ;
  *   · `target="_blank"` + `rel="noopener noreferrer"` : nouvel onglet sur
  *     ordinateur et navigateur mobile ; dans l'application Android, la coque
  *     ouvre les domaines externes dans le navigateur système — jamais de
@@ -30,20 +32,12 @@ export function AppDownloadFooterBanner({ className }: { className?: string }) {
   // Inutile de proposer l'application depuis l'application elle-même.
   if (IS_ANDROID_APP) return null;
 
-  return (
-    <a
-      href={getAppDownloadUrl()}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="Télécharger l'application batibuild pour Android"
-      className={cn(
-        "group flex max-w-md items-center gap-3 rounded-xl border border-emerald-500/25",
-        "bg-emerald-500/5 p-3 transition-colors",
-        "hover:border-emerald-500/40 hover:bg-emerald-500/10",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60",
-        className,
-      )}
-    >
+  // Boutons désactivés sur demande : la bannière reste visible et informative,
+  // mais n'est plus une cible cliquable (aucun lien, aucun téléchargement).
+  const enabled = isAppDownloadEnabled();
+
+  const inner = (
+    <>
       <LogoMark
         size="sm"
         className="shrink-0 rounded-md shadow-sm ring-1 ring-emerald-500/20"
@@ -70,6 +64,40 @@ export function AppDownloadFooterBanner({ className }: { className?: string }) {
         <Download className="h-3.5 w-3.5" />
         Télécharger
       </span>
+    </>
+  );
+
+  if (!enabled) {
+    return (
+      <div
+        aria-disabled="true"
+        aria-label="Télécharger l'application batibuild pour Android"
+        className={cn(
+          "flex max-w-md cursor-not-allowed items-center gap-3 rounded-xl border border-emerald-500/25",
+          "bg-emerald-500/5 p-3 opacity-60",
+          className,
+        )}
+      >
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={getAppDownloadUrl()}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Télécharger l'application batibuild pour Android"
+      className={cn(
+        "group flex max-w-md items-center gap-3 rounded-xl border border-emerald-500/25",
+        "bg-emerald-500/5 p-3 transition-colors",
+        "hover:border-emerald-500/40 hover:bg-emerald-500/10",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60",
+        className,
+      )}
+    >
+      {inner}
     </a>
   );
 }
