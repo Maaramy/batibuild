@@ -8,11 +8,8 @@
 //     intermédiaire `/view`) ;
 //   · une fois l'application publiée sur le Play Store, les DEUX bandeaux
 //     (épinglé et pied de page) basculent ensemble vers la même fiche ;
-//   · la PAGE D'ACCUEIL n'affiche plus AUCUN lien de téléchargement
-//     (demande explicite : le bandeau épinglé et celui du pied de page ont été
-//     retirés de `Landing.tsx`) ;
-//   · les composants de bandeau restent disponibles, avec un ✕ qui masque
-//     immédiatement et une fermeture mémorisée pour la session ;
+//   · le bandeau est ÉPINGLÉ en haut de la page d'accueil (en tête de la barre
+//     de navigation `fixed top-0`), avec un ✕ qui le masque immédiatement ;
 //   · la fermeture est mémorisée pour la SESSION seulement (nouvelle session →
 //     bandeau réaffiché) et un stockage indisponible ne casse jamais le ✕ ;
 //   · la page de CHARGEMENT, elle, n'affiche plus aucune bannière ;
@@ -262,23 +259,31 @@ describe("bandeau épinglé en haut de la page", () => {
     );
   });
 
-  it("n'est plus affiché sur la page d'accueil", () => {
+  it("est ÉPINGLÉ en haut de la page d'accueil, dans la barre de navigation fixe", () => {
     const landing = stripComments(read("pages", "Landing.tsx"));
 
-    // Aucun lien de téléchargement de l'application sur la page d'accueil : ni
-    // bandeau épinglé, ni bannière de pied de page, ni état de visibilité.
-    expect(landing).not.toContain("AppDownloadBanner");
-    expect(landing).not.toContain("AppDownloadFooterBanner");
-    expect(landing).not.toContain("useAppDownloadBannerVisible");
-    expect(landing).not.toContain("drive.google.com");
+    expect(landing).toContain(
+      'import { AppDownloadBanner } from "@/components/AppDownloadBanner";',
+    );
+
+    // La barre de navigation est `fixed top-0` : le bandeau rendu en PREMIER
+    // dans cet en-tête reste donc épinglé en haut de l'écran pendant le défilement.
+    expect(landing).toContain("fixed top-0 left-0 right-0");
+
+    const header = landing.indexOf("fixed top-0 left-0 right-0");
+    const bannerIndex = landing.indexOf("<AppDownloadBanner />");
+    const navRow = landing.indexOf("mx-auto flex h-16 max-w-7xl");
+
+    expect(bannerIndex).toBeGreaterThan(header);
+    expect(bannerIndex).toBeLessThan(navRow);
   });
 
-  it("garde le haut de page aligné sur la seule barre de navigation", () => {
+  it("décale le haut de page pour ne rien masquer (barre + bandeau)", () => {
     const landing = stripComments(read("pages", "Landing.tsx"));
 
-    expect(landing).toContain("pt-16");
-    // Plus de bandeau épinglé : aucun décalage supplémentaire à prévoir.
-    expect(landing).not.toContain("pt-26");
+    expect(landing).toContain("useAppDownloadBannerVisible()");
+    expect(landing).toContain('"pt-16"');
+    expect(landing).toContain('"pt-26"');
   });
 
   it("le texte affiché est exactement celui demandé (fr / en / ar)", () => {
@@ -366,14 +371,19 @@ describe("bannière du pied de page", () => {
     expect(footerBanner).toContain("Disponible sur Android");
   });
 
-  it("n'est plus rendue dans le pied de page de la page d'accueil", () => {
+  it("est rendue dans le pied de page de la page d'accueil", () => {
     const landing = stripComments(read("pages", "Landing.tsx"));
 
-    // Le pied de page ne conserve que la mention de copyright.
-    expect(landing).toContain("GALISKON PROJECT");
-    expect(landing).not.toContain("<AppDownloadFooterBanner");
-    expect(landing).not.toContain(
+    expect(landing).toContain(
       'import { AppDownloadFooterBanner } from "@/components/AppDownloadFooterBanner";',
     );
+
+    const footer = landing.indexOf("function Footer()");
+    const banner = landing.indexOf("<AppDownloadFooterBanner");
+    const endOfFooter = landing.indexOf("function Landing()");
+
+    expect(footer).toBeGreaterThan(-1);
+    expect(banner).toBeGreaterThan(footer);
+    expect(banner).toBeLessThan(endOfFooter);
   });
 });
