@@ -458,6 +458,13 @@ const schema = defineSchema(
       category: projectCategoryValidator,
       status: projectStatusValidator,
       description: v.optional(v.string()),
+      // ── « Mode de construction » (étape du tunnel de création) ──
+      // Catégories de travaux que l'utilisateur souhaite construire, exprimées
+      // avec les identifiants des lots du Quantitatif détaillé
+      // (« gros_oeuvre », « second_oeuvre », « vrd »…). L'estimation de coût
+      // s'ajuste sur cette liste. ABSENT = projet sans sélection (toutes les
+      // catégories) : aucun projet existant n'est donc filtré rétroactivement.
+      workCategories: v.optional(v.array(v.string())),
       region: v.optional(regionValidator),
       // Scénario budgétaire actif choisi dans « Coût estimatif »
       // ("economique" | "standard" | "premium"). Source partagée qui pilote

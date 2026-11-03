@@ -94,6 +94,9 @@ export function useProjectMaterialUsage(
       resolveEstimationBudget({
         costEstimate: project?.costEstimate ?? null,
         dqeLots: ((project as any)?.dqe?.lots ?? []) as any[],
+        // « Mode de construction » : les quantités suivent les travaux chiffrés.
+        workCategories: ((project as any)?.workCategories ?? null) as string[] | null,
+        projectCategory: (project?.category as string | undefined) ?? null,
         builtSurface,
         selectedScenario,
         baseScenario: (customization?.baseScenario ?? "standard") as BudgetScenarioKey,

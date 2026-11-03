@@ -100,6 +100,7 @@ import {
   isEnduitLissageName,
 } from "@/lib/enduitLissage";
 import { resolveEstimationBudget } from "@/lib/estimationBudget";
+import { applyWorkSelectionToLots, resolveWorkSelection } from "@/lib/workCategories";
 import {
   formatLaborLot,
   formatQuantitatifQuantity,
@@ -566,7 +567,10 @@ export default function ProjectDetail() {
       ai,
       scenarios,
       scenario,
-      dqe: sdbPdfLots ? { lots: sdbPdfLots } : dqeData,
+      // « Mode de construction » : le devis ne reprend que les catégories
+      // chiffrées (sans sélection enregistrée, `workFilteredDqeLots` est
+      // identique aux lots d'origine).
+      dqe: sdbPdfLots ? { lots: sdbPdfLots } : dqeData ? { ...dqeData, lots: workFilteredDqeLots } : dqeData,
       dqeScaleFactor: sdbPdfLots ? 1 : sf,
       // Scénario « Personnalisé » : `null` s'il n'y a aucune modification — le
       // devis n'en fait alors aucune mention.
@@ -726,6 +730,38 @@ export default function ProjectDetail() {
     () => ((project as any)?.dqe?.lots ?? []) as any[],
     [project],
   );
+  // ── « Mode de construction » ─────────────────────────────────────────
+  // Catégories de travaux retenues à la création du projet. Absentes = projet
+  // sans sélection : aucune catégorie n'est filtrée (comportement historique).
+  // Le filtre est appliqué à la SOURCE des montants affichés : quantitatif
+  // détaillé, répartition, total, coût au m² et scénarios budgétaires restent
+  // donc toujours cohérents entre eux.
+  const workSelection = useMemo(
+    () =>
+      resolveWorkSelection(
+        (project as any)?.workCategories as string[] | undefined,
+        project?.category as string | undefined,
+      ),
+    [project],
+  );
+  const workFilteredDqeLots = useMemo(
+    () => applyWorkSelectionToLots(rawDqeLots, workSelection),
+    [rawDqeLots, workSelection],
+  );
+  /** Catégories volontairement exclues de l'estimation (pour l'affichage). */
+  const excludedWorkCategories = useMemo(
+    () =>
+      workSelection.active
+        ? rawDqeLots
+            .filter(
+              (lot: any) =>
+                workSelection.known.has(lot?.id) && !workSelection.selected.has(lot?.id),
+            )
+            .map((lot: any) => ({ id: lot?.id as string, label: String(lot?.name ?? lot?.id) }))
+        : [],
+    [rawDqeLots, workSelection],
+  );
+
   const rawLineByKey = useMemo(() => {
     // `Map` est aussi une icône lucide importée dans ce fichier : on cible
     // explicitement le constructeur global.
@@ -802,6 +838,10 @@ export default function ProjectDetail() {
       resolveEstimationBudget({
         costEstimate: storedCe ?? null,
         dqeLots: rawDqeLots,
+        // « Mode de construction » : le résolveur filtre les lots et ajuste les
+        // scénarios ; sans sélection enregistrée, rien n'est modifié.
+        workCategories: ((project as any)?.workCategories ?? null) as string[] | null,
+        projectCategory: (project?.category as string | undefined) ?? null,
         builtSurface,
         selectedScenario: storedScenarioKey ?? null,
         baseScenario: baseScenarioKey,
@@ -812,6 +852,7 @@ export default function ProjectDetail() {
     [
       storedCe,
       rawDqeLots,
+      project,
       builtSurface,
       storedScenarioKey,
       baseScenarioKey,
@@ -1024,47 +1065,64 @@ export default function ProjectDetail() {
     [sdbDisplayLots],
   );
 
-  // Total et coût/m² réellement affichés : le scénario « Personnalisé » n'est
-  // pris en compte que lorsqu'il est effectivement affiché.
-  const displayTotal: number =
-    personalized && isPersonalizedScenario
-      ? Number(personalized.totals.total)
-      : sdbDisplayLots
-        ? sdbDisplayTotal
-        : Number(estimationBudget.scenarios?.[effectiveScenario as BudgetScenarioKey]?.totalCost ?? currentTotal);
-  const displayCostM2 =
-    personalized && isPersonalizedScenario
-      ? personalized.totals.costPerM2
-      : sdbDisplayLots
-        ? builtSurface > 0
-          ? Math.round(sdbDisplayTotal / builtSurface)
-          : 0
-        : Number(estimationBudget.scenarios?.[effectiveScenario as BudgetScenarioKey]?.costPerM2 ?? currentCostM2);
-
   // ── Catégories réellement affichées par le « Quantitatif détaillé » ────
   // SOURCE UNIQUE du quantitatif affiché : mise à l'échelle du scénario
   // sélectionné, puis (scénario « Personnalisé ») modifications d'articles,
   // postes supprimés et catégories de travaux complémentaires. Elle alimente à
   // la fois « Quantitatif détaillé », « Répartition » et « Détail par
   // catégorie » : ces trois blocs ne peuvent donc jamais diverger.
-  const quantitatifLots = useMemo<any[]>(
-    () =>
+  const quantitatifLots = useMemo<any[]>(() => {
+    const lots =
       isPersonalizedScenario && personalized
         ? personalized.lots
         : sdbDisplayLots
           ? sdbDisplayLots
           : rawDqeLots.length
             ? scaleDqeLots(rawDqeLots, scaleFactor * realCostFactor)
-            : [],
-    [
-      rawDqeLots,
-      isPersonalizedScenario,
-      personalized,
-      scaleFactor,
-      realCostFactor,
-      sdbDisplayLots,
-    ],
+            : [];
+    // « Mode de construction » : seuls les travaux sélectionnés sont chiffrés.
+    // Le filtre s'applique ici, à la source unique du quantitatif affiché, donc
+    // « Répartition », « Détail par catégorie » et le total restent alignés.
+    return applyWorkSelectionToLots(lots, workSelection);
+  }, [
+    rawDqeLots,
+    isPersonalizedScenario,
+    personalized,
+    scaleFactor,
+    realCostFactor,
+    sdbDisplayLots,
+    workSelection,
+  ]);
+
+  // Total et coût/m² réellement affichés : le scénario « Personnalisé » n'est
+  // pris en compte que lorsqu'il est effectivement affiché. Avec un « Mode de
+  // construction » actif, le total EST la somme exacte des catégories
+  // chiffrées (celles du quantitatif affiché) : les barres de « Répartition »,
+  // leurs pourcentages et le total ne peuvent donc jamais diverger.
+  const displayedLotsTotal = useMemo(
+    () => quantitatifLots.reduce((s: number, lot: any) => s + (Number(lot?.subtotal) || 0), 0),
+    [quantitatifLots],
   );
+  const displayTotal: number =
+    workSelection.active && quantitatifLots.length
+      ? displayedLotsTotal
+      : personalized && isPersonalizedScenario
+        ? Number(personalized.totals.total)
+        : sdbDisplayLots
+          ? sdbDisplayTotal
+          : Number(estimationBudget.scenarios?.[effectiveScenario as BudgetScenarioKey]?.totalCost ?? currentTotal);
+  const displayCostM2 =
+    workSelection.active && quantitatifLots.length
+      ? builtSurface > 0
+        ? Math.round(displayedLotsTotal / builtSurface)
+        : 0
+      : personalized && isPersonalizedScenario
+        ? personalized.totals.costPerM2
+        : sdbDisplayLots
+          ? builtSurface > 0
+            ? Math.round(sdbDisplayTotal / builtSurface)
+            : 0
+          : Number(estimationBudget.scenarios?.[effectiveScenario as BudgetScenarioKey]?.costPerM2 ?? currentCostM2);
 
   // ── Répartition / Détail par catégorie ─────────────────────────────────
   // UNE part par catégorie du Quantitatif détaillé : mêmes libellés, mêmes
@@ -2333,6 +2391,30 @@ export default function ProjectDetail() {
                 </motion.div>
               );
             })()}
+
+            {/* ═══ Mode de construction — travaux réellement chiffrés ═══ */}
+            {workSelection.active && (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-50/40 p-3 dark:bg-emerald-950/20 sm:p-4">
+                <div className="flex items-start gap-2.5">
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-300">
+                    <HardHat className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold sm:text-sm">
+                      Mode de construction — {workSelection.selected.size} catégorie
+                      {workSelection.selected.size > 1 ? "s" : ""} chiffrée
+                      {workSelection.selected.size > 1 ? "s" : ""}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground sm:text-xs">
+                      L'estimation ne couvre que les travaux sélectionnés à la création du projet.
+                      {excludedWorkCategories.length > 0 && (
+                        <> Exclus du chiffrage : {excludedWorkCategories.map((c) => c.label).join(" · ")}.</>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ═══ Répartition (barres) + Détail par catégorie ═══ */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

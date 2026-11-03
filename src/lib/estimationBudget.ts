@@ -29,6 +29,12 @@ import {
   type QuantitatifPosteRemovalEntry,
 } from "@/convex/quantitatifCustomLogic";
 import { withComplementaryWorksLots } from "@/lib/complementaryWorks";
+import {
+  applyWorkSelectionToLots,
+  resolveWorkSelection,
+  scaleCostEstimateForWorkSelection,
+  workSelectionRatio,
+} from "@/lib/workCategories";
 import type { CustomWorkEstimate } from "@/convex/customWorksEngine";
 import { legacyContingencyFactor, type CostEstimateLike } from "@/lib/constructionCost";
 
@@ -77,6 +83,14 @@ export interface EstimationBudget {
 export interface EstimationBudgetInput {
   /** Estimation enregistrée du projet (`projects.costEstimate`). */
   costEstimate: CostEstimateLike | null | undefined;
+  /**
+   * « Mode de construction » : catégories de travaux retenues à la création.
+   * Absent ou vide = toutes les catégories (aucun filtrage) — les projets
+   * antérieurs à cette étape conservent donc exactement leurs montants.
+   */
+  workCategories?: readonly string[] | null;
+  /** Type de projet, pour le gabarit des catégories (les lots inconnus sont conservés). */
+  projectCategory?: string | null;
   /** Quantitatif détaillé enregistré (`projects.dqe.lots`). */
   dqeLots: any[] | null | undefined;
   /** Surface réellement construite (m²) — base du coût au m². */
@@ -108,7 +122,22 @@ const isScenarioKey = (value: unknown): value is BudgetScenarioKey =>
  * Retourne exactement les mêmes nombres que l'estimation officielle.
  */
 export function resolveEstimationBudget(input: EstimationBudgetInput): EstimationBudget {
-  const stored = input.costEstimate ?? null;
+  // ── « Mode de construction » ────────────────────────────────────────────
+  // La sélection de catégories s'applique ICI, en amont de tous les montants :
+  // quantitatif du scénario, total, coût au m² et scénarios Économique /
+  // Standard / Premium sont donc ajustés ensemble, sur les deux pages
+  // (résultat d'estimation et aide à la décision) et dans les rapports.
+  const workSelection = resolveWorkSelection(input.workCategories, input.projectCategory);
+  const allLots = Array.isArray(input.dqeLots) ? input.dqeLots : [];
+  const keptLots = workSelection.active
+    ? applyWorkSelectionToLots(allLots, workSelection)
+    : allLots;
+  const workRatio = workSelection.active ? workSelectionRatio(allLots, keptLots) : 1;
+
+  const stored =
+    (scaleCostEstimateForWorkSelection(input.costEstimate ?? null, workRatio) as
+      | CostEstimateLike
+      | null) ?? null;
   // Même correction que le résultat : les anciennes estimations portent encore
   // une majoration d'imprévus que l'on retire, au dinar près.
   const factor = legacyContingencyFactor(stored);
@@ -140,7 +169,7 @@ export function resolveEstimationBudget(input: EstimationBudgetInput): Estimatio
 
   const totalCost = real(stored?.totalCost);
 
-  const rawLots = Array.isArray(input.dqeLots) ? input.dqeLots : [];
+  const rawLots = keptLots;
   const modifications = [...(input.modifications ?? [])];
   const removedPostes = [...(input.removedPostes ?? [])];
   const complementaryWorks = input.complementaryWorks ?? [];

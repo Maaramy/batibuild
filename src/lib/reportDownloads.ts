@@ -254,6 +254,10 @@ export async function downloadDecisionSupportReport(
   const budget = resolveEstimationBudget({
     costEstimate: (project as ProjectLike)?.costEstimate ?? null,
     dqeLots: ((project as ProjectLike)?.dqe?.lots ?? []) as any[],
+    // Rapports alignés sur la page de résultat : seuls les travaux du « Mode de
+    // construction » sont chiffrés (aucune sélection = comportement d'origine).
+    workCategories: ((project as any)?.workCategories ?? null) as string[] | null,
+    projectCategory: ((project as any)?.category ?? null) as string | null,
     builtSurface,
     selectedScenario: storedScenario ?? null,
     baseScenario,

@@ -119,6 +119,9 @@ export default function DecisionSupport() {
       resolveEstimationBudget({
         costEstimate: project?.costEstimate ?? null,
         dqeLots: ((project as any)?.dqe?.lots ?? []) as any[],
+        // Mêmes travaux chiffrés que la page de résultat (« Mode de construction »).
+        workCategories: ((project as any)?.workCategories ?? null) as string[] | null,
+        projectCategory: (project?.category as string | undefined) ?? null,
         builtSurface,
         selectedScenario: project?.selectedScenario ?? null,
         baseScenario: (customization?.baseScenario ?? "standard") as BudgetScenarioKey,

@@ -392,6 +392,10 @@ export const createProject = mutation({
     // Surfaces couvertes réelles de chaque niveau (1er élément = RDC), saisies
     // dans le formulaire : un étage de surface différente reçoit son propre coût.
     levelSurfaces: v.optional(v.array(v.number())),
+    // « Mode de construction » : catégories de travaux retenues à l'étape dédiée
+    // du tunnel (identifiants de lots du Quantitatif détaillé). Absent = toutes
+    // les catégories du type de projet (comportement historique).
+    workCategories: v.optional(v.array(v.string())),
     // Nombre de pièces (maison, villa, immeuble résidentiel)
     bedrooms: v.optional(v.number()),
     bathrooms: v.optional(v.number()),
@@ -453,6 +457,11 @@ export const createProject = mutation({
       surface: args.surface,
       floors: args.floors,
       levelSurfaces: args.levelSurfaces,
+      // Sélection « Mode de construction » : liste bornée et dédupliquée pour
+      // qu'aucune valeur arbitraire du client ne s'accumule dans le document.
+      workCategories: args.workCategories
+        ? [...new Set(args.workCategories.map((id) => id.trim()).filter(Boolean))].slice(0, 40)
+        : undefined,
       bedrooms: args.bedrooms,
       bathrooms: args.bathrooms,
       kitchens: args.kitchens,
