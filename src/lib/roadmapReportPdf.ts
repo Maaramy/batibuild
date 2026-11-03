@@ -133,6 +133,33 @@ export function exportRoadmapPdf(roadmap: Roadmap) {
       columnStyles: { 0: { cellWidth: 65 }, 5: { cellWidth: 20 } },
     });
     y = (doc as any).lastAutoTable.finalY + 8;
+
+    // Catégories réellement chiffrées dans le résultat « Coût de construction ».
+    if (roadmap.execution.categories?.length) {
+      const categoryRows = roadmap.execution.categories.map((c) => [
+        stripEmojis(c.name),
+        `${c.pctOfTotal} %`,
+        fmtTnd(c.amount),
+        `${c.taskIds.length} tâche(s)`,
+        `${c.progress} %`,
+      ]);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(...emerald);
+      doc.text("2.2 Catégories du résultat « Coût de construction » suivies", margin, y);
+      y += 2;
+      (doc as any).autoTable({
+        startY: y,
+        margin: { left: margin, right: margin },
+        head: [["Catégorie du résultat", "Part", "Montant", "Tâches", "Avancement"]],
+        body: categoryRows,
+        theme: "grid",
+        headStyles: { fillColor: emerald as any, fontSize: 8.5 },
+        styles: { fontSize: 8, cellPadding: 2 },
+        columnStyles: { 0: { cellWidth: 80 }, 3: { cellWidth: 22 } },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+    }
   }
 
   // ── Démarches administratives ──

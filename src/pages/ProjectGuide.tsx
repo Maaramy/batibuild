@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import SiteDiagnostic from "@/components/SiteDiagnostic";
+import { ProjectExecutionCategories } from "@/components/ProjectExecutionCategories";
 import BudgetAllocation from "@/components/BudgetAllocation";
 import { CostEvolutionCard } from "@/components/CostEvolutionCard";
 import { Gantt, PhaseIcon, PhaseList, RoadmapOverview } from "@/components/ProjectGuideSections";
@@ -793,7 +794,8 @@ export default function ProjectGuide() {
               </p>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                 {roadmap.execution?.description ?? "Travaux enregistrés pour ce projet."}
-              </p>                  <p className="mt-1 text-[10px] text-muted-foreground/70">
+              </p>
+              <p className="mt-1 text-[10px] text-muted-foreground/70">
                 {roadmap.execution?.taskCount ?? roadmap.construction.length} tâche(s) ·{" "}
                 {roadmap.execution?.totalDays ?? maxDays} jours estimés ·{" "}
                 {roadmap.project.surface ? `${roadmap.project.surface} m²` : "surface non renseignée"}
@@ -802,38 +804,7 @@ export default function ProjectGuide() {
               </p>
             </div>
 
-            {executionCategories.length > 0 && (
-              <Card className="border-border/40 bg-background/50">
-                <CardHeader className="p-3 sm:p-4 pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-emerald-600" /> Catégories du résultat suivies
-                  </CardTitle>
-                  <CardDescription className="text-[10px]">
-                    Montants du « Coût de construction » ({fmtTnd(executionCategories.reduce((a, c) => a + c.amount, 0))})
-                    rattachés aux tâches d'exécution — {executionCategories.filter((c) => c.taskIds.length > 0).length} catégorie(s)
-                    couverte(s) par la trame.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4 pt-0 space-y-1.5">
-                  {executionCategories.map((cat) => (
-                    <div key={cat.id} className="rounded-lg border border-border/30 bg-muted/10 p-2.5">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="min-w-0 text-xs font-semibold leading-tight">{cat.name}</p>
-                        <div className="flex shrink-0 items-center gap-2">
-                          {cat.taskIds.length > 0 && <StatusBadge status={cat.status as ExecutionTaskStatus} />}
-                          <span className="text-[11px] font-bold tabular-nums">{fmtTnd(cat.amount)}</span>
-                        </div>
-                      </div>
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">
-                        {cat.pctOfTotal}% du budget du projet ·{" "}
-                        {cat.taskIds.length > 0 ? `${cat.taskIds.length} tâche(s) d'exécution` : "aucune tâche rattachée"}
-                      </p>
-                      <Progress value={cat.progress} className="mt-2 h-1 [&>div]:bg-emerald-500" />
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
+            <ProjectExecutionCategories categories={executionCategories} />
 
 
             {roadmap.materials && roadmap.materials.length > 0 && (

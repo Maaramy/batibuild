@@ -110,6 +110,7 @@ vi.mock("@/components/CostEvolutionCard", () => ({ CostEvolutionCard: () => null
 vi.mock("@/lib/roadmapReportPdf", () => ({ exportRoadmapPdf: () => undefined }));
 vi.mock("sonner", () => ({ toast: { success: () => undefined, error: () => undefined } }));
 
+import { ProjectExecutionCategories } from "@/components/ProjectExecutionCategories";
 import ProjectGuide from "@/pages/ProjectGuide";
 
 describe("page Exécution & Suivi — adaptation au type de projet", () => {
@@ -130,5 +131,30 @@ describe("page Exécution & Suivi — adaptation au type de projet", () => {
     // Aucune tâche d'une autre trame (piscine) n'est injectée dans la villa.
     expect(html).not.toContain("Filtration et traitement de l&#x27;eau");
     expect(html).not.toContain("Filtration et traitement de l&#39;eau");
+  });
+
+  it("suit les catégories chiffrées du résultat « Coût de construction »", () => {
+    const sub = (designation: string, total: number) => [
+      { designation, quantity: 1, unit: "u", unitPrice: total, total, nature: "materiaux" },
+    ];
+    const roadmap = generateRoadmap({
+      ...PROJECT,
+      quantitatif: {
+        lots: [
+          { id: "gros_oeuvre", name: "Gros œuvre (fondations, structures)", subtotal: 200_000, lines: sub("Béton", 200_000) },
+          { id: "toiture", name: "Étanchéité et toiture", subtotal: 120_000, lines: sub("Étanchéité", 120_000) },
+        ],
+      },
+    });
+
+    const html = renderToStaticMarkup(
+      <ProjectExecutionCategories categories={roadmap.execution!.categories} />,
+    );
+
+    // Les catégories du résultat sont listées avec leur montant réel.
+    expect(html).toContain("Catégories du résultat suivies");
+    expect(html).toContain("Gros œuvre (fondations, structures)");
+    expect(html).toContain("Étanchéité et toiture");
+    expect(html).toContain("tâche(s) d&#x27;exécution");
   });
 });
