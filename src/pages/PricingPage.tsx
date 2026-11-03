@@ -58,7 +58,10 @@ import {
 //      le profil devient invisible ; les données sont conservées.
 //
 //   Un professionnel peut cumuler les deux : l'achat Client Pro n'active jamais
-//   l'abonnement professionnel, et inversement.
+//   l'abonnement professionnel. Inversement, un abonnement Expert / Fournisseur
+//   ACTIF inclut les fonctionnalités Client Pro : aucune cotisation n'est alors
+//   exigée (la cotisation reste ouverte à ceux qui le souhaitent, et nécessaire
+//   aux comptes sans abonnement professionnel).
 //
 // Aucun prix n'est codé en dur : tout vient de Convex (`getPublicPricing`,
 // `getMyClientProCredits`). Tant que la configuration charge, aucun montant
@@ -384,7 +387,7 @@ export default function PricingPage() {
           <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
             Client Pro fonctionne par crédits de projets : un quota gratuit une seule fois, puis des
             packs achetés sans renouvellement automatique. Expert et Fournisseur disposent d'un
-            abonnement mensuel avec essai gratuit, indépendant de Client Pro.
+            abonnement mensuel avec essai gratuit, qui inclut les fonctionnalités Client Pro.
           </p>
         </div>
 
@@ -549,8 +552,9 @@ export default function PricingPage() {
                     <p className="text-[11px] leading-relaxed text-muted-foreground">
                       Le forfait professionnel donne accès aux services Expert ou Fournisseur :
                       visibilité dans l'annuaire, demandes de devis / consultation et messagerie.
-                      Il n'ouvre PAS les services Client Pro (estimation, rapports PDF, aide à la
-                      décision) : ceux-ci nécessitent une cotisation Client Pro séparée.
+                      Il inclut également les fonctionnalités Client Pro (estimation, rapports PDF,
+                      aide à la décision, suivi de A à Z) : aucune cotisation supplémentaire n'est
+                      nécessaire tant que l'abonnement est actif.
                     </p>
                     <div className="rounded-lg border border-border/30 bg-muted/10 p-3 text-[11px] text-muted-foreground">
                       <p className="font-medium text-foreground">À l'expiration</p>

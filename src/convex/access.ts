@@ -12,14 +12,16 @@ import { readTrialConfig, trialIncludes } from "./trialConfig";
 import { buildClientProCreditSnapshot, CLIENT_PRO_ACCESS_MARKER } from "./clientProCredits";
 
 export { CLIENT_PRO_ACCESS_MARKER };
-import type { TrialModuleKey } from "../lib/subscriptionPlans";
+import { isProfessionalPlan, type TrialModuleKey } from "../lib/subscriptionPlans";
 
 // ============================================================================
 // Accès aux services Client Pro
 // ============================================================================
 // Règle : pour utiliser les services de la plateforme (projets de construction,
-// matériaux IA, plans architecturaux, suivi de A à Z),
-// le client doit disposer d'un abonnement Client Pro PAYANT actif.
+// matériaux IA, plans architecturaux, suivi de A à Z), le compte doit disposer
+// des droits Client Pro — soit un abonnement PROFESSIONNEL actif (Expert ou
+// Fournisseur : les fonctionnalités Client Pro sont incluses), soit une
+// cotisation Client Pro (crédits de projets).
 //   - Abonnement expiré  → renouvellement obligatoire pour maintenir l'accès.
 //   - Aucune exception   → l'ancienne « Offre gratuite » Client Pro (accès
 //                          permanent sans échéance ni paiement) a été supprimée :
@@ -256,17 +258,42 @@ export function clientProAccessError(service: string): Error {
 }
 
 /**
+ * Un abonnement professionnel ACTIF (Expert / Fournisseur) ouvre-t-il les
+ * services Client Pro ?
+ *
+ * Règle produit : les fonctionnalités du profil Client Pro sont INCLUSES dans
+ * les abonnements professionnels — un Expert / Fournisseur n'a pas à payer une
+ * cotisation séparée. La décision exige un abonnement mensuel réellement actif,
+ * non expiré, et cohérent avec le profil du compte (`planCompatible`) : un
+ * forfait qui ne correspond pas au profil continue d'être refusé.
+ *
+ * Ne sont donc JAMAIS couverts par cette règle : un abonnement expiré, une
+ * demande en attente de validation, une période d'essai (ses modules sont
+ * décidés par l'administrateur) et un compte sans abonnement.
+ */
+function professionalPlanCoversClientPro(snapshot: any): boolean {
+  return (
+    snapshot?.type === "monthly" &&
+    snapshot?.isActive === true &&
+    snapshot?.planCompatible !== false &&
+    isProfessionalPlan(snapshot?.activePlan)
+  );
+}
+
+/**
  * Calcule l'accès aux services Client Pro d'un utilisateur (queries, mutations,
- * actions) — INDÉPENDAMMENT de son éventuel forfait professionnel.
+ * actions).
  *
  * Droits Client Pro :
+ *   • abonnement professionnel ACTIF (Expert / Fournisseur) : les
+ *     fonctionnalités Client Pro sont incluses dans l'abonnement ;
  *   • crédits de projets disponibles ou déjà accordés (cotisation) ;
  *   • abonnement mensuel Client Pro historique encore valide (paiements déjà
  *     confirmés : l'échéance est respectée, rien n'est révoqué) ;
  *   • période d'essai Client Pro historique encore en cours (legacy).
  *
- * Un abonnement Expert / Fournisseur n'ouvre JAMAIS ces droits : un
- * professionnel doit acheter sa cotisation Client Pro séparément.
+ * La cotisation reste indépendante : un compte sans abonnement (ou dont
+ * l'abonnement professionnel a expiré) passe par les crédits de projets.
  */
 export async function getClientProAccess(
   ctx: any,
@@ -291,24 +318,28 @@ export async function getClientProAccess(
 
   // 0. Cohérence profil ↔ forfait : un compte dont le forfait actif appartient
   //    à un AUTRE profil (donnée incohérente) ne peut pas prétendre aux
-  //    services Client Pro. Les droits Client Pro restent, eux, indépendants du
-  //    forfait professionnel (un Expert peut acheter sa cotisation).
+  //    services Client Pro. Un Expert / Fournisseur cohérent les obtient en
+  //    revanche par son abonnement (voir `professionalPlanCoversClientPro`).
   if (snapshot?.planCompatible === false && snapshot?.activePlan != null) {
     return { allowed: false, reason: "plan_not_allowed_for_profile" };
   }
 
-  // 1. Crédits PAYÉS (cotisation confirmée) : l'accès est acquis, indépendamment
+  // 1. Abonnement professionnel ACTIF (Expert / Fournisseur) : les
+  //    fonctionnalités Client Pro sont incluses, sans cotisation supplémentaire.
+  if (professionalPlanCoversClientPro(snapshot)) return { allowed: true, reason: "ok" };
+
+  // 2. Crédits PAYÉS (cotisation confirmée) : l'accès est acquis, indépendamment
   //    du profil et de l'état d'un éventuel abonnement professionnel.
   if ((credits?.balance?.paidRemaining ?? 0) > 0) return { allowed: true, reason: "ok" };
 
-  // 2. Abonnement mensuel Client Pro HISTORIQUE encore valide.
+  // 3. Abonnement mensuel Client Pro HISTORIQUE encore valide.
   const legacyMonthlyActive =
     snapshot?.type === "monthly" &&
     snapshot?.isActive === true &&
     snapshot?.activePlan === "pro";
   if (legacyMonthlyActive) return { allowed: true, reason: "ok" };
 
-  // 3. Période d'essai / d'accès temporaire encore en cours : seuls les modules
+  // 4. Période d'essai / d'accès temporaire encore en cours : seuls les modules
   //    ouverts par l'administrateur sont accessibles.
   if (snapshot?.type === "trial" && snapshot?.isActive === true) {
     if (module && !(await isTrialModuleAllowed(ctx, module))) {
@@ -317,16 +348,16 @@ export async function getClientProAccess(
     return { allowed: true, reason: "ok" };
   }
 
-  // 4. Période terminée : la raison exacte est renvoyée (aucun droit prolongé).
+  // 5. Période terminée : la raison exacte est renvoyée (aucun droit prolongé).
   if (snapshot?.status === "pending") return { allowed: false, reason: "pending" };
   if (snapshot?.status === "trial_expired") return { allowed: false, reason: "trial_expired" };
   if (snapshot?.status === "expired") return { allowed: false, reason: "expired" };
 
-  // 5. Gratuité initiale / crédits de projets disponibles : les services Client
+  // 6. Gratuité initiale / crédits de projets disponibles : les services Client
   //    Pro sont ouverts pour ces projets (jamais un accès permanent).
   if (credits?.entitled === true) return { allowed: true, reason: "ok" };
 
-  // 6. Aucun crédit : une cotisation est requise pour ouvrir les services.
+  // 7. Aucun crédit : une cotisation est requise pour ouvrir les services.
   return { allowed: false, reason: "no_credits" };
 }
 
@@ -392,6 +423,10 @@ export async function getPdfDownloadAccess(ctx: any, user: any): Promise<PdfDown
   if (snapshot?.planCompatible === false && snapshot?.activePlan != null) {
     return { allowed: false, reason: "plan_not_allowed_for_profile", plan };
   }
+
+  // Abonnement professionnel ACTIF (Expert / Fournisseur) : les rapports PDF
+  // font partie des fonctionnalités Client Pro incluses dans l'abonnement.
+  if (professionalPlanCoversClientPro(snapshot)) return { allowed: true, reason: "ok", plan };
 
   // Cotisation Client Pro : les rapports PDF font partie des services ouverts
   // par les crédits PAYÉS, y compris pour un Expert / Fournisseur (droit
@@ -470,6 +505,8 @@ export const checkClientProAccess = query({
       plan: user?.subscriptionPlan ?? null,
       endDate: user?.subscriptionEndDate ?? null,
       isAdmin: user?.role === "admin" || user?.role === "moderator",
+      // Fonctionnalités Client Pro incluses dans un abonnement professionnel.
+      professionalIncluded: professionalPlanCoversClientPro(snapshot),
       // Profil actif + compatibilité (affichage et messages de paywall).
       profileRole: snapshot?.profileRole ?? null,
       expectedPlan: snapshot?.expectedPlan ?? "pro",

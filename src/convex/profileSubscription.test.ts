@@ -230,6 +230,23 @@ describe("getMySubscriptionStatus — compatibilité exposée", () => {
 // Accès Client Pro — gating par profil
 // ============================================================================
 
+/** Administrateur : coupe la gratuité initiale — la décision ne dépend que du forfait. */
+async function disableFreeGrant(t: ReturnType<typeof convexTest>) {
+  const adminId = await createUser(t, {
+    role: "admin",
+    email: `admin-nogrant-${Math.random()}@test.com`,
+  });
+  await asUser(t, adminId).mutation(api.clientProCredits.updateClientProCreditConfig, {
+    freeGrantEnabled: false,
+    freeProjects: 0,
+    cotisationPrice: 80,
+    cotisationProjects: 1,
+    tiers: [],
+    refundOnDelete: false,
+    allowStacking: true,
+  });
+}
+
 describe("checkClientProAccess — règle profil", () => {
   let t: ReturnType<typeof convexTest>;
 
@@ -237,9 +254,9 @@ describe("checkClientProAccess — règle profil", () => {
     t = convexTest(schema, modules);
   });
 
-  it("un abonnement Expert actif n'accorde AUCUN droit Client Pro", async () => {
+  it("un abonnement Expert actif inclut les fonctionnalités Client Pro", async () => {
     // Gratuité initiale désactivée : la décision ne dépend que du forfait
-    // professionnel, qui ne doit jamais ouvrir les services Client Pro.
+    // professionnel, qui inclut les fonctionnalités Client Pro.
     const adminId = await createUser(t, { role: "admin", email: "admin-expert-access@test.com" });
     await asUser(t, adminId).mutation(api.clientProCredits.updateClientProCreditConfig, {
       freeGrantEnabled: false,
@@ -262,12 +279,53 @@ describe("checkClientProAccess — règle profil", () => {
     });
 
     const access = await asUser(t, userId).query(api.access.checkClientProAccess);
-    expect(access.allowed).toBe(false);
-    expect(access.reason).toBe("no_credits");
+    expect(access.allowed).toBe(true);
+    expect(access.reason).toBe("ok");
+    expect(access.professionalIncluded).toBe(true);
     // L'Expert conserve son propre forfait : rien n'est supprimé ni dégradé.
     const status = await asUser(t, userId).query(api.subscriptionStatus.getMySubscriptionStatus);
     expect(status?.isActive).toBe(true);
     expect(status?.planCompatible).toBe(true);
+    // Les rapports PDF (service Client Pro) sont également inclus.
+    const pdf = await asUser(t, userId).query(api.access.canDownloadPdf);
+    expect(pdf.allowed).toBe(true);
+  });
+
+  it("un abonnement Fournisseur actif inclut les fonctionnalités Client Pro", async () => {
+    await disableFreeGrant(t);
+    const userId = await createUser(t, { email: "supp-access@test.com", userRole: "supplier" });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId as any, {
+        subscriptionPlan: "supplier",
+        subscriptionStartDate: NOW,
+        subscriptionEndDate: NOW + 10 * DAY_MS,
+        subscriptionStatus: "active",
+      });
+    });
+
+    const access = await asUser(t, userId).query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(true);
+    expect(access.reason).toBe("ok");
+    expect(access.professionalIncluded).toBe(true);
+  });
+
+  it("un abonnement professionnel expiré ne donne plus les fonctionnalités Client Pro", async () => {
+    await disableFreeGrant(t);
+    const userId = await createUser(t, { email: "exp-expired@test.com", userRole: "expert" });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId as any, {
+        subscriptionPlan: "expert",
+        subscriptionStartDate: NOW - 40 * DAY_MS,
+        subscriptionEndDate: NOW - DAY_MS,
+        subscriptionStatus: "expired",
+      });
+    });
+
+    const access = await asUser(t, userId).query(api.access.checkClientProAccess);
+    expect(access.allowed).toBe(false);
+    expect(access.professionalIncluded).toBe(false);
+    const pdf = await asUser(t, userId).query(api.access.canDownloadPdf);
+    expect(pdf.allowed).toBe(false);
   });
 
   it("refuse un Client Pro dont le forfait actif ne correspond pas au profil", async () => {

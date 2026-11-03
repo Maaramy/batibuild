@@ -37,6 +37,7 @@ import {
 import { defaultPlanPriceFields } from "../lib/planPricing";
 import { isTrialCampaignOpen, readTrialConfig } from "./trialConfig";
 import { getUserSubscriptionStatus } from "./subscriptionStatus";
+import { isProfessionalPlan } from "../lib/subscriptionPlans";
 
 // ============================================================================
 // COTISATION CLIENT PRO — CRÉDITS DE PROJETS (source de vérité serveur)
@@ -84,6 +85,8 @@ export interface ClientProCreditSnapshot {
   entitled: boolean;
   /** Peut-il créer un nouveau projet maintenant ? */
   canCreateProject: boolean;
+  /** Droits Client Pro inclus dans un abonnement professionnel (Expert / Fournisseur) actif. */
+  professionalIncluded: boolean;
 }
 
 /** Solde calculé depuis les compteurs persistés du compte. */
@@ -102,27 +105,40 @@ export function balanceFromUser(user: {
 }
 
 /**
- * Abonnement Client Pro mensuel HISTORIQUE encore valide. Le modèle mensuel est
- * remplacé par les crédits, mais les paiements déjà confirmés ne sont jamais
- * révoqués : l'accès reste ouvert jusqu'à leur échéance.
+ * Abonnements mensuels ACTIFS et non expirés d'un compte, lus en une fois :
+ *   • Client Pro mensuel HISTORIQUE (le modèle mensuel est remplacé par les
+ *     crédits, mais les paiements déjà confirmés ne sont jamais révoqués) ;
+ *   • abonnement PROFESSIONNEL Expert / Fournisseur, dont les fonctionnalités
+ *     Client Pro sont incluses.
  */
+async function readActiveMonthlySubscriptions(
+  ctx: DbCtx,
+  userId: Id<"users">,
+  now = Date.now(),
+): Promise<{
+  pro: { active: boolean; endDate: number | null };
+  professional: { active: boolean; endDate: number | null };
+}> {
+  const subs = await ctx.db
+    .query("subscriptions")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  const live = (sub: any) => sub.status === "active" && sub.endDate != null && sub.endDate > now;
+  const pro = subs.find((sub) => sub.plan === "pro" && live(sub));
+  const professional = subs.find((sub) => isProfessionalPlan(sub.plan) && live(sub));
+  return {
+    pro: { active: !!pro, endDate: pro?.endDate ?? null },
+    professional: { active: !!professional, endDate: professional?.endDate ?? null },
+  };
+}
+
+/** Abonnement Client Pro mensuel historique encore valide (voir ci-dessus). */
 async function readLegacyMonthlyPro(
   ctx: DbCtx,
   userId: Id<"users">,
   now = Date.now(),
 ): Promise<{ active: boolean; endDate: number | null }> {
-  const subs = await ctx.db
-    .query("subscriptions")
-    .withIndex("by_user", (q) => q.eq("userId", userId))
-    .collect();
-  const active = subs.find(
-    (sub) =>
-      sub.plan === "pro" &&
-      sub.status === "active" &&
-      sub.endDate != null &&
-      sub.endDate > now,
-  );
-  return { active: !!active, endDate: active?.endDate ?? null };
+  return (await readActiveMonthlySubscriptions(ctx, userId, now)).pro;
 }
 
 export async function buildClientProCreditSnapshot(
@@ -158,6 +174,7 @@ export async function buildClientProCreditSnapshot(
     user.role === "moderator" ||
     coverage.covered ||
     balance.granted > 0;
+  const professionalIncluded = coverage.professionalActive;
 
   return {
     balance,
@@ -168,9 +185,10 @@ export async function buildClientProCreditSnapshot(
     legacyMonthlyActive: coverage.paidActive,
     legacyEndDate: coverage.paidEndDate,
     entitled,
-    // La création est ouverte si une période d'accès (essai / abonnement payé)
-    // la couvre OU s'il reste un crédit de cotisation. L'interface et le
-    // serveur appliquent donc exactement la même règle.
+    professionalIncluded,
+    // La création est ouverte si une période d'accès (essai / abonnement payé /
+    // abonnement professionnel) la couvre OU s'il reste un crédit de cotisation.
+    // L'interface et le serveur appliquent donc exactement la même règle.
     canCreateProject:
       user.role === "admin" ||
       user.role === "moderator" ||
@@ -239,8 +257,9 @@ export async function ensureClientProFreeGrant(
  *   • période payée enregistrée sur le compte (`subscriptionPlan` « pro » avec
  *     échéance future).
  *
- * Un abonnement Expert / Fournisseur ne couvre pas les crédits Client Pro : les
- * droits sont indépendants (un professionnel achète sa cotisation séparément).
+ * Un abonnement Expert / Fournisseur n'attribue AUCUN crédit Client Pro (les
+ * compteurs de cotisation restent intacts) : il couvre directement la création
+ * de projets via `readCreationCoverage`, fonctionnalités Client Pro incluses.
  */
 async function readPaidCreationPeriod(
   ctx: DbCtx,
@@ -260,7 +279,9 @@ async function readPaidCreationPeriod(
  *
  *   • période d'essai en cours → l'essai a son propre plafond de projets,
  *     réglé par l'administrateur (aucun crédit ne peut être exigé) ;
- *   • abonnement Client Pro déjà payé → création couverte.
+ *   • abonnement Client Pro déjà payé → création couverte ;
+ *   • abonnement PROFESSIONNEL actif (Expert / Fournisseur) → création couverte,
+ *     les fonctionnalités Client Pro étant incluses dans cet abonnement.
  *
  * Cette couverture n'empêche PAS la consommation du crédit : un projet créé
  * pendant l'essai compte dans le compteur de la cotisation (voir
@@ -270,14 +291,26 @@ async function readCreationCoverage(
   ctx: DbCtx,
   user: Doc<"users">,
   now = Date.now(),
-): Promise<{ covered: boolean; paidActive: boolean; paidEndDate: number | null }> {
+): Promise<{
+  covered: boolean;
+  paidActive: boolean;
+  paidEndDate: number | null;
+  professionalActive: boolean;
+}> {
   const trialActive =
     user.trialClaimedAt != null && user.trialEndDate != null && user.trialEndDate > now;
   const paid = await readPaidCreationPeriod(ctx, user, now);
+  // Abonnement professionnel : document `subscriptions` actif, ou — pour les
+  // comptes activés sans ligne d'abonnement — période payée du compte.
+  const professional = (await readActiveMonthlySubscriptions(ctx, user._id, now)).professional;
+  const professionalActive =
+    professional.active ||
+    (isProfessionalPlan(user.subscriptionPlan) && (user.subscriptionEndDate ?? 0) > now);
   return {
-    covered: trialActive || paid.active,
+    covered: trialActive || paid.active || professionalActive,
     paidActive: paid.active,
     paidEndDate: paid.endDate,
+    professionalActive,
   };
 }
 
@@ -314,9 +347,10 @@ export async function assertClientProProjectCredit(
   const period = await getUserSubscriptionStatus(ctx, user._id);
   if (period && period.status !== "none" && !period.isActive) {
     throw new Error(
-      `${CLIENT_PRO_ACCESS_MARKER}L'accès à la création de projets nécessite un forfait Client Pro actif. ` +
+      `${CLIENT_PRO_ACCESS_MARKER}L'accès à la création de projets nécessite un abonnement actif ` +
+        "(Expert, Fournisseur) ou une cotisation Client Pro. " +
         `${period.status === "trial_expired" ? "Votre période d'essai est terminée" : period.status === "pending" ? "Votre paiement est en attente de validation" : "Votre abonnement est expiré"} : ` +
-        "payez une cotisation pour créer un nouveau projet. Vos projets existants restent accessibles et modifiables.",
+        "renouvelez votre abonnement ou payez une cotisation pour créer un nouveau projet. Vos projets existants restent accessibles et modifiables.",
     );
   }
 
@@ -356,10 +390,12 @@ export async function consumeClientProCredit(
     .collect();
   if (events.some((event) => event.type === "consume")) return;
 
-  // Abonnement Client Pro mensuel HISTORIQUE encore valide : les paiements déjà
-  // confirmés ne sont jamais révoqués, aucun crédit n'est prélevé.
+  // Abonnement Client Pro mensuel HISTORIQUE encore valide ou abonnement
+  // professionnel actif (fonctionnalités Client Pro incluses) : aucun crédit
+  // n'est prélevé — les crédits restent disponibles si le compte repasse à une
+  // formule sans abonnement.
   const coverage = await readCreationCoverage(ctx, user);
-  if (coverage.paidActive) return;
+  if (coverage.paidActive || coverage.professionalActive) return;
 
   const balance = balanceFromUser(user);
   if (balance.remaining <= 0) {

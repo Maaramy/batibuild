@@ -19,6 +19,19 @@
 // l'échéance, ses droits proviennent de la cotisation par crédits de projets.
 
 export const CLIENT_PRO_PLAN_LABEL = "Client Pro";
+
+// ── Fonctionnalités Client Pro incluses dans les abonnements ────────────────
+// Un abonnement professionnel ACTIF (Expert ou Fournisseur) inclut les
+// fonctionnalités du profil Client Pro : estimation, suivi de A à Z, matériaux
+// IA, plans, aide à la décision et rapports PDF. Aucune cotisation par crédits
+// n'est alors exigée — elle reste disponible pour un compte sans abonnement.
+// Cette règle est appliquée côté serveur (`convex/access.ts`,
+// `convex/clientProCredits.ts`) : elle ne peut pas être contournée par le client.
+
+/** Vrai pour un forfait professionnel (Expert / Fournisseur). */
+export function isProfessionalPlan(plan: string | null | undefined): boolean {
+  return plan === "expert" || plan === "supplier";
+}
 export const TRIAL_PLAN_LABEL = "Période d'essai";
 export const TRIAL_PLAN_SHORT_LABEL = "Essai";
 

@@ -73,7 +73,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// ── État verrouillé (hors forfait Client Pro) ───────────────────────────────
+// ── État verrouillé (droits Client Pro absents) ────────────────────────────
 
 function DecisionLocked() {
   return (
@@ -87,7 +87,8 @@ function DecisionLocked() {
             Intelligence prédictive
           </h3>
           <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-            Disponible avec le forfait Client Pro.
+            Inclus dans les abonnements Expert et Fournisseur actifs, ou disponible avec
+            une cotisation Client Pro.
           </p>
         </div>
         <Button className="mt-1 gap-1.5" onClick={() => (window.location.href = "/dashboard/pricing")}>

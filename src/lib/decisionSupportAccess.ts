@@ -6,8 +6,10 @@
 //      classification centrale de `projectJourney` (`projectJourneyGroup`) ;
 //      l'étape est ABSENTE des parcours des groupes B et C (coût estimatif →
 //      mise en relation uniquement) ;
-//   2. le client dispose d'un abonnement CLIENT PRO actif, valide et NON
-//      expiré (instantané `getUserSubscriptionStatus`, source de vérité).
+//   2. le compte dispose des droits Client Pro : abonnement professionnel ACTIF
+//      (Expert / Fournisseur — fonctionnalités Client Pro incluses) ou
+//      cotisation Client Pro (instantané `getUserSubscriptionStatus`, source de
+//      vérité serveur).
 //
 // Cette fonction est PURE : aucun accès aux données, aucune horloge implicite,
 // aucune date fournie par le navigateur. Le backend (`convex/
@@ -204,9 +206,9 @@ export const DECISION_SUPPORT_DENY_COPY: Record<
     cta: "Voir les cotisations",
   },
   not_client_pro: {
-    title: "Cotisation Client Pro requise",
+    title: "Abonnement ou cotisation requis",
     description:
-      "« Aide à la décision » est réservée aux comptes disposant de crédits Client Pro disponibles.",
-    cta: "Payer ma cotisation",
+      "« Aide à la décision » est incluse dans les abonnements Expert et Fournisseur actifs, ou accessible avec une cotisation Client Pro (crédits de projets).",
+    cta: "Voir les offres",
   },
 };

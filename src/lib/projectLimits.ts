@@ -75,7 +75,7 @@ export const PROJECT_LIMIT_TIERS: ProjectLimitTier[] = ["trial", "free", "paid"]
 export const PROJECT_LIMIT_TIER_LABELS: Record<ProjectLimitTier, string> = {
   trial: "Période d'essai gratuite",
   free: "Offre gratuite",
-  paid: "Client Pro (abonnement payant)",
+  paid: "Abonnement payant actif (Client Pro, Expert, Fournisseur)",
 };
 
 export const PROJECT_LIMIT_RESET_LABELS: Record<ProjectLimitResetMode, string> = {

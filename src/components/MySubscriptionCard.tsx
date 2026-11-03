@@ -155,6 +155,14 @@ export function MySubscriptionCard() {
                       Mensuel historique actif
                     </Badge>
                   )}
+                  {credits.professionalIncluded && (
+                    <Badge
+                      variant="outline"
+                      className="border-blue-500/40 bg-blue-500/10 px-1.5 py-0 text-[9px] text-blue-600 dark:text-blue-400"
+                    >
+                      Inclus dans l'abonnement {professionalLabel}
+                    </Badge>
+                  )}
                 </div>
                 <p className="mt-0.5 text-[10px] text-muted-foreground sm:text-xs">
                   {credits.freeGranted

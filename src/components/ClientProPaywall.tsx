@@ -11,10 +11,10 @@ import { Card, CardContent } from "@/components/ui/card";
 // ClientProPaywall — accès aux services Client Pro
 // ============================================================================
 // Règle : les services de la plateforme (projets de construction, matériaux
-// IA, plans architecturaux, suivi de A à Z)
-// nécessitent un abonnement Client Pro PAYANT actif. En cas d'expiration, le
-// renouvellement est obligatoire. Exception : l'administrateur peut activer le
-// « switch gratuit » sur le forfait Client Pro (accès sans paiement).
+// IA, plans architecturaux, suivi de A à Z) nécessitent les droits Client Pro :
+// abonnement professionnel ACTIF (Expert / Fournisseur — fonctionnalités Client
+// Pro incluses) ou cotisation Client Pro (crédits de projets). En cas
+// d'expiration, le renouvellement est obligatoire.
 
 const REASON_COPY: Record<
   string,
@@ -29,7 +29,7 @@ const REASON_COPY: Record<
   not_client_pro: {
     icon: Coins,
     title: "Cotisation Client Pro requise",
-    desc: "Les services Client Pro sont indépendants de votre abonnement professionnel. Achetez une cotisation Client Pro (crédits de projets) pour y accéder.",
+    desc: "Les fonctionnalités Client Pro sont incluses dans un abonnement Expert ou Fournisseur actif. Sans abonnement professionnel actif, achetez une cotisation Client Pro (crédits de projets) pour y accéder.",
     cta: "Voir les cotisations",
   },
   plan_not_allowed_for_profile: {
@@ -41,7 +41,7 @@ const REASON_COPY: Record<
   no_subscription: {
     icon: CreditCard,
     title: "Abonnement requis",
-    desc: "Pour accéder aux services de la plateforme (projets de construction, matériaux IA, plans architecturaux et suivi de A à Z), passez au paiement : votre abonnement Client Pro doit être payant et actif.",
+    desc: "Pour accéder aux services de la plateforme (projets de construction, matériaux IA, plans architecturaux et suivi de A à Z), souscrivez un abonnement Expert ou Fournisseur — il inclut les fonctionnalités Client Pro — ou achetez une cotisation Client Pro.",
     cta: "Passer au paiement",
   },
   expired: {

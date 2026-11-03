@@ -19,7 +19,10 @@ const modules = import.meta.glob("./**/*.*s");
 //   • de la COTISATION par crédits de projets (gratuité initiale limitée puis
 //     packs payants, attribués seulement après confirmation du paiement) ;
 //   • d'un abonnement mensuel client HISTORIQUE encore valide (paiements déjà
-//     confirmés : aucune révocation rétroactive).
+//     confirmés : aucune révocation rétroactive) ;
+//   • d'un abonnement PROFESSIONNEL ACTIF (Expert / Fournisseur), qui inclut
+//     les fonctionnalités Client Pro (services, rapports PDF, aide à la
+//     décision, création de projets) sans consommer de crédit.
 //
 // Ces tests couvrent les scénarios de validation obligatoires :
 //   1. aucun accès Client Pro automatique/permanent sans paiement ;
@@ -312,7 +315,7 @@ describe("Client Pro — suppression de l'offre gratuite permanente", () => {
     const userId = await createUser(t, { userRole: "expert", email: "expert-pro@test.com" });
     const userT = asUser(t, userId);
 
-    // Aucun droit Client Pro par le seul profil professionnel.
+    // Le profil professionnel SEUL (sans abonnement actif) n'ouvre aucun droit.
     expect((await userT.query(api.access.checkClientProAccess)).allowed).toBe(false);
 
     const order = await userT.mutation(api.clientProCredits.requestClientProCotisation, {
@@ -330,6 +333,52 @@ describe("Client Pro — suppression de l'offre gratuite permanente", () => {
     expect(user?.userRole).toBe("expert");
     const subs = await t.run(async (ctx) => ctx.db.query("subscriptions").collect());
     expect(subs.filter((s) => s.userId === userId)).toHaveLength(0);
+  });
+
+  it("un Expert avec abonnement actif crée des projets sans cotisation ni crédit consommé", async () => {
+    await configureCotisation(t, { freeGrantEnabled: false, freeProjects: 0 });
+    const userId = await createUser(t, { userRole: "expert", email: "expert-actif@test.com" });
+    await t.run(async (ctx) =>
+      ctx.db.patch(userId, {
+        subscriptionPlan: "expert",
+        subscriptionStartDate: Date.now(),
+        subscriptionEndDate: Date.now() + 10 * DAY_MS,
+        subscriptionStatus: "active",
+      }),
+    );
+    const userT = asUser(t, userId);
+
+    // Deux projets d'affilée : aucun crédit Client Pro n'est requis.
+    await createProject(userT, "Un");
+    await createProject(userT, "Deux");
+
+    const credits = await userT.query(api.clientProCredits.getMyClientProCredits);
+    expect(credits?.professionalIncluded).toBe(true);
+    expect(credits?.canCreateProject).toBe(true);
+    // Les crédits de cotisation restent intacts (aucun prélèvement).
+    expect(credits?.balance.used).toBe(0);
+
+    // Les autres fonctionnalités Client Pro sont ouvertes (PDF, aide à la décision).
+    expect((await userT.query(api.access.canDownloadPdf)).allowed).toBe(true);
+  });
+
+  it("un Expert dont l'abonnement est expiré retombe sur la cotisation", async () => {
+    await configureCotisation(t, { freeGrantEnabled: false, freeProjects: 0 });
+    const userId = await createUser(t, { userRole: "expert", email: "expert-expire@test.com" });
+    await t.run(async (ctx) =>
+      ctx.db.patch(userId, {
+        subscriptionPlan: "expert",
+        subscriptionStartDate: Date.now() - 40 * DAY_MS,
+        subscriptionEndDate: Date.now() - DAY_MS,
+        subscriptionStatus: "expired",
+      }),
+    );
+    const userT = asUser(t, userId);
+
+    const credits = await userT.query(api.clientProCredits.getMyClientProCredits);
+    expect(credits?.professionalIncluded).toBe(false);
+    expect(credits?.canCreateProject).toBe(false);
+    await expect(createProject(userT, "Bloqué")).rejects.toThrow(/CLIENT_PRO_ACCESS:/);
   });
 
   it("les paramètres enregistrés par l'administrateur restent identiques après relecture", async () => {
