@@ -253,7 +253,10 @@ export function tq(
   lang: QuantitatifLang,
   vars?: Record<string, string | number>,
 ): string {
-  let text: string = QUANTITATIF_UI[key][lang];
+  // Garde-fou : une clé absente ne doit JAMAIS faire tomber la page — elle
+  // s'affiche telle quelle plutôt que de lever une erreur de rendu.
+  const entry = QUANTITATIF_UI[key] as { fr: string; ar: string } | undefined;
+  let text: string = entry?.[lang] ?? entry?.fr ?? String(key);
   if (vars) {
     for (const [name, value] of Object.entries(vars)) {
       text = text.split(`{${name}}`).join(String(value));
@@ -341,10 +344,17 @@ export function translateUnit(unit: string | null | undefined, lang: Quantitatif
  */
 export function formatQuantitatifMoney(value: number, lang: QuantitatifLang): string {
   const n = Number(value);
-  const formatted = new Intl.NumberFormat("fr-TN", {
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
-  }).format(Number.isFinite(n) ? n : 0);
+  const safe = Number.isFinite(n) ? n : 0;
+  let formatted: string;
+  try {
+    formatted = new Intl.NumberFormat("fr-TN", {
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+    }).format(safe);
+  } catch {
+    // Environnement sans données de locale : regroupement manuel identique.
+    formatted = String(Math.round(safe)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  }
   return lang === "ar" ? `${formatted} د.ت` : `${formatted} DT`;
 }
 
