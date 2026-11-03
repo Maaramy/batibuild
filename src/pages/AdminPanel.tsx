@@ -202,6 +202,116 @@ export default function AdminPanel() {
   const supportUnread = useQuery(api.support.adminUnreadTotal) || 0;
   const approveSub = useMutation(api.subscriptions.adminApproveSubscription);
   const rejectSub = useMutation(api.subscriptions.adminRejectSubscription);
+  // Demandes en attente réparties par moyen de règlement : l'onglet
+  // « Virements » présente le virement bancaire, puis le virement D17.
+  const bankPendingSubs = pendingSubs.filter((s: any) => s.paymentMethod !== "d17");
+  const d17PendingSubs = pendingSubs.filter((s: any) => s.paymentMethod === "d17");
+
+  /**
+   * Tableau partagé des demandes de paiement en attente : mêmes colonnes et
+   * mêmes actions pour le virement bancaire et pour le virement D17.
+   */
+  const renderPendingSubsTable = (subs: any[], emptyLabel: string) => {
+    if (subs.length === 0) {
+      return (
+        <p className="rounded-2xl border border-dashed border-border/40 bg-background/40 px-4 py-8 text-center text-xs text-muted-foreground">
+          {emptyLabel}
+        </p>
+      );
+    }
+    return (
+      <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
+              <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Client</th>
+              <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Téléphone</th>
+              <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Offre</th>
+              <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Montant</th>
+              <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Méthode</th>
+              <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Date</th>
+              <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {subs.map((sub: any) => (
+              <tr key={sub._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
+                <td className="py-2.5 px-2 sm:px-3">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8 shrink-0 border border-border/40">
+                      <AvatarImage src={sub.user?.image || ""} alt="Photo" className="object-cover" />
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                        {sub.user?.name?.charAt(0)?.toUpperCase() || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="font-medium text-xs truncate max-w-[120px] cursor-pointer hover:text-primary transition-colors" onClick={() => setSelectedUser(sub.user)}>{sub.user?.name || sub.user?.email || "Non renseigné"}</p>
+                      <p className="text-[9px] text-muted-foreground truncate max-w-[120px]">{sub.user?.email || ""}</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="py-2.5 px-2 sm:px-3 text-left hidden sm:table-cell">
+                  <span className="text-[10px] text-muted-foreground">{sub.user?.phone || "—"}</span>
+                </td>
+                <td className="py-2.5 px-2 sm:px-3 text-center">
+                  <Badge variant="outline" className="text-[9px] capitalize">
+                    {sub.plan}
+                  </Badge>
+                </td>
+                <td className="py-2.5 px-2 sm:px-3 text-center hidden sm:table-cell">
+                  <span className="font-mono text-xs font-medium">{sub.amount} TND</span>
+                </td>
+                <td className="py-2.5 px-2 sm:px-3 text-center hidden sm:table-cell">
+                  <Badge variant="secondary" className="text-[9px]">
+                    {sub.paymentMethod === "bank_transfer" ? "Virement" : sub.paymentMethod === "d17" ? "D17" : sub.paymentMethod}
+                  </Badge>
+                </td>
+                <td className="py-2.5 px-2 sm:px-3 text-right hidden sm:table-cell text-[10px] text-muted-foreground">
+                  {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString("fr-FR") : "—"}
+                </td>
+                <td className="py-2.5 px-2 sm:px-3 text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                      onClick={async () => {
+                        try {
+                          await approveSub({ subscriptionId: sub._id });
+                          toast.success("Abonnement approuvé");
+                        } catch (err: any) {
+                          toast.error(err.message || "Erreur");
+                        }
+                      }}
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      <span className="hidden sm:inline">Approuver</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={async () => {
+                        try {
+                          await rejectSub({ subscriptionId: sub._id });
+                          toast.success("Demande rejetée");
+                        } catch (err: any) {
+                          toast.error(err.message || "Erreur");
+                        }
+                      }}
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      <span className="hidden sm:inline">Rejeter</span>
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
   const updateUserRole = useMutation(api.users.adminUpdateUserRole);
   const setUserProfileRole = useMutation(api.users.adminSetUserProfileRole);
   const updateUserPlan = useMutation(api.users.adminUpdateUserPlan);
@@ -3781,8 +3891,8 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
               <div className="flex items-center gap-2">
                 <Banknote className="h-5 w-5 text-primary" />
                 <div>
-                  <h2 className="text-lg font-semibold">Virements bancaires</h2>
-                  <p className="text-xs text-muted-foreground">Abonnements en attente de validation</p>
+                  <h2 className="text-lg font-semibold">Virements</h2>
+                  <p className="text-xs text-muted-foreground">Abonnements en attente de validation — virement bancaire et virement D17</p>
                 </div>
               </div>
 
@@ -3792,98 +3902,29 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                     <Banknote className="h-8 w-8 text-muted-foreground/50" />
                   </div>
                   <p className="text-sm font-semibold">Aucune demande en attente</p>
-                  <p className="text-xs text-muted-foreground mt-1">Les demandes de virement apparaîtront ici.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Les demandes de virement bancaire et D17 apparaîtront ici.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto rounded-2xl border border-border/30 bg-background/40 shadow-sm shadow-primary/5">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border/20 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/10">
-                        <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Client</th>
-                        <th className="text-left py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Téléphone</th>
-                        <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Offre</th>
-                        <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Montant</th>
-                        <th className="text-center py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Méthode</th>
-                        <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs hidden sm:table-cell">Date</th>
-                        <th className="text-right py-2.5 px-2 sm:px-3 font-medium text-muted-foreground text-xs">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingSubs.map((sub: any) => (
-                        <tr key={sub._id} className="border-b border-border/10 hover:bg-gradient-to-r hover:from-primary/5 hover:to-transparent transition-all duration-150">
-                          <td className="py-2.5 px-2 sm:px-3">
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-8 w-8 shrink-0 border border-border/40">
-                                <AvatarImage src={sub.user?.image || ""} alt="Photo" className="object-cover" />
-                                <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                                  {sub.user?.name?.charAt(0)?.toUpperCase() || "?"}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0">
-                                <p className="font-medium text-xs truncate max-w-[120px] cursor-pointer hover:text-primary transition-colors" onClick={() => setSelectedUser(sub.user)}>{sub.user?.name || sub.user?.email || "Non renseigné"}</p>
-                                <p className="text-[9px] text-muted-foreground truncate max-w-[120px]">{sub.user?.email || ""}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-2 sm:px-3 text-left hidden sm:table-cell">
-                            <span className="text-[10px] text-muted-foreground">{sub.user?.phone || "—"}</span>
-                          </td>
-                          <td className="py-2.5 px-2 sm:px-3 text-center">
-                            <Badge variant="outline" className="text-[9px] capitalize">
-                              {sub.plan}
-                            </Badge>
-                          </td>
-                          <td className="py-2.5 px-2 sm:px-3 text-center hidden sm:table-cell">
-                            <span className="font-mono text-xs font-medium">{sub.amount} TND</span>
-                          </td>
-                          <td className="py-2.5 px-2 sm:px-3 text-center hidden sm:table-cell">
-                            <Badge variant="secondary" className="text-[9px]">
-                              {sub.paymentMethod === "bank_transfer" ? "Virement" : sub.paymentMethod === "d17" ? "D17" : sub.paymentMethod}
-                            </Badge>
-                          </td>
-                          <td className="py-2.5 px-2 sm:px-3 text-right hidden sm:table-cell text-[10px] text-muted-foreground">
-                            {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString("fr-FR") : "—"}
-                          </td>
-                          <td className="py-2.5 px-2 sm:px-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs text-emerald-600 border-emerald-200 hover:bg-emerald-50"
-                                onClick={async () => {
-                                  try {
-                                    await approveSub({ subscriptionId: sub._id });
-                                    toast.success("Abonnement approuvé");
-                                  } catch (err: any) {
-                                    toast.error(err.message || "Erreur");
-                                  }
-                                }}
-                              >
-                                <Check className="h-3 w-3 mr-1" />
-                                <span className="hidden sm:inline">Approuver</span>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={async () => {
-                                  try {
-                                    await rejectSub({ subscriptionId: sub._id });
-                                    toast.success("Demande rejetée");
-                                  } catch (err: any) {
-                                    toast.error(err.message || "Erreur");
-                                  }
-                                }}
-                              >
-                                <X className="h-3 w-3 mr-1" />
-                                <span className="hidden sm:inline">Rejeter</span>
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="space-y-6">
+                  {/* Virement bancaire */}
+                  <section className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Landmark className="h-4 w-4 text-primary" />
+                      <h3 className="text-sm font-semibold">Virement bancaire</h3>
+                      <Badge variant="outline" className="text-[10px]">{bankPendingSubs.length}</Badge>
+                    </div>
+                    {renderPendingSubsTable(bankPendingSubs, "Aucune demande de virement bancaire en attente.")}
+                  </section>
+
+                  {/* Virement D17 — affiché sous le virement bancaire */}
+                  <section className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="h-4 w-4 text-primary" />
+                      <h3 className="text-sm font-semibold">Virement D17</h3>
+                      <Badge variant="outline" className="text-[10px]">{d17PendingSubs.length}</Badge>
+                    </div>
+                    {renderPendingSubsTable(d17PendingSubs, "Aucune demande de virement D17 en attente.")}
+                  </section>
                 </div>
               )}
 
