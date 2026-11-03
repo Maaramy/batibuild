@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "./schema.js";
 import { api } from "./_generated/api.js";
+import { paymentMethodFamily, paymentMethodLabel } from "../lib/paymentMethods";
 
 const modules = import.meta.glob("./**/*.*s");
 
@@ -232,5 +233,37 @@ describe("méthode désactivée — refus côté serveur", () => {
     const profile = await userT.query(api.supplierProfiles.getMyProfile);
     expect(profile!.subscriptionStatus).toBe("pending");
     expect(profile!.paymentMethod).toBe("d17");
+  });
+});
+
+// ============================================================================
+// NORMALISATION DES MOYENS DE PAIEMENT ENREGISTRÉS
+// ----------------------------------------------------------------------------
+// L'administration filtre par famille : une valeur historique (« D17 »,
+// « Virement », « bank ») doit être classée correctement, jamais ignorée.
+// ============================================================================
+
+describe("paymentMethodFamily — valeurs enregistrées vs filtres admin", () => {
+  it("classe les valeurs courantes et historiques", () => {
+    expect(paymentMethodFamily("bank_transfer")).toBe("bank_transfer");
+    expect(paymentMethodFamily("d17")).toBe("d17");
+    expect(paymentMethodFamily("D17")).toBe("d17");
+    expect(paymentMethodFamily(" D17 (La Poste Tunisienne) ")).toBe("d17");
+    expect(paymentMethodFamily("Virement")).toBe("bank_transfer");
+    expect(paymentMethodFamily("bank")).toBe("bank_transfer");
+  });
+
+  it("ne perd aucune demande : une valeur absente ou inconnue reste visible", () => {
+    expect(paymentMethodFamily(undefined)).toBe("unknown");
+    expect(paymentMethodFamily(null)).toBe("unknown");
+    expect(paymentMethodFamily("")).toBe("unknown");
+    expect(paymentMethodFamily("carte")).toBe("unknown");
+  });
+
+  it("affiche un libellé lisible, même pour une valeur inconnue", () => {
+    expect(paymentMethodLabel("bank_transfer")).toBe("Virement bancaire");
+    expect(paymentMethodLabel("d17")).toBe("D17 (La Poste Tunisienne)");
+    expect(paymentMethodLabel("D17")).toBe("D17");
+    expect(paymentMethodLabel(null)).toBe("Non précisé");
   });
 });

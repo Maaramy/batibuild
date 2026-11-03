@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, it, expect } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "./schema.js";
 import { api } from "./_generated/api.js";
@@ -80,6 +80,12 @@ function pendingRequests(t: T, userId: Id<"users"> | string) {
 }
 
 describe("demandes de cotisation — vue admin unifiée", () => {
+  let t: T;
+
+  beforeEach(() => {
+    t = convexTest(schema, modules);
+  });
+
   it("1. une demande par virement bancaire apparaît immédiatement dans l'administration", async () => {
     const adminId = await configureCotisation(t);
     const userId = await createUser(t, { name: "Amine Ben Salah", email: "amine@test.tn" });
@@ -353,6 +359,9 @@ describe("demandes de cotisation — vue admin unifiée", () => {
         .withIndex("by_user", (q) => q.eq("userId", userId))
         .collect(),
     );
-    expect(notifications).toHaveLength(1);
+    // Une seule notification de confirmation, malgré la double validation.
+    expect(
+      notifications.filter((n) => n.title === "Cotisation Client Pro confirmée"),
+    ).toHaveLength(1);
   });
 });
