@@ -12,3 +12,10 @@
 -keep class com.facebook.react.turbomodule.** { *; }
 
 # Add any project specific keep options here:
+
+# Firebase Cloud Messaging : le service est instancié par Android via le
+# manifeste et le module natif par React Native — ne jamais les renommer.
+-keep class com.google.firebase.** { *; }
+-keep class com.batibuild.app.PushMessagingService { *; }
+-keep class com.batibuild.app.PushModule { *; }
+-keep class com.batibuild.app.PushPackage { *; }

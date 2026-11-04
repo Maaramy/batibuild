@@ -445,6 +445,13 @@ const schema = defineSchema(
       // les campagnes, y compris des envois programmés non encore partis.
       marketingOptOut: v.optional(v.boolean()),
       marketingOptOutAt: v.optional(v.number()),
+      // ── Consentement notifications push (application Android) ─────────────
+      // Absent = consentement par défaut (l'utilisateur a installé l'app et
+      // accepté l'autorisation système). Mis à true par le réglage
+      // « Notifications » ou le lien de désabonnement : plus aucune campagne
+      // push ne lui est envoyée, y compris les campagnes déjà programmées.
+      pushOptOut: v.optional(v.boolean()),
+      pushOptOutAt: v.optional(v.number()),
       userRole: v.optional(v.union(
         v.literal("client"),
         v.literal("supplier"),
@@ -2691,6 +2698,115 @@ const schema = defineSchema(
       .index("by_campaign", ["campaignId"])
       .index("by_campaign_user", ["campaignId", "userId"])
       .index("by_created", ["createdAt"]),
+
+    // ==========================================================================
+    // PUSH NOTIFICATIONS — application Android (Firebase Cloud Messaging)
+    // --------------------------------------------------------------------------
+    // · Un token FCM par installation : jamais de doublon (index unique par
+    //   token, un seul document actif par appareil).
+    // · `pushLogs` est la source de vérité des statistiques (accepté par FCM,
+    //   ouvert, cliqué, converti) — les compteurs ne sont jamais saisis à la
+    //   main par l'administrateur.
+    // ==========================================================================
+    pushTokens: defineTable({
+      userId: v.id("users"),
+      fcmToken: v.string(),
+      platform: v.union(
+        v.literal("android"),
+        v.literal("ios"),
+        v.literal("web"),
+      ),
+      deviceId: v.optional(v.string()),
+      isActive: v.boolean(),
+      permissionStatus: v.union(
+        v.literal("granted"),
+        v.literal("denied"),
+        v.literal("default"),
+      ),
+      appVersion: v.optional(v.string()),
+      /** Dernière activité connue de l'appareil (rafraîchie à chaque ouverture). */
+      lastSeenAt: v.optional(v.number()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_token", ["fcmToken"])
+      .index("by_active", ["isActive"]),
+
+    pushCampaigns: defineTable({
+      campaignName: v.string(),
+      category: v.union(
+        v.literal("client_pro"),
+        v.literal("expert"),
+        v.literal("supplier"),
+        v.literal("custom"),
+      ),
+      templateId: v.optional(v.string()),
+      title: v.string(),
+      message: v.string(),
+      imageUrl: v.optional(v.string()),
+      icon: v.optional(v.string()),
+      actionLabel: v.optional(v.string()),
+      /** Route interne (`/dashboard/...`) ou URL https de destination du clic. */
+      destination: v.optional(v.string()),
+      targetAudience: v.string(),
+      filters: v.optional(
+        v.object({
+          createdFrom: v.optional(v.number()),
+          createdTo: v.optional(v.number()),
+          lastActiveDays: v.optional(v.number()),
+          subscriptionPlan: v.optional(v.string()),
+          subscriptionStatus: v.optional(v.string()),
+          region: v.optional(v.string()),
+          notUsedModule: v.optional(v.string()),
+        }),
+      ),
+      selectedUserIds: v.optional(v.array(v.id("users"))),
+      status: v.union(
+        v.literal("draft"),
+        v.literal("scheduled"),
+        v.literal("sending"),
+        v.literal("sent"),
+        v.literal("suspended"),
+        v.literal("failed"),
+        v.literal("cancelled"),
+      ),
+      scheduledAt: v.optional(v.number()),
+      expiresAt: v.optional(v.number()),
+      sentAt: v.optional(v.number()),
+      /** Nombre de destinataires éligibles au dernier calcul (avant envoi). */
+      audienceCount: v.optional(v.number()),
+      createdBy: v.id("users"),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_status", ["status"])
+      .index("by_created", ["createdAt"]),
+
+    pushLogs: defineTable({
+      campaignId: v.id("pushCampaigns"),
+      userId: v.id("users"),
+      deviceToken: v.string(),
+      /** Jeton opaque de suivi (ouverture / clic), jamais dérivé du token FCM. */
+      token: v.string(),
+      deliveryStatus: v.union(
+        v.literal("pending"),
+        v.literal("accepted"),
+        v.literal("failed"),
+        v.literal("skipped"),
+      ),
+      fcmMessageId: v.optional(v.string()),
+      openedAt: v.optional(v.number()),
+      clickedAt: v.optional(v.number()),
+      convertedAt: v.optional(v.number()),
+      errorMessage: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_campaign", ["campaignId"])
+      .index("by_campaign_status", ["campaignId", "deliveryStatus"])
+      .index("by_campaign_user", ["campaignId", "userId"])
+      .index("by_token", ["token"])
+      .index("by_user", ["userId"]),
 
   },
   {

@@ -2,6 +2,20 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+// ── Firebase Cloud Messaging (push Android) ────────────────────────────────
+// Le plugin Google Services n'est appliqué QUE si le fichier de configuration
+// Firebase est fourni (android/app/google-services.json, ignoré par Git car il
+// contient les identifiants du projet). Sans ce fichier, l'application
+// compile et fonctionne normalement : les notifications push sont simplement
+// inactives jusqu'à l'ajout du fichier et la reconstruction de l'APK.
+def googleServicesFile = file("google-services.json")
+if (googleServicesFile.exists()) {
+    apply plugin: "com.google.gms.google-services"
+    println "🔔 Firebase Cloud Messaging activé (google-services.json détecté)."
+} else {
+    println "🔕 google-services.json absent : notifications push inactives dans cet APK."
+}
+
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 /**
@@ -260,6 +274,11 @@ println "📱 SDK Android du paquet : minSdk ${effectiveMinSdk} / targetSdk ${ef
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+
+    // Firebase Cloud Messaging — service natif de réception (avant-plan,
+    // arrière-plan et application fermée). Fonctionne sans google-services.json
+    // au niveau compilation ; l'envoi réel exige le fichier de configuration.
+    implementation("com.google.firebase:firebase-messaging:24.1.2")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

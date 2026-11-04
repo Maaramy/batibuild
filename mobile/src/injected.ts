@@ -244,6 +244,42 @@ true;
 `;
 
 /**
+ * ÉTAT DES NOTIFICATIONS PUSH injecté dans la plateforme Web.
+ *
+ * Le token FCM et l'autorisation système sont lus par la coque native (module
+ * `BatibuildPush`) puis transmis à la page via cette globale et un événement
+ * `batibuild:push`. La page enregistre le token auprès du backend Convex
+ * (authentification requise) : le token n'est jamais mis dans l'URL ni dans un
+ * cookie, et aucune clé Firebase n'est exposée au Web.
+ */
+export function pushStateScript(state: {
+  token: string | null;
+  permission: "granted" | "denied" | "default";
+  deviceId: string | null;
+  platform: "android";
+  url?: string | null;
+  logToken?: string | null;
+}): string {
+  const payload = JSON.stringify({
+    token: state.token,
+    permission: state.permission,
+    deviceId: state.deviceId,
+    platform: state.platform,
+    url: state.url ?? null,
+    logToken: state.logToken ?? null,
+  });
+  return `
+(function () {
+  try {
+    window.__BATIBUILD_PUSH__ = ${payload};
+    window.dispatchEvent(new CustomEvent("batibuild:push", { detail: window.__BATIBUILD_PUSH__ }));
+  } catch (e) {}
+})();
+true;
+`;
+}
+
+/**
  * Relais de téléchargement des fichiers générés DANS LE NAVIGATEUR.
  *
  * PROBLÈME

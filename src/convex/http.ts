@@ -213,4 +213,95 @@ http.route({
   }),
 });
 
+/**
+ * Push Android — pixel d'ouverture. Mesuré uniquement lorsque l'application
+ * (ou un client) charge réellement l'URL de suivi ; jamais inventé.
+ */
+http.route({
+  path: "/p/o",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const token = new URL(request.url).searchParams.get("token") || "";
+    if (token) {
+      try {
+        await ctx.runMutation(internal.push.trackEvent, { token, kind: "open" });
+      } catch {
+        // Le pixel ne doit jamais casser le rendu.
+      }
+    }
+    const bytes = Uint8Array.from(atob(TRANSPARENT_GIF), (c) => c.charCodeAt(0));
+    return new Response(bytes, {
+      status: 200,
+      headers: {
+        "Content-Type": "image/gif",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+      },
+    });
+  }),
+});
+
+/**
+ * Push Android — clic. Enregistre l'ouverture de la destination puis redirige
+ * vers la route interne de la plateforme (jamais de redirection ouverte :
+ * la destination est relue depuis la campagne en base).
+ */
+http.route({
+  path: "/p/c",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const token = new URL(request.url).searchParams.get("token") || "";
+    const siteUrl = (process.env.SITE_URL || "https://batibuild.app").replace(/\/$/, "");
+    let destination = "/dashboard";
+    if (token) {
+      try {
+        const res = await ctx.runMutation(internal.push.trackEvent, { token, kind: "click" });
+        if (res?.destination) destination = res.destination;
+      } catch {
+        // Le clic reste fonctionnel même si le compteur échoue.
+      }
+    }
+    const location = destination.startsWith("http")
+      ? destination
+      : `${siteUrl}${destination.startsWith("/") ? destination : `/${destination}`}`;
+    return new Response(null, {
+      status: 302,
+      headers: { Location: location, "Cache-Control": "no-store" },
+    });
+  }),
+});
+
+/** Push Android — désabonnement en un clic. */
+http.route({
+  path: "/p/u",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const token = new URL(request.url).searchParams.get("token") || "";
+    let result: { ok: boolean; name: string } = { ok: false, name: "" };
+    try {
+      if (token) result = await ctx.runMutation(internal.push.unsubscribeByToken, { token });
+    } catch {
+      // Page neutre en cas d'erreur.
+    }
+
+    const title = result.ok ? "Notifications désactivées" : "Lien invalide";
+    const message = result.ok
+      ? "Vous ne recevrez plus les notifications push de batibuild. Vous pouvez les réactiver à tout moment depuis Paramètres → Notifications de l'application."
+      : "Ce lien est incomplet ou expiré. Vous pouvez gérer vos notifications depuis les réglages de l'application.";
+    const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(title)}</title></head>
+<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f4f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;padding:20px;">
+  <div style="max-width:520px;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:32px;text-align:center;">
+    <div style="width:56px;height:56px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;background:#ecfdf5;color:#0f766e;font-size:26px;">${result.ok ? "&#10003;" : "!"}</div>
+    <h1 style="margin:0 0 10px;font-size:20px;color:#111827;">${escapeHtml(title)}</h1>
+    <p style="margin:0;color:#6b7280;font-size:14px;line-height:1.65;">${escapeHtml(message)}</p>
+  </div>
+</body></html>`;
+    return new Response(html, {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+    });
+  }),
+});
+
 export default http;

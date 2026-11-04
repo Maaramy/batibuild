@@ -2,7 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   BackHandler,
+  DeviceEventEmitter,
   Linking,
   Modal,
   Platform,
@@ -49,8 +51,17 @@ import {
   MOBILE_CHROME_SCRIPT,
   navigateScript,
   NO_ZOOM_SCRIPT,
+  pushStateScript,
   SHARE_BRIDGE_SCRIPT,
 } from "../injected";
+import {
+  consumePendingPush,
+  pushNativeAvailable,
+  readPushState,
+  refreshPushToken,
+  requestPushPermission,
+  type PushState,
+} from "../push";
 import { COLORS, SHAPE, useAppTheme } from "../theme";
 
 /**
@@ -81,6 +92,79 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
 
   /** Route demandée par la barre de navigation, en attente de confirmation. */
   const pendingPathRef = useRef<string | null>(null);
+
+  /** État des notifications push (token FCM, autorisation) → page Web. */
+  const pushStateRef = useRef<PushState | null>(null);
+  /** Notification qui a ouvert l'application : route + jeton de suivi. */
+  const pendingPushRef = useRef<{ url: string | null; logToken: string | null }>({
+    url: null,
+    logToken: null,
+  });
+  const pushNavigatedRef = useRef(false);
+
+  /** Route interne correspondant à une destination de notification. */
+  const pushTargetPath = useCallback((url: string): string | null => {
+    if (url.startsWith("/")) return url.startsWith("//") ? null : url;
+    try {
+      const parsed = new URL(url);
+      const base = new URL(ENTRY_URL);
+      if (parsed.origin !== base.origin) return null;
+      return `${parsed.pathname}${parsed.search}`;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  /**
+   * Publie l'état push dans la WebView et, si une notification a ouvert
+   * l'application, navigue vers la fonctionnalité concernée (une seule fois).
+   * Le routeur de la plateforme applique ensuite ses gardes habituels :
+   * /auth?returnTo=… si la session a expiré, contrôle d'accès des modules.
+   */
+  const applyPushState = useCallback(
+    (allowNavigation: boolean) => {
+      const web = webRef.current;
+      if (!web) return;
+      const state = pushStateRef.current;
+      const pending = pendingPushRef.current;
+      web.injectJavaScript(
+        pushStateScript({
+          token: state?.token ?? null,
+          permission: state?.permission ?? "default",
+          deviceId: state?.deviceId ?? null,
+          platform: "android",
+          url: pending.url,
+          logToken: pending.logToken,
+        }),
+      );
+
+      if (allowNavigation && pending.url && !pushNavigatedRef.current) {
+        const target = pushTargetPath(pending.url);
+        if (!target) return;
+        pushNavigatedRef.current = true;
+        pendingPathRef.current = target;
+        currentPathRef.current = target;
+        setCurrentPath(target);
+        web.injectJavaScript(navigateScript(target));
+      }
+    },
+    [pushTargetPath],
+  );
+
+  const applyPushStateRef = useRef(applyPushState);
+  applyPushStateRef.current = applyPushState;
+
+  /** Relit le token / l'autorisation et la notification en attente. */
+  const syncPush = useCallback(async () => {
+    const pending = await consumePendingPush();
+    if (pending.url) {
+      pendingPushRef.current = pending;
+      pushNavigatedRef.current = false;
+    }
+    const state = await refreshPushToken();
+    if (state) pushStateRef.current = state;
+    applyPushStateRef.current(true);
+  }, []);
 
   const [currentPath, setCurrentPath] = useState<string>(currentPathRef.current);
   /**
@@ -182,6 +266,57 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
     const timer = setTimeout(() => setLoading(false), CHANGE_LIMIT_MS);
     return () => clearTimeout(timer);
   }, [loading, changeSeq]);
+
+  // ---------- notifications push (FCM) ----------
+  useEffect(() => {
+    if (!pushNativeAvailable()) return;
+    let active = true;
+
+    (async () => {
+      // APK sans google-services.json : aucune demande d'autorisation inutile.
+      const initial = await readPushState();
+      if (!active) return;
+      if (!initial?.configured) {
+        if (initial) pushStateRef.current = initial;
+        applyPushStateRef.current(false);
+        return;
+      }
+
+      // Android 13+ : autorisation demandée à l'exécution ; refus = aucun envoi.
+      const permission = await requestPushPermission();
+      if (!active) return;
+      if (permission === "granted") {
+        await syncPush();
+      } else {
+        const state = await refreshPushToken();
+        if (!active) return;
+        if (state) pushStateRef.current = state;
+        applyPushStateRef.current(false);
+      }
+    })();
+
+    const appState = AppState.addEventListener("change", (next) => {
+      if (next === "active") void syncPush();
+    });
+
+    // Application déjà ouverte : une notification touchée déclenche un nouvel
+    // intent, émis ici sans recharger la WebView.
+    const open = DeviceEventEmitter.addListener(
+      "BatibuildPushOpen",
+      (payload: { url?: string | null; logToken?: string | null }) => {
+        if (!active || !payload?.url) return;
+        pendingPushRef.current = { url: payload.url, logToken: payload.logToken ?? null };
+        pushNavigatedRef.current = false;
+        applyPushStateRef.current(true);
+      },
+    );
+
+    return () => {
+      active = false;
+      appState.remove();
+      open.remove();
+    };
+  }, [syncPush]);
 
   // ---------- interception des navigations ----------
   const handleShouldStart = useCallback((request: WebViewNavigation) => {
@@ -491,7 +626,11 @@ export default function WebViewScreen({ onShowGuide, onResetGuide }: Props) {
               beginChange();
             }}
             onLoadProgress={(e) => setProgress(e.nativeEvent.progress)}
-            onLoadEnd={() => setLoading(false)}
+            onLoadEnd={() => {
+              setLoading(false);
+              // La page est prête : token push + navigation éventuelle.
+              if (pushNativeAvailable()) applyPushStateRef.current(true);
+            }}
             onError={handleError}
             onHttpError={handleHttpError}
             onRenderProcessGone={handleRenderProcessGone}

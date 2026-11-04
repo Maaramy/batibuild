@@ -23,6 +23,8 @@ class MainApplication : Application(), ReactApplication {
         PackageList(this).packages.apply {
           // Packages that cannot be autolinked yet can be added manually here, for example:
           // add(MyReactNativePackage())
+          // Notifications push Android (FCM) : module natif BatibuildPush.
+          add(PushPackage())
         }
     )
   }
@@ -36,6 +38,8 @@ class MainApplication : Application(), ReactApplication {
     }
     loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
+    // Canal de notifications créé avant toute réception (Android 8+).
+    PushNotifications.ensureChannel(this)
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {

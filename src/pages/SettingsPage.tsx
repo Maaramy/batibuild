@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { useTheme } from "next-themes";
 import { useNavigate } from "react-router";
 import { useState, useEffect } from "react";
@@ -136,6 +138,37 @@ export default function SettingsPage() {
   });
 
   const [savingNotifs, setSavingNotifs] = useState(false);
+
+  // Notifications push Android : préférence réelle, enregistrée côté serveur.
+  const pushStatus = useQuery(api.push.getMyPushStatus, {});
+  const setPushOptOut = useMutation(api.push.setPushOptOut);
+  const [savingPush, setSavingPush] = useState(false);
+
+  const handlePushToggle = async (enabled: boolean) => {
+    setSavingPush(true);
+    try {
+      await setPushOptOut({ optOut: !enabled });
+      toast.success(
+        enabled ? "Notifications push activées" : "Notifications push désactivées",
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Impossible de mettre à jour la préférence",
+      );
+    } finally {
+      setSavingPush(false);
+    }
+  };
+
+  const pushDescription = !pushStatus
+    ? "Chargement de l'état…"
+    : pushStatus.optOut
+      ? "Désactivées : aucune notification push ne vous sera envoyée"
+      : !pushStatus.hasDevice
+        ? "Ouvrez l'application Android pour activer cet appareil"
+        : pushStatus.permissionStatus === "granted"
+          ? "Actives sur votre appareil Android"
+          : "Autorisation refusée dans Android — activez-la dans les réglages système";
 
   const handleSignOut = async () => {
     await signOut();
@@ -295,6 +328,18 @@ export default function SettingsPage() {
                   checked={notifications.marketing}
                   onCheckedChange={() => handleToggleNotification("marketing")}
                   disabled={savingNotifs}
+                />
+              </SettingRow>
+              <SettingRow
+                icon={Smartphone}
+                title="Notifications push (Android)"
+                description={pushDescription}
+              >
+                <Switch
+                  checked={pushStatus ? !pushStatus.optOut : false}
+                  onCheckedChange={handlePushToggle}
+                  disabled={!pushStatus || savingPush}
+                  aria-label="Activer ou désactiver les notifications push"
                 />
               </SettingRow>
             </CardContent>

@@ -1,6 +1,7 @@
 package com.batibuild.app
 import expo.modules.splashscreen.SplashScreenManager
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 
@@ -21,6 +22,19 @@ class MainActivity : ReactActivity() {
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
     super.onCreate(null)
+    // Notification touchée alors que l'application était fermée : la route
+    // est conservée jusqu'à ce que la WebView la récupère.
+    PushBridge.handleIntent(intent)
+  }
+
+  /**
+   * Notification touchée alors que l'application tourne déjà (singleTask) :
+   * aucun second écran n'est créé, la WebView est réutilisée.
+   */
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    PushBridge.handleIntent(intent)
   }
 
   /**

@@ -4,6 +4,7 @@ import { FeatureGate } from "@/components/FeatureGate";
 import { FeatureFlagsProvider } from "@/hooks/use-feature-flags";
 import { SEO } from "@/components/SEO";
 import { MessagingBadgeSync } from "@/components/MessagingBadgeSync";
+import PushRegistration from "@/components/PushRegistration";
 import { WebBootSync } from "@/components/WebBootSync";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ConnectionErrorScreen } from "@/components/ConnectionErrorScreen";
@@ -241,6 +242,9 @@ createRoot(document.getElementById("root")!).render(
             {/* Pastille temps réel de la Messagerie : publiée vers la barre de
                 navigation native de l'application Android. */}
             <MessagingBadgeSync />
+            {/* Application Android : enregistre le token FCM et attribue les
+                ouvertures / clics des notifications push. Inerte sur le Web. */}
+            <PushRegistration />
             {/* Démarrage rapide Web : cookies NON sensibles (langue, thème, état
                 de connexion), Service Worker de cache et préchargement du
                 module suivant. Sans aucun effet dans l'application Android

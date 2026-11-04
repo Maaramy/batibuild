@@ -81,4 +81,14 @@ crons.cron(
   internal.featureFlags.ensureFlagDocs,
 );
 
+// Push notifications Android : lance les campagnes programmées arrivées à
+// échéance et reprend les lots interrompus. Passage chaque minute — une
+// campagne programmée part avec au plus 60 s de décalage, jamais deux fois
+// (le statut passe à `sending` avant l'envoi).
+crons.interval(
+  "push-scheduled-campaigns",
+  { minutes: 1 },
+  internal.push.processScheduledCampaigns,
+);
+
 export default crons;
