@@ -234,6 +234,91 @@ function buildVarsForUser(
   };
 }
 
+type MailerSettings = {
+  senderName: string;
+  senderEmail: string;
+  replyTo?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecurity?: "ssl" | "tls" | "none";
+  smtpUser?: string;
+  smtpPassword?: string;
+};
+
+/**
+ * Réglages d'envoi effectifs — MÊME priorité que le moteur d'e-mails existant :
+ *   1. variables d'environnement Convex SMTP_* (configuration de la plateforme) ;
+ *   2. à défaut, configuration enregistrée dans « Configuration E-mail » ;
+ *   3. à défaut encore, envoi via l'intégration e-mail de la plateforme (VLY)
+ *      si un expéditeur est connu.
+ * Le mot de passe n'est jamais renvoyé au client : il ne sert qu'à l'action
+ * d'envoi planifiée.
+ */
+async function resolveMarketingMailer(
+  ctx: QueryCtx | MutationCtx,
+): Promise<{ settings?: MailerSettings; error?: string }> {
+  const config = await ctx.db.query("emailConfig").order("desc").first();
+  const envHost = (process.env.SMTP_HOST || "").trim();
+  const dbSender = (config?.senderEmail || "").trim();
+
+  if (envHost) {
+    const senderEmail = ((process.env.SMTP_FROM || "") || dbSender).trim();
+    if (!senderEmail) {
+      return {
+        error:
+          "Aucune adresse d'expéditeur : définissez SMTP_FROM dans les variables du serveur, ou l'adresse d'envoi dans Configuration E-mail.",
+      };
+    }
+    const rawSecurity = (process.env.SMTP_SECURE || "").toLowerCase();
+    const security: "ssl" | "tls" | "none" =
+      rawSecurity === "ssl" || rawSecurity === "true" || rawSecurity === "465"
+        ? "ssl"
+        : rawSecurity === "none" || rawSecurity === "false" || rawSecurity === "25"
+          ? "none"
+          : "tls";
+    const parsedPort = Number((process.env.SMTP_PORT || "").trim());
+    const port =
+      Number.isInteger(parsedPort) && parsedPort > 0
+        ? parsedPort
+        : security === "ssl"
+          ? 465
+          : 587;
+
+    return {
+      settings: {
+        senderName: (process.env.SMTP_FROM_NAME || config?.senderName || "batibuild").trim(),
+        senderEmail,
+        replyTo: config?.replyTo || undefined,
+        smtpHost: envHost,
+        smtpPort: port,
+        smtpSecurity: security,
+        smtpUser: (process.env.SMTP_USER || "").trim() || undefined,
+        smtpPassword: process.env.SMTP_PASSWORD || undefined,
+      },
+    };
+  }
+
+  if (!config?.senderEmail) {
+    return {
+      error:
+        "Aucune configuration e-mail : renseignez l'expéditeur dans Configuration E-mail (ou les variables SMTP_HOST / SMTP_FROM).",
+    };
+  }
+
+  return {
+    settings: {
+      senderName: config.senderName || "batibuild",
+      senderEmail: config.senderEmail,
+      replyTo: config.replyTo || undefined,
+      smtpHost: config.smtpHost || undefined,
+      smtpPort: config.smtpPort ?? undefined,
+      smtpSecurity: config.smtpSecurity ?? undefined,
+      smtpUser: config.smtpUser || undefined,
+      smtpPassword: config.smtpPasswordEnc ? decryptPassword(config.smtpPasswordEnc) : undefined,
+    },
+  };
+}
+
 type CampaignDoc = Doc<"marketingCampaigns">;
 
 function publicCampaign(campaign: CampaignDoc) {
@@ -276,10 +361,11 @@ async function enqueueEmail(
     isTest?: boolean;
   },
 ): Promise<{ ok: boolean; error?: string }> {
-  const config = await ctx.db.query("emailConfig").order("desc").first();
-  if (!config || !config.senderEmail) {
-    return { ok: false, error: "Configuration e-mail manquante : renseignez l'expéditeur dans Configuration E-mail." };
+  const mailer = await resolveMarketingMailer(ctx);
+  if (!mailer.settings) {
+    return { ok: false, error: mailer.error || "Configuration e-mail manquante." };
   }
+  const settings = mailer.settings;
 
   const historyId = await ctx.db.insert("emailHistory", {
     to: args.to,
@@ -305,14 +391,14 @@ async function enqueueEmail(
     to: args.to,
     subject: args.subject,
     html: args.html,
-    senderName: config.senderName || "batibuild",
-    senderEmail: config.senderEmail,
-    replyTo: config.replyTo || undefined,
-    smtpHost: config.smtpHost || undefined,
-    smtpPort: config.smtpPort ?? undefined,
-    smtpSecurity: config.smtpSecurity ?? undefined,
-    smtpUser: config.smtpUser || undefined,
-    smtpPassword: config.smtpPasswordEnc ? decryptPassword(config.smtpPasswordEnc) : undefined,
+    senderName: settings.senderName,
+    senderEmail: settings.senderEmail,
+    replyTo: settings.replyTo,
+    smtpHost: settings.smtpHost,
+    smtpPort: settings.smtpPort,
+    smtpSecurity: settings.smtpSecurity,
+    smtpUser: settings.smtpUser,
+    smtpPassword: settings.smtpPassword,
     marketingRecipientId: args.recipientId,
   });
 
@@ -820,11 +906,9 @@ export const startCampaign = mutation({
       throw new Error("Renseignez l'objet et le contenu de l'e-mail avant l'envoi.");
     }
 
-    const config = await ctx.db.query("emailConfig").order("desc").first();
-    if (!config?.senderEmail) {
-      throw new Error(
-        "Configuration e-mail manquante : renseignez l'expéditeur dans Configuration E-mail.",
-      );
+    const mailer = await resolveMarketingMailer(ctx);
+    if (!mailer.settings) {
+      throw new Error(mailer.error || "Configuration e-mail manquante.");
     }
 
     // Repartir d'une base propre (ex. campagne annulée puis relancée).
@@ -1034,13 +1118,11 @@ export const deliverBatch = internalMutation({
     }
 
     const info = await siteInfo(ctx);
-    const config = await ctx.db.query("emailConfig").order("desc").first();
-    if (!config?.senderEmail) {
+    const mailer = await resolveMarketingMailer(ctx);
+    if (!mailer.settings) {
+      const reason = mailer.error || "Configuration e-mail manquante.";
       for (const r of batch) {
-        await ctx.db.patch(r._id, {
-          status: "failed",
-          error: "Configuration e-mail manquante.",
-        });
+        await ctx.db.patch(r._id, { status: "failed", error: reason });
       }
       await ctx.db.patch(campaign._id, { status: "failed", updatedAt: Date.now() });
       return { stopped: true };

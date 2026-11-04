@@ -18,6 +18,21 @@ const modules = import.meta.glob("./**/*.*s");
 
 type T = ReturnType<typeof convexTest>;
 
+const SMTP_ENV_KEYS = [
+  "SMTP_HOST",
+  "SMTP_FROM",
+  "SMTP_FROM_NAME",
+  "SMTP_PORT",
+  "SMTP_SECURE",
+  "SMTP_USER",
+  "SMTP_PASSWORD",
+];
+
+/** Isolement : la configuration SMTP d'environnement ne fausse pas les tests. */
+function clearSmtpEnv() {
+  for (const key of SMTP_ENV_KEYS) delete process.env[key];
+}
+
 async function createUser(
   t: T,
   overrides: {
@@ -93,6 +108,7 @@ describe("module Offres — campagnes marketing", () => {
   let t: T;
 
   beforeEach(() => {
+    clearSmtpEnv();
     t = convexTest(schema, modules);
   });
 
@@ -577,6 +593,42 @@ describe("module Offres — campagnes marketing", () => {
       campaignId: second as any,
     });
     expect(started.recipients).toBe(1);
+  });
+
+  it("10. la configuration SMTP par variables d'environnement suffit (aucune config en base)", async () => {
+    const adminId = await createAdmin(t);
+    await createUser(t, {
+      name: "Amine",
+      email: "amine@test.tn",
+      clientProPaidProjectsGranted: 1,
+    });
+    const campaignId = await saveDraft(t, adminId);
+
+    process.env.SMTP_HOST = "smtp.exemple.tn";
+    process.env.SMTP_FROM = "no-reply@batibuild.app";
+    process.env.SMTP_FROM_NAME = "batibuild";
+    process.env.SMTP_PORT = "587";
+    process.env.SMTP_SECURE = "tls";
+
+    try {
+      const started = await asUser(t, adminId).mutation(api.marketing.startCampaign, {
+        campaignId: campaignId as any,
+      });
+      expect(started.recipients).toBe(1);
+
+      await t.mutation(internal.marketing.deliverBatch, { campaignId: campaignId as any });
+
+      const emails = await t.run(async (ctx) => ctx.db.query("emailHistory").collect());
+      expect(emails).toHaveLength(1);
+      expect(emails[0].status).toBe("pending");
+
+      const data = await asUser(t, adminId).query(api.marketing.getCampaign, {
+        campaignId: campaignId as any,
+      });
+      expect(data?.campaign.status).toBe("sent");
+    } finally {
+      clearSmtpEnv();
+    }
   });
 
   it("9. programmation annulée = aucun envoi ; configuration manquante = échec explicite", async () => {
