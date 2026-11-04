@@ -1011,37 +1011,7 @@ export default function SupplierDashboard() {
           ) : (
             /* ═══ No profile — Create form ═══ */
             <div className="space-y-6">
-              {/* Plans overview */}
-              <div className="grid grid-cols-1 gap-3">
-                <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.03] to-background ring-1 ring-primary/10">
-                  <CardContent className="p-5 text-center">
-                    <div className="flex justify-center mb-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <ShieldCheck className="h-6 w-6" />
-                      </div>
-                    </div>
-                    <p className="text-sm font-semibold">Abonnement Fournisseur</p>
-                    <p className="text-sm font-bold text-primary mt-1">{MONTHLY_PRICE} TND<small className="text-[9px] font-normal text-muted-foreground">/mois</small></p>
-                    <ul className="mt-3 space-y-1 text-left max-w-[200px] mx-auto">
-                      <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />Tout le profil +</li>
-                      <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />Avant-première</li>
-                      <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />Badge certifié</li>
-                      <li className="flex items-center gap-1 text-[9px] text-muted-foreground"><Check className="h-2.5 w-2.5 text-emerald-500 shrink-0" />Support prioritaire</li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              </div>
-
               {/* Create form */}
-
-              {/* Payment info for new suppliers */}
-              <div className="p-3 rounded-xl bg-amber-50/20 border border-amber-200/20 flex items-start gap-2">
-                <Smartphone className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-[9px] text-muted-foreground">
-                  <strong>Paiement accepté :</strong> Virement bancaire ou <strong>D17 (Poste Tunisienne)</strong> —
-                  Envoyez {MONTHLY_PRICE} TND par D17 au {paymentConfig?.d17Phone || "+216 XX XXX XXX"} ou par virement RIB {paymentConfig?.bankRib || "TN59 0700 1123 4567 8901 2347"}.
-                </p>
-              </div>
               <Card className="border-border/40">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-semibold">Créer votre profil fournisseur</CardTitle>
