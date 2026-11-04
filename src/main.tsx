@@ -81,6 +81,7 @@ const ExpertStats = lazy(() => import("./pages/ExpertStats.tsx"));
 const DemoProject = lazy(() => import("./pages/DemoProject.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"),);
 const OfflineTest = lazy(() => import("./pages/OfflineTest.tsx"));
+const FeedbackPage = lazy(() => import("./pages/FeedbackPage.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
@@ -363,6 +364,9 @@ createRoot(document.getElementById("root")!).render(
                   }
                 />
                 <Route path="/share/investment/:token" element={<ShareInvestment />} />
+                {/* Page publique d'évaluation des campagnes marketing —
+                    identifiée par un jeton opaque propre au destinataire. */}
+                <Route path="/avis" element={<FeedbackPage />} />
                 <Route
                   path="/dashboard/admin"
                   element={

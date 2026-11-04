@@ -439,6 +439,12 @@ const schema = defineSchema(
       status: v.optional(v.union(v.literal("active"), v.literal("disabled"))),
       favoriteProjects: v.optional(v.array(v.id("projects"))),
       emailNotifications: v.optional(v.boolean()),
+      // ── Consentement marketing (campagnes « Offres ») ─────────────────────
+      // Absent = inscrit par défaut. Mis à true UNIQUEMENT par le lien de
+      // désinscription de l'e-mail : l'utilisateur est alors exclu de toutes
+      // les campagnes, y compris des envois programmés non encore partis.
+      marketingOptOut: v.optional(v.boolean()),
+      marketingOptOutAt: v.optional(v.number()),
       userRole: v.optional(v.union(
         v.literal("client"),
         v.literal("supplier"),
@@ -2593,6 +2599,98 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_rating", ["rating"])
       .index("by_date", ["createdAt"]),
+
+    // ── MODULE OFFRES & CAMPAGNES MARKETING ───────────────────────────────
+    // Une campagne = un e-mail marketing (modèle prédéfini ou personnalisé),
+    // une audience figée au moment de l'envoi et des compteurs de suivi.
+    // Aucune table de notifications existante n'est modifiée.
+    marketingCampaigns: defineTable({
+      name: v.string(),
+      category: v.union(
+        v.literal("client_pro"),
+        v.literal("expert"),
+        v.literal("supplier"),
+      ),
+      templateId: v.optional(v.string()),
+      subject: v.string(),
+      intro: v.string(),
+      body: v.string(),
+      bannerUrl: v.optional(v.string()),
+      ctaLabel: v.optional(v.string()),
+      ctaUrl: v.optional(v.string()),
+      conditions: v.optional(v.string()),
+      validUntil: v.optional(v.string()),
+      signature: v.optional(v.string()),
+      feedbackEnabled: v.boolean(),
+      /** Segments choisis (client_pro_all, expert_active, …). */
+      audienceSegments: v.array(v.string()),
+      /** Utilisateurs sélectionnés individuellement (en plus des segments). */
+      audienceUserIds: v.optional(v.array(v.id("users"))),
+      status: v.union(
+        v.literal("draft"),
+        v.literal("scheduled"),
+        v.literal("sending"),
+        v.literal("sent"),
+        v.literal("cancelled"),
+        v.literal("failed"),
+      ),
+      scheduledAt: v.optional(v.number()),
+      sentAt: v.optional(v.number()),
+      createdBy: v.id("users"),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+      stats: v.object({
+        recipients: v.number(),
+        delivered: v.number(),
+        failed: v.number(),
+        opened: v.number(),
+        clicked: v.number(),
+        feedbacks: v.number(),
+        conversions: v.number(),
+      }),
+    })
+      .index("by_status", ["status"])
+      .index("by_created", ["createdAt"])
+      .index("by_category", ["category"]),
+
+    /** Destinataires figés d'une campagne + jetons de suivi uniques. */
+    marketingRecipients: defineTable({
+      campaignId: v.id("marketingCampaigns"),
+      userId: v.id("users"),
+      email: v.string(),
+      name: v.optional(v.string()),
+      /** Jeton opaque du lien d'avis / désinscription. */
+      token: v.string(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("sent"),
+        v.literal("failed"),
+      ),
+      error: v.optional(v.string()),
+      sentAt: v.optional(v.number()),
+      openedAt: v.optional(v.number()),
+      clickedAt: v.optional(v.number()),
+      feedbackAt: v.optional(v.number()),
+      convertedAt: v.optional(v.number()),
+    })
+      .index("by_campaign", ["campaignId"])
+      .index("by_campaign_status", ["campaignId", "status"])
+      .index("by_campaign_user", ["campaignId", "userId"])
+      .index("by_token", ["token"]),
+
+    /** Évaluations 1–5 étoiles issues des campagnes (admin uniquement). */
+    marketingFeedback: defineTable({
+      campaignId: v.id("marketingCampaigns"),
+      recipientId: v.id("marketingRecipients"),
+      userId: v.id("users"),
+      userRole: v.optional(v.string()),
+      rating: v.number(),
+      comment: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_campaign", ["campaignId"])
+      .index("by_campaign_user", ["campaignId", "userId"])
+      .index("by_created", ["createdAt"]),
 
   },
   {

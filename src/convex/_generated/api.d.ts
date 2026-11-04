@@ -49,6 +49,7 @@ import type * as invoiceAttachment from "../invoiceAttachment.js";
 import type * as invoices from "../invoices.js";
 import type * as lifecycleShowcase from "../lifecycleShowcase.js";
 import type * as marketData from "../marketData.js";
+import type * as marketing from "../marketing.js";
 import type * as materialCatalog2026 from "../materialCatalog2026.js";
 import type * as materialClimate from "../materialClimate.js";
 import type * as materialSelectionEngine from "../materialSelectionEngine.js";
@@ -145,6 +146,7 @@ declare const fullApi: ApiFromModules<{
   invoices: typeof invoices;
   lifecycleShowcase: typeof lifecycleShowcase;
   marketData: typeof marketData;
+  marketing: typeof marketing;
   materialCatalog2026: typeof materialCatalog2026;
   materialClimate: typeof materialClimate;
   materialSelectionEngine: typeof materialSelectionEngine;

@@ -303,6 +303,8 @@ export const sendEmailAction = internalAction({
     smtpPassword: v.optional(v.string()),
     /** Facture dont le PDF doit être joint (activation / paiement confirmé). */
     invoiceId: v.optional(v.id("invoices")),
+    /** Campagne marketing : destinataire dont le statut doit être mis à jour. */
+    marketingRecipientId: v.optional(v.id("marketingRecipients")),
   },
   handler: async (ctx, args) => {
     let ok = false;
@@ -373,6 +375,16 @@ export const sendEmailAction = internalAction({
       ok,
       error,
     });
+
+    // Campagne marketing : le compteur de délivrance suit le résultat réel du
+    // serveur SMTP (et non la simple mise en file).
+    if (args.marketingRecipientId) {
+      await ctx.runMutation(internal.marketing.markRecipientDelivery, {
+        recipientId: args.marketingRecipientId,
+        ok,
+        error,
+      });
+    }
 
     return { ok, error };
   },

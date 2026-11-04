@@ -100,6 +100,15 @@ export const adminResendEmail = mutation({
     const record = await ctx.db.get(args.historyId);
     if (!record) throw new Error("Envoi introuvable");
 
+    // Les e-mails marketing ne passent pas par le moteur de modèles
+    // transactionnels : on renvoie vers le module Offres plutôt que d'échouer
+    // silencieusement.
+    if (record.templateKey.startsWith("marketing:")) {
+      throw new Error(
+        "Cet e-mail provient d'une campagne marketing : relancez l'envoi depuis le module Offres.",
+      );
+    }
+
     if (!record.payloadJson) throw new Error("Impossible de renvoyer cet e-mail (données manquantes)");
 
     let payload: any;

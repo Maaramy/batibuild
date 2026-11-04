@@ -46,6 +46,7 @@ import {
 } from "@/lib/planPricing";
 import StorageReportAdmin from "@/components/admin/StorageReportAdmin";
 import { PlatformReviewsAdmin } from "@/components/admin/PlatformReviewsAdmin";
+import { MarketingOffers } from "@/components/admin/MarketingOffers";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -144,7 +145,7 @@ export default function AdminPanel() {
     "recus", "recusFournisseurs", "recusExperts", "subscriptions", "invoices",
     "fournisseurs", "experts", "analytics", "support", "journal", "paiement",
     "limites", "seo", "blog", "bim", "bareme", "emails", "modeles", "historique", "features",
-    "stockage", "avis",
+    "stockage", "avis", "offres",
   ];
   const initialTab =
     isSupportAgentRole
@@ -1085,8 +1086,23 @@ Colonnes de la 1ère ligne : ${rawRows[0]?.slice(0, 8).join(", ")}`);
                 <span>Avis</span>
               </TabsTrigger>
               )}
+              {/* Offres & campagnes marketing — ADMINISTRATEURS UNIQUEMENT :
+                  envoi massif d'e-mails, audiences et statistiques nominatives. */}
+              {isAdmin && (
+              <TabsTrigger value="offres" className="data-[state=active]:bg-gradient-to-br data-[state=active]:from-primary data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg px-3 py-2 text-xs gap-1.5 relative">
+                <Megaphone className="h-3.5 w-3.5" />
+                <span>Offres</span>
+              </TabsTrigger>
+              )}
             </TabsList>
           </div>
+
+          {/* ── Offres & campagnes marketing (administrateurs uniquement) ── */}
+          {isAdmin && (
+            <TabsContent value="offres">
+              <MarketingOffers />
+            </TabsContent>
+          )}
 
           {/* ── Factures (administrateur uniquement) ── */}
           {isAdmin && (

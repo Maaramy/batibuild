@@ -1,7 +1,7 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { auth } from "./auth";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 const http = httpRouter();
 
@@ -97,6 +97,118 @@ Sitemap: https://batibuild.app/sitemap.xml`;
         "Content-Type": "text/plain; charset=utf-8",
         "Cache-Control": "public, max-age=86400",
       },
+    });
+  }),
+});
+
+// ============================================================================
+// MODULE OFFRES — suivi des campagnes marketing
+// ----------------------------------------------------------------------------
+// Trois routes publiques, uniquement identifiées par un jeton opaque propre au
+// destinataire. Elles ne renvoient aucune donnée personnelle et sont
+// idempotentes (un second appel ne recompte pas).
+// ============================================================================
+
+const TRANSPARENT_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Pixel d'ouverture — indicateur ESTIMATIF (les messageries le bloquent). */
+http.route({
+  path: "/t/o",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const token = new URL(request.url).searchParams.get("token") || "";
+    if (token) {
+      try {
+        await ctx.runMutation(internal.marketing.trackOpen, { token });
+      } catch {
+        // Le pixel ne doit jamais casser le rendu de l'e-mail.
+      }
+    }
+    const bytes = Uint8Array.from(atob(TRANSPARENT_GIF), (c) => c.charCodeAt(0));
+    return new Response(bytes, {
+      status: 200,
+      headers: {
+        "Content-Type": "image/gif",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+      },
+    });
+  }),
+});
+
+/** Redirection de clic — enregistre le clic puis renvoie vers la destination. */
+http.route({
+  path: "/t/c",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const params = new URL(request.url).searchParams;
+    const token = params.get("token") || "";
+    const target = params.get("u") || "https://batibuild.app";
+
+    let destination = /^https?:\/\//i.test(target) ? target : "https://batibuild.app";
+    if (token) {
+      try {
+        const res = await ctx.runMutation(internal.marketing.trackClick, { token, url: target });
+        if (res?.url) destination = res.url;
+      } catch {
+        // Le clic reste fonctionnel même si le compteur échoue.
+      }
+    }
+    return new Response(null, {
+      status: 302,
+      headers: { Location: destination, "Cache-Control": "no-store" },
+    });
+  }),
+});
+
+/** Désinscription en un clic — exclut définitivement l'utilisateur des offres. */
+http.route({
+  path: "/t/u",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const token = new URL(request.url).searchParams.get("token") || "";
+    let result: { ok: boolean; siteName: string; email: string } = {
+      ok: false,
+      siteName: "batibuild",
+      email: "",
+    };
+    try {
+      if (token) {
+        result = await ctx.runMutation(internal.marketing.unsubscribe, { token });
+      }
+    } catch {
+      // Page neutre en cas d'erreur.
+    }
+
+    const title = result.ok
+      ? "Désinscription confirmée"
+      : "Lien de désinscription invalide";
+    const message = result.ok
+      ? `L'adresse ${escapeHtml(result.email || "")} ne recevra plus les offres et campagnes ${escapeHtml(result.siteName)}. Vous continuerez à recevoir les e-mails liés à votre compte (factures, sécurité, service).`
+      : "Ce lien est incomplet ou a déjà été utilisé. Vous pouvez gérer vos préférences depuis votre espace personnel.";
+
+    const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(title)}</title></head>
+<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f4f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;padding:20px;">
+  <div style="max-width:520px;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:32px;text-align:center;">
+    <div style="width:56px;height:56px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;background:#ecfdf5;color:#0f766e;font-size:26px;">${result.ok ? "&#10003;" : "!"}</div>
+    <h1 style="margin:0 0 10px;font-size:20px;color:#111827;">${escapeHtml(title)}</h1>
+    <p style="margin:0;color:#6b7280;font-size:14px;line-height:1.65;">${message}</p>
+  </div>
+</body></html>`;
+
+    return new Response(html, {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
     });
   }),
 });
