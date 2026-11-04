@@ -172,6 +172,7 @@ export { default as LogIn } from "../../node_modules/lucide-react/dist/esm/icons
 export { default as LogOut } from "../../node_modules/lucide-react/dist/esm/icons/log-out.js";
 export { default as Mail } from "../../node_modules/lucide-react/dist/esm/icons/mail.js";
 export { default as MailCheck } from "../../node_modules/lucide-react/dist/esm/icons/mail-check.js";
+export { default as MailOpen } from "../../node_modules/lucide-react/dist/esm/icons/mail-open.js";
 export { default as MailX } from "../../node_modules/lucide-react/dist/esm/icons/mail-x.js";
 export { default as Megaphone } from "../../node_modules/lucide-react/dist/esm/icons/megaphone.js";
 export { default as Map } from "../../node_modules/lucide-react/dist/esm/icons/map.js";

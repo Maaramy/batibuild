@@ -109,8 +109,8 @@ function fmtDate(value?: number) {
   });
 }
 
-export function MarketingOffers() {
-  const [tab, setTab] = useState<MainTab>("dashboard");
+export function MarketingOffers({ initialTab }: { initialTab?: MainTab } = {}) {
+  const [tab, setTab] = useState<MainTab>(initialTab ?? "dashboard");
   const [editor, setEditor] = useState<EditorState | null>(null);
 
   if (editor) {
@@ -566,7 +566,7 @@ function editorFromCampaign(c: any): EditorState {
   };
 }
 
-function CampaignEditor({
+export function CampaignEditor({
   initial,
   onClose,
   onDone,
