@@ -375,7 +375,7 @@ export default function Dashboard() {
             { icon: Headset, label: "Support", badge: supportUnread, onClick: () => { navigate("/dashboard/support"); setMobileSidebarOpen(false); } },
             { icon: Newspaper, label: "Blog", onClick: () => { navigate("/blog"); setMobileSidebarOpen(false); } },
             { icon: User, label: "Mon profil", onClick: () => { navigate("/dashboard/profile"); setMobileSidebarOpen(false); } },
-            ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/admin"); setMobileSidebarOpen(false); } }] : []),
+            ...(user?.role === "admin" || user?.role === "moderator" ? [{ icon: Shield, label: "Administration", onClick: () => { navigate("/dashboard/galiskonadmin"); setMobileSidebarOpen(false); } }] : []),
           ];
         })().map((item) => (
           <div key={item.label}>
@@ -521,13 +521,13 @@ export default function Dashboard() {
                     Abonnement
                   </DropdownMenuItem>
                   {(user?.role === "admin" || user?.role === "moderator") && (
-                    <DropdownMenuItem onClick={() => navigate("/dashboard/admin")} className="cursor-pointer gap-2 text-xs">
+                    <DropdownMenuItem onClick={() => navigate("/dashboard/galiskonadmin")} className="cursor-pointer gap-2 text-xs">
                       <Shield className="h-3.5 w-3.5" />
                       Administration
                     </DropdownMenuItem>
                   )}
                   {(user?.role === "admin" || user?.role === "moderator") && (
-                    <DropdownMenuItem onClick={() => navigate("/dashboard/admin/subscriptions")} className="cursor-pointer gap-2 text-xs">
+                    <DropdownMenuItem onClick={() => navigate("/dashboard/galiskonadmin/subscriptions")} className="cursor-pointer gap-2 text-xs">
                       <CreditCard className="h-3.5 w-3.5" />
                       Essais & abonnements
                     </DropdownMenuItem>

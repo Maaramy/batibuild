@@ -372,7 +372,7 @@ createRoot(document.getElementById("root")!).render(
                     identifiée par un jeton opaque propre au destinataire. */}
                 <Route path="/avis" element={<FeedbackPage />} />
                 <Route
-                  path="/dashboard/admin"
+                  path="/dashboard/galiskonadmin"
                   element={
                     <RequireAuth>
                       <AdminPanel />
@@ -388,7 +388,7 @@ createRoot(document.getElementById("root")!).render(
                   }
                 />
                 <Route
-                  path="/dashboard/admin/subscriptions"
+                  path="/dashboard/galiskonadmin/subscriptions"
                   element={
                     <RequireAuth>
                       <SubscriptionAdminPage />
@@ -419,7 +419,7 @@ createRoot(document.getElementById("root")!).render(
                   }
                 />
                 <Route
-                  path="/dashboard/admin/chantiers"
+                  path="/dashboard/galiskonadmin/chantiers"
                   element={
                     <RequireAuth>
                       <AdminSiteModule />
@@ -590,7 +590,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route path="/offline-test" element={<OfflineTest />} />
                 <Route path="/terms" element={<LegalPage kind="terms" />} />
                 <Route path="/privacy" element={<LegalPage kind="privacy" />} />
-                <Route path="/admin" element={<AdminLoginPage />} />
+                <Route path="/galiskonadmin" element={<AdminLoginPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

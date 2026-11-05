@@ -234,7 +234,7 @@ export default function AdminLoginPage() {
   };
 
   const handleGoToAdmin = () => {
-    navigate("/dashboard/admin");
+    navigate("/dashboard/galiskonadmin");
   };
 
   if (authLoading || adminExists === undefined) {

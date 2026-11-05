@@ -318,7 +318,7 @@ export function SiteCotisationSettings() {
           variant="ghost"
           size="sm"
           className="gap-1.5 text-[11px]"
-          onClick={() => navigate("/dashboard/admin/chantiers")}
+          onClick={() => navigate("/dashboard/galiskonadmin/chantiers")}
         >
           <ExternalLink className="h-3.5 w-3.5" /> Abonnés, justificatifs et historique complets
         </Button>

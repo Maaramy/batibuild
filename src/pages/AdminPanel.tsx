@@ -599,7 +599,7 @@ export default function AdminPanel() {
                 <Button variant="outline" onClick={() => navigate("/dashboard")}>
                   Retour au tableau de bord
                 </Button>
-                <Button onClick={() => navigate("/admin")}>
+                <Button onClick={() => navigate("/galiskonadmin")}>
                   <Shield className="h-4 w-4 mr-2" />
                   Administration
                 </Button>

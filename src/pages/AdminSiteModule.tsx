@@ -111,7 +111,7 @@ export default function AdminSiteModule() {
             size="icon"
             className="mt-0.5 h-10 w-10 shrink-0 sm:h-8 sm:w-8"
             aria-label="Retour à l'administration"
-            onClick={() => navigate("/dashboard/admin")}
+            onClick={() => navigate("/dashboard/galiskonadmin")}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>

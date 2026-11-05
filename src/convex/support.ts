@@ -365,7 +365,7 @@ export const createTicket = mutation({
             ? "🚨 Nouvelle demande de support URGENTE"
             : "Nouvelle demande de support",
         message: `${user.name || user.email} — ${subject}`,
-        link: `/dashboard/admin?tab=support&ticket=${ticketId}`,
+        link: `/dashboard/galiskonadmin?tab=support&ticket=${ticketId}`,
       });
     }
 

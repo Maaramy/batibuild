@@ -141,7 +141,7 @@ export default function SubscriptionAdminPage() {
     <main className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b border-border/30 bg-background/80 backdrop-blur-sm">
         <div className="mx-auto flex h-14 max-w-6xl items-center px-4 sm:px-6">
-          <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate("/dashboard/admin")}>
+          <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate("/dashboard/galiskonadmin")}>
             <ArrowLeft className="h-4 w-4" />
             Administration
           </Button>

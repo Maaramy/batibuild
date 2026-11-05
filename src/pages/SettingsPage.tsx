@@ -397,7 +397,7 @@ export default function SettingsPage() {
                   icon={Shield}
                   title="Administration"
                   description="Panneau d'administration"
-                  onClick={() => navigate("/dashboard/admin")}
+                  onClick={() => navigate("/dashboard/galiskonadmin")}
                 />
               )}
             </CardContent>
