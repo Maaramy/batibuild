@@ -87,7 +87,7 @@ crons.cron(
 // (le statut passe à `sending` avant l'envoi).
 crons.interval(
   "push-scheduled-campaigns",
-  { minutes: 1 },
+  { minutes: 5 },
   internal.push.processScheduledCampaigns,
 );
 
