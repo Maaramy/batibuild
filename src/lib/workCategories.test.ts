@@ -4,11 +4,13 @@ import { generateDqe } from "../convex/dqeEngine";
 import { resolveEstimationBudget } from "./estimationBudget";
 import {
   DEFAULT_WORK_CATEGORY_IDS,
+  UPPER_FLOOR_WORK_CATEGORY_IDS,
   applyWorkSelectionToLots,
   defaultWorkCategories,
   lotsSubtotal,
   resolveWorkSelection,
   scaleCostEstimateForWorkSelection,
+  upperFloorWorkCategoryOptions,
   workCategoryIdsForType,
   workCategoryOptions,
   workSelectionRatio,
@@ -59,6 +61,33 @@ describe("catégories proposées selon le type de projet", () => {
         expect(option.description.length).toBeGreaterThan(10);
       }
     }
+  });
+});
+
+describe("mode Étage : travaux proposés", () => {
+  it("n'affiche que le gros œuvre et le second œuvre et finitions", () => {
+    const options = upperFloorWorkCategoryOptions();
+    expect(options.map((option) => option.id)).toEqual([
+      "gros_oeuvre",
+      "second_oeuvre",
+    ]);
+    expect([...UPPER_FLOOR_WORK_CATEGORY_IDS]).toEqual([
+      "gros_oeuvre",
+      "second_oeuvre",
+    ]);
+    expect(options.map((option) => option.label)).toEqual([
+      "Gros œuvre (fondations, structures)",
+      "Second œuvre et finitions",
+    ]);
+    expect(options.every((option) => option.defaultSelected)).toBe(true);
+  });
+
+  it("décrit le gros œuvre de l'Étage 1 sans fondations ni terrassement", () => {
+    const grosOeuvre = upperFloorWorkCategoryOptions().find(
+      (option) => option.id === "gros_oeuvre",
+    );
+    expect(grosOeuvre?.description).toMatch(/sans fondations ni terrassement/i);
+    expect(grosOeuvre?.description).not.toMatch(/^Terrassement/i);
   });
 });
 

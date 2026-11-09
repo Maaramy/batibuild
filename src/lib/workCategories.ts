@@ -31,6 +31,15 @@ export interface WorkCategoryOption {
 export const DEFAULT_WORK_CATEGORY_IDS: readonly string[] = ["gros_oeuvre", "second_oeuvre"];
 
 /**
+ * En mode « Étage », seuls ces deux lots sont proposés : l'Étage 1 ne comporte
+ * ni études de sol, ni VRD, ni aménagements extérieurs, ni terrassement.
+ */
+export const UPPER_FLOOR_WORK_CATEGORY_IDS: readonly string[] = [
+  "gros_oeuvre",
+  "second_oeuvre",
+];
+
+/**
  * Libellés + descriptions par identifiant de lot. Un même lot porte le même
  * sens dans tous les gabarits (« gros_oeuvre » reste le gros œuvre).
  */
@@ -305,15 +314,34 @@ export function workCategoryIdsForType(category?: string | null): readonly strin
   return WORK_LOTS_BY_CATEGORY[key] ?? RESIDENTIAL_LOTS;
 }
 
+function workCategoryOption(id: string): WorkCategoryOption {
+  const text = WORK_CATEGORY_TEXT[id] ?? { label: id, description: "" };
+  return {
+    id,
+    label: text.label,
+    description: text.description,
+    defaultSelected: DEFAULT_WORK_CATEGORY_IDS.includes(id),
+  };
+}
+
 /** Catégories proposées à l'utilisateur, dans l'ordre du gabarit du type. */
 export function workCategoryOptions(category?: string | null): WorkCategoryOption[] {
-  return workCategoryIdsForType(category).map((id) => {
-    const text = WORK_CATEGORY_TEXT[id] ?? { label: id, description: "" };
+  return workCategoryIdsForType(category).map(workCategoryOption);
+}
+
+/**
+ * Catégories du mode « Étage » : uniquement le gros œuvre et le second œuvre
+ * de l'Étage 1. La description du gros œuvre précise l'absence de fondations
+ * et de terrassement, propres au niveau inférieur.
+ */
+export function upperFloorWorkCategoryOptions(): WorkCategoryOption[] {
+  return UPPER_FLOOR_WORK_CATEGORY_IDS.map((id) => {
+    const option = workCategoryOption(id);
+    if (id !== "gros_oeuvre") return option;
     return {
-      id,
-      label: text.label,
-      description: text.description,
-      defaultSelected: DEFAULT_WORK_CATEGORY_IDS.includes(id),
+      ...option,
+      description:
+        "Structure, plancher, maçonnerie et cloisons de l'Étage 1 — sans fondations ni terrassement.",
     };
   });
 }
