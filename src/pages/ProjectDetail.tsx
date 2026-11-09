@@ -2676,13 +2676,20 @@ export default function ProjectDetail() {
                 {[
                   { label: "Catégorie", value: ai.category, icon: Building2 },
                   { label: "Région", value: project.region ? (REGION_LABELS[project.region] ?? project.region) : "Non définie", icon: MapPin },
-                  { label: "Surface couverte", value: project.surface ? `${project.surface} m²` : "Non définie", icon: Ruler },
-                  // « Étages » masqué pour les projets de plain-pied (restaurant,
-                  // café, rénovation complète, travaux…) : aucune case vide ni
-                  // espace réservé — données backend intactes.
-                  ...(isMultiLevelCategory(project.category)
-                    ? [{ label: "Étages", value: String(project.floors ?? 1), icon: Building2 }]
-                    : []),
+                  {
+                    label: project.levelMode === "floor1" ? "Surface de l'Étage 1" : "Surface couverte",
+                    value: project.surface ? `${project.surface} m²` : "Non définie",
+                    icon: Ruler,
+                  },
+                  // Mode Étage : un seul niveau, affiché « Étage 1 » et jamais
+                  // comme un nombre d'étages multi-niveaux. « Étages » reste
+                  // masqué pour les projets de plain-pied (restaurant, café,
+                  // rénovation complète, travaux…).
+                  ...(project.levelMode === "floor1"
+                    ? [{ label: "Niveau", value: "Étage 1", icon: Building2 }]
+                    : isMultiLevelCategory(project.category)
+                      ? [{ label: "Étages", value: String(project.floors ?? 1), icon: Building2 }]
+                      : []),
 
                   { label: "Créé le", value: new Date(project.createdAt).toLocaleDateString("fr-FR"), icon: Calendar },
                   { label: "Statut", value: "Terminé", icon: CheckCircle2 },

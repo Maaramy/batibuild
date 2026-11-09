@@ -676,7 +676,9 @@ export async function generateProjectPdf({
             // Colonnes inversées pour la lecture arabe : le libellé est à droite.
             const arBody: any[][] = [];
             natLines.forEach((line: any) => {
-              const designation = translateDesignation(line.designation, "ar");
+              const designation = `${translateDesignation(line.designation, "ar")}${
+                line.levelLabel ? ` — ${line.levelLabel}` : ""
+              }`;
               const description = line.description
                 ? translateDescription(line.description, "ar")
                 : "";
@@ -851,7 +853,12 @@ export async function generateProjectPdf({
             const natTableBody: any[][] = [];
             natLines.forEach((line: any) => {
               natTableBody.push([
-                { content: line.designation || line.name || "", styles: { fontSize: 6, halign: "left" as const } },
+                {
+                  content: `${line.designation || line.name || ""}${
+                    line.levelLabel ? ` — ${line.levelLabel}` : ""
+                  }`,
+                  styles: { fontSize: 6, halign: "left" as const },
+                },
                 { content: formatQuantitatifQuantity(line.quantity, line.unit, line.nature), styles: { fontSize: 6, halign: "right" as const, textColor: C.textSecondary } },
                 { content: fmtPdf(line.unitPrice || 0), styles: { fontSize: 6, halign: "right" as const, textColor: C.textSecondary } },
                 { content: fmtPdf(line.total || 0), styles: { fontSize: 6, halign: "right" as const, fontStyle: "bold" as const } },

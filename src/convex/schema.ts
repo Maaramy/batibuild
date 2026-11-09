@@ -89,6 +89,18 @@ export const regionValidator = v.union(
 );
 export type TunisiaRegion = (typeof TUNISIA_REGIONS)[number];
 
+/**
+ * Configuration des niveaux choisie dans « Nouveau projet » :
+ *   • plain  = Plain-pied (un RDC, calcul historique inchangé) ;
+ *   • floor1 = Étage 1 uniquement (aucun niveau inférieur, aucune fondation).
+ * Absent = projet historique, dont le nombre de niveaux reste lu dans `floors`.
+ */
+export const levelModeValidator = v.union(
+  v.literal("plain"),
+  v.literal("floor1"),
+);
+export type LevelMode = Infer<typeof levelModeValidator>;
+
 export const REGION_LABELS: Record<TunisiaRegion, string> = {
   tunis: "Tunis",
   ariana: "Ariana",
@@ -487,6 +499,9 @@ const schema = defineSchema(
       // Surface (unified field, in m²)
       surface: v.optional(v.number()),
       floors: v.optional(v.number()),
+      // Mode de niveau du formulaire : Plain-pied ou Étage 1. Absent pour les
+      // projets historiques (le nombre de niveaux reste alors dans `floors`).
+      levelMode: v.optional(levelModeValidator),
       // Surfaces couvertes RÉELLES de chaque niveau (1er élément = RDC). Absent
       // = la surface du RDC s'applique à tous les niveaux. Un étage de surface
       // différente n'est donc jamais facturé comme le RDC.

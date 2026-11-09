@@ -312,6 +312,67 @@ export function computeLevelCost(input: {
   return result;
 }
 
+/** Libellé du niveau unique pris en charge par le mode « Étage » du formulaire. */
+export const UPPER_FLOOR_LABEL = "Étage 1";
+
+/**
+ * Coût d'un Étage 1 SEUL, sans rez-de-chaussée, sans fondation, sans
+ * terrassement et sans frais communs de bâtiment.
+ *
+ * Le mode « Étage » du formulaire ne décrit pas un R+1 (RDC + étage) : il
+ * décrit uniquement le niveau supérieur demandé. On applique donc le
+ * coefficient de niveau R+1 (configurable par l'administration) à la surface
+ * réelle de l'étage, sans ajouter de niveau inférieur ni de toiture. La
+ * toiture n'est comptée que si elle est explicitement intégrée au périmètre
+ * des travaux, ce qui n'est pas le cas par défaut.
+ */
+export function computeUpperFloorCost(input: {
+  surface: number;
+  pricePerM2: number;
+  config?: Partial<LevelCostConfig> | null;
+}): LevelCostResult {
+  const config = resolveLevelCostConfig(input.config);
+  const price = Math.max(0, clampNumber(input.pricePerM2, 0));
+  const surface = Math.max(0, clampNumber(input.surface, 0));
+  const coefficient = config.rPlus1;
+  const amount = round0(price * surface * coefficient);
+
+  const result: LevelCostResult = {
+    config,
+    pricePerM2: price,
+    realBuiltArea: surface,
+    equivalentArea: Math.round(surface * coefficient * 100) / 100,
+    levels: [
+      {
+        // Index 2 = niveau supérieur dans la nomenclature historique, mais le
+        // libellé affiché reste exclusivement « Étage 1 ».
+        index: 2,
+        label: UPPER_FLOOR_LABEL,
+        area: surface,
+        coefficient,
+        // Aucun frais commun (fondations, VRD, études de sol, terrassement).
+        commonAmount: 0,
+        amount,
+      },
+    ],
+    roof: {
+      label: "Toiture / terrasse supérieure",
+      area: 0,
+      weight: config.roofWeight,
+      amount: 0,
+      counted: false,
+    },
+    common: { share: config.commonShare, amount: 0, countedOnce: true },
+    costAdjustments: [],
+    total: amount,
+    costPerM2Real: surface > 0 ? round0(amount / surface) : 0,
+    anomalies: [],
+  };
+
+  result.anomalies = checkLevelCosting(result);
+  return result;
+}
+
 /**
  * Contrôle automatique des anomalies du calcul multi-niveaux. Aucune anomalie
  * n'est masquée : chaque incohérence est remontée avec sa gravité, puis

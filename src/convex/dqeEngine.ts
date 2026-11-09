@@ -89,6 +89,8 @@ export interface DqeLine {
   unitPrice: number; // Prix unitaire (TND)
   total: number; // Montant TTC = Quantité × P.U. TTC
   nature: DqeNature;
+  /** Niveau concerné par le poste (« Étage 1 » uniquement en mode Étage). */
+  levelLabel?: string;
   observations?: string;
   /**
    * Décomposition fiscale (renseignée lorsque la ligne est chiffrée HT + TVA,
@@ -505,6 +507,72 @@ function vrdLot(percent: number): LotTpl {
     { d: "Réseau pluvial (tuyauterie PVC Ø200)", desc: "Canalisation, regards de visite.", u: "ml", q: 20, up: 45, n: "transport" },
     { d: "Bornes de délimitation de terrain", desc: "Bornes béton ou métal, peinture signalétique.", u: "unité", q: 4, qMode: "fixed", up: 80, n: "transport" },
   ]);
+}
+
+// ── Étage 1 : gabarit dédié, sans aucun poste de niveau inférieur ───────────
+/**
+ * Études strictement nécessaires à l'Étage 1. Ni étude de sol, ni permis de
+ * construire, ni raccordement : ces prestations concernent le bâtiment ou son
+ * niveau inférieur et ne sont pas incluses dans le périmètre de l'étage seul.
+ */
+function upperFloorStudiesLot(percent: number): LotTpl {
+  return lot("frais_preliminaires", "Frais préliminaires et études — Étage 1", "etudes", percent, [
+    { d: "Étude structurelle de l'Étage 1", desc: "Notes de calcul, plans de coffrage et de ferraillage du niveau.", u: "forfait", q: 1, qMode: "fixed", up: 2500, n: "etudes" },
+    { d: "Plans d'exécution et coordination de l'étage", desc: "Plans d'architecture, synthèse technique et suivi du niveau.", u: "forfait", q: 1, qMode: "fixed", up: 1500, n: "etudes" },
+    { d: "Assurance chantier — part Étage 1", desc: "Couverture tous risques limitée aux travaux du niveau.", u: "forfait", q: 1, qMode: "fixed", up: 800, n: "etudes" },
+  ]);
+}
+
+/** Gros œuvre de l'Étage 1 : structure, plancher, murs et cloisons uniquement. */
+function upperFloorGrosOeuvreLot(percent: number): LotTpl {
+  return lot("gros_oeuvre", "Gros œuvre — Étage 1", "materiaux", percent, [
+    { d: "Poteaux et éléments porteurs", desc: "Béton armé C25/30, acier T12, coffrage du niveau.", u: "m²", q: 120, up: 80, n: "materiaux" },
+    { d: "Poutres et chaînages", desc: "Poutres de rive, chaînages horizontaux et verticaux.", u: "m²", q: 120, up: 65, n: "materiaux" },
+    { d: "Dalle en béton armé", desc: "Plancher de l'Étage 1, hourdis + poutrelles ou dalle pleine.", u: "m²", q: 120, up: 105, n: "materiaux" },
+    { d: "Ferraillage (acier à béton T12)", desc: "Armatures des poteaux, poutres et plancher.", u: "tonnes", q: 1.2, up: 3850, n: "materiaux" },
+    { d: "Coffrage (bois et banchage)", desc: "Coffrage des éléments porteurs et du plancher.", u: "m²", q: 40, up: 35, n: "materiaux" },
+    { d: "Maçonnerie des murs extérieurs", desc: "Briques 12T / parpaings, chaînages et linteaux.", u: "m²", q: 100, up: 85, n: "materiaux" },
+    { d: "Cloisons intérieures", desc: "Briques creuses 8T / 10T et cloisons de distribution.", u: "m²", q: 80, up: 55, n: "materiaux" },
+    { d: "Enduits extérieurs", desc: "Enduit ciment sur les façades de l'étage.", u: "m²", q: 80, up: 16, n: "materiaux" },
+    { d: "Transport et manutention des matériaux", desc: "Montée des matériaux et évacuation des emballages du niveau.", u: "voyages", q: 4, up: 170, n: "transport" },
+  ]);
+}
+
+/**
+ * Second œuvre et finitions de l'Étage 1. On reprend le gabarit résidentiel
+ * PAR NIVEAU, en retirant les postes d'escalier / garde-corps (aucun niveau
+ * inférieur n'est calculé) et en ajoutant l'isolation selon configuration.
+ */
+function upperFloorSecondOeuvreLot(percent: number): LotTpl {
+  const base = secondOeuvreLot(percent, 1);
+  return {
+    ...base,
+    id: "second_oeuvre",
+    name: "Second œuvre et finitions — Étage 1",
+    lines: [
+      ...base.lines.filter((l) => !/escalier|garde-corps/i.test(l.d)),
+      { d: "Isolation thermique des murs extérieurs (selon configuration)", desc: "Isolant adapté au support et à l'exposition de l'étage.", u: "m²", q: 80, up: 25, n: "materiaux" },
+    ],
+    realPrices: true,
+  };
+}
+
+/** Transports propres au niveau, sans terrassement ni engin de fondation. */
+function upperFloorTransportLot(percent: number): LotTpl {
+  return lot("transport", "Transport et manutention — Étage 1", "transport", percent, [
+    { d: "Transport des matériaux vers l'Étage 1", desc: "Livraisons et montée des matériaux au niveau.", u: "voyages", q: 4, up: 170, n: "transport" },
+    { d: "Location monte-charge / grue de chantier", desc: "Manutention des charges lourdes du niveau.", u: "jours", q: 2, up: 280, n: "transport" },
+    { d: "Évacuation des gravats de l'étage", desc: "Benne et transport vers décharge agréée.", u: "bennes", q: 2, up: 200, n: "transport" },
+  ]);
+}
+
+function upperFloorLots(): LotTpl[] {
+  return [
+    upperFloorStudiesLot(3),
+    upperFloorGrosOeuvreLot(52),
+    upperFloorSecondOeuvreLot(42),
+    upperFloorTransportLot(3),
+  ];
 }
 
 // ── Résidentiel : gabarit 5 lots du modèle de référence ─────────────────────
@@ -1047,7 +1115,11 @@ const RESIDENTIAL = new Set([
   "immeuble_residentiel",
 ]);
 
-export function buildDqeLots(category: string, floors?: number): LotTpl[] {
+export function buildDqeLots(category: string, floors?: number, upperFloorOnly?: boolean): LotTpl[] {
+  // Mode « Étage » : un seul niveau supérieur, quel que soit le type de bien.
+  // Aucun gabarit de RDC (fondations, terrassement, VRD, toiture) n'est utilisé.
+  if (upperFloorOnly) return upperFloorLots();
+
   // D'abord, vérifier si le slug brut (ancien ou nouveau) a un gabarit dédié.
   // Cela permet aux anciens slugs spécialisés (renovation_complete, piscine, etc.)
   // de conserver leur gabarit spécifique même si resolveProjectType les mappe
@@ -1115,6 +1187,11 @@ export interface DqeInput {
   floors: number;
   totalBudget: number; // coût total des travaux (sans imprévus), TND
   livePrices?: DqeLivePriceMap;
+  /**
+   * Mode « Étage » : un seul niveau supérieur (Étage 1), sans fondations,
+   * terrassement, VRD, aménagements extérieurs ni toiture automatique.
+   */
+  upperFloorOnly?: boolean;
   /**
    * Surfaces couvertes réelles niveau par niveau (1er élément = RDC). Absent =
    * la surface du RDC est retenue pour tous les niveaux.
@@ -1193,7 +1270,7 @@ export function generateDqe(input: DqeInput): DqeResult {
     floors,
     input.levelSurfaces,
   );
-  const lotTpls = buildDqeLots(category, floors);
+  const lotTpls = buildDqeLots(category, floors, input.upperFloorOnly);
   const totalPct = lotTpls.reduce((s, l) => s + l.percent, 0);
   // Équipements sanitaires déclarés : ils majorent la quantité des postes
   // techniques par un équivalent m² (règle partagée `lib/dqeTechnicalLots`).
@@ -1409,6 +1486,7 @@ export function generateDqe(input: DqeInput): DqeResult {
         designation: tpl.d,
         description: tpl.desc,
         sousLot: tpl.sl,
+        ...(input.upperFloorOnly ? { levelLabel: "Étage 1" } : {}),
         unit: resolved.unit ?? tpl.u,
         quantity,
         unitPrice: resolved.up,

@@ -263,6 +263,7 @@ function ProjectSummary({
   selectedCategory,
   region,
   surface,
+  levelMode,
   importMethod,
   files,
   step,
@@ -274,6 +275,7 @@ function ProjectSummary({
   selectedCategory: string;
   region: string;
   surface: number;
+  levelMode: "plain" | "floor1";
   importMethod: string;
   files: File[];
   step: StepKey;
@@ -293,8 +295,18 @@ function ProjectSummary({
     const regionName = TUNISIA_REGIONS.find((r) => r.value === region)?.label || region;
     items.push({ label: "Région", value: regionName, icon: MapPin });
   }
+  if (selectedCategory)
+    items.push({
+      label: "Niveau",
+      value: levelMode === "floor1" ? "Étage 1" : "Plain-pied",
+      icon: Layers,
+    });
   if (Number.isFinite(surface) && surface > 0)
-    items.push({ label: "Surface couverte", value: `${surface} m²`, icon: Ruler });
+    items.push({
+      label: levelMode === "floor1" ? "Surface de l'Étage 1" : "Surface couverte",
+      value: `${surface} m²`,
+      icon: Ruler,
+    });
   if (files.length > 0)
     items.push({ label: "Fichiers", value: `${files.length} fichier${files.length > 1 ? "s" : ""}`, icon: FileText });
 
@@ -303,7 +315,7 @@ function ProjectSummary({
   // ── Category color ──
   const catColor = CATEGORY_COLORS[selectedCategory] || DEFAULT_CATEGORY_COLOR;
   const catHsl = `${catColor.hue} ${catColor.sat}% ${catColor.light}%`;
-  const totalFields = 7;
+  const totalFields = 8;
   const filledFields = items.length;
   const progress = Math.min(Math.round((filledFields / totalFields) * 100), 100);
 
@@ -555,35 +567,15 @@ export default function NewProject() {
   // valeur recommandée de la plage par défaut (50–300 m²), puis recadrée dès
   // que l'utilisateur choisit un type de projet.
   const [surface, setSurface] = useState(() => surfaceRuleForCategory("").defaultValue);
-  // Nombre de niveaux (RDC = 1). Réinitialisé selon le type sélectionné,
-  // puis ajustable manuellement (R+1, R+2, R+3).
-  const [floors, setFloors] = useState(1);
-  // Surfaces couvertes réelles des étages supérieurs (R+1, R+2, …) : un étage
-  // plus petit que le RDC est facturé sur SA surface, jamais sur celle du RDC.
-  // Un champ laissé vide reprend la surface du rez-de-chaussée.
-  const [upperSurfaces, setUpperSurfaces] = useState<number[]>([]);
+  // Configuration des niveaux : Plain-pied (calcul historique) ou Étage 1
+  // (un seul niveau supérieur, sans niveau inférieur ni fondation).
+  // Aucune autre option multi-niveaux n'est proposée.
+  const [levelMode, setLevelMode] = useState<"plain" | "floor1">("plain");
   // « Mode de construction » : catégories de travaux retenues (identifiants des
   // lots du Quantitatif détaillé). Réinitialisées à la sélection par défaut du
   // type (Gros œuvre + Second œuvre et finitions) à chaque changement de type.
   const [selectedWorks, setSelectedWorks] = useState<string[]>([]);
 
-  const setUpperSurface = (index: number, raw: string) => {
-    setUpperSurfaces((prev) => {
-      const next = [...prev];
-      while (next.length < floors - 1) next.push(NaN);
-      next[index] = raw.trim() === "" ? NaN : Math.max(0, Number(raw) || 0);
-      return next;
-    });
-  };
-
-  /** Surfaces réelles de chaque niveau transmises au moteur (RDC en premier). */
-  const levelSurfaces = useMemo(() => {
-    if (floors <= 1) return undefined;
-    return [surface, ...Array.from({ length: floors - 1 }, (_, i) => {
-      const value = upperSurfaces[i];
-      return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : surface;
-    })];
-  }, [floors, surface, upperSurfaces]);
   const [analyzing, setAnalyzing] = useState(false);
   // Identifiant réel du projet créé : les résultats sont observés via la requête
   // réactive `getProject` (source de vérité), JAMAIS via la seule promesse de la
@@ -736,9 +728,9 @@ export default function NewProject() {
     // Catégories de travaux du nouveau type : « Gros œuvre » et « Second œuvre
     // et finitions » sont cochées d'office (exigence du tunnel).
     setSelectedWorks(defaultWorkCategories(cat));
-    // Repositionne le sélecteur de niveaux sur la valeur par défaut du type
-    // (duplex → étage, types mono-niveaux → RDC), puis ajustable manuellement.
-    setFloors(inferFloorsFromCategory(cat));
+    // Le duplex est proposé par défaut en mode Étage ; les autres types en
+    // Plain-pied. L'utilisateur peut ensuite choisir l'un des deux modes.
+    setLevelMode(inferFloorsFromCategory(cat) > 1 ? "floor1" : "plain");
     // Adapter la surface à la plage du nouveau type : valeur conservée si elle
     // est déjà valide, sinon valeur recommandée du type (jamais hors bornes).
     setSurface((prev) => surfaceForCategoryChange(cat, prev));
@@ -908,10 +900,10 @@ export default function NewProject() {
         // Dernier verrou avant envoi : surface bornée et alignée sur le pas du
         // type de projet, transmise telle quelle aux moteurs BIM / DQE.
         surface: normalizeSurface(surfaceRuleForCategory(selectedCategory), surface),
-        floors,
-        // Surfaces réelles par niveau (RDC inclus) : transmises telles quelles au
-        // moteur de coûts, au DQE et à l'aide à la décision.
-        levelSurfaces,
+        // Un seul niveau dans les deux modes. `levelMode` indique au moteur si
+        // ce niveau est un plain-pied ou l'Étage 1 (sans niveau inférieur).
+        floors: 1,
+        levelMode,
         // « Mode de construction » : l'estimation ne chiffrera que ces catégories.
         workCategories: selectedWorks,
       });
@@ -1281,7 +1273,8 @@ export default function NewProject() {
                 <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
                   <div className="flex items-center justify-between gap-2">
                     <Label className="text-xs sm:text-sm font-semibold">
-                      Surface couverte <span className="text-primary">*</span>
+                      {levelMode === "floor1" ? "Surface de l'Étage 1" : "Surface couverte"}{" "}
+                      <span className="text-primary">*</span>
                     </Label>
                     <div className="flex items-baseline gap-1">
                       <span className="text-xl sm:text-2xl font-bold leading-none tabular-nums text-primary">
@@ -1296,7 +1289,11 @@ export default function NewProject() {
                     min={surfaceRule.min}
                     max={surfaceRule.max}
                     step={surfaceRule.step}
-                    aria-label="Surface couverte en mètres carrés"
+                    aria-label={
+                      levelMode === "floor1"
+                        ? "Surface de l'Étage 1 en mètres carrés"
+                        : "Surface couverte en mètres carrés"
+                    }
                     onValueChange={(v) => {
                       setSurface(normalizeSurface(surfaceRule, v[0]));
                       setErrors((e) => ({ ...e, surface: "" }));
@@ -1309,6 +1306,12 @@ export default function NewProject() {
                     </span>
                     <span>{surfaceRule.max} m²</span>
                   </div>
+                  {levelMode === "floor1" && (
+                    <p className="text-[10px] text-muted-foreground mt-2 leading-snug">
+                      Seule cette surface est prise en compte : un seul niveau, l'Étage 1.
+                      Aucune surface de rez-de-chaussée ni d'un autre étage n'est ajoutée.
+                    </p>
+                  )}
                   {errors.surface && (
                     <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />{errors.surface}
@@ -1316,66 +1319,48 @@ export default function NewProject() {
                   )}
                 </div>
 
-                {/* Nombre de niveaux : affiché uniquement pour les types qui
-                    autorisent plusieurs niveaux (studio compris), masqué pour
-                    les projets de plain-pied (restaurant, café, rénovation
-                    complète, travaux…) — les données restent gérées par le
-                    backend et aucun type de projet n'est modifié. */}
+                {/* Nombre de niveaux : deux choix exclusifs seulement.
+                    « Étage » désigne UNIQUEMENT l'Étage 1 (aucun R+1/R+2, aucun
+                    niveau inférieur, aucune fondation ajoutée automatiquement). */}
                 {isMultiLevelCategory(selectedCategory) && (
                 <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
-                  <Label htmlFor="floors" className="text-xs sm:text-sm font-semibold">
+                  <Label htmlFor="levelMode" className="text-xs sm:text-sm font-semibold">
                     Nombre de niveaux
                   </Label>
                   <div className="mt-1.5 relative">
                     <Layers className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                     <select
-                      id="floors"
-                      value={floors}
-                      onChange={(e) => setFloors(Math.max(1, Math.min(5, parseInt(e.target.value) || 1)))}
+                      id="levelMode"
+                      value={levelMode}
+                      onChange={(e) =>
+                        setLevelMode(e.target.value === "floor1" ? "floor1" : "plain")
+                      }
                       className="w-full pl-9 pr-8 h-9 sm:h-10 text-xs sm:text-sm rounded-md border border-input bg-background appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
                     >
-                      {[1, 2, 3, 4, 5].map((n) => (
-                        <option key={n} value={n}>
-                          {n === 1 ? "RDC (plain-pied)" : n === 2 ? "R+1 (2 niveaux)" : `R+${n - 1} (${n} niveaux)`}
-                        </option>
-                      ))}
+                      <option value="plain">Plain-pied</option>
+                      <option value="floor1">Étage</option>
                     </select>
                     <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none rotate-90" />
                   </div>
                   <p className="text-[10px] text-muted-foreground mt-1.5">
-                    Ajusté automatiquement selon le type de projet sélectionné.
+                    « Étage » correspond exclusivement à l'Étage 1. Aucun autre niveau n'est calculé.
                   </p>
 
-                  {/* Surfaces réelles de chaque étage : un étage plus petit que
-                      le rez-de-chaussée est chiffré sur sa propre surface. */}
-                  {floors > 1 && (
-                    <div className="mt-3 space-y-2 rounded-lg border border-border/40 bg-background/40 p-3">
-                      <p className="text-[10px] font-semibold text-muted-foreground">
-                        Surfaces couvertes par niveau (m²)
-                      </p>
+                  {levelMode === "floor1" && (
+                    <div className="mt-3 space-y-2 rounded-lg border border-primary/20 bg-primary/[0.04] p-3">
                       <div className="flex items-center justify-between gap-2 text-[10px]">
-                        <span className="font-medium">RDC</span>
+                        <span className="font-medium">Niveau calculé</span>
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary">
+                          Étage 1
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-[10px]">
+                        <span className="font-medium">Surface prise en compte</span>
                         <span className="tabular-nums text-muted-foreground">{surface} m²</span>
                       </div>
-                      {Array.from({ length: floors - 1 }, (_, i) => (
-                        <div key={i} className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] font-medium">R+{i + 1}</span>
-                          <Input
-                            inputMode="decimal"
-                            value={
-                              Number.isFinite(upperSurfaces[i] as number)
-                                ? String(upperSurfaces[i])
-                                : ""
-                            }
-                            onChange={(e) => setUpperSurface(i, e.target.value)}
-                            placeholder={`${surface}`}
-                            className="h-8 w-24 text-right text-xs tabular-nums"
-                          />
-                        </div>
-                      ))}
-                      <p className="text-[10px] text-muted-foreground">
-                        Laisser vide pour reprendre la surface du RDC. Les étages sont estimés sur leur
-                        surface réelle — jamais sur le coût complet du rez-de-chaussée.
+                      <p className="text-[10px] text-muted-foreground leading-snug">
+                        Estimation et DQE limités à cet étage : ni niveau inférieur, ni fondations,
+                        ni terrassement, ni VRD, ni toiture ajoutée automatiquement.
                       </p>
                     </div>
                   )}
@@ -1622,6 +1607,7 @@ export default function NewProject() {
                 selectedCategory={selectedCategory}
                 region={region}
                 surface={surface}
+                levelMode={levelMode}
                 importMethod={importMethod}
                 files={files}
                 step={step}
@@ -1647,6 +1633,7 @@ export default function NewProject() {
                 selectedCategory={selectedCategory}
                 region={region}
                 surface={surface}
+                levelMode={levelMode}
                 importMethod={importMethod}
                 files={files}
                 step={step}

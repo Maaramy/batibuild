@@ -2,6 +2,7 @@ import { TUNISIA_2026_CATALOG } from "./materialCatalog2026";
 import { PROJECT_TYPES, PROJECT_TYPE_LABELS } from "./projectTypes";
 import {
   computeLevelCost,
+  computeUpperFloorCost,
   realBuiltArea,
   type LevelCostConfig,
 } from "../lib/buildingLevels";
@@ -1116,6 +1117,65 @@ function genGOItems(surface: number, floors: number, cat: string, targetBudget: 
   return finalizeItems(items, targetBudget, true, livePrices);
 }
 
+/**
+ * Gros œuvre d'un Étage 1 SEUL : structure, plancher, maçonnerie et cloisons.
+ * Aucun terrassement, fondation, soubassement, dallage ni toiture : ces postes
+ * appartiennent au niveau inférieur ou à l'enveloppe du bâtiment et ne doivent
+ * jamais être ajoutés automatiquement au chiffrage de l'étage.
+ */
+function genUpperFloorGOItems(
+  surface: number,
+  cat: string,
+  targetBudget: number,
+  wallFactor = 1,
+) {
+  const tb = Math.max(0, surface);
+  const isHeavy = ["immeuble_residentiel", "immeuble", "usine", "depot", "entrepot", "chateau_d_eau", "mosquee", "ecole"].includes(cat);
+  const d = isHeavy ? 1.3 : 1;
+  const dW = d * wallFactor;
+  const items = [
+    { n: "Poteaux et éléments porteurs (béton armé C25/30)", q: Math.round(tb * 0.12 * 10) / 10, u: "m³", up: 265 },
+    { n: "Poutres et chaînages (béton armé C25/30)", q: Math.round(tb * 0.1 * 10) / 10, u: "m³", up: 265 },
+    { n: "Dalle en béton armé (plancher de l'Étage 1)", q: Math.round(tb), u: "m²", up: 105 },
+    { n: "Ferraillage (acier à béton T12)", q: Math.round(tb * 0.02 * 100) / 100, u: "tonnes", up: P.steel.t12_ton },
+    { n: "Coffrage (bois et banchage)", q: Math.round(tb * 0.5), u: "m²", up: 35 },
+    { n: "Maçonnerie des murs extérieurs", q: Math.round(tb * 0.8), u: "m²", up: 85 },
+    { n: "Cloisons intérieures", q: Math.round(tb * 0.6 * dW), u: "m²", up: 55 },
+    { n: "Enduits extérieurs", q: Math.round(tb * 0.8), u: "m²", up: 16 },
+    { n: "Ciment CPJ 42.5 (Sac 50kg)", q: Math.round(tb * 2.5 * d), u: "sacs", up: P.cement.bag42_5 },
+    { n: "Sable de construction 0/4", q: Math.round(tb * 0.2 * d * 10) / 10, u: "m³", up: P.sand.construction },
+    { n: "Gravier 15/25mm", q: Math.round(tb * 0.12 * d * 10) / 10, u: "m³", up: P.gravel["15_25mm"] },
+    { n: "Treillis soudé ST25", q: Math.round(tb * 0.12), u: "m²", up: P.steel.treillis_m2 },
+    { n: "Brique creuse 10cm", q: Math.round(tb * 30 * dW), u: "unités", up: P.bricks.hollow_10 },
+    { n: "Hourdis 16x50", q: Math.round(tb * 7 * d), u: "unités", up: P.bricks.hourdis_16 },
+    { n: "Béton prêt à l'emploi 300kg/m³", q: Math.round(tb * 0.15 * d * 10) / 10, u: "m³", up: P.concrete.ready_mix_300 },
+    { n: "Bois de coffrage", q: Math.round(tb * 0.03 * 100) / 100, u: "m³", up: P.wood.formwork_m3 },
+    { n: "Parpaing creux 20cm", q: Math.round(tb * 8 * dW), u: "unités", up: P.bricks.parpaing_20 },
+  ];
+  return finalizeItems(items, targetBudget, true);
+}
+
+/** Transport et manutention limités au niveau supérieur (aucun terrassement). */
+function genUpperFloorTRItems(surface: number, targetBudget: number) {
+  const tb = Math.max(0, surface);
+  const items = [
+    { n: "Transport des matériaux vers l'Étage 1", q: Math.max(1, Math.round(tb / 30)), u: "voyages", up: 170 },
+    { n: "Location monte-charge / grue de chantier", q: Math.max(1, Math.round(tb / 100)), u: "jours", up: 280 },
+    { n: "Évacuation des emballages et gravats de l'étage", q: Math.max(1, Math.round(tb / 60)), u: "bennes", up: 200 },
+  ];
+  return finalizeItems(items, targetBudget, false);
+}
+
+/** Études strictement liées à l'Étage 1 : ni étude de sol ni permis du RDC. */
+function genUpperFloorEIItems(totalBudget: number, targetBudget: number) {
+  const items = [
+    { n: "Étude structurelle de l'Étage 1 (notes de calcul, ferraillage)", q: 1, u: "forfait", up: Math.round(Math.min(totalBudget * 0.04, 4000)) },
+    { n: "Plans d'exécution et coordination de l'étage", q: 1, u: "forfait", up: Math.round(Math.min(totalBudget * 0.02, 2000)) },
+    { n: "Assurance chantier — part Étage 1", q: 1, u: "forfait", up: Math.round(totalBudget * 0.008) },
+  ];
+  return finalizeItems(items, targetBudget, false);
+}
+
 function genSOItems(surface: number, floors: number, cat: string, targetBudget: number, rooms?: { total?: number }, livePrices?: LivePriceMap) {
   const tb = surface * (floors || 1);
   const profile = catProfile(cat);
@@ -1804,6 +1864,12 @@ export interface BIMEstimationOptions {
   levelSurfaces?: number[];
   /** Coefficients de niveau (RDC 100 % · R+1/R+2 65-80 % · R+3+ 56-80 %). */
   levelConfig?: Partial<LevelCostConfig>;
+  /**
+   * Mode « Étage » du formulaire : un SEUL niveau supérieur (Étage 1), sans
+   * rez-de-chaussée, fondation, terrassement, VRD ni toiture ajoutée.
+   * Absent/false = comportement historique (plain-pied ou multi-niveaux).
+   */
+  upperFloorOnly?: boolean;
 }
 
 /**
@@ -1859,25 +1925,33 @@ export function runBIMEstimation(
   // type de projet (maison = 1 → le chiffre du classeur est reproduit tel quel).
   const finalPriceM2 = Math.round(baseRegionM2 * projectRatio);
 
-  // ── Calcul multi-niveaux : SOURCE UNIQUE du coût du bâtiment.
-  // Le RDC porte 100 % du prix au m² (frais communs — terrassement, fondations
-  // dimensionnées pour la structure totale, études, VRD, aménagements
-  // extérieurs — comptés UNE seule fois) et chaque étage supérieur est chiffré
-  // sur sa surface RÉELLE × son coefficient de niveau (65-80 %). La toiture /
-  // terrasse supérieure est chiffrée séparément, une seule fois. Le coût d'un
-  // R+1 n'est donc jamais le double du coût complet d'un RDC.
-  const levels = computeLevelCost({
-    surface,
-    floors,
-    levelSurfaces: options?.levelSurfaces,
-    config: options?.levelConfig,
-    pricePerM2: finalPriceM2,
-  });
+  // ── Calcul du coût du bâtiment.
+  // Mode « Étage » : un seul niveau supérieur, sans niveau inférieur ni frais
+  // communs. Le mode Plain-pied et le multi-niveaux historique gardent
+  // exactement le même calcul qu'avant.
+  const upperFloorOnly = options?.upperFloorOnly === true;
+  // Un Étage 1 est un niveau unique : les générateurs de quantités ne doivent
+  // jamais recevoir un nombre de niveaux supérieur (aucun doublement).
+  const effectiveFloors = upperFloorOnly ? 1 : floors;
+  const levels = upperFloorOnly
+    ? computeUpperFloorCost({
+        surface,
+        pricePerM2: finalPriceM2,
+        config: options?.levelConfig,
+      })
+    : computeLevelCost({
+        surface,
+        floors,
+        levelSurfaces: options?.levelSurfaces,
+        config: options?.levelConfig,
+        pricePerM2: finalPriceM2,
+      });
 
-  // Surface réellement construite (somme des surfaces de tous les niveaux) :
-  // base des QUANTITÉS du quantitatif — jamais le nombre de niveaux appliqué
-  // aveuglément au coût du RDC.
-  const tb = realBuiltArea(surface, floors, options?.levelSurfaces);
+  // Surface réellement construite : surface unique de l'Étage 1 en mode
+  // « Étage », somme réelle des niveaux sinon. Jamais multipliée par deux.
+  const tb = upperFloorOnly
+    ? Math.max(0, surface)
+    : realBuiltArea(surface, floors, options?.levelSurfaces);
 
   // ── Nombre de pièces : impacte uniquement les QUANTITÉS du quantitatif
   // (portes, WC, main-d'œuvre…) — jamais le prix au m², qui reste celui de la
@@ -1932,12 +2006,17 @@ export function runBIMEstimation(
   // Generate itemized lists per category
   const roomInfo = { bedrooms, bathrooms, kitchens, livingRooms, garages, wcs, pools, total: totalRooms };
   const genMap: Record<string, (s: number, f: number, c: string, b: number, r: typeof roomInfo) => any[]> = {
-    gros_oeuvre: (s, f, c, b, r) => genGOItems(s, f, c, b, wallFactor),
+    gros_oeuvre: (s, f, c, b, r) =>
+      upperFloorOnly
+        ? genUpperFloorGOItems(s, c, b, wallFactor)
+        : genGOItems(s, f, c, b, wallFactor),
     second_oeuvre: genSOItems,
     equipements: genEQItems,
-    main_oeuvre: (s: number, f: number, c: string, b: number, r: typeof roomInfo) => genMOItems(s, f, c, b, r),
-    transport: (s: number, f: number, c: string, b: number, r) => genTRItems(s, f, b, c),
-    etudes_imprevus: (s: number, f: number, c: string, b: number, r) => genEIItems(finalTotal, b),
+    main_oeuvre: (s, f, c: string, b: number, r: typeof roomInfo) => genMOItems(s, f, c, b, r),
+    transport: (s, f, c: string, b: number, r) =>
+      upperFloorOnly ? genUpperFloorTRItems(s, b) : genTRItems(s, f, b, c),
+    etudes_imprevus: (s, f, c: string, b: number, r) =>
+      upperFloorOnly ? genUpperFloorEIItems(finalTotal, b) : genEIItems(finalTotal, b),
   };
 
   // Salle de bain : la répartition affichée est celle des natures RÉELLES du
@@ -1967,7 +2046,7 @@ export function runBIMEstimation(
       }))
     : keys.map((k, i) => {
     const budget = categoryBudgets[k];
-    const items = genMap[k](surface, floors, category, budget, roomInfo);
+    const items = genMap[k](surface, effectiveFloors, category, budget, roomInfo);
     const itemTotal = items.reduce((s, it) => s + it.totalPrice, 0);
     // Scale items to match budget exactly
     const scale = itemTotal > 0 ? budget / itemTotal : 1;
@@ -2050,10 +2129,10 @@ export function runBIMEstimation(
   const totalDays = laborTotal > 0 ? Math.round(laborTotal / avgWorkerCost) : 0;
   const avgWorkers = Math.max(1, Math.round(totalDays / 22));
 
-  const anomalies = detectAnomalies(category, surface, floors);
+  const anomalies = detectAnomalies(category, surface, effectiveFloors);
   // Durée du chantier : plus de pièces = finitions & second œuvre plus longs
   const durationRoomsFactor = Math.min(1.3, Math.max(0.9, 1 + (totalRooms - stdRooms) * 0.03));
-  const duration = estimateDuration(surface, floors, category, durationRoomsFactor);
+  const duration = estimateDuration(surface, effectiveFloors, category, durationRoomsFactor);
 
   // Optimization tips with region context
   const tips = generateTips(category, surface, region, finishLevel, costM2);
@@ -2120,7 +2199,7 @@ export function runBIMEstimation(
       rawAnalysis: "Analyse BIM basée sur les prix du marché tunisien 2026",
     },
     optimizationTips: tips,
-    technicalRecommendations: generateTechRecs(category, surface, floors),
+    technicalRecommendations: generateTechRecs(category, surface, effectiveFloors),
     regionImpact,
   };
 }

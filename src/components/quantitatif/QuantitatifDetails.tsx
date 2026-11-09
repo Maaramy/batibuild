@@ -381,6 +381,14 @@ export function QuantitatifDetails({
                                       <div className="flex-1 min-w-0">
                                         <p className="text-[11px] font-medium leading-snug flex flex-wrap items-center gap-1.5">
                                           <span>{designation}</span>
+                                          {line.levelLabel && (
+                                            <Badge
+                                              variant="outline"
+                                              className="text-[8px] h-3.5 px-1 border-primary/30 text-primary bg-primary/5 shrink-0"
+                                            >
+                                              {line.levelLabel}
+                                            </Badge>
+                                          )}
                                           {isCustomized && (
                                             <Badge
                                               variant="outline"

@@ -21,6 +21,7 @@ import {
   PROJECT_STATUS,
   materialCategoryValidator,
   regionValidator,
+  levelModeValidator,
   SPECIALTY_TO_PROVIDER_TYPE,
 } from "./schema";
 import {
@@ -389,6 +390,9 @@ export const createProject = mutation({
     region: v.optional(regionValidator),
     surface: v.optional(v.number()),
     floors: v.optional(v.number()),
+    // « Plain-pied » ou « Étage 1 » : le mode Étage ne calcule qu'un seul
+    // niveau supérieur, sans niveau inférieur ni fondation.
+    levelMode: v.optional(levelModeValidator),
     // Surfaces couvertes réelles de chaque niveau (1er élément = RDC), saisies
     // dans le formulaire : un étage de surface différente reçoit son propre coût.
     levelSurfaces: v.optional(v.array(v.number())),
@@ -455,8 +459,16 @@ export const createProject = mutation({
       description: args.description,
       region: args.region,
       surface: args.surface,
-      floors: args.floors,
-      levelSurfaces: args.levelSurfaces,
+      // Mode Étage : un seul niveau, dont la surface est celle de l'Étage 1.
+      // Aucune surface de RDC ni de niveau supplémentaire n'est enregistrée.
+      floors: args.levelMode === "floor1" ? 1 : args.floors,
+      levelMode: args.levelMode,
+      levelSurfaces:
+        args.levelMode === "floor1"
+          ? args.surface !== undefined && args.surface > 0
+            ? [args.surface]
+            : undefined
+          : args.levelSurfaces,
       // Sélection « Mode de construction » : liste bornée et dédupliquée pour
       // qu'aucune valeur arbitraire du client ne s'accumule dans le document.
       workCategories: args.workCategories
@@ -980,9 +992,15 @@ export const simulateAnalysis = mutation({
     if (!project) return;
 
     const surface = project.surface ?? 150;
+    // Mode Étage 1 : un seul niveau supérieur, jamais de RDC implicite. Les
+    // projets historiques (levelMode absent) conservent exactement leur
+    // nombre de niveaux enregistré.
+    const upperFloorOnly = project.levelMode === "floor1";
     // Nombre de niveaux effectif : valeur saisie par l'utilisateur si présente
     // (sélecteur manuel), sinon déduite du type de projet.
-    const floors = project.floors ?? inferFloorsFromCategory(project.category);
+    const floors = upperFloorOnly
+      ? 1
+      : project.floors ?? inferFloorsFromCategory(project.category);
     // Les types « Maison R+1 » / « Maison R+2 » ont été supprimés du catalogue :
     // les projets existants enregistrés avec ces anciens slugs sont
     // recalculés comme « maison » / « villa » avec leur nombre de niveaux.
@@ -1005,7 +1023,9 @@ export const simulateAnalysis = mutation({
     // par défaut de `lib/buildingLevels` : aucune modification du code source
     // n'est nécessaire pour les ajuster.
     const levelConfig = await readLevelCostConfigFromDb(ctx);
-    const levelSurfaces = normalizeLevelSurfacesInput(project);
+    const levelSurfaces = upperFloorOnly
+      ? [surface]
+      : normalizeLevelSurfacesInput(project);
     // Taux de TVA du DQE de rénovation de salle de bain réglé par
     // l'administrateur (absent → 19 %, taux de droit commun).
     const sdbConfig = await ctx.db.query("bimConfig").order("desc").first();
@@ -1019,7 +1039,7 @@ export const simulateAnalysis = mutation({
         garages: project.garages,
         wcs: project.wcs,
         pools: project.pools,
-      }, { levelSurfaces, levelConfig }),
+      }, { levelSurfaces, levelConfig, upperFloorOnly }),
     );
 
     // Portes & fenêtres du « Quantitatif détaillé » : quantités réalistes par
@@ -1030,7 +1050,9 @@ export const simulateAnalysis = mutation({
     // Les défauts pièces sont alignés sur ceux du moteur BIM (~1 pièce / 45 m²).
     // Surface réellement construite : somme des surfaces couvertes de CHAQUE
     // niveau (un étage plus petit que le RDC ne reçoit jamais la surface du RDC).
-    const tb = realBuiltArea(surface, floors, levelSurfaces);
+    const tb = upperFloorOnly
+      ? Math.max(0, surface)
+      : realBuiltArea(surface, floors, levelSurfaces);
     result.costEstimate.breakdown = applyRealisticDoorsWindows(
       result.costEstimate.breakdown,
       {
@@ -1077,6 +1099,7 @@ export const simulateAnalysis = mutation({
       totalBudget: result.costEstimate.totalCost,
       livePrices,
       levelSurfaces,
+      upperFloorOnly,
       regionFactor: technicalRegionFactor,
       sdbVatRate: sdbConfig?.sdbVatRate,
       rooms: hasRoomsInfo
