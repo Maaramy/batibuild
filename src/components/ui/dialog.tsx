@@ -1,7 +1,7 @@
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
-import { XIcon } from "lucide-react"
 
+import { M3Icon } from "@/components/ui/material3"
 import { cn } from "@/lib/utils"
 
 function Dialog({
@@ -72,9 +72,9 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none"
           >
-            <XIcon />
+            <M3Icon name="close" className="text-[20px]" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         )}

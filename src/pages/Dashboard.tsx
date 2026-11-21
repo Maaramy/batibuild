@@ -41,11 +41,7 @@ import {
   Settings,
   Search,
   ArrowUpRight,
-  Moon,
-  Sun,
   CreditCard,
-  Menu,
-  X,
   Shield,
   Store,
   Briefcase,
@@ -54,7 +50,6 @@ import {
   Sparkles,
   Headset,
   ChevronDown,
-  ChevronLeft,
   Rocket,
   MessageSquare,
   Link,
@@ -70,7 +65,14 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { expertProfessionLabel } from "@/lib/expertProfessions";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
+import {
+  M3Fab,
+  M3Icon,
+  M3NavigationBar,
+  M3SearchBar,
+  type M3NavigationItem,
+} from "@/components/ui/material3";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
@@ -83,6 +85,27 @@ import {
 } from "@/pages/dashboard-parts";
 import { fmtTND, fmtPct } from "@/components/investment/shared";
 
+/** Icônes Material Symbols de la navigation (mêmes entrées, même logique). */
+const SIDEBAR_ICONS: Record<string, string> = {
+  "Tableau de bord": "space_dashboard",
+  "Nouveau projet": "add_circle",
+  "Mes projets": "folder_copy",
+  "Démarche de construction": "route",
+  "Projets favoris": "star",
+  "Prix matériaux": "sell",
+  "Investissements immobiliers": "domain",
+  "Suivi de chantier": "engineering",
+  "Espace fournisseur": "storefront",
+  "Espace expert": "workspace_premium",
+  "Statistiques": "monitoring",
+  "Mon profil fournisseur": "store",
+  "Mon profil expert": "badge",
+  "Rapports PDF": "picture_as_pdf",
+  "Support": "support_agent",
+  Blog: "article",
+  "Mon profil": "person",
+  Administration: "admin_panel_settings",
+};
 
 // ============================================================================
 // Main Dashboard Component
@@ -96,6 +119,7 @@ export default function Dashboard() {
   usePageSEO({ title: "Tableau de bord - batibuild", description: "Gérez vos projets de construction et suivez vos estimations sur batibuild." });
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { theme, setTheme } = useTheme();
   // Feature flags : masque intégralement les modules désactivés par l'admin
   // (menus, raccourcis, cartes, sections — mobile et desktop).
@@ -266,61 +290,92 @@ export default function Dashboard() {
   const visibleProjects = showAllProjects ? filteredProjects : filteredProjects.slice(0, 3);
   const projectFavorites = projects.filter((p: any) => p.isFavorite).length;
 
+  // Navigation bar mobile Material 3, adaptée au rôle affiché. Les routes et
+  // les actions sont exactement celles du menu existant (aucune duplication
+  // de logique, aucun accès supplémentaire).
+  const mobileNavItems: M3NavigationItem[] =
+    viewMode === "supplier"
+      ? [
+          { id: "home", label: "Accueil", icon: "space_dashboard", active: pathname === "/dashboard", onClick: () => setViewMode("supplier") },
+          { id: "stats", label: "Stats", icon: "monitoring", active: pathname.startsWith("/dashboard/supplier"), onClick: () => navigate("/dashboard/supplier/stats") },
+          { id: "messages", label: "Messages", icon: "chat_bubble", active: pathname.startsWith("/dashboard/messages"), badge: messagingUnread, onClick: () => navigate("/dashboard/messages?tab=requests") },
+          { id: "profile", label: "Profil", icon: "person", active: pathname.startsWith("/dashboard/profile"), onClick: () => navigate("/dashboard/profile") },
+        ]
+      : viewMode === "expert"
+        ? [
+            { id: "home", label: "Accueil", icon: "space_dashboard", active: pathname === "/dashboard", onClick: () => setViewMode("expert") },
+            { id: "stats", label: "Stats", icon: "monitoring", active: pathname.startsWith("/dashboard/expert"), onClick: () => navigate("/dashboard/expert/stats") },
+            { id: "messages", label: "Messages", icon: "chat_bubble", active: pathname.startsWith("/dashboard/messages"), badge: messagingUnread, onClick: () => navigate("/dashboard/messages?tab=received") },
+            { id: "profile", label: "Profil", icon: "person", active: pathname.startsWith("/dashboard/profile"), onClick: () => navigate("/dashboard/profile") },
+          ]
+        : [
+            { id: "home", label: "Accueil", icon: "space_dashboard", active: pathname === "/dashboard", onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }) },
+            { id: "projects", label: "Projets", icon: "folder_copy", active: pathname.startsWith("/dashboard/project"), onClick: () => navigate("/dashboard/projects") },
+            { id: "messages", label: "Messages", icon: "chat_bubble", active: pathname.startsWith("/dashboard/messages"), badge: messagingUnread, onClick: () => navigate("/dashboard/messages") },
+            { id: "profile", label: "Profil", icon: "person", active: pathname.startsWith("/dashboard/profile"), onClick: () => navigate("/dashboard/profile") },
+          ];
+
+  const canCreateProject = viewMode === "client" && isFeatureEnabled("construction_cost_estimation");
+  const activeProjects = Math.max(0, stats.totalProjects - stats.completedProjects);
+  const completionRate = stats.totalProjects > 0
+    ? Math.round((stats.completedProjects / stats.totalProjects) * 100)
+    : 0;
+
   const formatter = new Intl.NumberFormat("fr-TN", { style: "currency", currency: "TND", maximumFractionDigits: 0 });
 
   const sidebarContent = (collapsed: boolean) => (
     <>
-      <div className={cn("border-b border-border/30", collapsed ? "flex justify-center p-3" : "p-4 sm:p-5")}>
+      <div className={cn("border-b border-outline-variant/60", collapsed ? "flex justify-center p-4" : "px-4 py-5")}>
         {collapsed ? (
           <button
             type="button"
             onClick={() => setSidebarCollapsed(false)}
             aria-label="Déployer la navigation"
             title="Déployer la navigation"
-            className="rounded-lg focus-visible:outline-2 focus-visible:outline-ring"
+            className="rounded-2xl focus-visible:outline-2 focus-visible:outline-ring"
           >
-            <LogoMark className="h-7 w-7 rounded-lg" />
+            <LogoMark className="h-9 w-9 rounded-2xl" />
           </button>
         ) : (
-          <div className="flex items-center gap-2">
-            <LogoMark className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg" />
+          <div className="flex items-center gap-2.5">
+            <LogoMark className="h-10 w-10 rounded-2xl shadow-m3-1" />
             <div className="min-w-0 flex-1">
-              <span className="text-sm sm:text-base font-semibold">batibuild</span>
-              <p className="text-[9px] sm:text-[10px] text-muted-foreground">Tableau de bord</p>
+              <span className="font-display text-base font-bold tracking-tight">batibuild</span>
+              <p className="text-[10px] font-medium text-on-surface-variant">Espace de travail</p>
             </div>
             <button
               type="button"
               onClick={() => setSidebarCollapsed(true)}
               aria-label="Réduire la navigation"
               title="Réduire la navigation"
-              className="hidden h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring lg:grid"
+              className="hidden h-8 w-8 shrink-0 place-items-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring lg:grid"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <M3Icon name="left_panel_close" className="text-[20px]" />
             </button>
           </div>
         )}
       </div>
-      <nav className={cn("flex-1 space-y-0.5", collapsed ? "p-2" : "p-3 sm:p-4")}>
+      <nav className={cn("flex-1 space-y-1 overflow-y-auto", collapsed ? "px-2 py-3" : "px-3 py-4")}>
         {/* Role switch button for professionals */}
         {(isSupplier || isExpert) && !collapsed && (
           <div className="mb-2">
-            <div className="flex items-center gap-1 rounded-lg border border-border/40 bg-muted/20 p-0.5">
+            <div className="flex items-center gap-1 rounded-full bg-surface-container p-1">
               <button
                 onClick={() => { setViewMode(isSupplier ? "supplier" : "expert"); setMobileSidebarOpen(false); }}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] sm:text-xs font-medium transition-all",
-                  viewMode !== "client" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                  "flex min-h-8 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-semibold transition-all sm:text-xs",
+                  viewMode !== "client" ? "bg-primary-container text-on-primary-container shadow-sm" : "text-on-surface-variant hover:text-foreground",
                 )}>
-                {isSupplier ? <Store className="h-3 w-3" /> : <Briefcase className="h-3 w-3" />}
+                {isSupplier ? <Store className="h-3.5 w-3.5" /> : <Briefcase className="h-3.5 w-3.5" />}
                 {isSupplier ? "Fournisseur" : "Expert"}
               </button>
               <button
                 onClick={() => { setViewMode("client"); setMobileSidebarOpen(false); }}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] sm:text-xs font-medium transition-all",
-                  viewMode === "client" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground",
+                  "flex min-h-8 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-[10px] font-semibold transition-all sm:text-xs",
+                  viewMode === "client" ? "bg-primary-container text-on-primary-container shadow-sm" : "text-on-surface-variant hover:text-foreground",
                 )}>
-                <User className="h-3 w-3" />
+                <User className="h-3.5 w-3.5" />
                 Client
               </button>
             </div>
@@ -381,20 +436,21 @@ export default function Dashboard() {
           <div key={item.label}>
             <button onClick={item.onClick}
               title={item.label}
-              className={`w-full flex items-center gap-2 sm:gap-3 ${collapsed ? 'justify-center !px-0' : ('isSubItem' in item && item.isSubItem ? 'pl-9 sm:pl-10' : 'px-2.5 sm:px-3')} py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm transition-all ${
-                'active' in item && item.active ? "bg-primary/10 text-primary font-medium"
-                : 'isExpandable' in item && item.isExpandable ? "text-foreground font-medium"
-                : 'isSubItem' in item && item.isSubItem ? "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              }`}>
+              data-active={('active' in item && item.active) ? "true" : "false"}
+              className={cn(
+                "m3-navigation-item flex w-full items-center gap-2.5 text-xs sm:gap-3 sm:text-sm",
+                collapsed ? "justify-center px-0" : ('isSubItem' in item && item.isSubItem ? "pl-10 pr-3" : "px-3.5"),
+                'isExpandable' in item && item.isExpandable && "font-semibold text-foreground",
+                'isSubItem' in item && item.isSubItem && "min-h-10 text-[11px]",
+              )}>
               {/* Un seul badge par entrée : « Messagerie » porte sa pastille rouge
                   directement sur l'icône (source centralisée), les autres compteurs
                   restent en fin de ligne — même forme, même plafond « 99+ ». */}
               <div className="shrink-0">
-                {'messaging' in item && item.messaging ? (
+                {                'messaging' in item && item.messaging ? (
                   <MessagingIconWithBadge unread={messagingUnread} className="h-4 w-4" />
                 ) : (
-                  'icon' in item && <item.icon className="h-4 w-4" />
+                  <M3Icon name={SIDEBAR_ICONS[item.label] ?? "radio_button_unchecked"} className="text-[21px]" />
                 )}
               </div>
               {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
@@ -408,17 +464,17 @@ export default function Dashboard() {
           </div>
         ))}
       </nav>
-      <div className={cn("border-t border-border/30 space-y-1.5", collapsed ? "p-2" : "p-3 sm:p-4")}>
+      <div className={cn("space-y-1 border-t border-outline-variant/60", collapsed ? "p-3" : "p-4")}>
         <button onClick={() => navigate("/dashboard/settings")}
           title="Paramètres"
-          className={cn("w-full flex items-center gap-2 sm:gap-3 rounded-lg text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all", collapsed ? "justify-center px-2 py-2" : "px-2.5 sm:px-3 py-2 sm:py-2.5")}>
-          <Settings className="h-4 w-4 shrink-0" />
+          className={cn("m3-navigation-item flex w-full items-center gap-2.5 text-xs sm:gap-3 sm:text-sm", collapsed ? "justify-center px-0" : "px-3.5")}>
+          <M3Icon name="settings" className="text-[20px]" />
           {!collapsed && <span className="truncate">Paramètres</span>}
         </button>
         <button onClick={handleSignOut}
           title="Déconnexion"
-          className={cn("w-full flex items-center gap-2 sm:gap-3 rounded-lg text-xs sm:text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/5 transition-all", collapsed ? "justify-center px-2 py-2" : "px-2.5 sm:px-3 py-2 sm:py-2.5")}>
-          <LogOut className="h-4 w-4 shrink-0" />
+          className={cn("m3-navigation-item flex w-full items-center gap-2.5 text-xs hover:!text-destructive sm:gap-3 sm:text-sm", collapsed ? "justify-center px-0" : "px-3.5")}>
+          <M3Icon name="logout" className="text-[20px]" />
           {!collapsed && <span className="truncate">Déconnexion</span>}
         </button>
       </div>
@@ -430,11 +486,11 @@ export default function Dashboard() {
       {/* Mobile sidebar overlay */}
       {mobileSidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMobileSidebarOpen(false)} />
-          <aside className="relative w-64 sm:w-72 h-full bg-background border-r border-border/50 flex flex-col animate-in slide-in-from-left duration-200">
-            <div className="flex justify-end p-2">
-              <button onClick={() => setMobileSidebarOpen(false)} className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-muted/50">
-                <X className="h-4 w-4" />
+          <div className="absolute inset-0 bg-scrim/45 backdrop-blur-md" onClick={() => setMobileSidebarOpen(false)} />
+          <aside className="m3-navigation-drawer relative flex h-full w-[86%] max-w-72 flex-col overflow-hidden rounded-r-[1.75rem] shadow-m3-3 animate-in slide-in-from-left duration-250">
+            <div className="flex justify-end p-3">
+              <button onClick={() => setMobileSidebarOpen(false)} aria-label="Fermer la navigation" className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant transition-colors hover:text-foreground active:scale-95">
+                <M3Icon name="close" className="text-[21px]" />
               </button>
             </div>
             {sidebarContent(false)}
@@ -445,21 +501,25 @@ export default function Dashboard() {
       {/* Desktop Sidebar */}
       {/* Desktop Sidebar — réductible en mode icônes (cf. `sidebarCollapsed`) */}
       <aside className={cn(
-        "fixed left-0 top-0 h-full border-r border-border/40 bg-background/80 backdrop-blur-sm hidden lg:flex flex-col z-40 transition-[width] duration-200",
-        sidebarCollapsed ? "w-14" : "w-56 lg:w-64",
+        "m3-navigation-drawer fixed left-0 top-0 z-40 hidden h-full flex-col overflow-hidden rounded-r-[1.75rem] transition-[width] duration-300 ease-[cubic-bezier(0.2,0,0,1)] lg:flex",
+        sidebarCollapsed ? "w-20" : "w-64 xl:w-72",
       )}>
         {sidebarContent(sidebarCollapsed)}
       </aside>
 
       {/* Main content */}
-      <div className={cn(sidebarCollapsed ? "lg:pl-14" : "lg:pl-56 xl:pl-64")}>
+              <div className={cn(
+          "m3-mobile-safe-bottom transition-[padding] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
+          sidebarCollapsed ? "lg:pl-20" : "lg:pl-64 xl:pl-72",
+        )}>
         {/* Top header */}
-        <header className="glass-header sticky top-0 z-30">
-          <div className="flex items-center justify-between px-3 sm:px-5 lg:px-6 h-12 sm:h-14 lg:h-16">
-            <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+        <header className="glass-header m3-top-app-bar sticky top-0 z-30">
+          <div className="flex h-14 items-center justify-between gap-2 px-3 sm:h-16 sm:px-5 lg:h-[4.5rem] lg:px-7">
+            <div className="flex min-w-0 items-center gap-2 lg:gap-3">
               <button onClick={() => setMobileSidebarOpen(true)}
-                className="lg:hidden flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-lg border border-border/50 active:bg-muted/50">
-                <Menu className="h-4 w-4" />
+                aria-label="Ouvrir la navigation"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-on-surface transition-colors active:scale-95 lg:hidden">
+                <M3Icon name="menu" className="text-[22px]" />
               </button>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
@@ -489,18 +549,27 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              <M3SearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                onClear={() => setSearchQuery("")}
+                placeholder="Rechercher un projet…"
+                className="mr-1 hidden w-56 md:flex xl:w-72"
+                inputProps={{ "aria-label": "Rechercher dans mes projets" }}
+              />
               <NotificationCenter extraUnread={totalUnread} fallbackPath={notificationsPath} />
               {mounted && (
                 <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className="inline-flex h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 items-center justify-center rounded-lg border border-border/40 text-foreground/70 hover:text-foreground active:bg-muted/50 transition-all">
-                  <Sun className={`h-3.5 w-3.5 sm:h-4 sm:w-4 transition-all ${theme === "dark" ? "rotate-90 scale-0" : "rotate-0 scale-100"}`} />
-                  <Moon className={`absolute h-3.5 w-3.5 sm:h-4 sm:w-4 transition-all ${theme === "dark" ? "rotate-0 scale-100" : "-rotate-90 scale-0"}`} />
+                  aria-label={theme === "dark" ? "Passer au thème clair" : "Passer au thème sombre"}
+                  className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-foreground active:scale-95">
+                  <M3Icon name="light_mode" className={`text-[20px] transition-all ${theme === "dark" ? "rotate-90 scale-0" : "rotate-0 scale-100"}`} />
+                  <M3Icon name="dark_mode" className={`absolute text-[20px] transition-all ${theme === "dark" ? "rotate-0 scale-100" : "-rotate-90 scale-0"}`} />
                 </button>
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Avatar className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 border border-border/40 cursor-pointer">
+                  <Avatar className="h-9 w-9 cursor-pointer border-2 border-primary-container shadow-m3-1 sm:h-10 sm:w-10">
                     <AvatarImage src={user?.image || ""} alt="Photo" className="object-cover" />
                     <AvatarFallback className="bg-primary/10 text-primary text-[9px] sm:text-[10px] lg:text-xs">
                       {user?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
@@ -934,14 +1003,71 @@ export default function Dashboard() {
           {viewMode === "client" && (
             <>
               <ClientProPaywall>
-          {/* ══════ COMMAND CENTER — « Que souhaitez-vous faire ? » ══════
-              Uniquement les actions nécessaires à l'étape actuelle :
-              une question, des entrées courtes, aucune carte colorée. */}
-          <div className="rounded-xl border border-border/60 bg-card p-4 shadow-elev-1">
-            <p className="text-xs text-muted-foreground">
-              {user?.name ? `Bonjour, ${user.name.split(" ")[0]}` : "Bonjour"}
-            </p>
-            <h2 className="mt-0.5 text-base font-semibold sm:text-lg">
+          {/* ══════ HERO PERSONNEL — vraies données du compte ══════ */}
+          <section className="m3-page-enter relative overflow-hidden rounded-[2rem] border border-primary/20 bg-primary-container p-5 text-on-primary-container shadow-m3-1 sm:p-6 lg:p-7">
+            <div aria-hidden className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-2xl" />
+            <div aria-hidden className="pointer-events-none absolute -bottom-24 right-1/3 h-48 w-48 rounded-full bg-tertiary/15 blur-3xl" />
+            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div className="min-w-0">
+                <p className="type-label uppercase tracking-[0.16em] text-on-primary-container/75">
+                  Votre espace Batibuild
+                </p>
+                <h1 className="mt-1 font-display text-3xl font-extrabold tracking-[-0.04em] sm:text-4xl lg:text-[2.75rem]">
+                  {user?.name ? `Bonjour, ${user.name.split(" ")[0]}` : "Bonjour"}
+                </h1>
+                <p className="mt-2 max-w-xl text-sm leading-relaxed text-on-primary-container/80">
+                  Pilotez vos estimations, vos projets et vos rapports depuis un seul espace de travail.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {canCreateProject && (
+                  <Button size="sm" onClick={() => navigate("/dashboard/new")} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+                    <M3Icon name="add" className="text-[18px]" />
+                    Nouveau projet
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={() => navigate("/dashboard/projects")} className="gap-2 border-on-primary-container/25 text-on-primary-container hover:bg-on-primary-container/10">
+                  Mes projets
+                  <M3Icon name="arrow_forward" className="text-[18px]" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="relative mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+              <div className="rounded-2xl border border-on-primary-container/10 bg-surface/60 p-4 backdrop-blur-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-on-surface-variant">Projets actifs</span>
+                  <M3Icon name="engineering" className="text-[20px] text-primary" />
+                </div>
+                <p className="mt-2 font-display text-3xl font-extrabold tabular-nums text-on-surface">{activeProjects}</p>
+                <p className="mt-0.5 text-[10px] text-on-surface-variant">{stats.totalProjects} projet{stats.totalProjects > 1 ? "s" : ""} au total</p>
+              </div>
+              <div className="rounded-2xl border border-on-primary-container/10 bg-surface/60 p-4 backdrop-blur-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-on-surface-variant">Budget estimé</span>
+                  <M3Icon name="account_balance_wallet" className="text-[20px] text-tertiary" />
+                </div>
+                <p className="mt-2 truncate font-display text-2xl font-extrabold tabular-nums text-on-surface sm:text-[1.7rem]">
+                  {formatter.format(stats.totalEstimatedCost)}
+                </p>
+                <p className="mt-0.5 text-[10px] text-on-surface-variant">Cumul de vos estimations</p>
+              </div>
+              <div className="rounded-2xl border border-on-primary-container/10 bg-surface/60 p-4 backdrop-blur-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-on-surface-variant">Progression</span>
+                  <M3Icon name="trending_up" className="text-[20px] text-secondary" />
+                </div>
+                <p className="mt-2 font-display text-3xl font-extrabold tabular-nums text-on-surface">{completionRate}%</p>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-container-high">
+                  <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${completionRate}%` }} />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ══════ COMMAND CENTER — « Que souhaitez-vous faire ? » ══════ */}
+          <div className="rounded-[2rem] border border-outline-variant/70 bg-surface-container-low p-4 sm:p-5">
+            <h2 className="font-display text-lg font-bold tracking-tight sm:text-xl">
               Que souhaitez-vous faire ?
             </h2>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
@@ -1087,7 +1213,7 @@ export default function Dashboard() {
           <Card className="border border-border/40 bg-background/50 backdrop-blur-sm shadow-none">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container">
                   <HardHat className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
@@ -1098,7 +1224,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Button size="sm" className="h-8 gap-1 text-xs sm:text-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500" onClick={() => navigate("/dashboard/new")}>
+                <Button size="sm" className="h-9 gap-1 text-xs sm:text-sm" onClick={() => navigate("/dashboard/new")}>
                   <Plus className="h-3.5 w-3.5" /> Nouveau projet
                 </Button>
               </div>
@@ -1141,7 +1267,7 @@ export default function Dashboard() {
               </div>
 
               {filteredProjects.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-emerald-300/40 dark:border-emerald-800/30 bg-emerald-50/40 dark:bg-emerald-950/20 text-center py-6 sm:py-8 px-4">
+                <div className="rounded-3xl border border-dashed border-primary/25 bg-primary-container/25 px-4 py-8 text-center">
                   <div className="mx-auto mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-emerald-500/10">
                     <HardHat className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-300" />
                   </div>
@@ -1151,7 +1277,7 @@ export default function Dashboard() {
                   </p>
                   <Button
                     size="sm"
-                    className="gap-1.5 text-xs bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-600/40 transition-all active:scale-[0.97]"
+                    className="gap-1.5 text-xs"
                     onClick={() => navigate("/dashboard/new")}
                   >
                     <Sparkles className="h-3.5 w-3.5" />
@@ -1187,7 +1313,7 @@ export default function Dashboard() {
             <Card className="border border-border/40 bg-background/50 shadow-none backdrop-blur-sm">
               <CardHeader className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:p-4 lg:p-5">
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container">
                     <ClipboardCheck className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
@@ -1217,7 +1343,7 @@ export default function Dashboard() {
                 <div className="flex shrink-0 items-center gap-2">
                   <Button
                     size="sm"
-                    className="h-8 gap-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-xs text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500 sm:text-sm"
+                    className="h-9 gap-1 text-xs sm:text-sm"
                     onClick={() => navigate("/dashboard/chantiers")}
                   >
                     <ClipboardCheck className="h-3.5 w-3.5" />
@@ -1227,7 +1353,7 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent className="p-3 pt-0 sm:p-4 lg:p-5">
                 {(siteRows?.sites?.length ?? 0) === 0 ? (
-                  <div className="rounded-xl border border-dashed border-emerald-300/40 bg-emerald-50/40 px-4 py-6 text-center dark:border-emerald-800/30 dark:bg-emerald-950/20">
+                  <div className="rounded-3xl border border-dashed border-primary/25 bg-primary-container/25 px-4 py-6 text-center">
                     <p className="text-sm font-medium">Aucun chantier suivi</p>
                     <p className="mx-auto mt-1 max-w-md text-[10px] text-muted-foreground sm:text-xs">
                       {siteAccess?.allowed
@@ -1236,7 +1362,7 @@ export default function Dashboard() {
                     </p>
                     <Button
                       size="sm"
-                      className="mt-3 gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-xs text-white"
+                      className="mt-3 gap-1.5 text-xs"
                       onClick={() => navigate("/dashboard/chantiers")}
                     >
                       <Sparkles className="h-3.5 w-3.5" />
@@ -1251,14 +1377,14 @@ export default function Dashboard() {
                         key={site._id}
                         type="button"
                         onClick={() => navigate(`/dashboard/chantiers/${site._id}`)}
-                        className="group rounded-xl border border-border/60 p-3 text-left transition-colors hover:border-emerald-500/40 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/20"
+                        className="group rounded-2xl border border-outline-variant/60 bg-surface-container-low p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary-container/30"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="truncate text-xs font-medium">{site.name}</p>
                           <span className="shrink-0 text-[10px] text-muted-foreground">{Math.round(site.progress ?? 0)} %</span>
                         </div>
                         <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted">
-                          <div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, site.progress ?? 0)}%` }} />
+                          <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, site.progress ?? 0)}%` }} />
                         </div>
                         <p className="mt-1.5 truncate text-[10px] text-muted-foreground">
                           {site.budget ? `Dépensé ${formatTND(site.budget.spent)}` : "Accès budget non accordé"} ·{" "}
@@ -1277,7 +1403,7 @@ export default function Dashboard() {
           <Card className="border border-border/40 bg-background/50 backdrop-blur-sm shadow-none">
             <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 p-3 sm:p-4 lg:p-5">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-container text-on-primary-container">
                   <Landmark className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
@@ -1288,7 +1414,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Button size="sm" className="h-8 gap-1 text-xs sm:text-sm bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500" onClick={() => navigate("/dashboard/investments")}>
+                <Button size="sm" className="h-9 gap-1 text-xs sm:text-sm" onClick={() => navigate("/dashboard/investments")}>
                   <Plus className="h-3.5 w-3.5" /> Nouvelle analyse
                 </Button>
               </div>
@@ -1303,7 +1429,7 @@ export default function Dashboard() {
               </div>
 
               {analyses.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-emerald-300/40 dark:border-emerald-800/30 bg-emerald-50/40 dark:bg-emerald-950/20 text-center py-6 sm:py-8 px-4">
+                <div className="rounded-3xl border border-dashed border-primary/25 bg-primary-container/25 px-4 py-8 text-center">
                   <div className="mx-auto mb-3 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-emerald-500/10">
                     <Landmark className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-300" />
                   </div>
@@ -1313,7 +1439,7 @@ export default function Dashboard() {
                   </p>
                   <Button
                     size="sm"
-                    className="gap-1.5 text-xs bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/25 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-600/40 transition-all active:scale-[0.97]"
+                    className="gap-1.5 text-xs"
                     onClick={() => navigate("/dashboard/investments")}
                   >
                     <Sparkles className="h-3.5 w-3.5" />
@@ -1348,7 +1474,17 @@ export default function Dashboard() {
         </div>
       </div>
 
-
+      {/* Navigation bar mobile + FAB Material 3 (adaptés au rôle affiché). */}
+      {canCreateProject && (
+        <M3Fab
+          icon="add"
+          label="Nouveau projet"
+          extended
+          onClick={() => navigate("/dashboard/new")}
+          className="fixed bottom-[calc(4.8rem+env(safe-area-inset-bottom))] right-4 z-40 lg:hidden"
+        />
+      )}
+      <M3NavigationBar items={mobileNavItems} />
     </main>
   );
 }

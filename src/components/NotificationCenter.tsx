@@ -114,7 +114,7 @@ export function NotificationCenter({
             badge > 0 ? `${badge} notification(s) non lue(s)` : "Centre de notifications"
           }
           className={
-            className ?? "h-7 w-7 sm:h-8 sm:w-8 lg:h-9 lg:w-9 relative cursor-pointer"
+            className ?? "relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-foreground active:scale-95"
           }
         >
           <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -128,7 +128,7 @@ export function NotificationCenter({
 
       <DropdownMenuContent
         align="end"
-        className="w-[calc(100vw-1.5rem)] max-w-sm p-0 overflow-hidden"
+        className="w-[calc(100vw-1.5rem)] max-w-sm overflow-hidden rounded-[1.75rem] p-0"
       >
         {/* En-tête */}
         <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2.5">

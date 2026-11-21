@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 // Utilisé partout : landing, dashboard, auth, dropdowns, mobile.
 
 const SIZES = {
-  sm: { box: "h-7 w-7 rounded-lg", wordmark: "text-sm" },
-  md: { box: "h-8 w-8 rounded-lg", wordmark: "text-lg" },
-  lg: { box: "h-11 w-11 rounded-xl", wordmark: "text-xl" },
+  sm: { box: "h-8 w-8 rounded-xl", wordmark: "text-sm" },
+  md: { box: "h-10 w-10 rounded-2xl", wordmark: "text-lg" },
+  lg: { box: "h-14 w-14 rounded-[1.25rem]", wordmark: "text-xl" },
 } as const;
 
 export function LogoMark({
@@ -44,7 +44,7 @@ export function Logo({
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <LogoMark size={size} />
-      <span className={cn("font-semibold tracking-tight", s.wordmark, wordmarkClassName)}>
+      <span className={cn("font-display font-bold tracking-[-0.035em]", s.wordmark, wordmarkClassName)}>
         {BRAND_NAME}
       </span>
     </div>

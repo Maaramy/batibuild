@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { M3Icon } from "@/components/ui/material3";
 import { BIM_CATEGORIES, BIM_CATEGORY_LABELS } from "@/convex/bimEngine";
 import {
   inferFloorsFromCategory,
@@ -1208,7 +1209,7 @@ export default function NewProject() {
 
             <div className="space-y-4">
               {/* Nom */}
-              <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+              <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-low p-4 sm:p-5">
                 <Label htmlFor="projectName" className="text-xs sm:text-sm font-semibold">
                   Nom du projet <span className="text-primary">*</span>
                 </Label>
@@ -1279,7 +1280,7 @@ export default function NewProject() {
 
               {/* Région + Surface */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+                <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-low p-4 sm:p-5">
                   <Label htmlFor="region" className="text-xs sm:text-sm font-semibold">
                     Région <span className="text-primary">*</span>
                   </Label>
@@ -1289,7 +1290,7 @@ export default function NewProject() {
                       id="region"
                       value={region}
                       onChange={(e) => { setRegion(e.target.value); setErrors((e) => ({...e, region: ''})); }}
-                      className="h-9 sm:h-10 w-full rounded-lg border border-border/40 bg-background pl-9 pr-3 text-xs sm:text-sm appearance-none focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                      className="h-11 w-full cursor-pointer appearance-none rounded-2xl border border-outline-variant/70 bg-surface-container-lowest pl-10 pr-3 text-xs focus:outline-none focus:ring-3 focus:ring-primary/15 sm:text-sm"
                     >
                       <option value="">Sélectionnez...</option>
                       {TUNISIA_REGIONS.map((r) => (
@@ -1305,7 +1306,7 @@ export default function NewProject() {
                   )}
                 </div>
 
-                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+                <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-low p-4 sm:p-5">
                   <div className="flex items-center justify-between gap-2">
                     <Label className="text-xs sm:text-sm font-semibold">
                       {levelMode === "floor1" ? "Surface de l'Étage 1" : "Surface couverte"}{" "}
@@ -1358,7 +1359,7 @@ export default function NewProject() {
                     « Étage » désigne UNIQUEMENT l'Étage 1 (aucun R+1/R+2, aucun
                     niveau inférieur, aucune fondation ajoutée automatiquement). */}
                 {isMultiLevelCategory(selectedCategory) && (
-                <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+                <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-low p-4 sm:p-5">
                   <Label htmlFor="levelMode" className="text-xs sm:text-sm font-semibold">
                     Nombre de niveaux
                   </Label>
@@ -1404,7 +1405,7 @@ export default function NewProject() {
 
               </div>
 
-              <div className="p-4 sm:p-5 rounded-xl border border-border/40 bg-card/30">
+              <div className="rounded-3xl border border-outline-variant/60 bg-surface-container-low p-4 sm:p-5">
                 <Label htmlFor="description" className="text-xs sm:text-sm font-semibold">
                   Description
                 </Label>
@@ -1565,23 +1566,26 @@ export default function NewProject() {
   // ─── RENDER ─────────────────────────────────────────────────────────
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
+    <main className="m3-mobile-safe-bottom min-h-screen bg-background">
         <ClientProPaywall>
         <ProjectLimitGate blocked={limitScreen}>
       
 
       {/* ── Header ── */}
       <header className="glass-header sticky top-0 z-20">
-        <div className="mx-auto max-w-6xl px-3 sm:px-6 flex items-center h-12 sm:h-14">
-          <Button variant="ghost" size="sm" className="gap-1 h-8 shrink-0" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline text-xs">Retour</span>
+        <div className="mx-auto flex h-16 max-w-6xl items-center px-3 sm:px-6">
+          <Button variant="ghost" size="sm" className="h-9 shrink-0 gap-1.5 rounded-full" onClick={() => navigate("/dashboard")}>
+            <M3Icon name="arrow_back" className="text-[19px]" />
+            <span className="hidden text-xs sm:inline">Retour</span>
           </Button>
-          <div className="ml-2 flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <HardHat className="h-3 w-3" />
+          <div className="ml-2 flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary-container text-on-primary-container">
+              <HardHat className="h-4 w-4" />
             </div>
-            <span className="font-semibold text-xs sm:text-sm">Nouveau projet</span>
+            <div>
+              <span className="font-display text-sm font-bold tracking-tight">Nouveau projet</span>
+              <p className="text-[10px] text-on-surface-variant">Parcours guidé Batibuild</p>
+            </div>
           </div>
         </div>
       </header>
@@ -1614,7 +1618,7 @@ export default function NewProject() {
                         onClick={() => done && goToStep(s.key as StepKey)}
                         className={cn(
                           "flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-medium transition-all",
-                          done && "bg-emerald-500 text-white",
+                          done && "bg-primary text-primary-foreground",
                           active && "bg-primary text-primary-foreground shadow-sm",
                           !done && !active && "bg-muted text-muted-foreground"
                         )}
@@ -1624,7 +1628,7 @@ export default function NewProject() {
                       {i < flowSteps.length - 1 && (
                         <div className={cn(
                           "w-6 h-px",
-                          done ? "bg-emerald-400" : "bg-border"
+                          done ? "bg-primary/60" : "bg-outline-variant"
                         )} />
                       )}
                     </div>

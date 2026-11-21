@@ -3,7 +3,10 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+  />
 
   <!--
     Amorçage WEB : restaure le thème et la langue AVANT le premier rendu, à
@@ -82,7 +85,9 @@
   <meta name="language" content="fr" />
   <meta name="geo.region" content="TN" />
   <meta name="geo.placename" content="Tunisie" />
-  <meta name="theme-color" content="#059669" />    <!-- Google Search Console (remplacer par votre code après vérification) -->
+  <meta name="theme-color" content="#f5f8f2" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1a211c" media="(prefers-color-scheme: dark)" />
+    <!-- Google Search Console (remplacer par votre code après vérification) -->
     <!-- <meta name="google-site-verification" content="votre_code_ici" /> -->
 
     <!-- Open Graph / Social -->
@@ -95,10 +100,21 @@
   <!-- Canonical URL (dynamically updated) -->
   <link rel="canonical" href="https://batibuild.app" />
   
-  <!-- Fonts: Inter (opsz variable) + Noto Sans Arabic (RTL) -->
+  <!-- Material Design 3 Expressive : Roboto Flex, Roboto et Material Symbols Rounded -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wdth,wght@8..144,75..125,300..900&family=Roboto:wght@300;400;500;600;700;800;900&family=Roboto+Mono:wght@400;500;600&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <!-- Material Symbols Rounded est servi localement (sous-ensemble WOFF2). -->
+  <link
+    rel="preload"
+    href="/fonts/material-symbols-rounded.woff2"
+    as="font"
+    type="font/woff2"
+    crossorigin
+  />
 
   <!-- Primary favicon -->
   <link rel="icon" type="image/png" href="/batibuild-logo.png" />

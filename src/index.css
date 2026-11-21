@@ -2,34 +2,93 @@
 @import "tw-animate-css";
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================================
+   MATERIAL DESIGN 3 EXPRESSIVE — 2025
+   Tokens Material You centralisés. Toutes les classes Tailwind existantes
+   (`bg-primary`, `text-muted-foreground`, `border-border`…) sont conservées et
+   remappées vers ces rôles, donc toutes les pages héritent du nouveau système
+   sans qu'une seule logique métier soit touchée.
+   ============================================================================ */
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* Formes Material 3 */
+  --radius-sm: 0.5rem;   /* 8 dp  */
+  --radius-md: 0.75rem;  /* 12 dp */
+  --radius-lg: 1rem;     /* 16 dp */
+  --radius-xl: 1.5rem;   /* 24 dp */
+  --radius-m3-xs: 0.25rem;
+  --radius-m3-sm: 0.5rem;
+  --radius-m3-md: 0.75rem;
+  --radius-m3-lg: 1rem;
+  --radius-m3-xl: 1.75rem;
+
+  /* Rôles Material 3 — surfaces, conteneurs et contenus */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-on-surface: var(--on-surface);
+  --color-surface-dim: var(--surface-dim);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-high: var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-surface-variant: var(--surface-variant);
+  --color-on-surface-variant: var(--on-surface-variant);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+
+  /* Couleurs d’accent Material You */
   --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
   --color-secondary: var(--secondary);
+  --color-on-secondary: var(--on-secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary-container: var(--on-secondary-container);
+  --color-tertiary: var(--tertiary);
+  --color-on-tertiary: var(--on-tertiary);
+  --color-tertiary-container: var(--tertiary-container);
+  --color-on-tertiary-container: var(--on-tertiary-container);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+
+  /* États */
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-error: var(--destructive);
+  --color-on-error: var(--destructive-foreground);
+  --color-error-container: var(--error-container);
+  --color-on-error-container: var(--on-error-container);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-success-container: var(--success-container);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-warning-container: var(--warning-container);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-info-container: var(--info-container);
+  --color-inverse-surface: var(--inverse-surface);
+  --color-inverse-on-surface: var(--inverse-on-surface);
+  --color-scrim: var(--scrim);
+
+  /* Élévations & profondeur */
   --shadow-elev-1: var(--elev-1);
   --shadow-elev-2: var(--elev-2);
+  --shadow-m3-1: 0 1px 2px oklch(0.18 0.02 155 / 0.08);
+  --shadow-m3-2: 0 2px 6px oklch(0.18 0.02 155 / 0.10), 0 1px 2px oklch(0.18 0.02 155 / 0.06);
+  --shadow-m3-3: 0 8px 24px -6px oklch(0.18 0.02 155 / 0.18), 0 2px 6px oklch(0.18 0.02 155 / 0.08);
+
+  /* Données & navigation */
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -46,146 +105,242 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Typographie expressive : Roboto Flex pour les titres, Roboto pour le corps. */
+  --font-sans: "Roboto", "Roboto Flex", "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Roboto Flex", "Roboto", "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 :root {
-  --radius: 1rem;
-  --background: oklch(0.985 0.002 250);
-  --foreground: oklch(0.145 0.015 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0.015 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0.015 260);
-  --primary: oklch(0.596 0.145 163.2);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.968 0.002 248);
-  --secondary-foreground: oklch(0.208 0.042 265);
-  --muted: oklch(0.968 0.002 248);
-  --muted-foreground: oklch(0.556 0.02 257);
-  --accent: oklch(0.968 0.002 248);
-  --accent-foreground: oklch(0.208 0.042 265);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.918 0.004 248);
-  --input: oklch(0.918 0.004 248);
-  --ring: oklch(0.596 0.145 163.2);
-  /* ── Couleurs sémantiques (fondées de forme, jamais décoratives) ──
-     Vert = succès / validation · Orange = attention · Rouge = erreur /
-     action critique · Bleu = information / interaction. */
-  --success: oklch(0.577 0.145 155);
-  --success-foreground: oklch(0.99 0 0);
-  --warning: oklch(0.75 0.15 60);
-  --warning-foreground: oklch(0.25 0.045 55);
-  --info: oklch(0.58 0.14 250);
-  --info-foreground: oklch(0.99 0 0);
-  /* ── Élévations douces : surfaces très sobres, ombres discrètes ── */
-  --elev-1: 0 1px 2px oklch(0.145 0.015 260 / 0.05);
-  --elev-2: 0 8px 24px -12px oklch(0.145 0.015 260 / 0.18);
-  --chart-1: oklch(0.596 0.145 163.2);
-  --chart-2: oklch(0.545 0.175 252);
-  --chart-3: oklch(0.769 0.12 83);
-  --chart-4: oklch(0.627 0.15 229);
-  --chart-5: oklch(0.69 0.16 300);
-  --sidebar: oklch(0.992 0.001 250);
-  --sidebar-foreground: oklch(0.145 0.015 260);
-  --sidebar-primary: oklch(0.596 0.145 163.2);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.96 0.004 248);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265);
-  --sidebar-border: oklch(0.92 0.004 248);
-  --sidebar-ring: oklch(0.596 0.145 163.2);
+  --radius: 1.25rem;
+
+  /* ── Palette Batibuild × Material You — lumière ───────────────────────
+     Vert chantier / matériaux durables comme source color, chaux & terre
+     cuite tunisiennes comme tertiaire. Surfaces tonales, aucun gris froid. */
+  --primary: oklch(0.49 0.115 163.5);
+  --on-primary: oklch(0.99 0.006 150);
+  --primary-foreground: oklch(0.99 0.006 150);
+  --primary-container: oklch(0.90 0.075 163);
+  --on-primary-container: oklch(0.25 0.055 163);
+
+  --secondary: oklch(0.48 0.055 190);
+  --on-secondary: oklch(0.99 0.005 190);
+  --secondary-foreground: oklch(0.26 0.035 190);
+  --secondary-container: oklch(0.92 0.035 190);
+  --on-secondary-container: oklch(0.27 0.035 190);
+
+  --tertiary: oklch(0.59 0.12 65);
+  --on-tertiary: oklch(0.99 0.006 75);
+  --tertiary-container: oklch(0.93 0.065 78);
+  --on-tertiary-container: oklch(0.29 0.065 62);
+
+  --background: oklch(0.985 0.007 130);
+  --foreground: oklch(0.19 0.022 160);
+  --surface: oklch(0.985 0.007 130);
+  --on-surface: oklch(0.19 0.022 160);
+  --surface-dim: oklch(0.87 0.014 145);
+  --surface-container-lowest: oklch(1 0 0);
+  --surface-container-low: oklch(0.968 0.009 135);
+  --surface-container: oklch(0.947 0.013 138);
+  --surface-container-high: oklch(0.925 0.016 142);
+  --surface-container-highest: oklch(0.898 0.02 145);
+  --surface-variant: oklch(0.90 0.02 145);
+  --on-surface-variant: oklch(0.44 0.025 160);
+
+  --card: oklch(0.968 0.009 135);
+  --card-foreground: oklch(0.19 0.022 160);
+  --popover: oklch(0.985 0.007 130);
+  --popover-foreground: oklch(0.19 0.022 160);
+  --muted: oklch(0.947 0.013 138);
+  --muted-foreground: oklch(0.44 0.025 160);
+  --accent: oklch(0.92 0.035 190);
+  --accent-foreground: oklch(0.27 0.035 190);
+
+  --outline: oklch(0.56 0.025 160);
+  --outline-variant: oklch(0.855 0.016 150);
+  --border: oklch(0.855 0.016 150);
+  --input: oklch(0.62 0.025 160);
+  --ring: oklch(0.49 0.115 163.5);
+
+  /* ── États sémantiques ─────────────────────────────────────────────── */
+  --destructive: oklch(0.505 0.19 27);
+  --destructive-foreground: oklch(0.99 0.005 27);
+  --error-container: oklch(0.925 0.055 25);
+  --on-error-container: oklch(0.33 0.12 27);
+  --success: oklch(0.47 0.105 150);
+  --success-foreground: oklch(0.99 0.006 150);
+  --success-container: oklch(0.92 0.055 150);
+  --warning: oklch(0.52 0.115 65);
+  --warning-foreground: oklch(0.99 0.006 75);
+  --warning-container: oklch(0.93 0.07 80);
+  --info: oklch(0.48 0.12 240);
+  --info-foreground: oklch(0.99 0.005 240);
+  --info-container: oklch(0.92 0.045 240);
+  --inverse-surface: oklch(0.28 0.02 160);
+  --inverse-on-surface: oklch(0.95 0.01 140);
+  --scrim: oklch(0.1 0.01 160);
+
+  /* ── Élévations Material 3 ─────────────────────────────────────────── */
+  --elev-1: 0 1px 2px oklch(0.19 0.022 160 / 0.06);
+  --elev-2: 0 8px 24px -12px oklch(0.19 0.022 160 / 0.20);
+
+  --chart-1: oklch(0.49 0.115 163.5);
+  --chart-2: oklch(0.59 0.12 65);
+  --chart-3: oklch(0.48 0.055 190);
+  --chart-4: oklch(0.48 0.12 240);
+  --chart-5: oklch(0.55 0.14 330);
+
+  --sidebar: oklch(0.968 0.009 135);
+  --sidebar-foreground: oklch(0.19 0.022 160);
+  --sidebar-primary: oklch(0.49 0.115 163.5);
+  --sidebar-primary-foreground: oklch(0.99 0.006 150);
+  --sidebar-accent: oklch(0.90 0.075 163);
+  --sidebar-accent-foreground: oklch(0.25 0.055 163);
+  --sidebar-border: oklch(0.855 0.016 150);
+  --sidebar-ring: oklch(0.49 0.115 163.5);
 }
 
 .dark {
-  --background: oklch(0.145 0.012 258);
-  --foreground: oklch(0.985 0.002 250);
-  --card: oklch(0.185 0.014 258);
-  --card-foreground: oklch(0.985 0.002 250);
-  --popover: oklch(0.185 0.014 258);
-  --popover-foreground: oklch(0.985 0.002 250);
-  --primary: oklch(0.696 0.17 162.5);
-  --primary-foreground: oklch(0.145 0.012 258);
-  --secondary: oklch(0.26 0.016 258);
-  --secondary-foreground: oklch(0.985 0.002 250);
-  --muted: oklch(0.26 0.016 258);
-  --muted-foreground: oklch(0.708 0.02 256);
-  --accent: oklch(0.26 0.016 258);
-  --accent-foreground: oklch(0.985 0.002 250);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.696 0.17 162.5);
-  /* Sémantiques en mode sombre : valeurs revues, pas d'inversion brute. */
-  --success: oklch(0.72 0.15 155);
-  --success-foreground: oklch(0.15 0.02 155);
-  --warning: oklch(0.8 0.14 70);
-  --warning-foreground: oklch(0.2 0.035 60);
-  --info: oklch(0.72 0.12 250);
-  --info-foreground: oklch(0.15 0.03 250);
-  /* Élévations assombries : profondeur sans halo. */
-  --elev-1: 0 1px 2px oklch(0 0 0 / 0.35);
-  --elev-2: 0 10px 28px -14px oklch(0 0 0 / 0.6);
-  --chart-1: oklch(0.696 0.17 162.5);
-  --chart-2: oklch(0.623 0.19 253);
-  --chart-3: oklch(0.769 0.12 83);
-  --chart-4: oklch(0.627 0.15 229);
-  --chart-5: oklch(0.69 0.16 300);
-  --sidebar: oklch(0.185 0.014 258);
-  --sidebar-foreground: oklch(0.985 0.002 250);
-  --sidebar-primary: oklch(0.696 0.17 162.5);
-  --sidebar-primary-foreground: oklch(0.145 0.012 258);
-  --sidebar-accent: oklch(0.26 0.016 258);
-  --sidebar-accent-foreground: oklch(0.985 0.002 250);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.696 0.17 162.5);
+  --primary: oklch(0.80 0.135 163);
+  --on-primary: oklch(0.22 0.06 163);
+  --primary-foreground: oklch(0.22 0.06 163);
+  --primary-container: oklch(0.37 0.09 163);
+  --on-primary-container: oklch(0.90 0.075 163);
+
+  --secondary: oklch(0.80 0.045 190);
+  --on-secondary: oklch(0.23 0.035 190);
+  --secondary-foreground: oklch(0.87 0.03 190);
+  --secondary-container: oklch(0.34 0.035 190);
+  --on-secondary-container: oklch(0.88 0.03 190);
+
+  --tertiary: oklch(0.85 0.115 78);
+  --on-tertiary: oklch(0.25 0.06 65);
+  --tertiary-container: oklch(0.42 0.08 65);
+  --on-tertiary-container: oklch(0.93 0.065 78);
+
+  --background: oklch(0.16 0.012 158);
+  --foreground: oklch(0.94 0.01 145);
+  --surface: oklch(0.16 0.012 158);
+  --on-surface: oklch(0.94 0.01 145);
+  --surface-dim: oklch(0.16 0.012 158);
+  --surface-container-lowest: oklch(0.12 0.01 158);
+  --surface-container-low: oklch(0.19 0.014 158);
+  --surface-container: oklch(0.22 0.016 158);
+  --surface-container-high: oklch(0.25 0.018 158);
+  --surface-container-highest: oklch(0.29 0.02 158);
+  --surface-variant: oklch(0.31 0.018 158);
+  --on-surface-variant: oklch(0.78 0.022 150);
+
+  --card: oklch(0.19 0.014 158);
+  --card-foreground: oklch(0.94 0.01 145);
+  --popover: oklch(0.24 0.016 158);
+  --popover-foreground: oklch(0.94 0.01 145);
+  --muted: oklch(0.22 0.016 158);
+  --muted-foreground: oklch(0.78 0.022 150);
+  --accent: oklch(0.34 0.035 190);
+  --accent-foreground: oklch(0.88 0.03 190);
+
+  --outline: oklch(0.66 0.02 155);
+  --outline-variant: oklch(0.36 0.018 158);
+  --border: oklch(0.36 0.018 158);
+  --input: oklch(0.46 0.02 155);
+  --ring: oklch(0.80 0.135 163);
+
+  --destructive: oklch(0.78 0.13 25);
+  --destructive-foreground: oklch(0.22 0.06 25);
+  --error-container: oklch(0.36 0.10 25);
+  --on-error-container: oklch(0.90 0.06 25);
+  --success: oklch(0.78 0.11 150);
+  --success-foreground: oklch(0.20 0.05 150);
+  --success-container: oklch(0.34 0.07 150);
+  --warning: oklch(0.85 0.12 80);
+  --warning-foreground: oklch(0.24 0.05 70);
+  --warning-container: oklch(0.40 0.08 70);
+  --info: oklch(0.78 0.10 240);
+  --info-foreground: oklch(0.20 0.04 240);
+  --info-container: oklch(0.34 0.07 240);
+  --inverse-surface: oklch(0.92 0.01 145);
+  --inverse-on-surface: oklch(0.20 0.02 158);
+  --scrim: oklch(0.06 0.01 158);
+
+  --elev-1: 0 1px 2px oklch(0 0 0 / 0.4);
+  --elev-2: 0 10px 28px -14px oklch(0 0 0 / 0.75);
+
+  --chart-1: oklch(0.80 0.135 163);
+  --chart-2: oklch(0.85 0.115 78);
+  --chart-3: oklch(0.80 0.045 190);
+  --chart-4: oklch(0.78 0.10 240);
+  --chart-5: oklch(0.75 0.12 330);
+
+  --sidebar: oklch(0.19 0.014 158);
+  --sidebar-foreground: oklch(0.94 0.01 145);
+  --sidebar-primary: oklch(0.80 0.135 163);
+  --sidebar-primary-foreground: oklch(0.22 0.06 163);
+  --sidebar-accent: oklch(0.37 0.09 163);
+  --sidebar-accent-foreground: oklch(0.90 0.075 163);
+  --sidebar-border: oklch(0.36 0.018 158);
+  --sidebar-ring: oklch(0.80 0.135 163);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground;
-    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-    /* Rendu premium : texte plus net sur tous les écrans (desktop,
-       tablette, mobile) sans alourdir la mise en page. */
+    font-family: var(--font-sans);
+    font-optical-sizing: auto;
+    font-variation-settings: "wdth" 100, "GRAD" 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
   button:not([disabled]),
   [role="button"]:not([disabled]) {
     cursor: pointer;
+  }
+  ::selection {
+    background: var(--primary-container);
+    color: var(--on-primary-container);
   }
 }
 
 /* Glassmorphism utilities */
 @layer utilities {
   .glass {
-    background: oklch(1 0 0 / 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid oklch(0.92 0.004 286.32 / 0.5);
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    backdrop-filter: blur(18px) saturate(1.25);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25);
+    border: 1px solid color-mix(in srgb, var(--outline-variant) 70%, transparent);
   }
   .dark .glass {
-    background: oklch(0.18 0.034 261.692 / 0.7);
-    border: 1px solid oklch(1 0 0 / 0.08);
+    background: color-mix(in srgb, var(--surface-container) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--outline-variant) 80%, transparent);
   }
   .glass-strong {
-    background: oklch(1 0 0 / 0.85);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid oklch(0.92 0.004 286.32 / 0.6);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(22px) saturate(1.3);
+    -webkit-backdrop-filter: blur(22px) saturate(1.3);
+    border: 1px solid color-mix(in srgb, var(--outline-variant) 70%, transparent);
   }
   .dark .glass-strong {
-    background: oklch(0.18 0.034 261.692 / 0.85);
-    border: 1px solid oklch(1 0 0 / 0.1);
+    background: color-mix(in srgb, var(--surface-container) 92%, transparent);
+    border: 1px solid color-mix(in srgb, var(--outline-variant) 80%, transparent);
   }
 }
 
-/* Gradient text */
+/* Gradient text — vert Batibuild vers le tertiaire chaux, jamais rose/violet. */
 .gradient-text {
-  background: linear-gradient(135deg, var(--primary) 0%, oklch(0.72 0.15 175) 55%, var(--primary) 100%);
+  background: linear-gradient(120deg, var(--primary) 0%, var(--secondary) 52%, var(--tertiary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -195,27 +350,77 @@
    Design system — shadcn/ui premium SaaS
    ============================================================================ */
 
-/* Body: subtle slate gradient (light: slate-50 → white → slate-50, dark: gray-950 → gray-900) */
+/* Fond tonal Material 3 : de larges halos de couleur très basse intensité
+   remplacent les anciens dégradés gris. Aucune image, aucun asset lourd. */
 body {
-  background-image: linear-gradient(180deg, oklch(0.985 0.002 250), oklch(1 0 0) 32%, oklch(0.985 0.002 250));
+  background-color: var(--background);
+  background-image:
+    radial-gradient(60rem 42rem at 8% -12%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 62%),
+    radial-gradient(46rem 34rem at 100% 0%, color-mix(in srgb, var(--tertiary) 7%, transparent), transparent 58%),
+    radial-gradient(42rem 30rem at 50% 110%, color-mix(in srgb, var(--secondary) 6%, transparent), transparent 60%);
   background-attachment: fixed;
 }
 .dark body {
-  background-image: linear-gradient(180deg, oklch(0.13 0.012 258), oklch(0.15 0.014 258) 40%, oklch(0.13 0.012 258));
+  background-image:
+    radial-gradient(60rem 42rem at 8% -12%, color-mix(in srgb, var(--primary) 8%, transparent), transparent 62%),
+    radial-gradient(46rem 34rem at 100% 0%, color-mix(in srgb, var(--tertiary) 5%, transparent), transparent 58%),
+    radial-gradient(42rem 30rem at 50% 110%, color-mix(in srgb, var(--secondary) 5%, transparent), transparent 60%);
 }
 
 @layer utilities {
-  /* Micro-label: uppercase tracking-widest 9-10px slate-400 */
+  /* Étiquette expressive Material 3 */
   .label-overline {
-    @apply text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground;
+    @apply text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground;
   }
 
-  /* Soft diffuse card shadow (never hard borders) */
   .shadow-soft {
-    box-shadow: 0 1px 2px oklch(0 0 0 / 0.03), 0 8px 24px -12px oklch(0 0 0 / 0.08);
+    box-shadow: 0 1px 2px oklch(0.18 0.02 155 / 0.05), 0 8px 24px -12px oklch(0.18 0.02 155 / 0.14);
   }
   .shadow-soft-lg {
-    box-shadow: 0 2px 4px oklch(0 0 0 / 0.04), 0 16px 40px -16px oklch(0 0 0 / 0.14);
+    box-shadow: 0 2px 4px oklch(0.18 0.02 155 / 0.06), 0 18px 44px -16px oklch(0.18 0.02 155 / 0.20);
+  }
+
+  /* Échelle typographique Material 3 Expressive */
+  .type-display {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    line-height: 0.98;
+    letter-spacing: -0.045em;
+    font-weight: 800;
+  }
+  .type-headline {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3.5vw, 2.75rem);
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+    font-weight: 750;
+  }
+  .type-title {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    font-weight: 650;
+  }
+  .type-label {
+    font-size: 0.75rem;
+    line-height: 1rem;
+    letter-spacing: 0.02em;
+    font-weight: 600;
+  }
+  .m3-shape-xl { border-radius: 1.75rem; }
+  .m3-shape-lg { border-radius: 1rem; }
+  .m3-surface { background: var(--surface-container-low); }
+  .m3-tonal { background: var(--primary-container); color: var(--on-primary-container); }
+  .m3-elevated { background: var(--surface-container-low); box-shadow: var(--shadow-m3-2); }
+
+  /* Entrée de page expressive, désactivée si l'utilisateur limite les animations. */
+  .m3-page-enter {
+    animation: m3-page-enter 420ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
+  @keyframes m3-page-enter {
+    from { opacity: 0; transform: translateY(10px) scale(0.995); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
   }
 
   /* Dotted watermark (hero cards) */
@@ -331,36 +536,27 @@ html {
 }
 
 /* ============================================================================
-   BudgetBati Auth Theme — Tunisian Construction Palette
+   Auth Theme — palette unifiée Batibuild / Material You
    ============================================================================ */
 
 /* Auth page theme tokens */
 :root {
-  --auth-primary: oklch(0.52 0.175 35.5);       /* Terracotta — Tunisian clay */
-  --auth-primary-light: oklch(0.62 0.16 38);      /* Lighter terracotta */
-  --auth-primary-dark: oklch(0.42 0.18 32);       /* Darker terracotta */
-  --auth-accent: oklch(0.55 0.15 230);            /* Mediterranean blue */
-  --auth-accent-light: oklch(0.65 0.12 235);      /* Sky blue */
-  --auth-warm: oklch(0.92 0.04 75);               /* Warm sand */
-  --auth-warm-dark: oklch(0.85 0.06 70);          /* Darker sand */
-  --auth-bg-light: oklch(0.98 0.008 60);          /* Warm cream */
-  --auth-bg-dark: oklch(0.15 0.025 30);           /* Deep warm dark */
-  --auth-gold: oklch(0.72 0.16 75);               /* Gold accent */
-  --auth-terracotta-bg: oklch(0.95 0.025 50);      /* Terracotta tinted bg */
+  --auth-primary: var(--primary);
+  --auth-primary-light: var(--primary);
+  --auth-primary-dark: var(--on-primary-container);
+  --auth-accent: var(--secondary);
+  --auth-accent-light: var(--secondary);
+  --auth-warm: var(--surface-container);
+  --auth-warm-dark: var(--surface-container-high);
+  --auth-bg-light: var(--background);
+  --auth-bg-dark: var(--background);
+  --auth-gold: var(--tertiary);
+  --auth-terracotta-bg: var(--tertiary-container);
 }
 
 .dark {
-  --auth-primary: oklch(0.65 0.16 38);
-  --auth-primary-light: oklch(0.72 0.14 40);
-  --auth-primary-dark: oklch(0.52 0.18 34);
-  --auth-accent: oklch(0.58 0.14 235);
-  --auth-accent-light: oklch(0.48 0.13 240);
-  --auth-warm: oklch(0.25 0.03 40);
-  --auth-warm-dark: oklch(0.2 0.03 35);
-  --auth-bg-light: oklch(0.12 0.02 30);
-  --auth-bg-dark: oklch(0.08 0.02 25);
-  --auth-gold: oklch(0.65 0.14 75);
-  --auth-terracotta-bg: oklch(0.18 0.03 35);
+  --auth-bg-light: var(--background);
+  --auth-bg-dark: var(--background);
 }
 
 /* Auth-specific utility classes */
@@ -837,4 +1033,526 @@ html.rtl nav[aria-label="breadcrumb"] ol {
     padding-inline: 0.875rem;
   }
 }
+
+/* ============================================================================
+   MATERIAL 3 EXPRESSIVE — PRIMITIVES PARTAGÉES
+   ----------------------------------------------------------------------------
+   Ces règles habillent les composants shadcn/Radix déjà utilisés par TOUTES
+   les pages. Elles ne changent que l'apparence : aucune logique, aucun calcul,
+   aucune donnée, aucune route. Les pages héritent donc de la refonte sans
+   réécriture risquée de leur métier.
+   ============================================================================ */
+
+/* Icônes Material Symbols Rounded — sous-ensemble local de 42 Ko, limité
+   aux icônes réellement utilisées par la coque et les primitives M3. */
+@font-face {
+  font-family: "Material Symbols Rounded";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url("/fonts/material-symbols-rounded.woff2") format("woff2");
+}
+.material-symbols-rounded {
+  font-family: "Material Symbols Rounded";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 1.5rem;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+.material-symbols-rounded.is-filled {
+  font-variation-settings: "FILL" 1, "wght" 500, "GRAD" 0, "opsz" 24;
+}
+
+/* ── Boutons : pilules M3, états hover/pressed expressifs ─────────────────── */
+[data-slot="button"] {
+  border-radius: 9999px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition:
+    background-color 180ms cubic-bezier(0.2, 0, 0, 1),
+    color 180ms cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 180ms cubic-bezier(0.2, 0, 0, 1),
+    transform 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+[data-slot="button"]:not(:disabled):active {
+  transform: scale(0.97);
+}
+[data-slot="button"][data-size="default"] {
+  min-height: 2.5rem;
+}
+[data-slot="button"][data-size="sm"] {
+  min-height: 2.125rem;
+}
+[data-slot="button"][data-size="lg"] {
+  min-height: 3rem;
+  padding-inline: 1.75rem;
+}
+[data-slot="button"][data-variant="default"],
+[data-slot="button"][data-variant="filled"] {
+  box-shadow: 0 2px 8px -3px color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+/* ── Cartes : surfaces tonales, grand rayon, profondeur douce ────────────── */
+[data-slot="card"] {
+  border-radius: 1.75rem;
+}
+@layer components {
+  [data-slot="card"] {
+    background: var(--surface-container-low);
+    border: 1px solid color-mix(in srgb, var(--outline-variant) 72%, transparent);
+    box-shadow: none;
+  }
+}
+[data-slot="card"].cursor-pointer,
+[data-slot="card"][role="button"] {
+  transition:
+    transform 220ms cubic-bezier(0.2, 0, 0, 1),
+    box-shadow 220ms cubic-bezier(0.2, 0, 0, 1),
+    border-color 220ms cubic-bezier(0.2, 0, 0, 1);
+}
+[data-slot="card"].cursor-pointer:hover,
+[data-slot="card"][role="button"]:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--outline-variant));
+  box-shadow: var(--shadow-m3-2);
+}
+[data-slot="card-title"] {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-size: 1.0625rem;
+}
+[data-slot="card-description"] {
+  color: var(--on-surface-variant);
+  line-height: 1.5;
+}
+
+/* ── Champs : filled M3, rayon 16, focus tonal ────────────────────────────── */
+[data-slot="input"],
+[data-slot="textarea"],
+[data-slot="select-trigger"] {
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--surface-container-lowest) 88%, var(--surface-container) 12%);
+  border-color: color-mix(in srgb, var(--outline) 58%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--outline) 28%, transparent);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+[data-slot="input"]:hover,
+[data-slot="textarea"]:hover,
+[data-slot="select-trigger"]:hover {
+  border-color: var(--outline);
+}
+[data-slot="input"]:focus-visible,
+[data-slot="textarea"]:focus-visible,
+[data-slot="select-trigger"]:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+input[type="search"]::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+/* ── Menus, popovers, sélecteurs : rayon M3 et ombre expressive ──────────── */
+[data-slot="dropdown-menu-content"],
+[data-slot="select-content"],
+[data-slot="popover-content"] {
+  border-radius: 1.25rem;
+  border-color: color-mix(in srgb, var(--outline-variant) 80%, transparent);
+  background: var(--surface-container-high);
+  box-shadow: var(--shadow-m3-3);
+  padding: 0.4rem;
+}
+[data-slot="dropdown-menu-item"],
+[data-slot="select-item"] {
+  border-radius: 0.75rem;
+  min-height: 2.25rem;
+  font-weight: 500;
+}
+[data-slot="dropdown-menu-item"]:focus,
+[data-slot="select-item"]:focus {
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+}
+
+/* ── Dialogues et bottom sheets ──────────────────────────────────────────── */
+[data-slot="dialog-overlay"],
+[data-slot="sheet-overlay"] {
+  background: color-mix(in srgb, var(--scrim) 44%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+[data-slot="dialog-content"] {
+  border-radius: 1.75rem;
+  background: var(--surface-container-low);
+  border-color: color-mix(in srgb, var(--outline-variant) 70%, transparent);
+  box-shadow: var(--shadow-m3-3);
+}
+[data-slot="dialog-title"] {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: -0.025em;
+}
+[data-slot="sheet-content"] {
+  background: var(--surface-container-low);
+}
+[data-slot="sheet-content"][data-side="bottom"] {
+  border-radius: 1.75rem 1.75rem 0 0;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+[data-slot="sheet-content"][data-side="left"] {
+  border-radius: 0 1.75rem 1.75rem 0;
+}
+[data-slot="sheet-content"][data-side="right"] {
+  border-radius: 1.75rem 0 0 1.75rem;
+}
+[data-slot="sheet-title"] {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+}
+
+@media (max-width: 639px) {
+  [data-slot="dialog-content"] {
+    border-radius: 1.75rem 1.75rem 0 0;
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* ── Onglets : segmented buttons M3 ──────────────────────────────────────── */
+[data-slot="tabs-list"] {
+  border-radius: 9999px;
+  background: var(--surface-container);
+  padding: 0.25rem;
+  min-height: 2.75rem;
+  height: auto;
+  gap: 0.15rem;
+}
+[data-slot="tabs-trigger"] {
+  border-radius: 9999px;
+  min-height: 2.25rem;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+}
+[data-slot="tabs-trigger"][data-state="active"] {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+/* ── Badges / chips tonaux ────────────────────────────────────────────────── */
+[data-slot="badge"] {
+  border-radius: 9999px;
+  min-height: 1.5rem;
+  padding-inline: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+[data-slot="badge"][data-variant="default"] {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  border-color: transparent;
+}
+[data-slot="badge"][data-variant="secondary"] {
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+}
+[data-slot="badge"][data-variant="outline"] {
+  border-color: var(--outline-variant);
+  background: color-mix(in srgb, var(--surface-container-lowest) 55%, transparent);
+}
+
+/* ── Tableaux de données M3 ──────────────────────────────────────────────── */
+[data-slot="table-container"] {
+  border-radius: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 72%, transparent);
+  background: var(--surface-container-low);
+  overflow: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+[data-slot="table-head"] {
+  height: 3rem;
+  background: var(--surface-container);
+  color: var(--on-surface-variant);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+[data-slot="table-row"] {
+  transition: background-color 160ms ease;
+}
+[data-slot="table-row"]:hover {
+  background: color-mix(in srgb, var(--primary-container) 32%, transparent);
+}
+[data-slot="table-cell"] {
+  min-height: 3rem;
+  padding-block: 0.8rem;
+}
+
+/* ── Contrôles ───────────────────────────────────────────────────────────── */
+[data-slot="switch"] {
+  width: 3.25rem;
+  height: 2rem;
+  border-radius: 9999px;
+}
+[data-slot="switch-thumb"] {
+  width: 1.5rem;
+  height: 1.5rem;
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.25);
+}
+[data-slot="switch-thumb"][data-state="checked"] {
+  transform: translateX(calc(100% - 1px));
+}
+[data-slot="checkbox"] {
+  border-radius: 0.5rem;
+  border-color: var(--outline);
+}
+[data-slot="slider-track"] {
+  height: 0.5rem;
+  background: var(--surface-container-highest);
+}
+[data-slot="slider-thumb"] {
+  width: 1.375rem;
+  height: 1.375rem;
+  border-width: 2px;
+}
+[data-slot="progress"] {
+  height: 0.625rem;
+  background: var(--surface-container-highest);
+  border-radius: 9999px;
+}
+
+/* ── Chargement : skeleton shimmer M3 ────────────────────────────────────── */
+[data-slot="skeleton"] {
+  border-radius: 0.75rem;
+  background: linear-gradient(
+    100deg,
+    var(--surface-container) 20%,
+    var(--surface-container-high) 38%,
+    var(--surface-container) 56%
+  );
+  background-size: 220% 100%;
+  animation: m3-shimmer 1.5s ease-in-out infinite;
+}
+@keyframes m3-shimmer {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+
+/* ── Navigation adaptative (desktop rail/drawer, mobile nav bar) ────────── */
+.m3-navigation-drawer {
+  background: var(--surface-container-low);
+  border-right: 1px solid color-mix(in srgb, var(--outline-variant) 65%, transparent);
+}
+.dark .m3-navigation-drawer {
+  border-right-color: color-mix(in srgb, var(--outline-variant) 75%, transparent);
+}
+.m3-navigation-item {
+  min-height: 3rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+  transition: background-color 180ms ease, color 180ms ease, transform 120ms ease;
+}
+.m3-navigation-item:hover {
+  background: color-mix(in srgb, var(--primary) 9%, transparent);
+  color: var(--on-surface);
+}
+.m3-navigation-item[data-active="true"] {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+.m3-navigation-item:active {
+  transform: scale(0.975);
+}
+.m3-nav-bar {
+  background: color-mix(in srgb, var(--surface-container) 94%, transparent);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  border-top: 1px solid color-mix(in srgb, var(--outline-variant) 65%, transparent);
+  padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+}
+.m3-nav-bar-item {
+  min-width: 3.5rem;
+  min-height: 3.5rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--on-surface-variant);
+}
+.m3-nav-bar-item[data-active="true"] {
+  color: var(--on-primary-container);
+}
+.m3-nav-bar-item[data-active="true"] .m3-nav-icon {
+  background: var(--primary-container);
+}
+.m3-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2rem;
+  min-width: 4rem;
+  border-radius: 9999px;
+  transition: background-color 200ms ease;
+}
+.m3-fab {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  border-radius: 1.15rem;
+  box-shadow: var(--shadow-m3-3);
+  min-height: 3.5rem;
+  min-width: 3.5rem;
+}
+.m3-fab:hover {
+  background: color-mix(in srgb, var(--primary-container) 88%, var(--primary) 12%);
+}
+.m3-search-bar {
+  background: var(--surface-container-high);
+  border-radius: 9999px;
+  min-height: 3rem;
+  border: 1px solid color-mix(in srgb, var(--outline-variant) 65%, transparent);
+}
+.m3-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  min-height: 2rem;
+  padding-inline: 0.75rem;
+  border: 1px solid var(--outline-variant);
+  background: var(--surface-container-low);
+  color: var(--on-surface-variant);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.m3-chip[data-selected="true"] {
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  border-color: transparent;
+}
+
+/* ── En-têtes : top app bar tonale, sticky et safe-area ─────────────────── */
+.glass-header,
+header.sticky.top-0 {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  border-bottom: 1px solid color-mix(in srgb, var(--outline-variant) 62%, transparent);
+}
+.dark .glass-header,
+.dark header.sticky.top-0 {
+  background: color-mix(in srgb, var(--surface-container-low) 88%, transparent);
+}
+.m3-top-app-bar {
+  min-height: 4rem;
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Ancien bouton dégradé : conservé pour compatibilité, aligné sur la palette. */
+.btn-gradient {
+  background-image: linear-gradient(120deg, var(--primary) 0%, var(--secondary) 100%);
+  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--primary) 55%, transparent);
+}
+.btn-gradient:hover {
+  filter: brightness(1.04);
+  box-shadow: 0 10px 26px -8px color-mix(in srgb, var(--primary) 65%, transparent);
+}
+
+/* Fond auth : grille d'architecte très discrète sur surface tonale. */
+.auth-bg-pattern {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(40rem 30rem at 100% 0%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 65%),
+    linear-gradient(color-mix(in srgb, var(--outline-variant) 32%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--outline-variant) 32%, transparent) 1px, transparent 1px);
+  background-size: auto, 64px 64px, 64px 64px;
+}
+.dark .auth-bg-pattern {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(40rem 30rem at 100% 0%, color-mix(in srgb, var(--primary) 7%, transparent), transparent 65%),
+    linear-gradient(color-mix(in srgb, var(--outline-variant) 50%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--outline-variant) 50%, transparent) 1px, transparent 1px);
+  background-size: auto, 64px 64px, 64px 64px;
+}
+
+/* ── Mobile / Android WebView ───────────────────────────────────────────── */
+@media (max-width: 767px) {
+  html,
+  body,
+  #root {
+    min-height: 100dvh;
+  }
+  body {
+    overflow-x: clip;
+  }
+  main {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  [data-slot="button"],
+  [data-slot="select-trigger"],
+  [data-slot="input"],
+  [data-slot="textarea"] {
+    touch-action: manipulation;
+  }
+  /* Cibles tactiles Material 3 : 44 px minimum sur smartphone. */
+  [data-slot="button"]:not([data-size="icon"]):not([data-size="icon-sm"]):not([data-size="icon-lg"]),
+  [data-slot="input"],
+  [data-slot="select-trigger"],
+  [data-slot="textarea"] {
+    min-height: 2.75rem;
+  }
+}
+@media (max-width: 1023px) {
+  .m3-mobile-safe-bottom {
+    padding-bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* ── Accessibilité : mouvement réduit ────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .m3-page-enter {
+    animation: none;
+  }
+}
+
+/* Les anciens fonds dégradés de page sont remplacés par la surface tonale M3.
+   Les dégradés décoratifs internes (héros, CTA) restent autorisés. */
+main {
+  background-color: var(--background);
+  background-image: none;
+}
+
+/* Transition de page Material 3 : discrète, jamais bloquante pour le métier. */
+@media (prefers-reduced-motion: no-preference) {
+  main {
+    animation: m3-page-enter 360ms cubic-bezier(0.2, 0, 0, 1) both;
+  }
+}
+
+/* Focus clavier : anneau M3 de 3 px, jamais supprimé. */
+:where(button, a, input, select, textarea, [role="button"], [tabindex]):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset: 2px;
+}
+
 

@@ -86,7 +86,7 @@ export function AppDownloadBanner({ className }: { className?: string }) {
       role="complementary"
       aria-label={t("appDownload.title")}
       className={cn(
-        "h-10 w-full bg-emerald-600 text-white duration-300 animate-in fade-in-0 slide-in-from-top-2",
+        "h-10 w-full bg-primary text-primary-foreground duration-300 animate-in fade-in-0 slide-in-from-top-2",
         className,
       )}
     >

@@ -12,17 +12,13 @@ import { useState, useEffect } from "react";
 import {
   ArrowLeft,
   Bell,
-  Check,
   ChevronRight,
   Crown,
   HardHat,
   LogOut,
-  Moon,
   Palette,
   Shield,
   Smartphone,
-  Sun,
-  Monitor,
   User,
   CreditCard,
   Info,
@@ -35,6 +31,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import { M3Icon, M3SegmentedButtons } from "@/components/ui/material3";
 
 // ============================================================================
 // Setting Row Component
@@ -91,33 +88,22 @@ function ThemeSelector() {
 
   if (!mounted) return null;
 
-  const themes = [
-    { value: "light", icon: Sun, label: "Clair" },
-    { value: "dark", icon: Moon, label: "Sombre" },
-    { value: "system", icon: Monitor, label: "Système" },
-  ] as const;
-
   return (
-    <div className="grid grid-cols-3 gap-2">
-      {themes.map(({ value, icon: Icon, label }) => (
-        <button
-          key={value}
-          onClick={() => setTheme(value)}
-          className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${
-            theme === value
-              ? "border-primary/50 bg-primary/5 text-primary ring-1 ring-primary/20"
-              : "border-border/40 hover:border-border/60 text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Icon className="h-5 w-5" />
-          <span className="text-[10px] font-medium">{label}</span>
-          {theme === value && (
-            <div className="absolute top-1.5 right-1.5">
-              <Check className="h-3 w-3 text-primary" />
-            </div>
-          )}
-        </button>
-      ))}
+    <div className="space-y-2">
+      <M3SegmentedButtons
+        ariaLabel="Thème de l'interface"
+        value={(theme === "light" || theme === "dark" ? theme : "system")}
+        onValueChange={(value) => setTheme(value)}
+        options={[
+          { value: "light", label: "Clair", icon: "light_mode" },
+          { value: "dark", label: "Sombre", icon: "dark_mode" },
+          { value: "system", label: "Auto", icon: "brightness_auto" },
+        ]}
+      />
+      <p className="flex items-center gap-1.5 text-[11px] text-on-surface-variant">
+        <M3Icon name="info" className="text-[15px]" />
+        Le mode automatique suit la préférence clair/sombre de l'appareil.
+      </p>
     </div>
   );
 }

@@ -9,8 +9,9 @@
 
 import { useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
+import { M3Icon } from "@/components/ui/material3";
 import { cn } from "@/lib/utils";
 
 export interface PageHeaderProps {
@@ -42,7 +43,7 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border/50 pb-3",
+        "flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-outline-variant/55 pb-3",
         className,
       )}
     >
@@ -52,14 +53,14 @@ export function PageHeader({
             type="button"
             onClick={onBack}
             aria-label={backLabel}
-            className="-ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant transition-colors hover:bg-surface-container-highest hover:text-foreground active:scale-95 focus-visible:outline-2 focus-visible:outline-ring"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <M3Icon name="arrow_back" className="text-[20px]" />
           </button>
         )}
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <h1 className="truncate text-base font-semibold leading-tight sm:text-lg">
+            <h1 className="truncate font-display text-lg font-bold leading-tight tracking-[-0.025em] sm:text-xl">
               {title}
             </h1>
             {context}
@@ -115,7 +116,7 @@ export function Section({
       <div
         className={cn(
           surface &&
-            "rounded-xl border border-border/60 bg-card shadow-elev-1",
+            "rounded-[1.75rem] border border-outline-variant/65 bg-surface-container-low shadow-elev-1",
         )}
       >
         {children}

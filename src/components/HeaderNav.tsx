@@ -81,12 +81,13 @@ export function HeaderNav({
   return (
     <nav
       aria-label={ariaLabel}
-      className={cn("border-t border-border/25", className)}
+      className={cn("border-t border-outline-variant/45", className)}
     >
       <div className={cn("mx-auto px-2 sm:px-3 lg:px-4", maxWidthClassName)}>
-        {/* Rangée scrollable : un seul axe, jamais de coupure des éléments. */}
+        {/* Barre de navigation secondaire Material 3 : pilules tactiles,
+            défilement horizontal natif, aucun élément comprimé. */}
         <div
-          className="flex items-center gap-1 overflow-x-auto overscroll-x-contain scrollbar-none py-1.5"
+          className="flex items-center gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none py-2"
           role="tablist"
         >
           {items.map((item, i) => {
@@ -102,20 +103,20 @@ export function HeaderNav({
                 disabled={item.disabled}
                 title={item.label}
                 className={cn(
-                  "group flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] sm:text-xs font-medium whitespace-nowrap transition-all",
+                  "group flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[11px] font-semibold transition-all sm:text-xs",
                   active
-                    ? "bg-primary/10 text-primary font-semibold ring-1 ring-primary/15"
-                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground active:bg-muted",
+                    ? "bg-primary-container text-on-primary-container shadow-sm"
+                    : "text-on-surface-variant hover:bg-surface-container-high hover:text-foreground",
                   "active:scale-[0.97]",
                   item.disabled && "cursor-not-allowed opacity-40 hover:bg-transparent",
                 )}
               >
                 <span
                   className={cn(
-                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors",
+                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors",
                     active
                       ? "bg-primary/15 text-primary"
-                      : "bg-muted/40 text-muted-foreground group-hover:text-foreground",
+                      : "bg-surface-container-high/70 text-on-surface-variant group-hover:text-foreground",
                   )}
                 >
                   {item.icon}

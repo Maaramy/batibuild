@@ -197,10 +197,10 @@ function FormField({ label, id, name, type = "text", placeholder, icon: Icon, di
   return (
     <motion.div variants={fadeUp}>
       <Label htmlFor={id} className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{label}</Label>
-      <div className="auth-input-focus relative mt-1.5 rounded-lg auth-card-border bg-background/50">
-        {Icon && <div className="absolute left-3 top-1/2 -translate-y-1/2"><Icon className="h-4 w-4" style={{ color: "var(--foreground)", opacity: 0.5 }} /></div>}
+      <div className="auth-input-focus relative mt-1.5 rounded-2xl border border-outline-variant/70 bg-surface-container-lowest transition-shadow focus-within:border-primary focus-within:ring-3 focus-within:ring-primary/15">
+        {Icon && <div className="absolute left-3.5 top-1/2 -translate-y-1/2"><Icon className="h-4 w-4" style={{ color: "var(--on-surface-variant)" }} /></div>}
         <Input id={id} name={name ?? id} type={type} placeholder={placeholder}
-          className={`h-11 border-0 bg-transparent shadow-none focus-visible:ring-0 ${Icon ? "pl-9" : ""} ${children ? "pr-10" : ""}`}
+          className={`h-12 rounded-2xl border-0 bg-transparent shadow-none focus-visible:ring-0 ${Icon ? "pl-10" : ""} ${children ? "pr-11" : ""}`}
           disabled={disabled} required={required} minLength={minLength} autoComplete={autoComplete}
           value={value} onChange={onChange} />
         {children}
@@ -212,10 +212,9 @@ function FormField({ label, id, name, type = "text", placeholder, icon: Icon, di
 // Auth card wrapper
 function AuthCard({ children, topBar = true }: { children: React.ReactNode; topBar?: boolean }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }} className="w-full max-w-sm mx-auto">
-      <div className="rounded-2xl shadow-xl overflow-hidden bg-card/80 backdrop-blur-xl"
-        style={{ border: "1px solid color-mix(in srgb, var(--auth-primary) 15%, transparent)", boxShadow: "0 20px 60px -12px color-mix(in srgb, var(--auth-primary) 12%, transparent)" }}>
-        {topBar && <div className="h-1 w-full" style={{ background: "linear-gradient(90deg, var(--auth-primary), var(--auth-accent), var(--auth-gold))" }} />}
+    <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }} className="w-full max-w-md mx-auto">
+      <div className="overflow-hidden rounded-[1.75rem] border border-outline-variant/60 bg-surface-container-low shadow-m3-3 backdrop-blur-xl">
+        {topBar && <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, var(--primary), var(--secondary), var(--tertiary))" }} />}
         <div className="p-6 sm:p-8">{children}</div>
       </div>
     </motion.div>
@@ -245,9 +244,8 @@ function SuccessCheck({ message, subtitle, actionLabel, onAction }: {
       </motion.div>
       <h2 className="text-xl font-semibold mb-1" style={{ color: "var(--foreground)" }}>{message}</h2>
       <p className="text-sm mb-6" style={{ color: "var(--foreground)", opacity: 0.6 }}>{subtitle}</p>
-      <Button type="button" className="w-full h-11 text-white border-0 shadow-lg"
-        style={{ background: "linear-gradient(135deg, var(--auth-primary), var(--auth-primary-light))", boxShadow: "0 4px 14px color-mix(in srgb, var(--auth-primary) 30%, transparent)" }}
-        onClick={onAction}><LogIn className="mr-2 h-4 w-4" />{actionLabel}</Button>
+      <Button type="button" className="h-12 w-full gap-2"
+        onClick={onAction}><LogIn className="h-4 w-4" />{actionLabel}</Button>
     </motion.div>
   );
 }
@@ -259,8 +257,7 @@ function PrimaryButton({ loading, loadingText, children, disabled }: {
   return (
     <motion.div variants={fadeUp}>
       <Button type="submit"
-        className="w-full h-11 text-white border-0 shadow-lg transition-all duration-200 hover:brightness-110"
-        style={{ background: "linear-gradient(135deg, var(--auth-primary), var(--auth-primary-light))", boxShadow: "0 4px 14px color-mix(in srgb, var(--auth-primary) 30%, transparent)" }}
+        className="h-12 w-full gap-2"
         disabled={disabled || loading}>
         {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {loadingText || "Chargement..."}</>
           : <>{children}<ArrowRight className="ml-2 h-4 w-4" /></>}
@@ -274,12 +271,11 @@ function TabSwitcher({ tab, setTab }: {
   tab: "login" | "register"; setTab: (t: "login" | "register") => void;
 }) {
   return (
-    <div className="flex rounded-xl p-1 mb-6" style={{ background: "color-mix(in srgb, var(--auth-primary) 8%, transparent)" }}>
+    <div className="mb-6 flex rounded-full bg-surface-container p-1">
       {[{ key: "login" as const, icon: LogIn, label: "Connexion" }, { key: "register" as const, icon: UserPlus, label: "Inscription" }].map((item) => (
         <button key={item.key} type="button"
           onClick={() => setTab(item.key)}
-          className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${tab === item.key ? "bg-white dark:bg-card shadow-sm" : "hover:opacity-80"}`}
-          style={tab === item.key ? { color: "var(--foreground)" } : { color: "var(--foreground)", opacity: 0.6 }}>
+          className={`flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-all duration-200 ${tab === item.key ? "bg-primary-container text-on-primary-container shadow-sm" : "text-on-surface-variant hover:text-foreground"}`}>
           <item.icon className="h-4 w-4" /> {item.label}
         </button>
       ))}

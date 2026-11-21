@@ -38,19 +38,19 @@ export function KPI({ label, value, hint, tone = "default", icon, className }: K
   return (
     <div
       className={cn(
-        "min-w-0 rounded-xl border border-border/60 bg-card px-3 py-2.5 shadow-elev-1",
+        "min-w-0 rounded-3xl border border-outline-variant/60 bg-surface-container-low px-4 py-3 shadow-elev-1",
         className,
       )}
     >
       <div className="flex items-center gap-1.5">
         {icon && <span className="text-muted-foreground">{icon}</span>}
-        <p className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-on-surface-variant">
           {label}
         </p>
       </div>
       <p
         className={cn(
-          "mt-1 truncate text-lg font-semibold leading-tight tabular-nums sm:text-xl",
+          "mt-1.5 truncate font-display text-xl font-extrabold leading-tight tabular-nums sm:text-2xl",
           TONE_TEXT[tone],
         )}
       >

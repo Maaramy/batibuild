@@ -97,10 +97,10 @@ export function ProjectCard({ project }: { project: any }) {
   });
 
   const statusColors: Record<string, string> = {
-    draft: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-    analyzing: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    completed: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    archived: "bg-slate-100 text-slate-500 dark:bg-slate-900/30 dark:text-slate-400",
+    draft: "bg-warning-container text-warning",
+    analyzing: "bg-info-container text-info",
+    completed: "bg-success-container text-success",
+    archived: "bg-surface-container-high text-on-surface-variant",
   };
 
   const statusLabels: Record<string, string> = {
@@ -115,7 +115,7 @@ export function ProjectCard({ project }: { project: any }) {
       className="group relative border border-border/40 hover:border-primary/20 transition-all duration-200 hover:shadow-md bg-background/50 backdrop-blur-sm cursor-pointer overflow-hidden active:scale-[0.98]"
       onClick={() => navigate(`/dashboard/project/${project._id}`)}
     >
-      <div className={`absolute top-0 left-0 w-[3px] h-full ${project.status === 'completed' ? 'bg-emerald-500' : project.status === 'analyzing' ? 'bg-blue-500' : project.status === 'draft' ? 'bg-yellow-500' : 'bg-slate-500'}`} />
+      <div className={`absolute top-0 left-0 h-full w-1 rounded-r-full ${project.status === 'completed' ? 'bg-success' : project.status === 'analyzing' ? 'bg-info' : project.status === 'draft' ? 'bg-warning' : 'bg-outline'}`} />
       <div className="p-3 sm:p-4 pl-4 sm:pl-5">
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
@@ -266,8 +266,8 @@ export function ProjectCard({ project }: { project: any }) {
 
 export function MiniStat({ icon: Icon, label, value, tone }: any) {
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-border/30 bg-muted/20 px-3 py-2">
-      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${tone?.bg ?? "bg-primary/10"}`}>
+    <div className="flex items-center gap-2 rounded-2xl border border-outline-variant/55 bg-surface-container px-3 py-2.5">
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${tone?.bg ?? "bg-primary-container"}`}>
         <Icon className={`h-3.5 w-3.5 ${tone?.text ?? "text-primary"}`} />
       </div>
       <div className="min-w-0">

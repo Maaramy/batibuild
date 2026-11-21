@@ -1,12 +1,7 @@
-import {
-  CircleCheckIcon,
-  InfoIcon,
-  Loader2Icon,
-  OctagonXIcon,
-  TriangleAlertIcon,
-} from "lucide-react"
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
+
+import { M3Icon } from "@/components/ui/material3"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
@@ -16,18 +11,18 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
       icons={{
-        success: <CircleCheckIcon className="size-4" />,
-        info: <InfoIcon className="size-4" />,
-        warning: <TriangleAlertIcon className="size-4" />,
-        error: <OctagonXIcon className="size-4" />,
-        loading: <Loader2Icon className="size-4 animate-spin" />,
+        success: <M3Icon name="check_circle" filled className="text-[18px]" />,
+        info: <M3Icon name="info" filled className="text-[18px]" />,
+        warning: <M3Icon name="warning" filled className="text-[18px]" />,
+        error: <M3Icon name="error" filled className="text-[18px]" />,
+        loading: <M3Icon name="progress_activity" className="animate-spin text-[18px]" />,
       }}
       style={
         {
-          "--normal-bg": "var(--popover)",
-          "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          "--normal-bg": "var(--surface-container-high)",
+          "--normal-text": "var(--on-surface)",
+          "--normal-border": "var(--outline-variant)",
+          "--border-radius": "1.25rem",
         } as React.CSSProperties
       }
       {...props}

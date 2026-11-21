@@ -40,7 +40,7 @@ export function AppDownloadFooterBanner({ className }: { className?: string }) {
     <>
       <LogoMark
         size="sm"
-        className="shrink-0 rounded-md shadow-sm ring-1 ring-emerald-500/20"
+        className="shrink-0 rounded-xl shadow-sm ring-1 ring-primary/20"
       />
 
       <span className="min-w-0 flex-1 text-left rtl:text-right">
@@ -56,7 +56,7 @@ export function AppDownloadFooterBanner({ className }: { className?: string }) {
       <span
         aria-hidden="true"
         className={cn(
-          "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5",
+          "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 py-1.5",
           "text-xs font-semibold text-white transition-transform",
           "group-hover:scale-[1.03] group-active:scale-95",
         )}
@@ -74,7 +74,7 @@ export function AppDownloadFooterBanner({ className }: { className?: string }) {
         aria-label="Télécharger l'application batibuild pour Android"
         className={cn(
           "flex max-w-md cursor-not-allowed items-center gap-3 rounded-xl border border-emerald-500/25",
-          "bg-emerald-500/5 p-3 opacity-60",
+          "bg-surface-container p-3 opacity-60",
           className,
         )}
       >
@@ -91,8 +91,8 @@ export function AppDownloadFooterBanner({ className }: { className?: string }) {
       aria-label="Télécharger l'application batibuild pour Android"
       className={cn(
         "group flex max-w-md items-center gap-3 rounded-xl border border-emerald-500/25",
-        "bg-emerald-500/5 p-3 transition-colors",
-        "hover:border-emerald-500/40 hover:bg-emerald-500/10",
+        "bg-surface-container-low p-3 transition-colors",
+        "hover:border-primary/40 hover:bg-primary-container/40",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60",
         className,
       )}

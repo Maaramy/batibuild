@@ -4,8 +4,8 @@
   "description": "Estimation de construction par IA pour la Tunisie",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#faf6f1",
-  "theme_color": "#8B4513",
+  "background_color": "#F5F8F2",
+  "theme_color": "#006C4C",
   "icons": [
     {
       "src": "/batibuild-logo.png",

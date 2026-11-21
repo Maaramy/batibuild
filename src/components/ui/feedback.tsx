@@ -32,14 +32,14 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 px-4 py-12 text-center",
+        "flex flex-col items-center justify-center rounded-[1.75rem] border border-dashed border-outline-variant/80 bg-surface-container-low/60 px-5 py-12 text-center",
         className,
       )}
     >
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container text-on-primary-container">
         {icon ?? <Inbox className="h-5 w-5" />}
       </div>
-      <p className="mt-3 text-sm font-semibold">{title}</p>
+      <p className="mt-3 font-display text-base font-bold">{title}</p>
       {description && (
         <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
           {description}
@@ -66,7 +66,7 @@ export function LoadingState({ message, steps, className }: LoadingStateProps) {
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-10 text-center",
+        "flex flex-col items-center justify-center gap-3 rounded-[1.75rem] border border-outline-variant/60 bg-surface-container-low px-5 py-10 text-center",
         className,
       )}
       role="status"
@@ -121,7 +121,7 @@ export function ErrorState({
     <div
       role="alert"
       className={cn(
-        "flex flex-col items-center justify-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-8 text-center",
+        "flex flex-col items-center justify-center gap-2 rounded-[1.75rem] border border-error/30 bg-error-container/50 px-5 py-8 text-center",
         className,
       )}
     >

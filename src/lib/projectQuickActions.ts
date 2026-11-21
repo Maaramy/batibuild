@@ -34,13 +34,13 @@ export type ProjectForQuickActions = {
 };
 
 const TONES = {
-  plan: "hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-600 dark:hover:text-violet-400",
+  plan: "hover:border-primary/40 hover:bg-primary/10 hover:text-primary",
   decision:
-    "hover:border-indigo-500/40 hover:bg-indigo-500/10 hover:text-indigo-600 dark:hover:text-indigo-400",
+    "hover:border-secondary/40 hover:bg-secondary/10 hover:text-secondary",
   expert:
-    "hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400",
+    "hover:border-tertiary/40 hover:bg-tertiary/10 hover:text-tertiary",
   guide:
-    "hover:border-sky-500/40 hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-400",
+    "hover:border-primary/40 hover:bg-primary/10 hover:text-primary",
 } as const;
 
 export function buildProjectQuickActions(project: ProjectForQuickActions): ProjectQuickAction[] {

@@ -279,8 +279,8 @@ export default function MyProjects() {
                 className={cn(
                   "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-ring",
                   active
-                    ? "border-primary/40 bg-primary/10 text-primary"
-                    : "border-border/60 text-muted-foreground hover:border-border hover:text-foreground",
+                    ? "border-transparent bg-primary-container text-on-primary-container shadow-sm"
+                    : "border-outline-variant/70 bg-surface-container-low text-on-surface-variant hover:border-primary/30 hover:text-foreground",
                 )}
               >
                 {item.label}

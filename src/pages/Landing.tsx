@@ -6,8 +6,6 @@ import {
   FileText,
   HardHat,
   Menu,
-  Moon,
-  Sun,
   TrendingUp,
   Upload,
   X,
@@ -25,6 +23,7 @@ import { useNavigate } from "react-router";
 import { usePageSEO } from "@/hooks/use-page-seo";
 import { useFeatureFlags } from "@/hooks/use-feature-flags";
 import { Logo } from "@/components/Logo";
+import { M3Icon } from "@/components/ui/material3";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -48,64 +47,64 @@ const FEATURES = [
     icon: Upload,
     title: "Gagnez 3 jours par devis",
     desc: "Importez une photo, un plan PDF, une image satellite ou un croquis à la main — l'IA fait le reste en quelques minutes.",
-    gradient: "from-blue-500/20 to-cyan-500/20",
-    iconColor: "text-blue-600 dark:text-blue-400",
+    gradient: "from-primary/18 via-primary/8 to-transparent",
+    iconColor: "text-primary",
     to: "/dashboard/new",
   },
   {
     icon: Cpu,
     title: "Evitez les surcoûts",
     desc: "L'IA détecte automatiquement les surfaces, les matériaux et les quantités — plus d'oublis, plus de mauvaises surprises en chantier.",
-    gradient: "from-emerald-500/20 to-teal-500/20",
-    iconColor: "text-emerald-600 dark:text-emerald-400",
+    gradient: "from-secondary/18 via-secondary/8 to-transparent",
+    iconColor: "text-secondary",
     to: "/dashboard/new",
   },
   {
     icon: TrendingUp,
     title: "Prix marché 2026 inclus",
     desc: "Calcul automatique basé sur les tarifs actualisés du marché tunisien — fini les devis basés sur des prix de 2022.",
-    gradient: "from-emerald-500/20 to-teal-500/20",
-    iconColor: "text-emerald-600 dark:text-emerald-400",
+    gradient: "from-tertiary/18 via-tertiary/8 to-transparent",
+    iconColor: "text-tertiary",
     to: "/dashboard",
   },
   {
     icon: ClipboardList,
     title: "Ne perdez plus une seule étape",
     desc: "Guide complet de 10 phases : démarches tunisiennes, budget, planning, contrôle de chantier — rien n'est oublié.",
-    gradient: "from-sky-500/20 to-blue-500/20",
-    iconColor: "text-sky-600 dark:text-sky-400",
+    gradient: "from-primary/18 via-primary/8 to-transparent",
+    iconColor: "text-primary",
     to: "/dashboard/guide",
   },
   {
     icon: Store,
     title: "Trouvez les bons prestataires",
     desc: "Annuaire vérifié d'architectes, ingénieurs et fournisseurs : spécialités, régions et recommandations ciblées.",
-    gradient: "from-amber-500/20 to-orange-500/20",
-    iconColor: "text-amber-600 dark:text-amber-400",
+    gradient: "from-tertiary/18 via-tertiary/8 to-transparent",
+    iconColor: "text-tertiary",
     to: "/dashboard/supplier",
   },
   {
     icon: Table2,
     title: "Suivez l'évolution des prix",
     desc: "Base de 500+ matériaux actualisée en temps réel — anticipez les hausses et optimisez votre timing d'achat.",
-    gradient: "from-teal-500/20 to-cyan-500/20",
-    iconColor: "text-teal-600 dark:text-teal-400",
+    gradient: "from-secondary/18 via-secondary/8 to-transparent",
+    iconColor: "text-secondary",
     to: "/dashboard/materials",
   },
   {
     icon: Landmark,
     title: "Investissez sans risque",
     desc: "ROI à 1, 5 et 10 ans, cash-flow, score IA sur 100 et scénarios prudent / réaliste / optimiste pour chaque bien.",
-    gradient: "from-indigo-500/20 to-violet-500/20",
-    iconColor: "text-indigo-600 dark:text-indigo-400",
+    gradient: "from-primary/18 via-secondary/8 to-transparent",
+    iconColor: "text-primary",
     to: "/dashboard/investments",
   },
   {
     icon: FileText,
     title: "Envoyez un devis pro en 1 clic",
     desc: "Exportez des rapports PDF, Excel ou CSV professionnels — prêts à envoyer à vos clients ou à votre banquier.",
-    gradient: "from-rose-500/20 to-orange-500/20",
-    iconColor: "text-rose-600 dark:text-rose-400",
+    gradient: "from-tertiary/18 via-primary/8 to-transparent",
+    iconColor: "text-tertiary",
     to: "/dashboard",
   },
 ];
@@ -180,10 +179,10 @@ function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/50 bg-background/80 backdrop-blur-sm text-foreground/80 hover:text-foreground transition-all hover:border-border"
+      className="relative inline-flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant transition-all hover:bg-surface-container-highest hover:text-foreground active:scale-95"
     >
-      <Sun className={`h-4 w-4 transition-all ${theme === "dark" ? "rotate-90 scale-0" : "rotate-0 scale-100"}`} />
-      <Moon className={`absolute h-4 w-4 transition-all ${theme === "dark" ? "rotate-0 scale-100" : "-rotate-90 scale-0"}`} />
+      <M3Icon name="light_mode" className={`text-[20px] transition-all ${theme === "dark" ? "rotate-90 scale-0" : "rotate-0 scale-100"}`} />
+      <M3Icon name="dark_mode" className={`absolute text-[20px] transition-all ${theme === "dark" ? "rotate-0 scale-100" : "-rotate-90 scale-0"}`} />
     </button>
   );
 }
@@ -206,9 +205,9 @@ function Navbar() {
       transition={{ duration: 0.5, ease: "easeOut" }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         mobileOpen
-          ? "bg-background shadow-md"
+          ? "bg-surface/95 shadow-m3-1 backdrop-blur-xl"
           : scrolled
-            ? "glass-strong shadow-sm"
+            ? "glass-strong shadow-m3-1"
             : "bg-transparent"
       }`}
     >
@@ -222,12 +221,12 @@ function Navbar() {
           <span className="hidden sm:inline-block ml-1 text-xs font-medium text-muted-foreground/60">Tunisia</span>
         </div>
 
-        <nav className="hidden md:flex items-center gap-8">
-          <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Fonctionnalités</a>
-          <a href="/dashboard/guide" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Guide A-Z</a>
-          <a href="/dashboard/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Tarifs</a>
-          <a href="#testimonials" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Avis</a>
-          <a href="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Blog</a>
+        <nav className="hidden items-center gap-1 md:flex">
+          <a href="#features" className="rounded-full px-3 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-foreground">Fonctionnalités</a>
+          <a href="/dashboard/guide" className="rounded-full px-3 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-foreground">Guide A-Z</a>
+          <a href="/dashboard/pricing" className="rounded-full px-3 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-foreground">Tarifs</a>
+          <a href="#testimonials" className="rounded-full px-3 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-foreground">Avis</a>
+          <a href="/blog" className="rounded-full px-3 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-foreground">Blog</a>
         </nav>
 
         <div className="flex items-center gap-3">
@@ -249,8 +248,9 @@ function Navbar() {
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
           <button
-            className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border/50"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-surface-container-high text-on-surface-variant transition-colors active:scale-95 md:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
           >
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
@@ -263,7 +263,7 @@ function Navbar() {
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
-          className="bg-background border-t border-border/10 md:hidden shadow-lg"
+          className="border-t border-outline-variant/50 bg-surface-container-low shadow-m3-2 md:hidden"
         >
           <div className="px-4 py-4 space-y-3">
             <a href="#features" onClick={() => setMobileOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground py-2">Fonctionnalités</a>
@@ -294,9 +294,9 @@ function HeroSection() {
     >
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-b from-primary/[0.06] via-transparent to-background" />
-      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
-      <div className="absolute top-1/3 -right-32 w-80 h-80 bg-sky-400/10 rounded-full blur-3xl" />
-      <div className="absolute top-2/3 left-1/2 -translate-x-1/2 w-[560px] h-40 bg-violet-500/5 rounded-full blur-3xl" />
+      <div className="absolute -left-32 top-1/4 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
+      <div className="absolute -right-32 top-1/3 h-80 w-80 rounded-full bg-secondary/10 blur-3xl" />
+      <div className="absolute left-1/2 top-2/3 h-40 w-[560px] -translate-x-1/2 rounded-full bg-tertiary/10 blur-3xl" />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 sm:py-20 w-full">
         <div className="mx-auto max-w-5xl text-center">
@@ -306,8 +306,8 @@ function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05, duration: 0.5 }}
             className="mb-4 flex justify-center"
-          >              <span className="inline-flex items-center gap-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-4 py-1.5 text-[11px] sm:text-xs font-semibold text-violet-700 dark:text-violet-300 shadow-sm">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-sm">
+                      >              <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary-container px-4 py-2 text-[11px] font-semibold text-on-primary-container shadow-sm sm:text-xs">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
                 <Sparkles className="h-3 w-3" />
               </span>
               Plateforme IA de construction & de rénovation
@@ -319,7 +319,7 @@ function HeroSection() {
             initial={{ opacity: 0, y: 20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ delay: 0.15, duration: 0.55, ease: "easeOut" }}
-            className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.08] max-w-4xl mx-auto"
+            className="type-display mx-auto max-w-5xl text-balance"
           >
             Votre <span className="gradient-text">copilote IA</span> pour
             construire et rénover.
@@ -333,9 +333,9 @@ function HeroSection() {
             className="mt-8 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3"
           >
             {[
-              { icon: Calculator, label: "Estimez", bg: "bg-emerald-500/8", border: "border-emerald-500/20", hover: "hover:bg-emerald-500/15 hover:border-emerald-500/30", color: "text-emerald-600 dark:text-emerald-400", ring: "ring-emerald-500/20" },
-              { icon: Sparkles, label: "Optimisez", bg: "bg-violet-500/8", border: "border-violet-500/20", hover: "hover:bg-violet-500/15 hover:border-violet-500/30", color: "text-violet-600 dark:text-violet-400", ring: "ring-violet-500/20" },
-              { icon: Building2, label: "Construisez", bg: "bg-sky-500/8", border: "border-sky-500/20", hover: "hover:bg-sky-500/15 hover:border-sky-500/30", color: "text-sky-600 dark:text-sky-400", ring: "ring-sky-500/20" },
+              { icon: Calculator, label: "Estimez", bg: "bg-primary-container", border: "border-primary/15", hover: "hover:bg-primary-container/80 hover:border-primary/30", color: "text-on-primary-container", ring: "ring-primary/20" },
+              { icon: Sparkles, label: "Optimisez", bg: "bg-secondary-container", border: "border-secondary/15", hover: "hover:bg-secondary-container/80 hover:border-secondary/30", color: "text-on-secondary-container", ring: "ring-secondary/20" },
+              { icon: Building2, label: "Construisez", bg: "bg-tertiary-container", border: "border-tertiary/15", hover: "hover:bg-tertiary-container/80 hover:border-tertiary/30", color: "text-on-tertiary-container", ring: "ring-tertiary/20" },
             ].map((item, i) => (
               <motion.span
                 key={item.label}
@@ -366,7 +366,7 @@ function HeroSection() {
               <span className="text-muted-foreground/50"> et </span>
               <span className="font-medium text-foreground/90">prenez de meilleures décisions immobilières</span>
               <span className="text-muted-foreground/50"> grâce à </span>
-              <span className="inline-flex items-center gap-1 font-semibold bg-gradient-to-r from-emerald-600 to-violet-600 dark:from-emerald-400 dark:to-violet-400 bg-clip-text text-transparent">
+              <span className="inline-flex items-center gap-1 font-semibold bg-gradient-to-r from-primary to-tertiary bg-clip-text text-transparent">
                 <Sparkles className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
                 l'IA
               </span>.
@@ -382,7 +382,7 @@ function HeroSection() {
           >
             <Button
               size="lg"
-              className="group h-12 gap-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 px-6 sm:px-8 text-sm sm:text-base font-semibold text-white shadow-lg shadow-emerald-600/25 transition-all duration-200 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-600/40 active:scale-[0.97]"
+              className="group h-12 gap-2 px-7 text-sm font-semibold sm:px-9 sm:text-base"
               onClick={() => navigate("/auth")}
             >
               <Sparkles className="h-4 w-4" />
@@ -399,9 +399,9 @@ function HeroSection() {
             className="relative mt-12 sm:mt-14"
           >
             {/* Glow behind card */}
-            <div className="absolute -inset-4 bg-gradient-to-br from-emerald-500/15 via-transparent to-violet-500/10 rounded-3xl blur-2xl" />
+            <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-primary/15 via-secondary/5 to-tertiary/15 blur-2xl" />
 
-            <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-background/80 backdrop-blur-xl shadow-soft-lg">
+            <div className="relative overflow-hidden rounded-[2rem] border border-outline-variant/60 bg-surface-container-low shadow-m3-3 backdrop-blur-xl">
               {/* Browser chrome bar */}
               <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/20 bg-muted/20">
                 <div className="flex gap-1.5">
@@ -424,14 +424,14 @@ function HeroSection() {
                 <div className="flex items-start justify-between gap-3 mb-5">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
-                        <HardHat className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-container">
+                        <HardHat className="h-4 w-4 text-on-primary-container" />
                       </div>
                       <h3 className="text-sm font-bold tracking-tight">Estimation Maison à Étage</h3>
                     </div>
                     <p className="text-[10px] text-muted-foreground ml-10">150 m² · Sousse · Scénario Standard</p>
                   </div>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary-container px-2.5 py-1 text-[9px] font-semibold text-on-primary-container">
                     <Check className="h-2.5 w-2.5" />
                     IA Validé
                   </span>
@@ -449,8 +449,8 @@ function HeroSection() {
                       key={stat.label}
                       className={`rounded-xl border p-3 ${
                         stat.accent
-                          ? "border-emerald-500/20 bg-emerald-500/5"
-                          : "border-border/30 bg-muted/20"
+                          ? "border-primary/20 bg-primary-container/70"
+                          : "border-outline-variant/50 bg-surface-container"
                       }`}
                     >
                       <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">{stat.label}</p>
@@ -467,10 +467,10 @@ function HeroSection() {
                   <p className="text-[9px] uppercase tracking-wider text-muted-foreground mb-3">Répartition des coûts</p>
                   <div className="space-y-2.5">
                     {[
-                      { label: "Gros œuvre", pct: 35, color: "bg-emerald-500" },
-                      { label: "Second œuvre", pct: 25, color: "bg-sky-500" },
-                      { label: "Équipements", pct: 22, color: "bg-violet-500" },
-                      { label: "Finitions", pct: 18, color: "bg-amber-500" },
+                      { label: "Gros œuvre", pct: 35, color: "bg-primary" },
+                      { label: "Second œuvre", pct: 25, color: "bg-secondary" },
+                      { label: "Équipements", pct: 22, color: "bg-tertiary" },
+                      { label: "Finitions", pct: 18, color: "bg-primary/50" },
                     ].map((item) => (
                       <div key={item.label} className="flex items-center gap-3">
                         <span className="text-[10px] text-muted-foreground w-24 shrink-0">{item.label}</span>
@@ -525,8 +525,8 @@ function HeroSection() {
                   key={cat}
                   className={`inline-flex items-center gap-1.5 rounded-full border-2 px-3.5 py-1.5 text-[11px] font-semibold transition-all ${
                     i === 0
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-300"
-                      : "border-border/60 bg-background/60 text-muted-foreground hover:border-emerald-500/40 hover:text-foreground"
+                      ? "border-primary/25 bg-primary-container text-on-primary-container"
+                      : "border-outline-variant/70 bg-surface-container-low text-on-surface-variant hover:border-primary/35 hover:text-foreground"
                   }`}
                 >
                   {i === 0 && <Check className="h-3 w-3" />}
@@ -653,7 +653,7 @@ function HowItWorksSection() {
           className="mx-auto max-w-2xl text-center mb-16"
         >
           <p className="label-overline mb-3">Comment ça marche</p>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
+          <h2 className="type-headline">
             Du croquis au devis en{" "}
             <span className="gradient-text">3 clics</span>
           </h2>
@@ -776,7 +776,7 @@ function FeaturesSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className="label-overline mb-3">Votre copilote IA</p>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
+          <h2 className="type-headline">
             Tout ce dont vous avez besoin pour{' '}
             <span className="gradient-text">construire sereinement</span>
           </h2>
@@ -801,7 +801,7 @@ function FeaturesSection() {
                 onKeyDown={(e) => { if (e.key === "Enter") navigate(feature.to); }}
                 className="group relative h-full p-6 border border-border/50 hover:border-primary/20 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 bg-background/50 backdrop-blur-sm cursor-pointer"
               >
-                <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl`} />
+                <div className={`absolute inset-0 rounded-[1.75rem] bg-gradient-to-br ${feature.gradient} opacity-0 transition-opacity duration-500 group-hover:opacity-100`} />
                 <div className="relative z-10 flex h-full flex-col">
                   <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-background/80 border border-border/50 ${feature.iconColor}`}>
                     <feature.icon className="h-5 w-5" />
@@ -854,7 +854,7 @@ function TestimonialsSection() {
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className="label-overline mb-3">Ils nous font confiance</p>
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
+          <h2 className="type-headline">
             Des résultats concrets, pas des promesses
           </h2>
           <p className="mt-4 text-muted-foreground">
@@ -909,27 +909,27 @@ function CTASection() {
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-50px" }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 via-emerald-800 to-green-900 p-8 sm:p-12 lg:p-16 text-center shadow-soft-lg"
+          className="relative overflow-hidden rounded-[2rem] border border-primary/20 bg-primary-container p-8 text-center shadow-m3-2 sm:p-12 lg:p-16"
         >
           <div className="dotted-watermark absolute inset-0 opacity-30" />
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-sky-400/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+          <div className="absolute right-0 top-0 h-64 w-64 -translate-y-1/2 translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
+          <div className="absolute bottom-0 left-0 h-48 w-48 -translate-x-1/2 translate-y-1/2 rounded-full bg-tertiary/20 blur-3xl" />
 
           <div className="relative">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 backdrop-blur-sm">
-              <Sparkles className="h-3.5 w-3.5 text-emerald-100" />
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-white/90">Rejoignez les professionnels tunisiens</span>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 backdrop-blur-sm">
+              <Sparkles className="h-3.5 w-3.5 text-on-primary-container" />
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-on-primary-container/90">Rejoignez les professionnels tunisiens</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white mb-4">
+            <h2 className="type-headline mb-4 text-on-primary-container">
               Votre premier devis est à 5 minutes.
             </h2>
-            <p className="text-emerald-100/80 max-w-lg mx-auto mb-8">
+            <p className="mx-auto mb-8 max-w-lg text-on-primary-container/75">
               Importez une photo, un plan ou saisissez vos dimensions. L'IA calcule tout — matériaux, coûts, planning — et vous recevez un devis PDF professionnel.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
                 size="lg"
-                className="h-12 px-8 text-base gap-2 bg-white text-emerald-800 hover:bg-emerald-50 border-0 shadow-lg shadow-black/20"
+                className="h-12 gap-2 px-8 text-base shadow-m3-2"
                 onClick={() => navigate("/auth")}
               >
                 <Upload className="h-4 w-4" />

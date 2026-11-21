@@ -87,8 +87,16 @@ const FeedbackPage = lazy(() => import("./pages/FeedbackPage.tsx"));
 // Simple loading fallback for route transitions
 function RouteLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Loading...</div>
+    <div className="flex min-h-screen items-center justify-center bg-background px-6" aria-busy="true" aria-label="Chargement de la page">
+      <div className="w-full max-w-sm space-y-4 text-center">
+        <div className="mx-auto h-14 w-14 animate-pulse rounded-2xl bg-primary-container" />
+        <div className="mx-auto h-3 w-40 animate-pulse rounded-full bg-surface-container-high" />
+        <div className="mx-auto h-3 w-64 animate-pulse rounded-full bg-surface-container" />
+        <p className="pt-1 text-xs font-medium text-on-surface-variant">
+          Chargement de votre espace…
+          <span className="sr-only">Loading...</span>
+        </p>
+      </div>
     </div>
   );
 }
